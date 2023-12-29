@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <levikno/levikno.h>
 #include <levikno/Core.h>
 #include <levikno/Graphics.h>
@@ -8,7 +8,8 @@ int main()
 {
 	lvn::logInit();
 
-	lvn::setWindowContext(lvn::WindowContext::glfw);
+	lvn::createWindowContext(lvn::WindowAPI::glfw);
+	lvn::createGraphicsContext(lvn::GraphicsAPI::vulkan);
 
 	lvn::WindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
@@ -23,7 +24,7 @@ int main()
 	windowInfo.pIcons = nullptr;
 	windowInfo.iconCount = 0;
 
-	lvn::Window* window = lvn::createWindow(windowInfo);
+	lvn::Window* window = lvn::createWindow(&windowInfo);
 
 	lvn::vec2 a = { 1.0f, 2.0f };
 	lvn::vec2 b = { 3.0f, 5.0f };
@@ -46,15 +47,17 @@ int main()
 
 	g = matrix * g;
 
+	int frame = 0;
+
 	while (lvn::windowOpen(window))
 	{
-		lvn::logMessageTrace(lvn::getCoreLogger(), "%d %s %d %s %s %s\n", lvn::getDateYear(), lvn::getDateMonthNameShort(), lvn::getDateDay(), lvn::getDateWeekDayNameShort(), std::move(lvn::getDateTime12HHMMSS()), lvn::getDateTimeMeridiem());
-
 		lvn::updateWindow(window);
 	}
 
-	lvn::logTerminate();
+
 	lvn::terminateWindowContext();
+	lvn::terminateGraphicsContext();
+	lvn::logTerminate();
 
 	return 0;
 }

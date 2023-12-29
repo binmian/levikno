@@ -41,9 +41,8 @@ namespace lvn
 
 
 	/* [API] */
-	static WindowContext s_WindowContext = WindowContext::None;
-	static LvnDateTimeStringContainer s_DateTimeStrings;
 
+	static LvnDateTimeStringContainer s_DateTimeStrings;
 	static const char* s_MonthName[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 	static const char* s_MonthNameShort[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 	static const char* s_WeekDayName[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
@@ -78,7 +77,7 @@ namespace lvn
 		time_t t = time(NULL);
 		struct tm tm = *localtime(&t);
 		snprintf(s_DateTimeStrings.time24HHMMSS, 9, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
-		return s_DateTimeStrings.time12HHMMSS;
+		return s_DateTimeStrings.time24HHMMSS;
 	}
 	const char* getDateTime12HHMMSS()
 	{
@@ -204,7 +203,7 @@ namespace lvn
 	static bool s_LoggingInit = false;
 	static Logger s_CoreLogger;
 	static Logger s_ClientLogger;
-	const static LogPattern logPatterns[23] =
+	const static LogPattern s_LogPatterns[23] =
 	{
 		{ '$', [](LogMessage* msg) { return "\n"; } },
 		{ 'n', [](LogMessage* msg) { return msg->loggerName; } },
@@ -231,6 +230,46 @@ namespace lvn
 		{ 'p', [](LogMessage* msg) { return getDateTimeMeridiemLower(); }},
 	};
 
+	void logParseFormat(const char* fmt, LogPattern** pLogPatterns, uint32_t* logPatternCount)
+	{
+		if (!fmt || !strlen(fmt))
+			return;
+
+		LogPattern* patterns = (LogPattern*)malloc(0);
+		uint32_t patternCount = 0;
+
+		for (uint32_t i = 0; i < strlen(fmt) - 1; i++)
+		{
+			if (fmt[i] != '%') // Other characters in format
+			{
+				LogPattern pattern = { .symbol = fmt[i], .func = nullptr };
+				LogPattern* newPattern = (LogPattern*)realloc(patterns, ++patternCount * sizeof(LogPattern));
+				if (!newPattern) return;
+				memcpy(&newPattern[patternCount - 1], &pattern, sizeof(LogPattern));
+				patterns = newPattern;
+
+				continue;
+			}
+			
+			// find pattern with matching symbol
+			for (uint32_t j = 0; j < sizeof(s_LogPatterns) / sizeof(LogPattern); j++)
+			{
+				if (fmt[i + 1] != s_LogPatterns[j].symbol)
+					continue;
+
+				LogPattern* newPattern = (LogPattern*)realloc(patterns, ++patternCount * sizeof(LogPattern));
+				if (!newPattern) return;
+				memcpy(&newPattern[patternCount - 1], &s_LogPatterns[j], sizeof(LogPattern));
+				patterns = newPattern;
+			}
+
+			i++; // incramant past symbol on next character in format
+		}
+
+		*pLogPatterns = patterns;
+		*logPatternCount = patternCount;
+	}
+
 	bool logInit()
 	{
 		if (!s_LoggingInit)
@@ -243,10 +282,15 @@ namespace lvn
 			s_ClientLogger.logLevel = LvnLogLevel_None;
 			s_CoreLogger.logPatternFormat = "%#[%T] [%l] %n: %v%^%$";
 			s_ClientLogger.logPatternFormat = "%#[%T] [%l] %n: %v%^%$";
+
+			LogPattern* logPatterns = nullptr;
+			uint32_t logPatternCount = 0;
+			logParseFormat("%#[%T] [%l] %n: %v%^%$", &logPatterns, &logPatternCount);
+
 			s_CoreLogger.pLogPatterns = logPatterns;
-			s_CoreLogger.logPatternCount = sizeof(logPatterns) / sizeof(LogPattern);
+			s_CoreLogger.logPatternCount = logPatternCount;
 			s_ClientLogger.pLogPatterns = logPatterns;
-			s_ClientLogger.logPatternCount = sizeof(logPatterns) / sizeof(LogPattern);
+			s_ClientLogger.logPatternCount = logPatternCount;
 
 			return true;
 		}
@@ -259,6 +303,11 @@ namespace lvn
 		if (s_LoggingInit)
 		{
 			s_LoggingInit = false;
+
+			// freed once since both Core and Client loggers share the same memory to pLogPatterns
+			if (s_CoreLogger.pLogPatterns)
+				free(s_CoreLogger.pLogPatterns);
+
 			return true;
 		}
 
@@ -277,7 +326,33 @@ namespace lvn
 
 	void logOutputMessage(Logger* logger, LogMessage* msg)
 	{
-		printf(msg->msg);
+		if (!s_LoggingInit) return;
+
+		msg->loggerName = logger->loggerName;
+		char* dst = (char*)malloc(0); if (!dst) return;
+		uint32_t dstsize = 0;
+
+		for (uint32_t i = 0; i < logger->logPatternCount; i++)
+		{
+			if (logger->pLogPatterns[i].func == nullptr) // no special format character '%' found
+			{
+				char* strnew = (char*)realloc(dst, ++dstsize); if (!strnew) return;
+				strnew[dstsize - 1] = logger->pLogPatterns[i].symbol; /* msvc throws warning for buffer overflow because we replace the */
+				dst = strnew;										  /* last index of string with our char symbol instead of null terminator */
+			}
+			else // call func of special format
+			{
+				const char* fmtstr = logger->pLogPatterns[i].func(msg);
+				uint32_t fmtstrlen = strlen(fmtstr);
+				dstsize += fmtstrlen;
+				char* strnew = (char*)realloc(dst, dstsize); if (!strnew) return;
+				memcpy(&strnew[dstsize - fmtstrlen], fmtstr, fmtstrlen);
+				dst = strnew;
+			}
+		}
+
+		printf("%.*s", dstsize, dst);
+		free(dst);
 	}
 
 	Logger* getCoreLogger()
@@ -307,115 +382,161 @@ namespace lvn
 
 	void logSetPattern(Logger* logger, const char* pattern)
 	{
-
+		
 	}
 
-	char* parseFormat(Logger* logger, const char* fmt)
+
+	/* [Events] */
+	bool dispatchAppRenderEvent(Event* event, bool(*func)(AppRenderEvent*))
 	{
-		/*uint32_t strsize = strlen(fmt) + 1;
-		char* buff = static_cast<char*>(malloc(strsize));
-		memcpy(buff, fmt, strsize);
-
-		
-		for (uint32_t i = 0; i < strlen(fmt); i++)
+		AppRenderEvent eventType{};
+		if (event->type == eventType.info.type)
 		{
-			if (fmt[i] == '%')
-			{
-				
-			}
-			else continue;
+			
 		}
-		*/
 
-		return 0;
+		return false;
+	}
+	bool dispatchAppTickEvent(Event* event, bool(*func)(AppTickEvent*))
+	{
+		return false;
+	}
+	bool dispatchKeyPressedEvent(Event* event, bool(*func)(KeyPressedEvent*))
+	{
+		return false;
+	}
+	bool dispatchKeyReleasedEvent(Event* event, bool(*func)(KeyReleasedEvent*))
+	{
+		return false;
+	}
+	bool dispatchKeyHoldEvent(Event* event, bool(*func)(KeyHoldEvent*))
+	{
+		return false;
+	}
+	bool dispatchWindowCloseEvent(Event* event, bool(*func)(WindowCloseEvent*))
+	{
+		return false;
+	}
+	bool dispatchWindowResizeEvent(Event* event, bool(*func)(WindowResizeEvent*))
+	{
+		return false;
+	}
+	bool dispatchWindowFramebufferResizeEvent(Event* event, bool(*func)(WindowFramebufferResizeEvent*))
+	{
+		return false;
+	}
+	bool dispatchWindowFocusEvent(Event* event, bool(*func)(WindowFocusEvent*))
+	{
+		return false;
+	}
+	bool dispatchWindowLostFocusEvent(Event* event, bool(*func)(WindowLostFocusEvent*))
+	{
+		return false;
+	}
+	bool dispatchWindowMovedEvent(Event* event, bool(*func)(WindowMovedEvent*))
+	{
+		return false;
+	}
+	bool dispatchMouseButtonPressedEvent(Event* event, bool(*func)(MouseButtonPressedEvent*))
+	{
+		return false;
+	}
+	bool dispatchMouseButtonReleasedEvent(Event* event, bool(*func)(MouseButtonReleasedEvent*))
+	{
+		return false;
+	}
+	bool dispatchMouseMovedEvent(Event* event, bool(*func)(MouseMovedEvent*))
+	{
+		return false;
+	}
+	bool dispatchMouseScrolledEvent(Event* event, bool(*func)(MouseScrolledEvent*))
+	{
+		return false;
 	}
 
 
 	/* [Window] */
-	bool setWindowContext(WindowContext windowContext)
+	static WindowContext* s_WindowContext = nullptr;
+
+	bool createWindowContext(WindowAPI windowapi)
 	{
-		s_WindowContext = windowContext;
-
-		switch (getWindowContext())
+		switch (windowapi)
 		{
-			case lvn::WindowContext::None:
+			case WindowAPI::None:
 			{
-				LVN_CORE_WARN("setting Windows Context to none, no Windows Context selected!");
+				LVN_CORE_WARN("setting Window API to none, no Windows API selected!");
+				return false;
+			}
+			case WindowAPI::glfw:
+			{
+				s_WindowContext = new WindowContext();
+				s_WindowContext->windowapi = WindowAPI::glfw;
+				glfws::glfwInitWindowContext(s_WindowContext);
 				break;
 			}
-			case lvn::WindowContext::glfw:
-			{
-				glfws::glfwInitWindowContext();
-				break;
-			}
-			case lvn::WindowContext::win32:
+			case WindowAPI::win32:
 			{
 
-				break;
-			}
-			default:
-			{
-				LVN_CORE_ERROR("Unknown Windows Context selected! Cannot initilize window context!");
 				break;
 			}
 		}
 
 		//windowInputInit();
 
-		LVN_CORE_INFO("window context set: %s", getWindowContextName());
+		LVN_CORE_INFO("window context set: %s", getWindowAPIName());
 		return true;
-	}
-
-	WindowContext getWindowContext()
-	{
-		return s_WindowContext;
-	}
-
-	const char* getWindowContextName()
-	{
-		switch (getWindowContext())
-		{
-			case lvn::WindowContext::None: { return "None"; }
-			case lvn::WindowContext::glfw: { return "glfw"; }
-			case lvn::WindowContext::win32: { return "win32"; }
-		}
-
-		LVN_CORE_ERROR("Unknown Windows Context selected!");
-		return "";
 	}
 
 	bool terminateWindowContext()
 	{
-		switch (s_WindowContext)
+		switch (s_WindowContext->windowapi)
 		{
-			case lvn::WindowContext::None:
+			case WindowAPI::None:
 			{
-				LVN_CORE_WARN("No window context Initialized! Cannot terminate window context!");
+				LVN_CORE_WARN("no window API Initialized! Cannot terminate window API!");
 				return false;
 			}
-			case lvn::WindowContext::glfw:
+			case WindowAPI::glfw:
 			{
 				glfws::glfwTerminateWindowContext();
+				delete s_WindowContext;
 				break;
 			}
-			case lvn::WindowContext::win32:
+			case WindowAPI::win32:
 			{
 
 				break;
 			}
 			default:
 			{
-				LVN_CORE_ERROR("Unknown Windows Context selected! Cannot terminate window context!");
+				LVN_CORE_ERROR("unknown Windows API selected! Cannot terminate window API!");
 				return false;
 			}
 		}
 
-		s_WindowContext = WindowContext::None;
-		LVN_CORE_INFO("window context Terminated: %s", getWindowContextName());
+		LVN_CORE_INFO("window context terminated");
 		return true;
 	}
 
-	Window* createWindow(uint32_t width, uint32_t height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
+	WindowAPI getWindowAPI()
+	{
+		return s_WindowContext->windowapi;
+	}
+
+	const char* getWindowAPIName()
+	{
+		switch (s_WindowContext->windowapi)
+		{
+			case WindowAPI::None: { return "None"; }
+			case WindowAPI::glfw: { return "glfw"; }
+			case WindowAPI::win32: { return "win32"; }
+		}
+
+		LVN_CORE_ERROR("Unknown Windows API selected!");
+		return nullptr;
+	}
+
+	Window* createWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
 	{
 		if (width * height < 0)
 		{
@@ -423,100 +544,72 @@ namespace lvn
 			return nullptr;
 		}
 
-		switch (s_WindowContext)
-		{
-			case lvn::WindowContext::None:
-				break;
-			case lvn::WindowContext::glfw:
-			{
-				return glfws::glfwImplCreateWindow(width, height, title, fullscreen, resizable, minWidth, minHeight);
-			}
-			case lvn::WindowContext::win32:
-				break;
-			default:
-				break;
-		}
-
-		return nullptr;
+		return s_WindowContext->createWindow(width, height, title, fullscreen, resizable, minWidth, minHeight);
 	}
 
-	Window* createWindow(WindowInfo winCreateInfo)
+	Window* createWindow(WindowCreateInfo* winCreateInfo)
 	{
-		if (winCreateInfo.width * winCreateInfo.height < 0)
+		if (winCreateInfo->width * winCreateInfo->height < 0)
 		{
-			LVN_CORE_ERROR("Cannot create window with negative dimensions! (w:%d,h:%d)", winCreateInfo.width, winCreateInfo.height);
+			LVN_CORE_ERROR("Cannot create window with negative dimensions! (w:%d,h:%d)", winCreateInfo->width, winCreateInfo->height);
 			return nullptr;
 		}
 
-		switch (s_WindowContext)
-		{
-			case lvn::WindowContext::None:
-				break;
-			case lvn::WindowContext::glfw:
-			{
-				return glfws::glfwImplCreateWindow(winCreateInfo);
-			}
-			case lvn::WindowContext::win32:
-				break;
-			default:
-				break;
-		}
-
-		return nullptr;
+		return s_WindowContext->createWindowInfo(winCreateInfo);
 	}
 
 	void updateWindow(Window* window)
 	{
-		window->updateWindow(window);
+		s_WindowContext->updateWindow(window);
 	}
 
 	bool windowOpen(Window* window)
 	{
-		return window->windowOpen(window);
+		return s_WindowContext->windowOpen(window);
 	}
 
 	WindowDimension getDimensions(Window* window)
 	{
-		return WindowDimension();
+		return s_WindowContext->getDimensions(window);
 	}
 
 	unsigned int getWindowWidth(Window* window)
 	{
-		return 0;
+		return s_WindowContext->getWindowWidth(window);
 	}
 
 	unsigned int getWindowHeight(Window* window)
 	{
-		return 0;
+		return s_WindowContext->getWindowHeight(window);
 	}
 
 	void setWindowEventCallback(Window* window, void (*callback)(Event*))
 	{
-		window->eventCallBackFn = callback;
+		window->info.eventCallBackFn = callback;
 	}
 
-	void setWindowVSync(Window* window, bool enabled)
+	void setWindowVSync(Window* window, bool enable)
 	{
-
+		s_WindowContext->setWindowVSync(window, enable);
 	}
 
 	bool getWindowVSync(Window* window)
 	{
-		return false;
+		return s_WindowContext->getWindowVSync(window);
 	}
 
 	void* getNativeWindow(Window* window)
 	{
-		return nullptr;
+		return window->nativeWindow;
 	}
 
-	void setWindowContextDate(Window* window)
+	void setWindowAPICurrent(Window* window)
 	{
-
+		s_WindowContext->setWindowContextCurrent(window);
 	}
 
 	void destroyWindow(Window* window)
 	{
-
+		s_WindowContext->destroyWindow(window);
 	}
 }

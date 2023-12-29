@@ -34,6 +34,10 @@
 	#pragma warning (disable : 4267)
 	#pragma warning (disable : 4244)
 	#pragma warning (disable : 26495)
+
+	#ifdef _DEBUG
+		#define LVN_DEBUG
+	#endif
 #else
 	#define LVN_ASSERT_BREAK assert(false);
 #endif
@@ -48,12 +52,12 @@
 	#define LVN_DISABLE_ASSERTS
 #endif
 
-#ifdef LVN_ENABLE_ASSERTS
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-#elif LVN_DISABLE_ASSERTS
+#if defined (LVN_DISABLE_ASSERTS)
 	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR("ERROR: {0}", __VA_ARGS__); } }
 	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR("ERROR: {0}", __VA_ARGS__); } }
+#elif defined(LVN_ENABLE_ASSERTS)
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)

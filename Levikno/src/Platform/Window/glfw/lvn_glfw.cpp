@@ -15,10 +15,10 @@ namespace lvn
 
 		static void GLFWerrorCallback(int error, const char* descripion)
 		{
-			LVN_CORE_LOG_ERROR(glfw, "(%d): {%s}", error, descripion);
+			LVN_CORE_ERROR("glfw-error: (%d): %s", error, descripion);
 		}
 
-		void glfwInitWindowContext()
+		void glfwInitWindowContext(WindowContext* windowContext)
 		{
 			if (!s_glfwInit)
 			{
@@ -26,8 +26,20 @@ namespace lvn
 				LVN_CORE_ASSERT(success, "Failed to initialize glfw");
 				glfwSetErrorCallback(GLFWerrorCallback);
 				s_glfwInit = true;
-			}
-			else LVN_CORE_LOG_WARN(glfw, "glfw already initialized!");
+
+				windowContext->createWindow = glfwImplCreateWindow;
+				windowContext->createWindowInfo = glfwImplCreateWindowInfo;
+				windowContext->updateWindow	= glfwImplUpdateWindow;
+				windowContext->windowOpen = glfwImplWindowOpen;
+				windowContext->getDimensions = glfwImplGetDimensions;
+				windowContext->getWindowWidth = glfwImplGetWindowWidth;
+				windowContext->getWindowHeight = glfwImplGetWindowHeight;
+				windowContext->setWindowVSync = glfwImplSetWindowVSync;
+				windowContext->getWindowVSync = glfwImplGetWindowVSync;
+				windowContext->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
+				windowContext->destroyWindow = glfwImplDestroyWindow;
+			}			   
+			else LVN_CORE_WARN("glfw already initialized!");
 		}
 
 		void glfwTerminateWindowContext()
@@ -37,10 +49,10 @@ namespace lvn
 				glfwTerminate();
 				s_glfwInit = false;
 			}
-			else LVN_CORE_LOG_WARN(glfw, "glfw already terminated!");
+			else LVN_CORE_WARN("glfw already terminated!");
 		}
 
-		Window* glfwImplCreateWindow(uint32_t width, uint32_t height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
+		Window* glfwImplCreateWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
 		{
 			Window* window = new Window();
 			window->info.width = width;
@@ -52,20 +64,29 @@ namespace lvn
 			window->info.minHeight = minHeight;
 			window->info.maxWidth = -1;
 			window->info.maxHeight = -1;
-			window->updateWindow = glfwImplUpdateWindow;
-			window->windowOpen = glfwImplWindowOpen;
+			window->info.eventCallBackFn = glfwImplEventCallBackFn;
 
 			glfwInitWindow(window);
 
 			return window;
 		}
 
-		Window* glfwImplCreateWindow(WindowInfo winCreateInfo)
+		Window* glfwImplCreateWindowInfo(WindowCreateInfo* winCreateInfo)
 		{
 			Window* window = new Window();
-			window->info = winCreateInfo;
-			window->updateWindow = glfwImplUpdateWindow;
-			window->windowOpen = glfwImplWindowOpen;
+			window->info.width = winCreateInfo->width;
+			window->info.height = winCreateInfo->height;
+			window->info.title = winCreateInfo->title;
+			window->info.minWidth = winCreateInfo->minWidth;
+			window->info.minHeight = winCreateInfo->minHeight;
+			window->info.maxWidth = winCreateInfo->maxWidth;
+			window->info.maxHeight = winCreateInfo->maxHeight;
+			window->info.fullscreen = winCreateInfo->fullscreen;
+			window->info.resizable = winCreateInfo->resizable;
+			window->info.vSync = winCreateInfo->vSync;
+			window->info.pIcons = winCreateInfo->pIcons;
+			window->info.iconCount = winCreateInfo->iconCount;
+			window->info.eventCallBackFn = glfwImplEventCallBackFn;
 
 			glfwInitWindow(window);
 
@@ -87,9 +108,9 @@ namespace lvn
 			if (!window->info.resizable)
 				glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-			LVN_CORE_INFO("Creating Window: %s - (w:%d, h:%d)", window->info.title, window->info.width, window->info.height);
+			LVN_CORE_INFO("creating window: %s - (w:%d, h:%d)", window->info.title, window->info.width, window->info.height);
 			GLFWwindow* nativeWindow = glfwCreateWindow(window->info.width, window->info.height, window->info.title, fullScreen, nullptr);
-			LVN_CORE_ASSERT(nativeWindow, "Window failed to load!");
+			LVN_CORE_ASSERT(nativeWindow, "window failed to load!");
 
 			if (window->info.pIcons != nullptr)
 			{
@@ -107,10 +128,225 @@ namespace lvn
 			}
 
 			glfwSetWindowSizeLimits(nativeWindow, window->info.minWidth, window->info.minHeight, window->info.maxWidth, window->info.maxHeight);
-
+			glfwSwapInterval(window->info.vSync);
 			glfwSetWindowUserPointer(nativeWindow, &window->info);
 
 			window->nativeWindow = nativeWindow;
+
+			// Set GLFW Callbacks
+			glfwSetWindowSizeCallback(nativeWindow, [](GLFWwindow* window, int width, int height)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					data.width = width;
+					data.height = height;
+
+					Event event{};
+					event.type = EventType::WindowResize;
+					event.category = LvnEventCategory_Window;
+					event.handled = false;
+					event.data.x = width;
+					event.data.y = height;
+
+					data.eventCallBackFn(&event);
+
+					/*switch (getGraphicsContext())
+					{
+						case GraphicsContext::OpenGL:
+						{
+							gladUpdateViewPort(window, width, height);
+							break;
+						}
+						case GraphicsContext::Vulkan:
+						{
+							getVulkanBackends()->framebufferResized = true;
+							break;
+						}
+					}*/
+				});
+
+			glfwSetFramebufferSizeCallback(nativeWindow, [](GLFWwindow* window, int width, int height)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					data.width = width;
+					data.height = height;
+
+					Event event{};
+					event.type = EventType::WindowFramebufferResize;
+					event.category = LvnEventCategory_Window;
+					event.handled = false;
+					event.data.x = width;
+					event.data.y = height;
+
+					data.eventCallBackFn(&event);
+
+					/*switch (getGraphicsContext())
+					{
+					case GraphicsContext::OpenGL:
+					{
+						gladUpdateViewPort(window, width, height);
+						break;
+					}
+					case GraphicsContext::Vulkan:
+					{
+						getVulkanBackends()->framebufferResized = true;
+						break;
+					}
+					}*/
+				});
+
+			glfwSetWindowPosCallback(nativeWindow, [](GLFWwindow* window, int x, int y)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					Event event{};
+					event.type = EventType::WindowMoved;
+					event.category = LvnEventCategory_Window;
+					event.handled = false;
+					event.data.x = x;
+					event.data.y = y;
+
+					data.eventCallBackFn(&event);
+				});
+
+			glfwSetWindowFocusCallback(nativeWindow, [](GLFWwindow* window, int focused)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					if (focused)
+					{
+						Event event{};
+						event.type = EventType::WindowFocus;
+						event.category = LvnEventCategory_Window;
+						event.handled = false;
+
+						data.eventCallBackFn(&event);
+					}
+					else
+					{
+						Event event{};
+						event.type = EventType::WindowLostFocus;
+						event.category = LvnEventCategory_Window;
+						event.handled = false;
+
+						data.eventCallBackFn(&event);
+					}
+				});
+
+			glfwSetWindowCloseCallback(nativeWindow, [](GLFWwindow* window)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					Event event{};
+					event.type = EventType::WindowClose;
+					event.category = LvnEventCategory_Window;
+					event.handled = false;
+
+					data.eventCallBackFn(&event);
+				});
+
+			glfwSetKeyCallback(nativeWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+
+					switch (action)
+					{
+						case GLFW_PRESS:
+						{
+							Event event{};
+							event.type = EventType::KeyPressed;
+							event.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
+							event.handled = false;
+							event.data.code = key;
+							event.data.repeat = false;
+							data.eventCallBackFn(&event);
+							break;
+						}
+						case GLFW_RELEASE:
+						{
+							Event event{};
+							event.type = EventType::KeyReleased;
+							event.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
+							event.handled = false;
+							event.data.code = key;
+							event.data.repeat = false;
+							data.eventCallBackFn(&event);
+							break;
+						}
+						case GLFW_REPEAT:
+						{
+							Event event{};
+							event.type = EventType::KeyHold;
+							event.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
+							event.handled = false;
+							event.data.code = key;
+							event.data.repeat = true;
+							data.eventCallBackFn(&event);
+							break;
+						}
+					}
+				});
+
+			glfwSetCharCallback(nativeWindow, [](GLFWwindow* window, unsigned int keycode)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					Event event{};
+					event.type = EventType::KeyTyped;
+					event.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
+					event.handled = false;
+					event.data.ucode = keycode;
+					data.eventCallBackFn(&event);
+				});
+
+			glfwSetMouseButtonCallback(nativeWindow, [](GLFWwindow* window, int button, int action, int mods)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+
+					switch (action)
+					{
+						case GLFW_PRESS:
+						{
+							Event event{};
+							event.type = EventType::MouseButtonPressed;
+							event.category = LvnEventCategory_Input | LvnEventCategory_Mouse | LvnEventCategory_MouseButton;
+							event.handled = false;
+							event.data.code = button;
+							data.eventCallBackFn(&event);
+							break;
+						}
+						case GLFW_RELEASE:
+						{
+							Event event{};
+							event.type = EventType::MouseButtonReleased;
+							event.category = LvnEventCategory_Input | LvnEventCategory_Mouse | LvnEventCategory_MouseButton;
+							event.handled = false;
+							event.data.code = button;
+							data.eventCallBackFn(&event);
+							break;
+						}
+					}
+				});
+
+			glfwSetScrollCallback(nativeWindow, [](GLFWwindow* window, double xOffset, double yOffset)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+
+					Event event{};
+					event.type = EventType::MouseScrolled;
+					event.category = LvnEventCategory_Input | LvnEventCategory_Mouse | LvnEventCategory_MouseButton;
+					event.handled = false;
+					event.data.xd = xOffset;
+					event.data.yd = yOffset;
+					data.eventCallBackFn(&event);
+				});
+
+			glfwSetCursorPosCallback(nativeWindow, [](GLFWwindow* window, double xPos, double yPos)
+				{
+					WindowInfo& data = *(WindowInfo*)glfwGetWindowUserPointer(window);
+					Event event{};
+					event.type = EventType::MouseMoved;
+					event.category = LvnEventCategory_Input | LvnEventCategory_Mouse;
+					event.handled = false;
+					event.data.xd = xPos;
+					event.data.yd = yPos;
+					data.eventCallBackFn(&event);
+				});
 		}
 
 		void glfwImplUpdateWindow(Window* window)
@@ -123,5 +359,54 @@ namespace lvn
 		{
 			return (!glfwWindowShouldClose(static_cast<GLFWwindow*>(window->nativeWindow)));
 		}
+
+		WindowDimension glfwImplGetDimensions(Window* window)
+		{
+			int width, height;
+			glfwGetWindowSize(static_cast<GLFWwindow*>(window->nativeWindow), &width, &height);
+			return { width, height };
+		}
+
+		unsigned int glfwImplGetWindowWidth(Window* window)
+		{
+			int width, height;
+			glfwGetWindowSize(static_cast<GLFWwindow*>(window->nativeWindow), &width, &height);
+			return width;
+		}
+
+		unsigned int glfwImplGetWindowHeight(Window* window)
+		{
+			int width, height;
+			glfwGetWindowSize(static_cast<GLFWwindow*>(window->nativeWindow), &width, &height);
+			return height;
+		}
+
+		void glfwImplSetWindowVSync(Window* window, bool enable)
+		{
+			// opengl
+			glfwSwapInterval(enable);
+			window->info.vSync = enable;
+		}
+
+		bool glfwImplGetWindowVSync(Window* window)
+		{
+			return window->info.vSync;
+		}
+
+		void glfwImplSetWindowContextCurrent(Window* window)
+		{
+			glfwMakeContextCurrent(static_cast<GLFWwindow*>(window->nativeWindow));
+		}
+
+		void glfwImplDestroyWindow(Window* window)
+		{
+			glfwDestroyWindow(static_cast<GLFWwindow*>(window->nativeWindow));
+		}
+
+		void glfwImplEventCallBackFn(Event* e)
+		{
+			return;
+		}
+
 	}
 }

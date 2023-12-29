@@ -35,10 +35,15 @@
 	#pragma warning (disable : 4267)
 	#pragma warning (disable : 4244)
 	#pragma warning (disable : 26495)
+
+	#ifdef _DEBUG
+		#ifndef LVN_DEBUG
+			#define LVN_DEBUG
+		#endif
+	#endif
 #else
 	#define LVN_ASSERT_BREAK assert(false);
 #endif
-
 
 // Debug
 #ifdef LVN_DEBUG
@@ -49,12 +54,12 @@
 	#define LVN_DISABLE_ASSERTS
 #endif
 
-#ifdef LVN_ENABLE_ASSERTS
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-#elif LVN_DISABLE_ASSERTS
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR("ERROR: {0}", __VA_ARGS__); } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR("ERROR: {0}", __VA_ARGS__); } }
+#if defined (LVN_DISABLE_ASSERTS)
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
+#elif defined(LVN_ENABLE_ASSERTS)
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)
@@ -86,10 +91,10 @@
 #define LVN_FUNC_NAME __func__
 
 #define LVN_STR(x) #x
-#define LVN_STRIGIFY(x) LVN_STR(x)
+#define LVN_STRINGIFY(x) LVN_STR(x)
 
 
-#endif // !HG_LVN_DEFINE_CONFIG
+#endif // !HG_LEVIKNO_DEFINE_CONFIG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,8 +103,8 @@
 /* [Logging] */
 
 /*
-*  |Name           | FG | BG
-* ---------------------------
+*   Color          | FG | BG
+* -----------------+----+----
 *	Black          | 30 | 40
 *	Red            | 31 | 41
 *	Green          | 32 | 42
@@ -136,14 +141,13 @@
 * 
 */
 
-#define LVN_LOG_COLOR_TRACE 	  "\33[0;37m"
-#define LVN_LOG_COLOR_INFO 	  "\33[0;32m"
-#define LVN_LOG_COLOR_WARN 	  "\33[1;33m"
-#define LVN_LOG_COLOR_ERROR 	  "\33[1;31m"
-#define LVN_LOG_COLOR_CRITICAL "\33[1;37;41m"
-#define LVN_LOG_COLOR_RESET	  "\33[0m"
+#define LVN_LOG_COLOR_TRACE 					"\33[0;37m"
+#define LVN_LOG_COLOR_INFO 						"\33[0;32m"
+#define LVN_LOG_COLOR_WARN 						"\33[1;33m"
+#define LVN_LOG_COLOR_ERROR 					"\33[1;31m"
+#define LVN_LOG_COLOR_CRITICAL					"\33[1;37;41m"
+#define LVN_LOG_COLOR_RESET						"\33[0m"
 
-#define LVN_PROPERTIES(prop, ...)				#prop, &prop, #__VA_ARGS__
 
 // Core Log macros									
 #define LVN_CORE_TRACE(...)						::lvn::logMessageTrace(lvn::getCoreLogger(), ##__VA_ARGS__)
@@ -152,12 +156,6 @@
 #define LVN_CORE_ERROR(...)						::lvn::logMessageError(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_CRITICAL(...)					::lvn::logMessageCritical(lvn::getCoreLogger(), ##__VA_ARGS__)
 													
-#define LVN_CORE_LOG_TRACE(name, msg, ...)		::lvn::logMessageTrace(lvn::getCoreLogger(), #name "-trace: ", msg, ##__VA_ARGS__)
-#define LVN_CORE_LOG_INFO(name, msg, ...)		::lvn::logMessageInfo(lvn::getCoreLogger(), #name "-info: ", msg, ##__VA_ARGS__)
-#define LVN_CORE_LOG_WARN(name, msg, ...)		::lvn::logMessageWarn(lvn::getCoreLogger(), #name "-warning: ", msg, ##__VA_ARGS__)
-#define LVN_CORE_LOG_ERROR(name, msg, ...)		::lvn::logMessageError(lvn::getCoreLogger(), #name "-error: ", msg, ##__VA_ARGS__)
-#define LVN_CORE_LOG_CRITICAL(name, msg, ...)	::lvn::logMessageCritical(lvn::getCoreLogger(), #name "-critical: ", msg, ##__VA_ARGS__)
-													
 													
 // Client Log macros								
 #define LVN_TRACE(...)							::lvn::logMessageTrace(lvn::getClientLogger(), ##__VA_ARGS__)
@@ -165,13 +163,11 @@
 #define LVN_WARN(...)							::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_ERROR(...)							::lvn::logMessageError(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_CRITICAL(...)						::lvn::logMessageCritical(lvn::getClientLogger(), ##__VA_ARGS__)
-													
-#define LVN_LOG_TRACE(name, msg, ...)			::lvn::logMessageTrace(lvn::getClientLogger(), #name "-trace: ", msg, ##__VA_ARGS__)
-#define LVN_LOG_INFO(name, msg, ...)			::lvn::logMessageInfo(lvn::getClientLogger(), #name "-info: ", msg, ##__VA_ARGS__)
-#define LVN_LOG_WARN(name, msg, ...)			::lvn::logMessageWarn(lvn::getClientLogger(), #name "-warning: ", msg, ##__VA_ARGS__)
-#define LVN_LOG_ERROR(name, msg, ...)			::lvn::logMessageError(lvn::getClientLogger(), #name "-error: ", msg, ##__VA_ARGS__)
-#define LVN_LOG_CRITICAL(name, msg, ...)		::lvn::logMessageCritical(lvn::getClientLogger(), #name "-critical: ", msg, ##__VA_ARGS__)
 
+
+#define LVN_PROPERTIES(prop)					#prop, &prop
+#define LVN_LOG_FILE							LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
+#define LVN_MALLOC_FAILURE(prop)				LVN_CORE_ERROR("malloc failure, could not allocate memory for: \"%s\" at %p", LVN_PROPERTIES(prop))
 
 /* Key Codes */
 enum LvnKeyCodes
@@ -352,7 +348,6 @@ namespace lvn
 	struct AppRenderEvent;
 	struct AppTickEvent;
 	struct Event;
-	struct EventDispatcherEvent;
 	struct KeyHoldEvent;
 	struct KeyPressedEvent;
 	struct KeyReleasedEvent;
@@ -363,14 +358,17 @@ namespace lvn
 	struct MouseButtonReleasedEvent;
 	struct MouseMovedEvent;
 	struct MouseScrolledEvent;
+	struct Timer;
 	struct Window;
+	struct WindowCloseEvent;
+	struct WindowContext;
+	struct WindowCreateInfo;
 	struct WindowDimension;
 	struct WindowEvent;
-	struct WindowCloseEvent;
-	struct WindowInfoEvent;
 	struct WindowFocusEvent;
 	struct WindowFramebufferResizeEvent;
-	struct WindowIconDataEvent;
+	struct WindowInfo;
+	struct WindowIconData;
 	struct WindowLostFocusEvent;
 	struct WindowMovedEvent;
 	struct WindowResizeEvent;
@@ -383,6 +381,7 @@ namespace lvn
 		KeyPressed,
 		KeyReleased,
 		KeyHold,
+		KeyTyped,
 		WindowClose,
 		WindowResize,
 		WindowFramebufferResize,
@@ -406,7 +405,7 @@ namespace lvn
 		LvnEventCategory_Window			= (1 << 5),
 	};
 
-	enum class WindowContext
+	enum class WindowAPI
 	{
 		None = 0,
 		glfw,
@@ -416,7 +415,6 @@ namespace lvn
 	/* Core API Decleration */
 
 	/* [API] */
-
 	const char* getDateMonthName();
 	const char* getDateMonthNameShort();
 	const char* getDateWeekDayName();
@@ -435,15 +433,15 @@ namespace lvn
 	const char* getDateMinuteNumStr();
 	const char* getDateSecondNumStr();
 
-	int getDateYear();
-	int getDateYear02d();
-	int getDateMonth();
-	int getDateDay();
-	int getDateHour();
-	int getDateHour12();
-	int getDateMinute();
-	int getDateSecond();
-	long long getSecondSinceEpoch();
+	int			getDateYear();
+	int			getDateYear02d();
+	int			getDateMonth();
+	int			getDateDay();
+	int			getDateHour();
+	int			getDateHour12();
+	int			getDateMinute();
+	int			getDateSecond();
+	long long	getSecondSinceEpoch();
 
 
 	/* [Logging] */
@@ -460,15 +458,15 @@ namespace lvn
 		const char*(*func)(LogMessage*);
 	};
 
-	bool logInit();
-	bool logTerminate();
-	void logSetLevel(Logger* logger, LvnLogLevel level);
-	bool logCheckLevel(Logger* logger, LvnLogLevel level);
-	void logOutputMessage(Logger* logger, LogMessage* msg);
-	Logger* getCoreLogger();
-	Logger* getClientLogger();
-	const char* getLogANSIcodeColor(LvnLogLevel level);
-	void logSetPattern(Logger* logger, const char* pattern);
+	bool			logInit();
+	bool			logTerminate();
+	void			logSetLevel(Logger* logger, LvnLogLevel level);
+	bool			logCheckLevel(Logger* logger, LvnLogLevel level);
+	void			logOutputMessage(Logger* logger, LogMessage* msg);
+	Logger*			getCoreLogger();
+	Logger*			getClientLogger();
+	const char*		getLogANSIcodeColor(LvnLogLevel level);
+	void			logSetPattern(Logger* logger, const char* pattern);
 
 	template<typename... Args>
 	void logMessage(Logger* logger, LvnLogLevel level, const char* fmt, Args... args)
@@ -516,33 +514,22 @@ namespace lvn
 
 
 	/* [Events] */
-	struct Event
-	{
-		EventType type;
-		int category;
-		bool handled;
-	};
 
-	struct EventDispatcher
-	{
-		EventType event;
-	};
-
-	bool dispatchAppRenderEvent(Event* event, bool (*func)(AppRenderEvent*));
-	bool dispatchAppTickEvent(Event* event, bool (*func)(AppTickEvent*));
-	bool dispatchKeyPressedEvent(Event* event, bool (*func)(KeyPressedEvent*));
-	bool dispatchKeyReleasedEvent(Event* event, bool (*func)(KeyReleasedEvent*));
-	bool dispatchKeyHoldEvent(Event* event, bool (*func)(KeyHoldEvent*));
-	bool dispatchWindowCloseEvent(Event* event, bool (*func)(WindowCloseEvent*));
-	bool dispatchWindowResizeEvent(Event* event, bool (*func)(WindowResizeEvent*));
-	bool dispatchWindowFramebufferResizeEvent(Event* event, bool (*func)(WindowFramebufferResizeEvent*));
-	bool dispatchWindowFocusEvent(Event* event, bool (*func)(WindowFocusEvent*));
-	bool dispatchWindowLostFocusEvent(Event* event, bool (*func)(WindowLostFocusEvent*));
-	bool dispatchWindowMovedEvent(Event* event, bool (*func)(WindowMovedEvent*));
-	bool dispatchMouseButtonPressedEvent(Event* event, bool (*func)(MouseButtonPressedEvent*));
-	bool dispatchMouseButtonReleasedEvent(Event* event, bool (*func)(MouseButtonReleasedEvent*));
-	bool dispatchMouseMovedEvent(Event* event, bool (*func)(MouseMovedEvent*));
-	bool dispatchMouseScrolledEvent(Event* event, bool (*func)(MouseScrolledEvent*));
+	bool dispatchAppRenderEvent(Event* event, bool(*func)(AppRenderEvent*));
+	bool dispatchAppTickEvent(Event* event, bool(*func)(AppTickEvent*));
+	bool dispatchKeyPressedEvent(Event* event, bool(*func)(KeyPressedEvent*));
+	bool dispatchKeyReleasedEvent(Event* event, bool(*func)(KeyReleasedEvent*));
+	bool dispatchKeyHoldEvent(Event* event, bool(*func)(KeyHoldEvent*));
+	bool dispatchWindowCloseEvent(Event* event, bool(*func)(WindowCloseEvent*));
+	bool dispatchWindowResizeEvent(Event* event, bool(*func)(WindowResizeEvent*));
+	bool dispatchWindowFramebufferResizeEvent(Event* event, bool(*func)(WindowFramebufferResizeEvent*));
+	bool dispatchWindowFocusEvent(Event* event, bool(*func)(WindowFocusEvent*));
+	bool dispatchWindowLostFocusEvent(Event* event, bool(*func)(WindowLostFocusEvent*));
+	bool dispatchWindowMovedEvent(Event* event, bool(*func)(WindowMovedEvent*));
+	bool dispatchMouseButtonPressedEvent(Event* event, bool(*func)(MouseButtonPressedEvent*));
+	bool dispatchMouseButtonReleasedEvent(Event* event, bool(*func)(MouseButtonReleasedEvent*));
+	bool dispatchMouseMovedEvent(Event* event, bool(*func)(MouseMovedEvent*));
+	bool dispatchMouseScrolledEvent(Event* event, bool(*func)(MouseScrolledEvent*));
 
 
 	/* [Window] */
@@ -552,7 +539,7 @@ namespace lvn
 		int width, height;
 	};
 
-	struct WindowInfo
+	struct WindowCreateInfo
 	{
 		int width, height;
 		const char* title;
@@ -560,42 +547,36 @@ namespace lvn
 		int maxWidth, maxHeight;
 		bool fullscreen, resizable, vSync;
 		WindowIconData* pIcons;
-		int iconCount;
+		uint32_t iconCount;
 
-		WindowInfo()
-			: maxWidth(-1), maxHeight(-1), resizable(true) {}
+		WindowCreateInfo()
+			: maxWidth(-1), maxHeight(-1), resizable(true), vSync(false) {}
 	};
-	typedef WindowInfo WindowCreateInfo;
 
 	struct WindowDimension
 	{
 		int width, height;
 	};
 
-	bool setWindowContext(WindowContext windowContext);
-	WindowContext getWindowContext();
-	const char* getWindowContextName();
-	bool terminateWindowContext();
+	bool				createWindowContext(WindowAPI windowapi);
+	bool				terminateWindowContext();
+	WindowAPI			getWindowAPI();
+	const char*			getWindowAPIName();
 
-	Window* createWindow(int width, int height, const char* title, bool fullscreen = false, bool resizable = true, int minWidth = 0, int minHeight = 0);
-	Window* createWindow(WindowInfo winCreateInfo);
+	Window*				createWindow(int width, int height, const char* title, bool fullscreen = false, bool resizable = true, int minWidth = 0, int minHeight = 0);
+	Window*				createWindow(WindowCreateInfo* winCreateInfo);
 
-	void updateWindow(Window* window);
-	bool windowOpen(Window* window);
-
-	WindowDimension getDimensions(Window* window);
-	unsigned int getWindowWidth(Window* window);
-	unsigned int getWindowHeight(Window* window);
-
-	void setWindowEventCallback(Window* window, void (*callback)(Event*));
-
-	void setWindowVSync(Window* window, bool enabled);
-	bool getWindowVSync(Window* window);
-
-	void* getNativeWindow(Window* window);
-	void setWindowContextCurrent(Window* window);
-
-	void destroyWindow(Window* window);
+	void				updateWindow(Window* window);
+	bool				windowOpen(Window* window);
+	WindowDimension		getDimensions(Window* window);
+	unsigned int		getWindowWidth(Window* window);
+	unsigned int		getWindowHeight(Window* window);
+	void				setWindowEventCallback(Window* window, void (*callback)(Event*));
+	void				setWindowVSync(Window* window, bool enable);
+	bool				getWindowVSync(Window* window);
+	void*				getNativeWindow(Window* window);
+	void				setWindowContextCurrent(Window* window);
+	void				destroyWindow(Window* window);
 
 	/* [API] */
 

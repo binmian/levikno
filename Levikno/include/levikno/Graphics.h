@@ -34,6 +34,10 @@
 	#pragma warning (disable : 4267)
 	#pragma warning (disable : 4244)
 	#pragma warning (disable : 26495)
+
+	#ifdef _DEBUG
+		#define LVN_DEBUG
+	#endif
 #else
 	#define LVN_ASSERT_BREAK assert(false);
 #endif
@@ -48,12 +52,12 @@
 	#define LVN_DISABLE_ASSERTS
 #endif
 
-#ifdef LVN_ENABLE_ASSERTS
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-#elif LVN_DISABLE_ASSERTS
+#if defined (LVN_DISABLE_ASSERTS)
 	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR("ERROR: {0}", __VA_ARGS__); } }
 	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR("ERROR: {0}", __VA_ARGS__); } }
+#elif defined(LVN_ENABLE_ASSERTS)
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)
@@ -90,6 +94,8 @@
 
 #endif // !HG_LVN_DEFINE_CONFIG
 
+#include <stdint.h>
+
 namespace lvn
 {
 	struct BatchCreateInfo;
@@ -107,8 +113,16 @@ namespace lvn
 	struct FrameBufferColorAttachment;
 	struct FrameBufferDepthAttachment;
 	struct FrameBufferCreateInfo;
+	struct GraphicsContext;
 	struct IndexBuffer;
 	struct OrthographicCamera;
+	struct RendererAPI;
+	struct Shader;
+	struct VertexArray;
+	struct VertexArrayCreateInfo;
+	struct VertexBuffer;
+	struct VertexLayout;
+	struct VertexLayoutLinkInfo;
 
 	typedef Camera PerspectiveCamera;
 	typedef Camera Camera3D;
@@ -1901,6 +1915,13 @@ namespace lvn
 		Always = 7,
 	};
 
+	enum class GraphicsAPI
+	{
+		None = 0,
+		opengl,
+		vulkan,
+	};
+
 	enum class StencilOperation
 	{
 		Keep = 0,
@@ -1912,6 +1933,40 @@ namespace lvn
 		IncrementAndWrap = 6,
 		DecrementAndWrap = 7,
 	};
+
+	/* [Graphics API] */
+	bool			createGraphicsContext(GraphicsAPI graphicsapi);
+	bool			terminateGraphicsContext();
+	GraphicsAPI		getGraphicsAPI();
+	const char*		getGraphicsAPIName();
+
+	void			renderClearColor(const float r, const float g, const float b, const float w);
+	void			renderClear();
+	void			renderDraw(uint32_t vertexCount);
+	void			renderDrawIndexed(uint32_t indexCount);
+	void			renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
+	void			renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
+	void			renderSetStencilReference(uint32_t reference);
+	void			renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
+	void			renderBeginNextFrame();
+	void			renderDrawSubmit();
+	void			renderBeginRenderPass();
+	void			renderEndRenderPass();
+
+	VertexBuffer*	createVertexBuffer(float* vertices, uint32_t size);
+	IndexBuffer*	createIndexBuffer(uint32_t indices, uint32_t size);
+	VertexArray*	createVertexArray();
+
+	void			linkVertexArrayBuffers(VertexBuffer* vertexBuffer, IndexBuffer* indexBuffer, VertexLayoutLinkInfo* vertexLayouts);
+	void			linkVertexArrayBuffers(VertexArrayCreateInfo* createInfo);
+
+	void			bindVertexBuffer(VertexBuffer* vertexBuffer);
+	void			bindIndexBuffer(VertexBuffer* vertexBuffer);
+	void			bindVertexArray(VertexBuffer* vertexBuffer);
+
+	void			destroyVertexBuffer(VertexBuffer* vertexBuffer);
+	void			destroyIndexBuffer(VertexBuffer* vertexBuffer);
+	void			destroyVertexArray(VertexBuffer* vertexBuffer);
 }
 
 #endif
