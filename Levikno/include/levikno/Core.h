@@ -99,6 +99,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+
 
 /* [Logging] */
 
@@ -133,20 +135,20 @@
 * 
 *	
 *	Log Colors:
-*	TRACE			\33[1;37m
-*	INFO			\33[0;32m
-*	WARN			\33[1;33m
-*	ERROR			\33[1;31m
-*	CRITICAL		\33[1;37;41m
+*	TRACE			\x1b[1;37m
+*	INFO			\x1b[0;32m
+*	WARN			\x1b[1;33m
+*	ERROR			\x1b[1;31m
+*	CRITICAL		\x1b[1;37;41m
 * 
 */
 
-#define LVN_LOG_COLOR_TRACE 					"\33[0;37m"
-#define LVN_LOG_COLOR_INFO 						"\33[0;32m"
-#define LVN_LOG_COLOR_WARN 						"\33[1;33m"
-#define LVN_LOG_COLOR_ERROR 					"\33[1;31m"
-#define LVN_LOG_COLOR_CRITICAL					"\33[1;37;41m"
-#define LVN_LOG_COLOR_RESET						"\33[0m"
+#define LVN_LOG_COLOR_TRACE 					"\x1b[0;37m"
+#define LVN_LOG_COLOR_INFO 						"\x1b[0;32m"
+#define LVN_LOG_COLOR_WARN 						"\x1b[1;33m"
+#define LVN_LOG_COLOR_ERROR 					"\x1b[1;31m"
+#define LVN_LOG_COLOR_CRITICAL					"\x1b[1;37;41m"
+#define LVN_LOG_COLOR_RESET						"\x1b[0m"
 
 
 // Core Log macros									
@@ -165,9 +167,11 @@
 #define LVN_CRITICAL(...)						::lvn::logMessageCritical(lvn::getClientLogger(), ##__VA_ARGS__)
 
 
+// Logging utils
 #define LVN_PROPERTIES(prop)					#prop, &prop
 #define LVN_LOG_FILE							LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
 #define LVN_MALLOC_FAILURE(prop)				LVN_CORE_ERROR("malloc failure, could not allocate memory for: \"%s\" at %p", LVN_PROPERTIES(prop))
+#define LVN_MALLOC_ASSERT(prop)					LVN_CORE_ASSERT(prop, "malloc failure, could not allocate memory for: \"%s\" at %p", LVN_PROPERTIES(prop));
 
 /* Key Codes */
 enum LvnKeyCodes
@@ -348,12 +352,14 @@ namespace lvn
 	struct AppRenderEvent;
 	struct AppTickEvent;
 	struct Event;
+	struct KeyTypedEvent;
 	struct KeyHoldEvent;
 	struct KeyPressedEvent;
 	struct KeyReleasedEvent;
 	struct Logger;
 	struct LogMessage;
 	struct LogPattern;
+	struct LvnString;
 	struct MouseButtonPressedEvent;
 	struct MouseButtonReleasedEvent;
 	struct MouseMovedEvent;
@@ -363,11 +369,11 @@ namespace lvn
 	struct WindowCloseEvent;
 	struct WindowContext;
 	struct WindowCreateInfo;
+	struct WindowData;
 	struct WindowDimension;
 	struct WindowEvent;
 	struct WindowFocusEvent;
 	struct WindowFramebufferResizeEvent;
-	struct WindowInfo;
 	struct WindowIconData;
 	struct WindowLostFocusEvent;
 	struct WindowMovedEvent;
@@ -415,33 +421,6 @@ namespace lvn
 	/* Core API Decleration */
 
 	/* [API] */
-	const char* getDateMonthName();
-	const char* getDateMonthNameShort();
-	const char* getDateWeekDayName();
-	const char* getDateWeekDayNameShort();
-	const char* getDateTimeHHMMSS();
-	const char* getDateTime12HHMMSS();
-	const char* getDateTimeMeridiem();
-	const char* getDateTimeMeridiemLower();
-	
-	const char* getDateYearStr();
-	const char* getDateYear02dStr();
-	const char* getDateMonthNumStr();
-	const char* getDateDayNumStr();
-	const char* getDateHourNumStr();
-	const char* getDateHour12NumStr();
-	const char* getDateMinuteNumStr();
-	const char* getDateSecondNumStr();
-
-	int			getDateYear();
-	int			getDateYear02d();
-	int			getDateMonth();
-	int			getDateDay();
-	int			getDateHour();
-	int			getDateHour12();
-	int			getDateMinute();
-	int			getDateSecond();
-	long long	getSecondSinceEpoch();
 
 
 	/* [Logging] */
@@ -455,19 +434,277 @@ namespace lvn
 	struct LogPattern
 	{
 		char symbol;
-		const char*(*func)(LogMessage*);
+		LvnString (*func)(LogMessage*);
 	};
 
-	bool			logInit();
-	bool			logTerminate();
-	void			logSetLevel(Logger* logger, LvnLogLevel level);
-	bool			logCheckLevel(Logger* logger, LvnLogLevel level);
-	void			logOutputMessage(Logger* logger, LogMessage* msg);
-	Logger*			getCoreLogger();
-	Logger*			getClientLogger();
-	const char*		getLogANSIcodeColor(LvnLogLevel level);
-	void			logSetPattern(Logger* logger, const char* pattern);
 
+	/* [Events] */
+	struct AppRenderEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+	};
+
+	struct AppTickEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+	};
+
+	struct KeyHoldEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int keyCode;
+		bool repeat;
+	};
+
+	struct KeyPressedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int keyCode;
+	};
+
+	struct KeyReleasedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int keyCode;
+	};
+
+	struct KeyTypedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		unsigned int key;
+	};
+
+	struct MouseButtonPressedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int buttonCode;
+	};
+
+	struct MouseButtonReleasedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int buttonCode;
+	};
+
+	struct MouseMovedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int x, y;
+	};
+
+	struct MouseScrolledEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		float x, y;
+	};
+
+	struct WindowCloseEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+	};
+
+	struct WindowFocusEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+	};
+
+	struct WindowFramebufferResizeEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		unsigned int width, height;
+	};
+
+	struct WindowLostFocusEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+	};
+
+	struct WindowMovedEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int x, y;
+	};
+
+	struct WindowResizeEvent
+	{
+		EventType type;
+		int category;
+		const char* name;
+		bool handled;
+
+		int width, height;
+	};
+
+	/* [Window] */
+	struct WindowIconData
+	{
+		unsigned char* image;
+		int width, height;
+	};
+
+	struct WindowCreateInfo
+	{
+		int width, height;
+		const char* title;
+		int minWidth, minHeight;
+		int maxWidth, maxHeight;
+		bool fullscreen, resizable, vSync;
+		WindowIconData* pIcons;
+		uint32_t iconCount;
+
+		WindowCreateInfo()
+		{
+			width = 0; height = 0; title = nullptr;
+			minWidth = 0; minHeight = 0; maxWidth = -1; maxHeight = -1;
+			resizable = true; vSync = false;
+			pIcons = nullptr;
+			iconCount = 0;
+		}
+	};
+
+	struct WindowDimension
+	{
+		int width, height;
+	};
+
+
+	/* [API] */
+	const char*			getDateMonthName();
+	const char*			getDateMonthNameShort();
+	const char*			getDateWeekDayName();
+	const char*			getDateWeekDayNameShort();
+	const char*			getDateTimeMeridiem();
+	const char*			getDateTimeMeridiemLower();
+
+	LvnString			getDateTimeHHMMSS();
+	LvnString			getDateTime12HHMMSS();
+	LvnString			getDateYearStr();
+	LvnString			getDateYear02dStr();
+	LvnString			getDateMonthNumStr();
+	LvnString			getDateDayNumStr();
+	LvnString			getDateHourNumStr();
+	LvnString			getDateHour12NumStr();
+	LvnString			getDateMinuteNumStr();
+	LvnString			getDateSecondNumStr();
+
+	int					getDateYear();
+	int					getDateYear02d();
+	int					getDateMonth();
+	int					getDateDay();
+	int					getDateHour();
+	int					getDateHour12();
+	int					getDateMinute();
+	int					getDateSecond();
+	long long			getSecondSinceEpoch();
+
+	/* [Logging] */
+	bool				logInit();
+	bool				logTerminate();
+	void				logSetLevel(Logger* logger, LvnLogLevel level);
+	bool				logCheckLevel(Logger* logger, LvnLogLevel level);
+	void				logOutputMessage(Logger* logger, LogMessage* msg);
+	Logger*				getCoreLogger();
+	Logger*				getClientLogger();
+	const char*			getLogANSIcodeColor(LvnLogLevel level);
+	void				logSetPattern(Logger* logger, const char* pattern);
+
+	/* [Events] */
+	bool				dispatchAppRenderEvent(Event* event, bool(*func)(AppRenderEvent*));
+	bool				dispatchAppTickEvent(Event* event, bool(*func)(AppTickEvent*));
+	bool				dispatchKeyHoldEvent(Event* event, bool(*func)(KeyHoldEvent*));
+	bool				dispatchKeyPressedEvent(Event* event, bool(*func)(KeyPressedEvent*));
+	bool				dispatchKeyReleasedEvent(Event* event, bool(*func)(KeyReleasedEvent*));
+	bool				dispatchKeyTypedEvent(Event* event, bool(*func)(KeyTypedEvent*));
+	bool				dispatchMouseButtonPressedEvent(Event* event, bool(*func)(MouseButtonPressedEvent*));
+	bool				dispatchMouseButtonReleasedEvent(Event* event, bool(*func)(MouseButtonReleasedEvent*));
+	bool				dispatchMouseMovedEvent(Event* event, bool(*func)(MouseMovedEvent*));
+	bool				dispatchMouseScrolledEvent(Event* event, bool(*func)(MouseScrolledEvent*));
+	bool				dispatchWindowCloseEvent(Event* event, bool(*func)(WindowCloseEvent*));
+	bool				dispatchWindowFramebufferResizeEvent(Event* event, bool(*func)(WindowFramebufferResizeEvent*));
+	bool				dispatchWindowFocusEvent(Event* event, bool(*func)(WindowFocusEvent*));
+	bool				dispatchWindowLostFocusEvent(Event* event, bool(*func)(WindowLostFocusEvent*));
+	bool				dispatchWindowMovedEvent(Event* event, bool(*func)(WindowMovedEvent*));
+	bool				dispatchWindowResizeEvent(Event* event, bool(*func)(WindowResizeEvent*));
+
+	/* [Window] */
+	bool				createWindowContext(WindowAPI windowapi);
+	bool				terminateWindowContext();
+	WindowAPI			getWindowAPI();
+	const char*			getWindowAPIName();
+
+	Window*				createWindow(int width, int height, const char* title, bool fullscreen = false, bool resizable = true, int minWidth = 0, int minHeight = 0);
+	Window*				createWindow(WindowCreateInfo* winCreateInfo);
+
+	void				updateWindow(Window* window);
+	bool				windowOpen(Window* window);
+	WindowDimension		getWindowDimensions(Window* window);
+	int					getWindowWidth(Window* window);
+	int					getWindowHeight(Window* window);
+	void				setWindowEventCallback(Window* window, void (*callback)(Event*));
+	void				setWindowVSync(Window* window, bool enable);
+	bool				getWindowVSync(Window* window);
+	void*				getNativeWindow(Window* window);
+	void				setWindowContextCurrent(Window* window);
+	void				destroyWindow(Window* window);
+
+
+
+	/* [Implementation] */
 	template<typename... Args>
 	void logMessage(Logger* logger, LvnLogLevel level, const char* fmt, Args... args)
 	{
@@ -486,6 +723,7 @@ namespace lvn
 		logOutputMessage(logger, &logMsg);
 		free(buff);
 	}
+
 	template<typename... Args>
 	void logMessageTrace(Logger* logger, const char* fmt, Args... args)
 	{
@@ -512,74 +750,61 @@ namespace lvn
 		logMessage(logger, LvnLogLevel_Critical, fmt, args...);
 	}
 
-
-	/* [Events] */
-
-	bool dispatchAppRenderEvent(Event* event, bool(*func)(AppRenderEvent*));
-	bool dispatchAppTickEvent(Event* event, bool(*func)(AppTickEvent*));
-	bool dispatchKeyPressedEvent(Event* event, bool(*func)(KeyPressedEvent*));
-	bool dispatchKeyReleasedEvent(Event* event, bool(*func)(KeyReleasedEvent*));
-	bool dispatchKeyHoldEvent(Event* event, bool(*func)(KeyHoldEvent*));
-	bool dispatchWindowCloseEvent(Event* event, bool(*func)(WindowCloseEvent*));
-	bool dispatchWindowResizeEvent(Event* event, bool(*func)(WindowResizeEvent*));
-	bool dispatchWindowFramebufferResizeEvent(Event* event, bool(*func)(WindowFramebufferResizeEvent*));
-	bool dispatchWindowFocusEvent(Event* event, bool(*func)(WindowFocusEvent*));
-	bool dispatchWindowLostFocusEvent(Event* event, bool(*func)(WindowLostFocusEvent*));
-	bool dispatchWindowMovedEvent(Event* event, bool(*func)(WindowMovedEvent*));
-	bool dispatchMouseButtonPressedEvent(Event* event, bool(*func)(MouseButtonPressedEvent*));
-	bool dispatchMouseButtonReleasedEvent(Event* event, bool(*func)(MouseButtonReleasedEvent*));
-	bool dispatchMouseMovedEvent(Event* event, bool(*func)(MouseMovedEvent*));
-	bool dispatchMouseScrolledEvent(Event* event, bool(*func)(MouseScrolledEvent*));
-
-
-	/* [Window] */
-	struct WindowIconData
-	{
-		unsigned char* image;
-		int width, height;
-	};
-
-	struct WindowCreateInfo
-	{
-		int width, height;
-		const char* title;
-		int minWidth, minHeight;
-		int maxWidth, maxHeight;
-		bool fullscreen, resizable, vSync;
-		WindowIconData* pIcons;
-		uint32_t iconCount;
-
-		WindowCreateInfo()
-			: maxWidth(-1), maxHeight(-1), resizable(true), vSync(false) {}
-	};
-
-	struct WindowDimension
-	{
-		int width, height;
-	};
-
-	bool				createWindowContext(WindowAPI windowapi);
-	bool				terminateWindowContext();
-	WindowAPI			getWindowAPI();
-	const char*			getWindowAPIName();
-
-	Window*				createWindow(int width, int height, const char* title, bool fullscreen = false, bool resizable = true, int minWidth = 0, int minHeight = 0);
-	Window*				createWindow(WindowCreateInfo* winCreateInfo);
-
-	void				updateWindow(Window* window);
-	bool				windowOpen(Window* window);
-	WindowDimension		getDimensions(Window* window);
-	unsigned int		getWindowWidth(Window* window);
-	unsigned int		getWindowHeight(Window* window);
-	void				setWindowEventCallback(Window* window, void (*callback)(Event*));
-	void				setWindowVSync(Window* window, bool enable);
-	bool				getWindowVSync(Window* window);
-	void*				getNativeWindow(Window* window);
-	void				setWindowContextCurrent(Window* window);
-	void				destroyWindow(Window* window);
-
 	/* [API] */
+	struct LvnString
+	{
+		char* m_Str;
+		uint32_t m_Size;
 
+		LvnString()
+			: m_Str(0), m_Size(0) {}
+
+		LvnString(const char* strsrc)
+		{
+			m_Size = strlen(strsrc) + 1;
+			m_Str = (char*)malloc(m_Size);
+			if (!m_Str) { LVN_MALLOC_FAILURE(m_Str); return; }
+			memcpy(m_Str, strsrc, m_Size);
+		}
+
+		LvnString(uint32_t strsize)
+		{
+			m_Size = strsize;
+			m_Str = (char*)malloc(m_Size);
+			if (!m_Str) { LVN_MALLOC_FAILURE(m_Str); return; }
+		}
+
+		LvnString(char* strsrc, uint32_t strsize)
+		{
+			m_Size = strsize;
+			m_Str = (char*)malloc(strsize);
+			if (!m_Str) { LVN_MALLOC_FAILURE(m_Str); return; }
+			memcpy(m_Str, strsrc, strsize);
+		}
+
+		LvnString(const LvnString& lvnstr)
+		{
+			m_Size = lvnstr.m_Size;
+			m_Str = (char*)malloc(m_Size);
+			if (!m_Str) { LVN_MALLOC_FAILURE(m_Str); return; }
+			memcpy(m_Str, lvnstr.m_Str, m_Size);
+		}
+
+		LvnString& operator=(const LvnString& lvnstr)
+		{
+			m_Size = lvnstr.m_Size;
+			m_Str = (char*)malloc(m_Size);
+			if (!m_Str) { LVN_MALLOC_FAILURE(m_Str); return *this; }
+			memcpy(m_Str, lvnstr.m_Str, m_Size);
+			return *this;
+		}
+
+		const char* c_str() { return m_Str; }
+		uint32_t size() { return m_Size; }
+
+		operator const char* () { return this->m_Str; }
+		operator char* () { return this->m_Str; }
+	};
 }
 
 #endif

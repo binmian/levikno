@@ -1,8 +1,8 @@
 #ifndef HG_LEVIKNO_H
 #define HG_LEVIKNO_H
 
-#ifndef HG_LVN_DEFINE_CONFIG
-#define HG_LVN_DEFINE_CONFIG
+#ifndef HG_LEVIKNO_DEFINE_CONFIG
+#define HG_LEVIKNO_DEFINE_CONFIG
 
 // Platform
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__) 
@@ -36,12 +36,13 @@
 	#pragma warning (disable : 26495)
 
 	#ifdef _DEBUG
-		#define LVN_DEBUG
+		#ifndef LVN_DEBUG
+			#define LVN_DEBUG
+		#endif
 	#endif
 #else
 	#define LVN_ASSERT_BREAK assert(false);
 #endif
-
 
 // Debug
 #ifdef LVN_DEBUG
@@ -53,11 +54,11 @@
 #endif
 
 #if defined (LVN_DISABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR("ERROR: {0}", __VA_ARGS__); } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR("ERROR: {0}", __VA_ARGS__); } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
 #elif defined(LVN_ENABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)
@@ -89,10 +90,10 @@
 #define LVN_FUNC_NAME __func__
 
 #define LVN_STR(x) #x
-#define LVN_STRIGIFY(x) LVN_STR(x)
+#define LVN_STRINGIFY(x) LVN_STR(x)
 
 
-#endif // !HG_LVN_DEFINE_CONFIG
+#endif // !HG_LEVIKNO_DEFINE_CONFIG
 
 #include <stdint.h>
 

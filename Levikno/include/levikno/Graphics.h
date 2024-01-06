@@ -1,8 +1,8 @@
 #ifndef HG_LEVIKNO_GRAPHICS_H
 #define HG_LEVIKNO_GRAPHICS_H
 
-#ifndef HG_LVN_DEFINE_CONFIG
-#define HG_LVN_DEFINE_CONFIG
+#ifndef HG_LEVIKNO_DEFINE_CONFIG
+#define HG_LEVIKNO_DEFINE_CONFIG
 
 // Platform
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__) 
@@ -36,12 +36,13 @@
 	#pragma warning (disable : 26495)
 
 	#ifdef _DEBUG
-		#define LVN_DEBUG
+		#ifndef LVN_DEBUG
+			#define LVN_DEBUG
+		#endif
 	#endif
 #else
 	#define LVN_ASSERT_BREAK assert(false);
 #endif
-
 
 // Debug
 #ifdef LVN_DEBUG
@@ -53,11 +54,11 @@
 #endif
 
 #if defined (LVN_DISABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR("ERROR: {0}", __VA_ARGS__); } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR("ERROR: {0}", __VA_ARGS__); } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
 #elif defined(LVN_ENABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)
@@ -89,10 +90,10 @@
 #define LVN_FUNC_NAME __func__
 
 #define LVN_STR(x) #x
-#define LVN_STRIGIFY(x) LVN_STR(x)
+#define LVN_STRINGIFY(x) LVN_STR(x)
 
 
-#endif // !HG_LVN_DEFINE_CONFIG
+#endif // !HG_LEVIKNO_DEFINE_CONFIG
 
 #include <stdint.h>
 
@@ -116,7 +117,9 @@ namespace lvn
 	struct GraphicsContext;
 	struct IndexBuffer;
 	struct OrthographicCamera;
-	struct RendererAPI;
+	struct PhysicalDevice;
+	struct PhysicalDeviceInfo;
+	struct RendererBackends;
 	struct Shader;
 	struct VertexArray;
 	struct VertexArrayCreateInfo;
@@ -1934,39 +1937,70 @@ namespace lvn
 		DecrementAndWrap = 7,
 	};
 
+	enum class PhysicalDeviceType
+	{
+		Other = 0,
+		Integrated_GPU = 1,
+		Discrete_GPU = 2,
+		Virtual_GPU = 3,
+		CPU = 4,
+	};
+
+	struct PhysicalDeviceInfo
+	{
+		const char* name;
+		PhysicalDeviceType type;
+		uint32_t apiVersion;
+		uint32_t driverVersion;
+	};
+
+	struct PhysicalDevice
+	{
+		typedef void* PhysicalDeviceHandle;
+
+		PhysicalDeviceInfo info;
+		PhysicalDeviceHandle device;
+	};
+
+	struct RendererBackends
+	{
+		bool enableValidationLayers;
+	};
+
 	/* [Graphics API] */
-	bool			createGraphicsContext(GraphicsAPI graphicsapi);
-	bool			terminateGraphicsContext();
-	GraphicsAPI		getGraphicsAPI();
-	const char*		getGraphicsAPIName();
+	bool				createGraphicsContext(GraphicsAPI graphicsapi, RendererBackends* renderBackends);
+	bool				terminateGraphicsContext();
+	GraphicsAPI			getGraphicsAPI();
+	const char*			getGraphicsAPIName();
+	void				getPhysicalDevices(PhysicalDevice* pPhysicalDevices, uint32_t* deviceCount);
 
-	void			renderClearColor(const float r, const float g, const float b, const float w);
-	void			renderClear();
-	void			renderDraw(uint32_t vertexCount);
-	void			renderDrawIndexed(uint32_t indexCount);
-	void			renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
-	void			renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
-	void			renderSetStencilReference(uint32_t reference);
-	void			renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	void			renderBeginNextFrame();
-	void			renderDrawSubmit();
-	void			renderBeginRenderPass();
-	void			renderEndRenderPass();
+	void				renderClearColor(const float r, const float g, const float b, const float w);
+	void				renderClear();
+	void				renderDraw(uint32_t vertexCount);
+	void				renderDrawIndexed(uint32_t indexCount);
+	void				renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
+	void				renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
+	void				renderSetStencilReference(uint32_t reference);
+	void				renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
+	void				renderBeginNextFrame();
+	void				renderDrawSubmit();
+	void				renderBeginRenderPass();
+	void				renderEndRenderPass();
 
-	VertexBuffer*	createVertexBuffer(float* vertices, uint32_t size);
-	IndexBuffer*	createIndexBuffer(uint32_t indices, uint32_t size);
-	VertexArray*	createVertexArray();
+	VertexBuffer*		createVertexBuffer(float* vertices, uint32_t size);
+	IndexBuffer*		createIndexBuffer(uint32_t indices, uint32_t size);
+	VertexArray*		createVertexArray();
 
-	void			linkVertexArrayBuffers(VertexBuffer* vertexBuffer, IndexBuffer* indexBuffer, VertexLayoutLinkInfo* vertexLayouts);
-	void			linkVertexArrayBuffers(VertexArrayCreateInfo* createInfo);
+	void				linkVertexArrayBuffers(VertexBuffer* vertexBuffer, IndexBuffer* indexBuffer, VertexLayoutLinkInfo* vertexLayouts);
+	void				linkVertexArrayBuffers(VertexArrayCreateInfo* createInfo);
 
-	void			bindVertexBuffer(VertexBuffer* vertexBuffer);
-	void			bindIndexBuffer(VertexBuffer* vertexBuffer);
-	void			bindVertexArray(VertexBuffer* vertexBuffer);
+	void				bindVertexBuffer(VertexBuffer* vertexBuffer);
+	void				bindIndexBuffer(VertexBuffer* vertexBuffer);
+	void				bindVertexArray(VertexBuffer* vertexBuffer);
 
-	void			destroyVertexBuffer(VertexBuffer* vertexBuffer);
-	void			destroyIndexBuffer(VertexBuffer* vertexBuffer);
-	void			destroyVertexArray(VertexBuffer* vertexBuffer);
+	void				destroyVertexBuffer(VertexBuffer* vertexBuffer);
+	void				destroyIndexBuffer(VertexBuffer* vertexBuffer);
+	void				destroyVertexArray(VertexBuffer* vertexBuffer);
 }
 
 #endif

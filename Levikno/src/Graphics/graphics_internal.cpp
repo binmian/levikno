@@ -1,33 +1,41 @@
 #include "graphics_internal.h"
 #include "levikno/Core.h"
 
+#include "Platform/API/Vulkan/lvn_vulkan.h"
+
 namespace lvn
 {
 	static GraphicsContext* s_GraphicsContext = nullptr;
 	
-	bool createGraphicsContext(GraphicsAPI graphicsapi)
+	bool createGraphicsContext(GraphicsAPI graphicsapi, RendererBackends* renderBackends)
 	{
-		switch (graphicsapi)
+		if (graphicsapi != GraphicsAPI::None)
 		{
-			case GraphicsAPI::None:
+			s_GraphicsContext = new GraphicsContext();
+			s_GraphicsContext->graphicsapi = graphicsapi;
+		
+			switch (graphicsapi)
 			{
-				LVN_CORE_WARN("setting Graphics API to None, no Graphics API selected!");
-				return false;
+				case GraphicsAPI::vulkan:
+				{
+					vksImplCreateContext(s_GraphicsContext, renderBackends);
+					break;
+				}
+				case GraphicsAPI::opengl:
+				{
+					
+					break;
+				}
 			}
-			case GraphicsAPI::vulkan:
-			{
-				s_GraphicsContext = new GraphicsContext();
-				s_GraphicsContext->graphicsapi = graphicsapi;
-				break;
-			}
-			case GraphicsAPI::opengl:
-			{
-				break;
-			}
+		
+			LVN_CORE_INFO("graphics context set: %s", getGraphicsAPIName());
+			return true;
 		}
-
-		LVN_CORE_INFO("graphics context set: %s", getGraphicsAPIName());
-		return true;
+		else
+		{
+			LVN_CORE_WARN("setting Graphics API to None, no Graphics API selected!");
+			return false;
+		}
 	}
 
 	bool terminateGraphicsContext()
@@ -41,6 +49,7 @@ namespace lvn
 			}
 			case GraphicsAPI::vulkan:
 			{
+				vksImplTerminateContext();
 				delete s_GraphicsContext;
 				break;
 			}
@@ -76,5 +85,10 @@ namespace lvn
 
 		LVN_CORE_ERROR("Unknown Graphics API selected!");
 		return nullptr;
+	}
+
+	void getPhysicalDevices(PhysicalDevice* pPhysicalDevices, uint32_t* deviceCount)
+	{
+		vksImplGetPhysicalDevices(pPhysicalDevices, deviceCount);
 	}
 }

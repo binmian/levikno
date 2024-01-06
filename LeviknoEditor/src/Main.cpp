@@ -1,15 +1,79 @@
-﻿#include <iostream>
-#include <levikno/levikno.h>
+﻿#include <levikno/levikno.h>
 #include <levikno/Core.h>
 #include <levikno/Graphics.h>
-#include <format>
+
+bool windowMoved(lvn::WindowMovedEvent* e)
+{
+	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
+	return true;
+}
+
+bool windowResize(lvn::WindowResizeEvent* e)
+{
+	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->width, e->height);
+	return true;
+}
+
+bool mousePos(lvn::MouseMovedEvent* e)
+{
+	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
+	return true;
+}
+
+bool keyPress(lvn::KeyPressedEvent* e)
+{
+	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
+	return true;
+}
+
+bool keyRelease(lvn::KeyReleasedEvent* e)
+{
+	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
+	return true;
+}
+
+bool keyHold(lvn::KeyHoldEvent* e)
+{
+	LVN_TRACE("%s: code: %d (%d)", e->name, e->keyCode, e->repeat);
+	return true;
+}
+
+bool keyTyped(lvn::KeyTypedEvent* e)
+{
+	LVN_TRACE("%s: key: %c", e->name, e->key);
+	return true;
+}
+
+void eventsCallbackFn(lvn::Event* e)
+{
+	lvn::dispatchKeyPressedEvent(e, keyPress);
+	lvn::dispatchKeyHoldEvent(e, keyHold);
+	lvn::dispatchKeyReleasedEvent(e, keyRelease);
+	lvn::dispatchKeyTypedEvent(e, keyTyped);
+}
 
 int main()
 {
 	lvn::logInit();
 
+	lvn::RendererBackends renderBackends{};
+	renderBackends.enableValidationLayers = true;
+
 	lvn::createWindowContext(lvn::WindowAPI::glfw);
-	lvn::createGraphicsContext(lvn::GraphicsAPI::vulkan);
+	lvn::createGraphicsContext(lvn::GraphicsAPI::vulkan, &renderBackends);
+
+	uint32_t deviceCount;
+	lvn::getPhysicalDevices(nullptr, &deviceCount);
+
+	lvn::PhysicalDevice* devices = static_cast<lvn::PhysicalDevice*>(malloc(deviceCount * sizeof(lvn::PhysicalDevice)));
+	lvn::getPhysicalDevices(devices, &deviceCount);
+
+	for (uint32_t i = 0; i < deviceCount; i++)
+	{
+		LVN_TRACE("name: %s\tversion: %d", devices[i].info.name, devices[i].info.driverVersion);
+	}
+
+	free(devices);
 
 	lvn::WindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
@@ -25,6 +89,8 @@ int main()
 	windowInfo.iconCount = 0;
 
 	lvn::Window* window = lvn::createWindow(&windowInfo);
+
+	lvn::setWindowEventCallback(window, eventsCallbackFn);
 
 	lvn::vec2 a = { 1.0f, 2.0f };
 	lvn::vec2 b = { 3.0f, 5.0f };
@@ -49,9 +115,13 @@ int main()
 
 	int frame = 0;
 
+
 	while (lvn::windowOpen(window))
 	{
 		lvn::updateWindow(window);
+
+		auto dim = lvn::getWindowDimensions(window);
+
 	}
 
 
