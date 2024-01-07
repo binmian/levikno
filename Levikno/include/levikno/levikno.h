@@ -9,13 +9,12 @@
 	#ifndef LVN_PLATFORM_WINDOWS
 		#define LVN_PLATFORM_WINDOWS
 	#endif
-	#ifdef LVN_PLATFORM_WINDOWS
-		#ifdef LVN_SHARED_LIBRARY
+	#ifdef LVN_SHARED_LIBRARY_EXPORT
 			#define LVN_API __declspec(dllexport)
-			#define LVN_API_IMPORT __declspec(dllimport)
-		#else 
-			#define LVN_API
-		#endif
+	#elif LVN_SHARED_LIBRARY_IMPORT
+			#define LVN_API __declspec(dllimport)
+	#else 
+		#define LVN_API
 	#endif
 
 #elif __APPLE__

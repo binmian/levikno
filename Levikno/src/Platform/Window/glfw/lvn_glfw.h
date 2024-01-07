@@ -5,26 +5,26 @@
 
 namespace lvn
 {
-	void				glfwImplInitWindowContext(WindowContext* windowContext);
-	void				glfwImplTerminateWindowContext();
+	LVN_API void				glfwImplInitWindowContext(LvnWindowContext* windowContext);
+	LVN_API void				glfwImplTerminateWindowContext();
 
-	Window*				glfwImplCreateWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight);
-	Window*				glfwImplCreateWindowInfo(WindowCreateInfo* winCreateInfo);
+	LVN_API LvnWindow*			glfwImplCreateWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight);
+	LVN_API LvnWindow*			glfwImplCreateWindowInfo(LvnWindowCreateInfo* winCreateInfo);
 		
-	void				glfwImplInitWindow(Window* window);
+	LVN_API void				glfwImplInitWindow(LvnWindow* window);
 		
-	void				glfwImplUpdateWindow(Window* window);
-	bool				glfwImplWindowOpen(Window* window);
-	WindowDimension		glfwImplGetDimensions(Window* window);
-	unsigned int		glfwImplGetWindowWidth(Window* window);
-	unsigned int		glfwImplGetWindowHeight(Window* window);
-	void				glfwImplSetWindowVSync(Window* window, bool enable);
-	bool				glfwImplGetWindowVSync(Window* window);
-	void				glfwImplSetWindowContextCurrent(Window* window);
-	void				glfwImplDestroyWindow(Window* window);
-	void				glfwImplEventCallBackFn(Event* e);
+	LVN_API void				glfwImplUpdateWindow(LvnWindow* window);
+	LVN_API bool				glfwImplWindowOpen(LvnWindow* window);
+	LVN_API LvnWindowDimension	glfwImplGetDimensions(LvnWindow* window);
+	LVN_API unsigned int		glfwImplGetWindowWidth(LvnWindow* window);
+	LVN_API unsigned int		glfwImplGetWindowHeight(LvnWindow* window);
+	LVN_API void				glfwImplSetWindowVSync(LvnWindow* window, bool enable);
+	LVN_API bool				glfwImplGetWindowVSync(LvnWindow* window);
+	LVN_API void				glfwImplSetWindowContextCurrent(LvnWindow* window);
+	LVN_API void				glfwImplDestroyWindow(LvnWindow* window);
+	LVN_API void				glfwImplEventCallBackFn(LvnEvent* e);
 
-	const char**		glfwImplGetInstanceExtensions(uint32_t* extensionCount);
+	LVN_API const char**		glfwImplGetInstanceExtensions(uint32_t* extensionCount);
 }
 
 #endif // !HG_CHONPS_GLFW_H

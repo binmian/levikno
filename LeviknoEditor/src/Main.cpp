@@ -2,49 +2,49 @@
 #include <levikno/Core.h>
 #include <levikno/Graphics.h>
 
-bool windowMoved(lvn::WindowMovedEvent* e)
+bool windowMoved(LvnWindowMovedEvent* e)
 {
 	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
 	return true;
 }
 
-bool windowResize(lvn::WindowResizeEvent* e)
+bool windowResize(LvnWindowResizeEvent* e)
 {
 	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->width, e->height);
 	return true;
 }
 
-bool mousePos(lvn::MouseMovedEvent* e)
+bool mousePos(LvnMouseMovedEvent* e)
 {
 	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
 	return true;
 }
 
-bool keyPress(lvn::KeyPressedEvent* e)
+bool keyPress(LvnKeyPressedEvent* e)
 {
 	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
 	return true;
 }
 
-bool keyRelease(lvn::KeyReleasedEvent* e)
+bool keyRelease(LvnKeyReleasedEvent* e)
 {
 	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
 	return true;
 }
 
-bool keyHold(lvn::KeyHoldEvent* e)
+bool keyHold(LvnKeyHoldEvent* e)
 {
 	LVN_TRACE("%s: code: %d (%d)", e->name, e->keyCode, e->repeat);
 	return true;
 }
 
-bool keyTyped(lvn::KeyTypedEvent* e)
+bool keyTyped(LvnKeyTypedEvent* e)
 {
 	LVN_TRACE("%s: key: %c", e->name, e->key);
 	return true;
 }
 
-void eventsCallbackFn(lvn::Event* e)
+void eventsCallbackFn(LvnEvent* e)
 {
 	lvn::dispatchKeyPressedEvent(e, keyPress);
 	lvn::dispatchKeyHoldEvent(e, keyHold);
@@ -56,16 +56,16 @@ int main()
 {
 	lvn::logInit();
 
-	lvn::RendererBackends renderBackends{};
+	LvnRendererBackends renderBackends{};
 	renderBackends.enableValidationLayers = true;
 
-	lvn::createWindowContext(lvn::WindowAPI::glfw);
-	lvn::createGraphicsContext(lvn::GraphicsAPI::vulkan, &renderBackends);
+	lvn::createWindowContext(Lvn_WindowApi_glfw);
+	lvn::createGraphicsContext(Lvn_GraphicsApi_vulkan);
 
 	uint32_t deviceCount;
 	lvn::getPhysicalDevices(nullptr, &deviceCount);
 
-	lvn::PhysicalDevice* devices = static_cast<lvn::PhysicalDevice*>(malloc(deviceCount * sizeof(lvn::PhysicalDevice)));
+	LvnPhysicalDevice* devices = static_cast<LvnPhysicalDevice*>(malloc(deviceCount * sizeof(LvnPhysicalDevice)));
 	lvn::getPhysicalDevices(devices, &deviceCount);
 
 	for (uint32_t i = 0; i < deviceCount; i++)
@@ -73,9 +73,12 @@ int main()
 		LVN_TRACE("name: %s\tversion: %d", devices[i].info.name, devices[i].info.driverVersion);
 	}
 
+	renderBackends.physicalDevice = &devices[0];
+	lvn::renderInit(&renderBackends);
+
 	free(devices);
 
-	lvn::WindowCreateInfo windowInfo{};
+	LvnWindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
 	windowInfo.height = 600;
 	windowInfo.title = "window";
@@ -88,7 +91,7 @@ int main()
 	windowInfo.pIcons = nullptr;
 	windowInfo.iconCount = 0;
 
-	lvn::Window* window = lvn::createWindow(&windowInfo);
+	LvnWindow* window = lvn::createWindow(&windowInfo);
 
 	lvn::setWindowEventCallback(window, eventsCallbackFn);
 
@@ -107,7 +110,7 @@ int main()
 	lvn::vec4 g = -lvn::vec4(a, 1.0f, 0.0f);
 	lvn::mat4 matrix = lvn::mat4(lvn::vec4(1.0f, 2.0f, 7.0f, 4.0f), lvn::vec4(5.0f, 2.0f, 7.0f, 8.0f), lvn::vec4(9.0f, 12.0f, 11.0f, 32.0f), lvn::vec4(15.0f, 14.0f, 18.0f, 26.0f));
 	lvn::mat4 matrix2 = lvn::mat4(lvn::vec4(1.0f, 2.0f, 3.0f, 4.0f), lvn::vec4(5.0f, 6.0f, 7.0f, 8.0f), lvn::vec4(9.0f, 10.0f, 11.0f, 12.0f), lvn::vec4(13.0f, 14.0f, 15.0f, 16.0f));
-	lvn::mat4x3 matrix4x3 = lvn::mat4x3(1.0f);
+	lvn::mat4x3 matrix4x3 = LvnMat4x3(1.0f);
 
 	matrix = matrix * matrix2;
 
@@ -122,6 +125,7 @@ int main()
 
 		auto dim = lvn::getWindowDimensions(window);
 
+		LVN_TRACE("abc123!@#\n445\t45\"df\"{}\n%ssaf%d%%", "fasdf", 22);
 	}
 
 

@@ -11,47 +11,52 @@
 
 namespace lvn
 {
-	namespace coreUtils
+	static void enableLogANSIcodeColors();
+	static const char* getLogLevelColor(LvnLogLevel level);
+	static const char* getLogLevelName(LvnLogLevel level);
+	static void logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32_t* logPatternCount);
+
+
+	static void enableLogANSIcodeColors()
 	{
-		void enableLogANSIcodeColors()
+	#ifdef LVN_PLATFORM_WINDOWS
+		DWORD consoleMode;
+		HANDLE outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+		if (GetConsoleMode(outputHandle, &consoleMode))
 		{
-			DWORD consoleMode;
-			HANDLE outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-			if (GetConsoleMode(outputHandle, &consoleMode))
-			{
-				SetConsoleMode(outputHandle, consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-			}
+			SetConsoleMode(outputHandle, consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+		}
+	#endif
+	}
+
+	static const char* getLogLevelColor(LvnLogLevel level)
+	{
+		switch (level)
+		{
+			case Lvn_LogLevel_None:		{ return LVN_LOG_COLOR_RESET; }
+			case Lvn_LogLevel_Trace:	{ return LVN_LOG_COLOR_TRACE; }
+			case Lvn_LogLevel_Info:		{ return LVN_LOG_COLOR_INFO; }
+			case Lvn_LogLevel_Warn:		{ return LVN_LOG_COLOR_WARN; }
+			case Lvn_LogLevel_Error:	{ return LVN_LOG_COLOR_ERROR; }
+			case Lvn_LogLevel_Critical:	{ return LVN_LOG_COLOR_CRITICAL; }
 		}
 
-		const char* getLogLevelColor(LvnLogLevel level)
-		{
-			switch (level)
-			{
-				case LvnLogLevel_None:		{ return LVN_LOG_COLOR_RESET; }
-				case LvnLogLevel_Trace:		{ return LVN_LOG_COLOR_TRACE; }
-				case LvnLogLevel_Info:		{ return LVN_LOG_COLOR_INFO; }
-				case LvnLogLevel_Warn:		{ return LVN_LOG_COLOR_WARN; }
-				case LvnLogLevel_Error:		{ return LVN_LOG_COLOR_ERROR; }
-				case LvnLogLevel_Critical:	{ return LVN_LOG_COLOR_CRITICAL; }
-			}
+		return nullptr;
+	}
 
-			return nullptr;
+	static const char* getLogLevelName(LvnLogLevel level)
+	{
+		switch (level)
+		{
+			case Lvn_LogLevel_None:		{ return "none"; }
+			case Lvn_LogLevel_Trace:	{ return "trace"; }
+			case Lvn_LogLevel_Info:		{ return "info"; }
+			case Lvn_LogLevel_Warn:		{ return "warn"; }
+			case Lvn_LogLevel_Error:	{ return "error"; }
+			case Lvn_LogLevel_Critical:	{ return "critical"; }
 		}
 
-		const char* getLogLevelName(LvnLogLevel level)
-		{
-			switch (level)
-			{
-				case LvnLogLevel_None:		{ return "none"; }
-				case LvnLogLevel_Trace:		{ return "trace"; }
-				case LvnLogLevel_Info:		{ return "info"; }
-				case LvnLogLevel_Warn:		{ return "warn"; }
-				case LvnLogLevel_Error:		{ return "error"; }
-				case LvnLogLevel_Critical:	{ return "critical"; }
-			}
-
-			return nullptr;
-		}
+		return nullptr;
 	}
 
 
@@ -225,65 +230,65 @@ namespace lvn
 
 	/* [Logging] */
 	static bool s_LoggingInit = false;
-	static Logger s_CoreLogger;
-	static Logger s_ClientLogger;
-	const static LogPattern s_LogPatterns[23] =
+	static LvnLogger s_CoreLogger;
+	static LvnLogger s_ClientLogger;
+	const static LvnLogPattern s_LogPatterns[23] =
 	{
-		{ '$', [](LogMessage* msg) -> LvnString { return "\n"; } },
-		{ 'n', [](LogMessage* msg) -> LvnString { return msg->loggerName; } },
-		{ 'l', [](LogMessage* msg) -> LvnString { return coreUtils::getLogLevelName(msg->level); }},
-		{ '#', [](LogMessage* msg) -> LvnString { return coreUtils::getLogLevelColor(msg->level); }},
-		{ '^', [](LogMessage* msg) -> LvnString { return LVN_LOG_COLOR_RESET; }},
-		{ 'v', [](LogMessage* msg) -> LvnString { return msg->msg; }},
-		{ '%', [](LogMessage* msg) -> LvnString { return "%"; } },
-		{ 'T', [](LogMessage* msg) -> LvnString { return getDateTimeHHMMSS(); } },
-		{ 't', [](LogMessage* msg) -> LvnString { return getDateTime12HHMMSS(); } },
-		{ 'Y', [](LogMessage* msg) -> LvnString { return getDateYearStr(); }},
-		{ 'y', [](LogMessage* msg) -> LvnString { return getDateYear02dStr(); } },
-		{ 'm', [](LogMessage* msg) -> LvnString { return getDateMonthNumStr(); } },
-		{ 'B', [](LogMessage* msg) -> LvnString { return getDateMonthName(); } },
-		{ 'b', [](LogMessage* msg) -> LvnString { return getDateMonthNameShort(); } },
-		{ 'd', [](LogMessage* msg) -> LvnString { return getDateDayNumStr(); } },
-		{ 'A', [](LogMessage* msg) -> LvnString { return getDateWeekDayName(); } },
-		{ 'a', [](LogMessage* msg) -> LvnString { return getDateWeekDayNameShort(); } },
-		{ 'H', [](LogMessage* msg) -> LvnString { return getDateHourNumStr(); } },
-		{ 'h', [](LogMessage* msg) -> LvnString { return getDateHour12NumStr(); } },
-		{ 'M', [](LogMessage* msg) -> LvnString { return getDateMinuteNumStr(); } },
-		{ 'S', [](LogMessage* msg) -> LvnString { return getDateSecondNumStr(); } },
-		{ 'P', [](LogMessage* msg) -> LvnString { return getDateTimeMeridiem(); } },
-		{ 'p', [](LogMessage* msg) -> LvnString { return getDateTimeMeridiemLower(); }},
+		{ '$', [](LvnLogMessage* msg) -> LvnString { return "\n"; } },
+		{ 'n', [](LvnLogMessage* msg) -> LvnString { return msg->loggerName; } },
+		{ 'l', [](LvnLogMessage* msg) -> LvnString { return getLogLevelName(msg->level); }},
+		{ '#', [](LvnLogMessage* msg) -> LvnString { return getLogLevelColor(msg->level); }},
+		{ '^', [](LvnLogMessage* msg) -> LvnString { return LVN_LOG_COLOR_RESET; }},
+		{ 'v', [](LvnLogMessage* msg) -> LvnString { return msg->msg; }},
+		{ '%', [](LvnLogMessage* msg) -> LvnString { return "%"; } },
+		{ 'T', [](LvnLogMessage* msg) -> LvnString { return getDateTimeHHMMSS(); } },
+		{ 't', [](LvnLogMessage* msg) -> LvnString { return getDateTime12HHMMSS(); } },
+		{ 'Y', [](LvnLogMessage* msg) -> LvnString { return getDateYearStr(); }},
+		{ 'y', [](LvnLogMessage* msg) -> LvnString { return getDateYear02dStr(); } },
+		{ 'm', [](LvnLogMessage* msg) -> LvnString { return getDateMonthNumStr(); } },
+		{ 'B', [](LvnLogMessage* msg) -> LvnString { return getDateMonthName(); } },
+		{ 'b', [](LvnLogMessage* msg) -> LvnString { return getDateMonthNameShort(); } },
+		{ 'd', [](LvnLogMessage* msg) -> LvnString { return getDateDayNumStr(); } },
+		{ 'A', [](LvnLogMessage* msg) -> LvnString { return getDateWeekDayName(); } },
+		{ 'a', [](LvnLogMessage* msg) -> LvnString { return getDateWeekDayNameShort(); } },
+		{ 'H', [](LvnLogMessage* msg) -> LvnString { return getDateHourNumStr(); } },
+		{ 'h', [](LvnLogMessage* msg) -> LvnString { return getDateHour12NumStr(); } },
+		{ 'M', [](LvnLogMessage* msg) -> LvnString { return getDateMinuteNumStr(); } },
+		{ 'S', [](LvnLogMessage* msg) -> LvnString { return getDateSecondNumStr(); } },
+		{ 'P', [](LvnLogMessage* msg) -> LvnString { return getDateTimeMeridiem(); } },
+		{ 'p', [](LvnLogMessage* msg) -> LvnString { return getDateTimeMeridiemLower(); }},
 	};
 
-	void logParseFormat(const char* fmt, LogPattern** pLogPatterns, uint32_t* logPatternCount)
+	static void logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32_t* logPatternCount)
 	{
 		if (!fmt || !strlen(fmt))
 			return;
 
-		LogPattern* patterns = static_cast<LogPattern*>(malloc(0));
+		LvnLogPattern* patterns = static_cast<LvnLogPattern*>(malloc(0));
 		uint32_t patternCount = 0;
 
 		for (uint32_t i = 0; i < strlen(fmt) - 1; i++)
 		{
 			if (fmt[i] != '%') // Other characters in format
 			{
-				LogPattern pattern = { .symbol = fmt[i], .func = nullptr };
-				LogPattern* newPattern = static_cast<LogPattern*>(realloc(patterns, ++patternCount * sizeof(LogPattern)));
+				LvnLogPattern pattern = { .symbol = fmt[i], .func = nullptr };
+				LvnLogPattern* newPattern = static_cast<LvnLogPattern*>(realloc(patterns, ++patternCount * sizeof(LvnLogPattern)));
 				if (!newPattern) return;
-				memcpy(&newPattern[patternCount - 1], &pattern, sizeof(LogPattern));
+				memcpy(&newPattern[patternCount - 1], &pattern, sizeof(LvnLogPattern));
 				patterns = newPattern;
 
 				continue;
 			}
-			
+
 			// find pattern with matching symbol
-			for (uint32_t j = 0; j < sizeof(s_LogPatterns) / sizeof(LogPattern); j++)
+			for (uint32_t j = 0; j < sizeof(s_LogPatterns) / sizeof(LvnLogPattern); j++)
 			{
 				if (fmt[i + 1] != s_LogPatterns[j].symbol)
 					continue;
 
-				LogPattern* newPattern = static_cast<LogPattern*>(realloc(patterns, ++patternCount * sizeof(LogPattern)));
+				LvnLogPattern* newPattern = static_cast<LvnLogPattern*>(realloc(patterns, ++patternCount * sizeof(LvnLogPattern)));
 				if (!newPattern) return;
-				memcpy(&newPattern[patternCount - 1], &s_LogPatterns[j], sizeof(LogPattern));
+				memcpy(&newPattern[patternCount - 1], &s_LogPatterns[j], sizeof(LvnLogPattern));
 				patterns = newPattern;
 			}
 
@@ -302,12 +307,12 @@ namespace lvn
 
 			s_CoreLogger.loggerName = "CORE";
 			s_ClientLogger.loggerName = "APP";
-			s_CoreLogger.logLevel = LvnLogLevel_None;
-			s_ClientLogger.logLevel = LvnLogLevel_None;
+			s_CoreLogger.logLevel = Lvn_LogLevel_None;
+			s_ClientLogger.logLevel = Lvn_LogLevel_None;
 			s_CoreLogger.logPatternFormat = "%#[%T] [%l] %n: %v%^%$";
 			s_ClientLogger.logPatternFormat = "%#[%T] [%l] %n: %v%^%$";
 
-			LogPattern* logPatterns = nullptr;
+			LvnLogPattern* logPatterns = nullptr;
 			uint32_t logPatternCount = 0;
 			logParseFormat("%#[%T] [%l] %n: %v%^%$", &logPatterns, &logPatternCount);
 
@@ -317,7 +322,7 @@ namespace lvn
 			s_ClientLogger.logPatternCount = logPatternCount;
 
 			#ifdef LVN_PLATFORM_WINDOWS 
-			coreUtils::enableLogANSIcodeColors();
+			enableLogANSIcodeColors();
 			#endif
 
 			return true;
@@ -342,17 +347,17 @@ namespace lvn
 		return false;
 	}
 
-	void logSetLevel(Logger* logger, LvnLogLevel level)
+	void logSetLevel(LvnLogger* logger, LvnLogLevel level)
 	{
 		logger->logLevel = level;
 	}
 
-	bool logCheckLevel(Logger* logger, LvnLogLevel level)
+	bool logCheckLevel(LvnLogger* logger, LvnLogLevel level)
 	{
 		return (level >= logger->logLevel);
 	}
 
-	void logOutputMessage(Logger* logger, LogMessage* msg)
+	void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 	{
 		if (!s_LoggingInit) return;
 
@@ -383,12 +388,12 @@ namespace lvn
 		free(dst);
 	}
 
-	Logger* getCoreLogger()
+	LvnLogger* getCoreLogger()
 	{
 		return &s_CoreLogger;
 	}
 
-	Logger* getClientLogger()
+	LvnLogger* getClientLogger()
 	{
 		return &s_ClientLogger;
 	}
@@ -397,32 +402,32 @@ namespace lvn
 	{
 		switch (level)
 		{
-			case LvnLogLevel_None:		{ return LVN_LOG_COLOR_RESET;	}
-			case LvnLogLevel_Trace:		{ return LVN_LOG_COLOR_TRACE;	}
-			case LvnLogLevel_Info:		{ return LVN_LOG_COLOR_INFO;	}
-			case LvnLogLevel_Warn:		{ return LVN_LOG_COLOR_WARN;	}
-			case LvnLogLevel_Error:		{ return LVN_LOG_COLOR_ERROR;	}
-			case LvnLogLevel_Critical:	{ return LVN_LOG_COLOR_CRITICAL;}
+			case Lvn_LogLevel_None:		{ return LVN_LOG_COLOR_RESET;	}
+			case Lvn_LogLevel_Trace:	{ return LVN_LOG_COLOR_TRACE;	}
+			case Lvn_LogLevel_Info:		{ return LVN_LOG_COLOR_INFO;	}
+			case Lvn_LogLevel_Warn:		{ return LVN_LOG_COLOR_WARN;	}
+			case Lvn_LogLevel_Error:	{ return LVN_LOG_COLOR_ERROR;	}
+			case Lvn_LogLevel_Critical:	{ return LVN_LOG_COLOR_CRITICAL;}
 		}
 
 		return nullptr;
 	}
 
-	void logSetPattern(Logger* logger, const char* pattern)
+	void logSetPattern(LvnLogger* logger, const char* pattern)
 	{
 		
 	}
 
 
 	/* [Events] */
-	bool dispatchAppRenderEvent(Event* event, bool(*func)(AppRenderEvent*))
+	bool dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*))
 	{
-		if (event->type == EventType::AppRender)
+		if (event->type == Lvn_EventType_AppRender)
 		{
-			AppRenderEvent eventType{};
-			eventType.type = EventType::AppRender;
-			eventType.category = LvnEventCategory_Application;
-			eventType.name = "AppRenderEvent";
+			LvnAppRenderEvent eventType{};
+			eventType.type = Lvn_EventType_AppRender;
+			eventType.category = Lvn_EventCategory_Application;
+			eventType.name = "LvnAppRenderEvent";
 			eventType.handled = false;
 
 			return func(&eventType);
@@ -430,14 +435,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchAppTickEvent(Event* event, bool(*func)(AppTickEvent*))
+	bool dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*))
 	{
-		if (event->type == EventType::AppTick)
+		if (event->type == Lvn_EventType_AppTick)
 		{
-			AppTickEvent eventType{};
-			eventType.type = EventType::AppTick;
-			eventType.category = LvnEventCategory_Application;
-			eventType.name = "AppTickEvent";
+			LvnAppTickEvent eventType{};
+			eventType.type = Lvn_EventType_AppTick;
+			eventType.category = Lvn_EventCategory_Application;
+			eventType.name = "LvnAppTickEvent";
 			eventType.handled = false;
 
 			return func(&eventType);
@@ -445,14 +450,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchKeyHoldEvent(Event* event, bool(*func)(KeyHoldEvent*))
+	bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*))
 	{
-		if (event->type == EventType::KeyHold)
+		if (event->type == Lvn_EventType_KeyHold)
 		{
-			KeyHoldEvent eventType{};
-			eventType.type = EventType::KeyHold;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
-			eventType.name = "KeyHoldEvent";
+			LvnKeyHoldEvent eventType{};
+			eventType.type = Lvn_EventType_KeyHold;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+			eventType.name = "LvnKeyHoldEvent";
 			eventType.handled = false;
 			eventType.keyCode = event->data.code;
 			eventType.repeat = event->data.repeat;
@@ -462,14 +467,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchKeyPressedEvent(Event* event, bool(*func)(KeyPressedEvent*))
+	bool dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*))
 	{
-		if (event->type == EventType::KeyPressed)
+		if (event->type == Lvn_EventType_KeyPressed)
 		{
-			KeyPressedEvent eventType{};
-			eventType.type = EventType::KeyPressed;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
-			eventType.name = "KeyPressedEvent";
+			LvnKeyPressedEvent eventType{};
+			eventType.type = Lvn_EventType_KeyPressed;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+			eventType.name = "LvnKeyPressedEvent";
 			eventType.handled = false;
 			eventType.keyCode = event->data.code;
 
@@ -478,14 +483,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchKeyReleasedEvent(Event* event, bool(*func)(KeyReleasedEvent*))
+	bool dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*))
 	{
-		if (event->type == EventType::KeyReleased)
+		if (event->type == Lvn_EventType_KeyReleased)
 		{
-			KeyReleasedEvent eventType{};
-			eventType.type = EventType::KeyReleased;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
-			eventType.name = "KeyReleasedEvent";
+			LvnKeyReleasedEvent eventType{};
+			eventType.type = Lvn_EventType_KeyReleased;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+			eventType.name = "LvnKeyReleasedEvent";
 			eventType.handled = false;
 			eventType.keyCode = event->data.code;
 
@@ -494,14 +499,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchKeyTypedEvent(Event* event, bool(*func)(KeyTypedEvent*))
+	bool dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*))
 	{
-		if (event->type == EventType::KeyTyped)
+		if (event->type == Lvn_EventType_KeyTyped)
 		{
-			KeyTypedEvent eventType{};
-			eventType.type = EventType::KeyTyped;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_Keyboard;
-			eventType.name = "KeyTypedEvent";
+			LvnKeyTypedEvent eventType{};
+			eventType.type = Lvn_EventType_KeyTyped;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+			eventType.name = "LvnKeyTypedEvent";
 			eventType.handled = false;
 			eventType.key = event->data.ucode;
 
@@ -510,14 +515,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchMouseButtonPressedEvent(Event* event, bool(*func)(MouseButtonPressedEvent*))
+	bool dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*))
 	{
-		if (event->type == EventType::MouseButtonPressed)
+		if (event->type == Lvn_EventType_MouseButtonPressed)
 		{
-			MouseButtonPressedEvent eventType{};
-			eventType.type = EventType::MouseButtonPressed;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_MouseButton | LvnEventCategory_Mouse;
-			eventType.name = "MouseButtonPressedEvent";
+			LvnMouseButtonPressedEvent eventType{};
+			eventType.type = Lvn_EventType_MouseButtonPressed;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_MouseButton | Lvn_EventCategory_Mouse;
+			eventType.name = "LvnMouseButtonPressedEvent";
 			eventType.handled = false;
 			eventType.buttonCode = event->data.code;
 
@@ -526,14 +531,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchMouseButtonReleasedEvent(Event* event, bool(*func)(MouseButtonReleasedEvent*))
+	bool dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*))
 	{
-		if (event->type == EventType::MouseButtonReleased)
+		if (event->type == Lvn_EventType_MouseButtonReleased)
 		{
-			MouseButtonReleasedEvent eventType{};
-			eventType.type = EventType::MouseButtonReleased;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_MouseButton | LvnEventCategory_Mouse;
-			eventType.name = "MouseButtonReleasedEvent";
+			LvnMouseButtonReleasedEvent eventType{};
+			eventType.type = Lvn_EventType_MouseButtonReleased;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_MouseButton | Lvn_EventCategory_Mouse;
+			eventType.name = "LvnMouseButtonReleasedEvent";
 			eventType.handled = false;
 			eventType.buttonCode = event->data.code;
 
@@ -542,14 +547,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchMouseMovedEvent(Event* event, bool(*func)(MouseMovedEvent*))
+	bool dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*))
 	{
-		if (event->type == EventType::MouseMoved)
+		if (event->type == Lvn_EventType_MouseMoved)
 		{
-			MouseMovedEvent eventType{};
-			eventType.type = EventType::MouseMoved;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_Mouse;
-			eventType.name = "MouseMovedEvent";
+			LvnMouseMovedEvent eventType{};
+			eventType.type = Lvn_EventType_MouseMoved;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Mouse;
+			eventType.name = "LvnMouseMovedEvent";
 			eventType.handled = false;
 			eventType.x = event->data.xd;
 			eventType.y = event->data.yd;
@@ -559,14 +564,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchMouseScrolledEvent(Event* event, bool(*func)(MouseScrolledEvent*))
+	bool dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*))
 	{
-		if (event->type == EventType::MouseScrolled)
+		if (event->type == Lvn_EventType_MouseScrolled)
 		{
-			MouseScrolledEvent eventType{};
-			eventType.type = EventType::MouseScrolled;
-			eventType.category = LvnEventCategory_Input | LvnEventCategory_MouseButton | LvnEventCategory_Mouse;
-			eventType.name = "MouseScrolledEvent";
+			LvnMouseScrolledEvent eventType{};
+			eventType.type = Lvn_EventType_MouseScrolled;
+			eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_MouseButton | Lvn_EventCategory_Mouse;
+			eventType.name = "LvnMouseScrolledEvent";
 			eventType.handled = false;
 			eventType.x = static_cast<float>(event->data.xd);
 			eventType.y = static_cast<float>(event->data.yd);
@@ -576,14 +581,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchWindowCloseEvent(Event* event, bool(*func)(WindowCloseEvent*))
+	bool dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*))
 	{
-		if (event->type == EventType::WindowClose)
+		if (event->type == Lvn_EventType_WindowClose)
 		{
-			WindowCloseEvent eventType{};
-			eventType.type = EventType::WindowClose;
-			eventType.category = LvnEventCategory_Window;
-			eventType.name = "WindowCloseEvent";
+			LvnWindowCloseEvent eventType{};
+			eventType.type = Lvn_EventType_WindowClose;
+			eventType.category = Lvn_EventCategory_Window;
+			eventType.name = "LvnWindowCloseEvent";
 			eventType.handled = false;
 
 			return func(&eventType);
@@ -591,14 +596,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchWindowFocusEvent(Event* event, bool(*func)(WindowFocusEvent*))
+	bool dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*))
 	{
-		if (event->type == EventType::WindowFocus)
+		if (event->type == Lvn_EventType_WindowFocus)
 		{
-			WindowFocusEvent eventType{};
-			eventType.type = EventType::WindowFocus;
-			eventType.category = LvnEventCategory_Window;
-			eventType.name = "WindowFocusEvent";
+			LvnWindowFocusEvent eventType{};
+			eventType.type = Lvn_EventType_WindowFocus;
+			eventType.category = Lvn_EventCategory_Window;
+			eventType.name = "LvnWindowFocusEvent";
 			eventType.handled = false;
 
 			return func(&eventType);
@@ -606,14 +611,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchWindowFramebufferResizeEvent(Event* event, bool(*func)(WindowFramebufferResizeEvent*))
+	bool dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*))
 	{
-		if (event->type == EventType::WindowFramebufferResize)
+		if (event->type == Lvn_EventType_WindowFramebufferResize)
 		{
-			WindowFramebufferResizeEvent eventType{};
-			eventType.type = EventType::WindowFramebufferResize;
-			eventType.category = LvnEventCategory_Window;
-			eventType.name = "WindowFramebufferResizeEvent";
+			LvnWindowFramebufferResizeEvent eventType{};
+			eventType.type = Lvn_EventType_WindowFramebufferResize;
+			eventType.category = Lvn_EventCategory_Window;
+			eventType.name = "LvnWindowFramebufferResizeEvent";
 			eventType.handled = false;
 			eventType.width = event->data.x;
 			eventType.height = event->data.y;
@@ -623,14 +628,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchWindowLostFocusEvent(Event* event, bool(*func)(WindowLostFocusEvent*))
+	bool dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*))
 	{
-		if (event->type == EventType::WindowLostFocus)
+		if (event->type == Lvn_EventType_WindowLostFocus)
 		{
-			WindowLostFocusEvent eventType{};
-			eventType.type = EventType::WindowLostFocus;
-			eventType.category = LvnEventCategory_Window;
-			eventType.name = "WindowLostFocusEvent";
+			LvnWindowLostFocusEvent eventType{};
+			eventType.type = Lvn_EventType_WindowLostFocus;
+			eventType.category = Lvn_EventCategory_Window;
+			eventType.name = "LvnWindowLostFocusEvent";
 			eventType.handled = false;
 
 			return func(&eventType);
@@ -638,14 +643,14 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchWindowMovedEvent(Event* event, bool(*func)(WindowMovedEvent*))
+	bool dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*))
 	{
-		if (event->type == lvn::EventType::WindowMoved)
+		if (event->type == Lvn_EventType_WindowMoved)
 		{
-			WindowMovedEvent eventType{};
-			eventType.type = EventType::WindowMoved;
-			eventType.category = LvnEventCategory_Window;
-			eventType.name = "WindowMovedEvent";
+			LvnWindowMovedEvent eventType{};
+			eventType.type = Lvn_EventType_WindowMoved;
+			eventType.category = Lvn_EventCategory_Window;
+			eventType.name = "LvnWindowMovedEvent";
 			eventType.handled = false;
 			eventType.x = event->data.x;
 			eventType.y = event->data.y;
@@ -655,15 +660,15 @@ namespace lvn
 
 		return false;
 	}
-	bool dispatchWindowResizeEvent(Event* event, bool(*func)(WindowResizeEvent*))
+	bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*))
 	{
 
-		if (event->type == lvn::EventType::WindowResize)
+		if (event->type == Lvn_EventType_WindowResize)
 		{
-			WindowResizeEvent eventType{};
-			eventType.type = EventType::WindowResize;
-			eventType.category = LvnEventCategory_Window;
-			eventType.name = "WindowResizeEvent";
+			LvnWindowResizeEvent eventType{};
+			eventType.type = Lvn_EventType_WindowResize;
+			eventType.category = Lvn_EventCategory_Window;
+			eventType.name = "LvnWindowResizeEvent";
 			eventType.handled = false;
 			eventType.width = event->data.x;
 			eventType.height = event->data.y;
@@ -676,25 +681,25 @@ namespace lvn
 
 
 	/* [Window] */
-	static WindowContext* s_WindowContext = nullptr;
+	static LvnWindowContext* s_WindowContext = nullptr;
 
-	bool createWindowContext(WindowAPI windowapi)
+	bool createWindowContext(LvnWindowApi windowapi)
 	{
 		switch (windowapi)
 		{
-			case WindowAPI::None:
+			case Lvn_WindowApi_None:
 			{
 				LVN_CORE_WARN("setting Window API to none, no Windows API selected!");
 				return false;
 			}
-			case WindowAPI::glfw:
+			case Lvn_WindowApi_glfw:
 			{
-				s_WindowContext = new WindowContext();
-				s_WindowContext->windowapi = WindowAPI::glfw;
+				s_WindowContext = new LvnWindowContext();
+				s_WindowContext->windowapi = Lvn_WindowApi_glfw;
 				glfwImplInitWindowContext(s_WindowContext);
 				break;
 			}
-			case WindowAPI::win32:
+			case Lvn_WindowApi_win32:
 			{
 
 				break;
@@ -703,7 +708,7 @@ namespace lvn
 
 		//windowInputInit();
 
-		LVN_CORE_INFO("window context set: %s", getWindowAPIName());
+		LVN_CORE_INFO("window context set: %s", getWindowApiName());
 		return true;
 	}
 
@@ -711,18 +716,18 @@ namespace lvn
 	{
 		switch (s_WindowContext->windowapi)
 		{
-			case WindowAPI::None:
+			case Lvn_WindowApi_None:
 			{
 				LVN_CORE_WARN("no window API Initialized! Cannot terminate window API!");
 				return false;
 			}
-			case WindowAPI::glfw:
+			case Lvn_WindowApi_glfw:
 			{
 				glfwImplTerminateWindowContext();
 				delete s_WindowContext;
 				break;
 			}
-			case WindowAPI::win32:
+			case Lvn_WindowApi_win32:
 			{
 
 				break;
@@ -738,25 +743,25 @@ namespace lvn
 		return true;
 	}
 
-	WindowAPI getWindowAPI()
+	LvnWindowApi getWindowApi()
 	{
 		return s_WindowContext->windowapi;
 	}
 
-	const char* getWindowAPIName()
+	const char* getWindowApiName()
 	{
 		switch (s_WindowContext->windowapi)
 		{
-			case WindowAPI::None: { return "None"; }
-			case WindowAPI::glfw: { return "glfw"; }
-			case WindowAPI::win32: { return "win32"; }
+			case Lvn_WindowApi_None: { return "None"; }
+			case Lvn_WindowApi_glfw: { return "glfw"; }
+			case Lvn_WindowApi_win32: { return "win32"; }
 		}
 
 		LVN_CORE_ERROR("Unknown Windows API selected!");
 		return nullptr;
 	}
 
-	Window* createWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
+	LvnWindow* createWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
 	{
 		if (width * height < 0)
 		{
@@ -767,7 +772,7 @@ namespace lvn
 		return s_WindowContext->createWindow(width, height, title, fullscreen, resizable, minWidth, minHeight);
 	}
 
-	Window* createWindow(WindowCreateInfo* winCreateInfo)
+	LvnWindow* createWindow(LvnWindowCreateInfo* winCreateInfo)
 	{
 		if (winCreateInfo->width * winCreateInfo->height < 0)
 		{
@@ -778,57 +783,57 @@ namespace lvn
 		return s_WindowContext->createWindowInfo(winCreateInfo);
 	}
 
-	void updateWindow(Window* window)
+	void updateWindow(LvnWindow* window)
 	{
 		s_WindowContext->updateWindow(window);
 	}
 
-	bool windowOpen(Window* window)
+	bool windowOpen(LvnWindow* window)
 	{
 		return s_WindowContext->windowOpen(window);
 	}
 
-	WindowDimension getWindowDimensions(Window* window)
+	LvnWindowDimension getWindowDimensions(LvnWindow* window)
 	{
 		return s_WindowContext->getDimensions(window);
 	}
 
-	int getWindowWidth(Window* window)
+	int getWindowWidth(LvnWindow* window)
 	{
 		return s_WindowContext->getWindowWidth(window);
 	}
 
-	int getWindowHeight(Window* window)
+	int getWindowHeight(LvnWindow* window)
 	{
 		return s_WindowContext->getWindowHeight(window);
 	}
 
-	void setWindowEventCallback(Window* window, void (*callback)(Event*))
+	void setWindowEventCallback(LvnWindow* window, void (*callback)(LvnEvent*))
 	{
 		window->data.eventCallBackFn = callback;
 	}
 
-	void setWindowVSync(Window* window, bool enable)
+	void setWindowVSync(LvnWindow* window, bool enable)
 	{
 		s_WindowContext->setWindowVSync(window, enable);
 	}
 
-	bool getWindowVSync(Window* window)
+	bool getWindowVSync(LvnWindow* window)
 	{
 		return s_WindowContext->getWindowVSync(window);
 	}
 
-	void* getNativeWindow(Window* window)
+	void* getNativeWindow(LvnWindow* window)
 	{
 		return window->nativeWindow;
 	}
 
-	void setWindowContextCurrent(Window* window)
+	void setWindowContextCurrent(LvnWindow* window)
 	{
 		s_WindowContext->setWindowContextCurrent(window);
 	}
 
-	void destroyWindow(Window* window)
+	void destroyWindow(LvnWindow* window)
 	{
 		s_WindowContext->destroyWindow(window);
 	}

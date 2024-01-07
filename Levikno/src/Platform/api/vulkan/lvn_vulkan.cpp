@@ -183,20 +183,20 @@ namespace lvn
 			LVN_CORE_ASSERT(vkCreateInstance(&createInfo, nullptr, &vkBackends->instance) == VK_SUCCESS, "vulkan - failed to create instance!");
 		}
 
-		PhysicalDeviceType getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type)
+		LvnPhysicalDeviceType getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type)
 		{
 			switch (type)
 			{
-				case VK_PHYSICAL_DEVICE_TYPE_OTHER:			 { return PhysicalDeviceType::Other; }
-				case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: { return PhysicalDeviceType::Integrated_GPU; }
-				case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:	 { return PhysicalDeviceType::Discrete_GPU; }
-				case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:	 { return PhysicalDeviceType::Virtual_GPU; }
-				case VK_PHYSICAL_DEVICE_TYPE_CPU:			 { return PhysicalDeviceType::CPU; }
+				case VK_PHYSICAL_DEVICE_TYPE_OTHER:			 { return Lvn_PhysicalDeviceType_Other; }
+				case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: { return Lvn_PhysicalDeviceType_Integrated_GPU; }
+				case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:	 { return Lvn_PhysicalDeviceType_Discrete_GPU; }
+				case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:	 { return Lvn_PhysicalDeviceType_Virtual_GPU; }
+				case VK_PHYSICAL_DEVICE_TYPE_CPU:			 { return Lvn_PhysicalDeviceType_CPU; }
 				default: { break; }
 			}
 
 			LVN_CORE_WARN("vulkan - No physical device matches type");
-			return PhysicalDeviceType::Other;
+			return Lvn_PhysicalDeviceType_Unknown;
 		}
 
 		void pickPhysicalDevice(VulkanBackends* vkBackends)
@@ -239,18 +239,11 @@ namespace lvn
 		}
 	}
 
-	void vksImplCreateContext(GraphicsContext* graphicsContext, RendererBackends* renderBackends)
+	void vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	{
 		VulkanBackends* vkBackends = new VulkanBackends();
-		vkBackends->enableValidationLayers = renderBackends->enableValidationLayers;
-
-		if (s_EnableValidationLayers)
-			LVN_CORE_ASSERT(vks::checkValidationLayerSupport(), "vulkan - validation layers enabled, but not available!");
-
 		vks::createInstance(vkBackends);
-		vks::setupDebugMessenger(vkBackends);
 		vks::getPhysicalDevices(vkBackends);
-
 		s_VkBackends = vkBackends;
 	}
 
@@ -258,7 +251,7 @@ namespace lvn
 	{
 		VulkanBackends& vkBackends = *s_VkBackends;
 
-		if (s_EnableValidationLayers)
+		if (vkBackends.enableValidationLayers)
 			vks::destroyDebugUtilsMessengerEXT(vkBackends.instance, vkBackends.debugMessenger, nullptr);
 		if (vkBackends.pPhysicalDevices || vkBackends.physicalDeviceCount)
 			free(vkBackends.pPhysicalDevices);
@@ -268,7 +261,7 @@ namespace lvn
 		delete s_VkBackends;
 	}
 
-	void vksImplGetPhysicalDevices(PhysicalDevice* pPhysicalDevices, uint32_t* deviceCount)
+	void vksImplGetPhysicalDevices(LvnPhysicalDevice* pPhysicalDevices, uint32_t* deviceCount)
 	{
 		LVN_CORE_ASSERT(s_VkBackends != nullptr, "vulkan - Vulkan Instance not initiated!");
 		VulkanBackends& vkBackends = *s_VkBackends;
@@ -288,7 +281,7 @@ namespace lvn
 			VkPhysicalDeviceProperties deviceProperties;
 			vkGetPhysicalDeviceProperties(vkBackends.pPhysicalDevices[i], &deviceProperties);
 
-			PhysicalDeviceInfo deviceInfo{};
+			LvnPhysicalDeviceInfo deviceInfo{};
 			deviceInfo.type = vks::getPhysicalDeviceTypeEnum(deviceProperties.deviceType);
 			deviceInfo.name = deviceProperties.deviceName;
 			deviceInfo.apiVersion = deviceProperties.apiVersion;
@@ -298,4 +291,81 @@ namespace lvn
 			pPhysicalDevices[i].device = vkBackends.pPhysicalDevices[i];
 		}
 	}
+
+	bool vksImplRenderInit(LvnRendererBackends* renderBackends)
+	{
+		VulkanBackends* vkBackends = s_VkBackends;
+
+		vkBackends->enableValidationLayers = renderBackends->enableValidationLayers;
+		vkBackends->physicalDevice = *static_cast<VkPhysicalDevice*>(renderBackends->physicalDevice->device);
+
+		if (renderBackends->enableValidationLayers && !vks::checkValidationLayerSupport())
+			LVN_CORE_WARN("vulkan - validation layers enabled, but not available!");
+		else 
+			vks::setupDebugMessenger(vkBackends);
+		
+
+		return true;
+	}
+
+	void vksImplRenderClearColor(const float r, const float g, const float b, const float w)
+	{
+
+	}
+
+	void vksImplRenderClear()
+	{
+
+	}
+
+	void vksImplRenderDraw(uint32_t vertexCount)
+	{
+
+	}
+
+	void vksImplRenderDrawIndexed(uint32_t indexCount)
+	{
+
+	}
+
+	void vksImplRenderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
+	{
+
+	}
+
+	void vksImplRenderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+	{
+
+	}
+
+	void vksImplRenderSetStencilReference(uint32_t reference)
+	{
+
+	}
+
+	void vksImplRenderSetStencilMask(uint32_t compareMask, uint32_t writeMask)
+	{
+
+	}
+
+	void vksImplRenderBeginNextFrame()
+	{
+
+	}
+
+	void vksImplRenderDrawSubmit()
+	{
+
+	}
+
+	void vksImplRenderBeginRenderPass()
+	{
+
+	}
+
+	void vksImplRenderEndRenderPass()
+	{
+
+	}
+
 }

@@ -5,30 +5,30 @@
 
 namespace lvn
 {
-	static GraphicsContext* s_GraphicsContext = nullptr;
+	static LvnGraphicsContext* s_GraphicsContext = nullptr;
 	
-	bool createGraphicsContext(GraphicsAPI graphicsapi, RendererBackends* renderBackends)
+	bool createGraphicsContext(LvnGraphicsApi graphicsapi)
 	{
-		if (graphicsapi != GraphicsAPI::None)
+		if (graphicsapi != Lvn_GraphicsApi_None)
 		{
-			s_GraphicsContext = new GraphicsContext();
+			s_GraphicsContext = new LvnGraphicsContext();
 			s_GraphicsContext->graphicsapi = graphicsapi;
 		
 			switch (graphicsapi)
 			{
-				case GraphicsAPI::vulkan:
+				case Lvn_GraphicsApi_vulkan:
 				{
-					vksImplCreateContext(s_GraphicsContext, renderBackends);
+					vksImplCreateContext(s_GraphicsContext);
 					break;
 				}
-				case GraphicsAPI::opengl:
+				case Lvn_GraphicsApi_opengl:
 				{
 					
 					break;
 				}
 			}
 		
-			LVN_CORE_INFO("graphics context set: %s", getGraphicsAPIName());
+			LVN_CORE_INFO("graphics context set: %s", getGraphicsApiName());
 			return true;
 		}
 		else
@@ -42,18 +42,18 @@ namespace lvn
 	{
 		switch (s_GraphicsContext->graphicsapi)
 		{
-			case GraphicsAPI::None:
+			case Lvn_GraphicsApi_None:
 			{
 				LVN_CORE_WARN("no Graphics API Initialized! Cannot terminate Graphics API!");
 				return false;
 			}
-			case GraphicsAPI::vulkan:
+			case Lvn_GraphicsApi_vulkan:
 			{
 				vksImplTerminateContext();
 				delete s_GraphicsContext;
 				break;
 			}
-			case GraphicsAPI::opengl:
+			case Lvn_GraphicsApi_opengl:
 			{
 
 				break;
@@ -69,26 +69,31 @@ namespace lvn
 		return true;
 	}
 
-	GraphicsAPI getGraphicsAPI()
+	LvnGraphicsApi getGraphicsApi()
 	{
 		return s_GraphicsContext->graphicsapi;
 	}
 
-	const char* getGraphicsAPIName()
+	const char* getGraphicsApiName()
 	{
 		switch (s_GraphicsContext->graphicsapi)
 		{
-			case GraphicsAPI::None:   { return "None";   }
-			case GraphicsAPI::vulkan: { return "vulkan"; }
-			case GraphicsAPI::opengl: { return "opengl"; }
+			case Lvn_GraphicsApi_None:   { return "None";   }
+			case Lvn_GraphicsApi_vulkan: { return "vulkan"; }
+			case Lvn_GraphicsApi_opengl: { return "opengl"; }
 		}
 
 		LVN_CORE_ERROR("Unknown Graphics API selected!");
 		return nullptr;
 	}
 
-	void getPhysicalDevices(PhysicalDevice* pPhysicalDevices, uint32_t* deviceCount)
+	void getPhysicalDevices(LvnPhysicalDevice* pPhysicalDevices, uint32_t* deviceCount)
 	{
 		vksImplGetPhysicalDevices(pPhysicalDevices, deviceCount);
+	}
+
+	bool renderInit(LvnRendererBackends* renderBackends)
+	{
+		return vksImplRenderInit(renderBackends);
 	}
 }
