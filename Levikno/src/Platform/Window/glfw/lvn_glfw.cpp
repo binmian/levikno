@@ -1,12 +1,7 @@
 #include "lvn_glfw.h"
 
-#include <stdlib.h>
-
 #define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
-
-#include "Graphics/graphics_internal.h"
 
 namespace lvn
 {
@@ -17,28 +12,42 @@ namespace lvn
 		LVN_CORE_ERROR("glfw-error: (%d): %s", error, descripion);
 	}
 
-	void glfwImplInitWindowContext(LvnWindowContext* windowContext)
+	LvnResult glfwImplInitWindowContext(LvnWindowContext* windowContext)
 	{
-		if (!s_glfwInit)
+		if (s_glfwInit)
 		{
-			int success = glfwInit();
-			LVN_CORE_ASSERT(success, "Failed to initialize glfw");
-			glfwSetErrorCallback(GLFWerrorCallback);
-			s_glfwInit = true;
+			LVN_CORE_WARN("glfw already initialized!");
+			return Lvn_Result_AlreadyCalled;
+		}
 
-			windowContext->createWindow = glfwImplCreateWindow;
-			windowContext->createWindowInfo = glfwImplCreateWindowInfo;
-			windowContext->updateWindow	= glfwImplUpdateWindow;
-			windowContext->windowOpen = glfwImplWindowOpen;
-			windowContext->getDimensions = glfwImplGetDimensions;
-			windowContext->getWindowWidth = glfwImplGetWindowWidth;
-			windowContext->getWindowHeight = glfwImplGetWindowHeight;
-			windowContext->setWindowVSync = glfwImplSetWindowVSync;
-			windowContext->getWindowVSync = glfwImplGetWindowVSync;
-			windowContext->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
-			windowContext->destroyWindow = glfwImplDestroyWindow;
-		}			   
-		else LVN_CORE_WARN("glfw already initialized!");
+		int success = glfwInit();
+		if (!success)
+		{
+			LVN_CORE_ASSERT(success, "Failed to initialize glfw");
+			return Lvn_Result_Failure;
+		}
+		glfwSetErrorCallback(GLFWerrorCallback);
+		s_glfwInit = true;
+
+		windowContext->createWindowInfo = glfwImplCreateWindowInfo;
+		windowContext->updateWindow	= glfwImplUpdateWindow;
+		windowContext->windowOpen = glfwImplWindowOpen;
+		windowContext->getDimensions = glfwImplGetDimensions;
+		windowContext->getWindowWidth = glfwImplGetWindowWidth;
+		windowContext->getWindowHeight = glfwImplGetWindowHeight;
+		windowContext->setWindowVSync = glfwImplSetWindowVSync;
+		windowContext->getWindowVSync = glfwImplGetWindowVSync;
+		windowContext->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
+		windowContext->destroyWindow = glfwImplDestroyWindow;
+
+
+		LvnGraphicsApi graphicsapi = getGraphicsApi();
+		if (graphicsapi == Lvn_GraphicsApi_vulkan)
+		{
+			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		}
+
+		return Lvn_Result_Success;
 	}
 
 	void glfwImplTerminateWindowContext()
@@ -51,28 +60,8 @@ namespace lvn
 		else LVN_CORE_WARN("glfw already terminated!");
 	}
 
-	LvnWindow* glfwImplCreateWindow(int width, int height, const char* title, bool fullscreen, bool resizable, int minWidth, int minHeight)
+	void glfwImplCreateWindowInfo(LvnWindow* window, LvnWindowCreateInfo* winCreateInfo)
 	{
-		LvnWindow* window = new LvnWindow();
-		window->data.width = width;
-		window->data.height = height;
-		window->data.title = title;
-		window->data.fullscreen = fullscreen;
-		window->data.resizable = resizable;
-		window->data.minWidth = minWidth;
-		window->data.minHeight = minHeight;
-		window->data.maxWidth = -1;
-		window->data.maxHeight = -1;
-		window->data.eventCallBackFn = glfwImplEventCallBackFn;
-
-		glfwImplInitWindow(window);
-
-		return window;
-	}
-
-	LvnWindow* glfwImplCreateWindowInfo(LvnWindowCreateInfo* winCreateInfo)
-	{
-		LvnWindow* window = new LvnWindow();
 		window->data.width = winCreateInfo->width;
 		window->data.height = winCreateInfo->height;
 		window->data.title = winCreateInfo->title;
@@ -88,8 +77,6 @@ namespace lvn
 		window->data.eventCallBackFn = glfwImplEventCallBackFn;
 
 		glfwImplInitWindow(window);
-
-		return window;
 	}
 
 	void glfwImplInitWindow(LvnWindow* window)
@@ -98,13 +85,9 @@ namespace lvn
 		if (window->data.fullscreen)
 			fullScreen = glfwGetPrimaryMonitor();
 
-		LvnGraphicsApi graphicsapi = getGraphicsApi();
-		if (graphicsapi == Lvn_GraphicsApi_vulkan)
-		{
-			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		}
-
-		if (!window->data.resizable)
+		if (window->data.resizable)
+			glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+		else if (!window->data.resizable)
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		LVN_CORE_INFO("creating window: %s - (w:%d, h:%d)", window->data.title, window->data.width, window->data.height);
@@ -113,22 +96,20 @@ namespace lvn
 
 		if (window->data.pIcons != nullptr)
 		{
-			GLFWimage* images = (GLFWimage*)malloc(window->data.iconCount * sizeof(GLFWimage));
+			LvnVector<GLFWimage> images(window->data.iconCount);
 			for (uint32_t i = 0; i < window->data.iconCount; i++)
 			{
 				GLFWimage image{};
 				image.pixels = window->data.pIcons[i].image;
 				image.width = window->data.pIcons[i].width;
 				image.height = window->data.pIcons[i].height;
-				images[i] = image;
+				images.push_back(image);
 			}
 
-			glfwSetWindowIcon(nativeWindow, static_cast<int>(window->data.iconCount), images);
-			free(images);
+			glfwSetWindowIcon(nativeWindow, static_cast<int>(window->data.iconCount), images.data());
 		}
 
 		glfwSetWindowSizeLimits(nativeWindow, window->data.minWidth, window->data.minHeight, window->data.maxWidth, window->data.maxHeight);
-		glfwSwapInterval(window->data.vSync);
 		glfwSetWindowUserPointer(nativeWindow, &window->data);
 
 		window->nativeWindow = nativeWindow;
@@ -360,7 +341,7 @@ namespace lvn
 		return (!glfwWindowShouldClose(static_cast<GLFWwindow*>(window->nativeWindow)));
 	}
 
-	LvnWindowDimension glfwImplGetDimensions(LvnWindow* window)
+	LvnWindowDimensions glfwImplGetDimensions(LvnWindow* window)
 	{
 		int width, height;
 		glfwGetWindowSize(static_cast<GLFWwindow*>(window->nativeWindow), &width, &height);
@@ -406,10 +387,5 @@ namespace lvn
 	void glfwImplEventCallBackFn(LvnEvent* e)
 	{
 		return;
-	}
-
-	const char** glfwImplGetInstanceExtensions(uint32_t* extensionCount)
-	{
-		return glfwGetRequiredInstanceExtensions(extensionCount);
 	}
 }

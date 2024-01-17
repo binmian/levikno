@@ -1,14 +1,13 @@
 #ifndef HG_LEVIKNO_VULKAN_H
 #define HG_LEVIKNO_VULKAN_H
 
-#include "Graphics/graphics_internal.h"
+#include "levikno_internal.h"
 
 namespace lvn
 {
-	void vksImplCreateContext(LvnGraphicsContext* graphicsContext);
+	LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidationLayers = false);
 	void vksImplTerminateContext();
-	void vksImplGetPhysicalDevices(LvnPhysicalDevice* pPhysicalDevices, uint32_t* deviceCount);
-	bool vksImplRenderInit(LvnRendererBackends* renderBackends);
+	LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends);
 
 	void vksImplRenderClearColor(const float r, const float g, const float b, const float w);
 	void vksImplRenderClear();

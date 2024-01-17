@@ -1,6 +1,4 @@
 ﻿#include <levikno/levikno.h>
-#include <levikno/Core.h>
-#include <levikno/Graphics.h>
 
 bool windowMoved(LvnWindowMovedEvent* e)
 {
@@ -54,29 +52,17 @@ void eventsCallbackFn(LvnEvent* e)
 
 int main()
 {
-	lvn::logInit();
+	LvnContextCreateInfo lvnCreateInfo{};
+	lvnCreateInfo.useLogging = true;
+	lvnCreateInfo.vulkanValidationLayers = true;
+	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
-	LvnRendererBackends renderBackends{};
-	renderBackends.enableValidationLayers = true;
+	lvn::createContext(&lvnCreateInfo);
 
-	lvn::createWindowContext(Lvn_WindowApi_glfw);
-	lvn::createGraphicsContext(Lvn_GraphicsApi_vulkan);
-
-	uint32_t deviceCount;
-	lvn::getPhysicalDevices(nullptr, &deviceCount);
-
-	LvnPhysicalDevice* devices = static_cast<LvnPhysicalDevice*>(malloc(deviceCount * sizeof(LvnPhysicalDevice)));
-	lvn::getPhysicalDevices(devices, &deviceCount);
-
-	for (uint32_t i = 0; i < deviceCount; i++)
-	{
-		LVN_TRACE("name: %s\tversion: %d", devices[i].info.name, devices[i].info.driverVersion);
-	}
-
-	renderBackends.physicalDevice = &devices[0];
-	lvn::renderInit(&renderBackends);
-
-	free(devices);
+	//lvn::logInit();
+	//lvn::logSetPatternFormat(lvn::getCoreLogger(), "[%T] [%#%l%^] %n: %v%$");
+	//lvn::logSetPatternFormat(lvn::getClientLogger(), "%#[%T] %n <%l>: %v%^%$");
 
 	LvnWindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
@@ -94,6 +80,29 @@ int main()
 	LvnWindow* window = lvn::createWindow(&windowInfo);
 
 	lvn::setWindowEventCallback(window, eventsCallbackFn);
+
+	uint32_t deviceCount = 0;
+	LvnPhysicalDevice** devices = nullptr;
+	lvn::getPhysicalDevices(nullptr, &deviceCount);
+
+	devices = (LvnPhysicalDevice**)malloc(deviceCount * sizeof(LvnPhysicalDevice*));
+	if (!devices) { return 1; }
+	lvn::getPhysicalDevices(devices, &deviceCount);
+
+	for (uint32_t i = 0; i < deviceCount; i++)
+	{
+		LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
+		LVN_TRACE("name: %s\tversion: %d", deviceInfo.name, deviceInfo.driverVersion);
+	}
+
+	LvnRendererBackends renderBackends{};
+	renderBackends.physicalDevice = devices[0];
+	renderBackends.pWindows = &window;
+	renderBackends.windowCount = 1;
+	lvn::renderInit(&renderBackends);
+
+	free(devices);
+
 
 	lvn::vec2 a = { 1.0f, 2.0f };
 	lvn::vec2 b = { 3.0f, 5.0f };
@@ -123,15 +132,14 @@ int main()
 	{
 		lvn::updateWindow(window);
 
-		auto dim = lvn::getWindowDimensions(window);
+		auto [x, y] = lvn::getWindowDimensions(window);
 
-		LVN_TRACE("abc123!@#\n445\t45\"df\"{}\n%ssaf%d%%", "fasdf", 22);
+		LVN_TRACE("(x:%d,y:%d)", x, y);
 	}
 
 
-	lvn::terminateWindowContext();
-	lvn::terminateGraphicsContext();
-	lvn::logTerminate();
+	lvn::destroyWindow(window);
+	lvn::terminateContext();
 
 	return 0;
 }
