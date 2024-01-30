@@ -1,7 +1,8 @@
 #include "lvn_glfw.h"
 
 #define GLFW_INCLUDE_NONE
-#include <glfw/glfw3.h>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 namespace lvn
 {

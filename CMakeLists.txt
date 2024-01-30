@@ -34,6 +34,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PLATFORM_TYPE}-${AR
 # Subdirectories ---------------------------------------- /
 
 # GLFW
+set(GLFW_BUILD_WAYLAND 1)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -42,24 +43,8 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/Levikno/src/dependencies/glfw)
 
 # Source build files
 
-# Core
-set(LVN_CORE_SRC
-	# Core
-	Levikno/include/levikno/core.h
-	Levikno/src/core/core_internal.cpp
-	Levikno/src/core/core_internal.h
-
-	# glfw
-	Levikno/src/platform/window/glfw/lvn_glfw.cpp
-	Levikno/src/platform/window/glfw/lvn_glfw.h
-)
-
 # Graphics
 set(LVN_GRAPHICS_SRC
-	Levikno/include/levikno/graphics.h
-	Levikno/src/graphics/graphics_internal.cpp
-	Levikno/src/graphics/graphics_internal.h
-
 	# glad
 	Levikno/src/dependencies/glad/include/glad/glad.h
 	Levikno/src/dependencies/glad/src/glad.c
@@ -70,14 +55,19 @@ set(LVN_GRAPHICS_SRC
 	Levikno/src/platform/api/vulkan/lvn_vulkanBackends.h
 )
 
-set(LVN_BUILD_SOURCES
+set(LVN_SOURCES
 	Levikno/include/levikno/levikno.h
+	Levikno/src/levikno.cpp
+	Levikno/src/levikno_internal.h
 
-	${LVN_CORE_SRC}
-	${LVN_GRAPHICS_SRC}
+  # glfw
+	Levikno/src/platform/window/glfw/lvn_glfw.cpp
+	Levikno/src/platform/window/glfw/lvn_glfw.h
+
+  ${LVN_GRAPHICS_SRC}
 )
 
-add_library(levikno STATIC ${LVN_BUILD_SOURCES})
+add_library(levikno STATIC ${LVN_SOURCES})
 
 target_include_directories(levikno
 	PRIVATE
@@ -108,6 +98,11 @@ endif()
 
 set(VULKAN_LIB_DIR
 	Vulkan::Vulkan
+)
+
+target_link_libraries(glfw
+	PRIVATE 
+		${VULKAN_LIB_DIR}
 )
 
 target_link_libraries(levikno

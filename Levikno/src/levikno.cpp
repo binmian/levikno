@@ -1,5 +1,7 @@
+#include "levikno/levikno.h"
 #include "levikno_internal.h"
 
+#include <stdarg.h>
 #include <time.h>
 
 #ifdef LVN_PLATFORM_WINDOWS
@@ -475,76 +477,66 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
+	char buff[1024];
+
 	va_list argptr;
 	va_start(argptr, fmt);
 
-	uint32_t strsize = vsnprintf(nullptr, 0, fmt, argptr) + 1;
-	char* buff = (char*)memAlloc(strsize);
-	if (!buff) return;
-	vsnprintf(buff, strsize, fmt, argptr);
+	vsnprintf(buff, 1024, fmt, argptr);
 	logMessage(logger, Lvn_LogLevel_Trace, buff);
 
-	memFree(buff);
 	va_end(argptr);
 }
 
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
+	char buff[1024];
+
 	va_list argptr;
 	va_start(argptr, fmt);
 
-	uint32_t strsize = vsnprintf(nullptr, 0, fmt, argptr) + 1;
-	char* buff = (char*)memAlloc(strsize);
-	if (!buff) return;
-	vsnprintf(buff, strsize, fmt, argptr);
+	vsnprintf(buff, 1024, fmt, argptr);
 	logMessage(logger, Lvn_LogLevel_Info, buff);
 
-	memFree(buff);
 	va_end(argptr);
 }
 
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
+	char buff[1024];
+
 	va_list argptr;
 	va_start(argptr, fmt);
 
-	uint32_t strsize = vsnprintf(nullptr, 0, fmt, argptr) + 1;
-	char* buff = (char*)memAlloc(strsize);
-	if (!buff) return;
-	vsnprintf(buff, strsize, fmt, argptr);
+	vsnprintf(buff, 1024, fmt, argptr);
 	logMessage(logger, Lvn_LogLevel_Warn, buff);
 
-	memFree(buff);
 	va_end(argptr);
 }
 
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
+	char buff[1024];
+
 	va_list argptr;
 	va_start(argptr, fmt);
 
-	uint32_t strsize = vsnprintf(nullptr, 0, fmt, argptr) + 1;
-	char* buff = (char*)memAlloc(strsize);
-	if (!buff) return;
-	vsnprintf(buff, strsize, fmt, argptr);
+	vsnprintf(buff, 1024, fmt, argptr);
 	logMessage(logger, Lvn_LogLevel_Error, buff);
 
-	memFree(buff);
 	va_end(argptr);
 }
 
 void logMessageCritical(LvnLogger* logger, const char* fmt, ...)
 {
+	char buff[1024];
+
 	va_list argptr;
 	va_start(argptr, fmt);
 
-	uint32_t strsize = vsnprintf(nullptr, 0, fmt, argptr) + 1;
-	char* buff = (char*)memAlloc(strsize);
-	if (!buff) return;
-	vsnprintf(buff, strsize, fmt, argptr);
+	vsnprintf(buff, 1024, fmt, argptr);
 	logMessage(logger, Lvn_LogLevel_Critical, buff);
 
-	memFree(buff);
 	va_end(argptr);
 }
 
@@ -867,6 +859,11 @@ static LvnResult setWindowContext(LvnWindowApi windowapi)
 	LvnResult result = Lvn_Result_Failure;
 	switch (windowapi)
 	{
+		case Lvn_WindowApi_None:
+		{
+			result = Lvn_Result_Failure;
+			break;
+		}
 		case Lvn_WindowApi_glfw:
 		{
 			result = glfwImplInitWindowContext(&lvnctx->windowContext);
@@ -1027,6 +1024,11 @@ static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi)
 	LvnResult result = Lvn_Result_Failure;
 	switch (graphicsapi)
 	{
+		case Lvn_GraphicsApi_None:
+		{
+			result = Lvn_Result_Failure;
+			break;
+		}
 		case Lvn_GraphicsApi_vulkan:
 		{
 			result = vksImplCreateContext(&lvnctx->graphicsContext, lvnctx->vulkanValidationLayers);

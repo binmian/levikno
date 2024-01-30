@@ -10,24 +10,32 @@
 	#ifndef LVN_PLATFORM_WINDOWS
 		#define LVN_PLATFORM_WINDOWS
 	#endif
-	#ifdef LVN_SHARED_LIBRARY_EXPORT
-			#define LVN_API __declspec(dllexport)
-	#elif LVN_SHARED_LIBRARY_IMPORT
-			#define LVN_API __declspec(dllimport)
-	#else 
-		#define LVN_API
-	#endif
 
 #elif __APPLE__
 	#define LVN_PLATFORM_APPLE
 
 #elif __linux__
 	#define LVN_PLATFORM_LINUX
+  #include <cassert> /* use assert() */
 
 #else
 	#error "lvn does not support the current platform."
 #endif
 
+// dll
+#ifdef LVN_PLATFORM_WINDOWS
+  #ifdef LVN_SHARED_LIBRARY_EXPORT
+	  #define LVN_API __declspec(dllexport)
+  #elif LVN_SHARED_LIBRARY_IMPORT
+	  #define LVN_API __declspec(dllimport)
+  #else 
+	  #define LVN_API
+  #endif
+#else
+  #define LVN_API
+#endif 
+
+#define LVN_API
 // Compiler
 #ifdef _MSC_VER
 	#define LVN_ASSERT_BREAK __debugbreak()
@@ -41,7 +49,7 @@
 		#endif
 	#endif
 #else
-	#define LVN_ASSERT_BREAK assert(false);
+	#define LVN_ASSERT_BREAK assert(false)
 #endif
 
 // Debug
@@ -54,11 +62,11 @@
 #endif
 
 #if defined (LVN_DISABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); } }
 #elif defined(LVN_ENABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(LVN_LOG_FILE##__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)
@@ -99,7 +107,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-
 
 /* [Logging] */
 
@@ -146,7 +153,7 @@
 #define LVN_LOG_COLOR_INFO 						"\x1b[0;32m"
 #define LVN_LOG_COLOR_WARN 						"\x1b[1;33m"
 #define LVN_LOG_COLOR_ERROR 					"\x1b[1;31m"
-#define LVN_LOG_COLOR_CRITICAL					"\x1b[1;37;41m"
+#define LVN_LOG_COLOR_CRITICAL				"\x1b[1;37;41m"
 #define LVN_LOG_COLOR_RESET						"\x1b[0m"
 
 
@@ -155,20 +162,19 @@
 #define LVN_CORE_INFO(...)						::lvn::logMessageInfo(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_WARN(...)						::lvn::logMessageWarn(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_ERROR(...)						::lvn::logMessageError(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_CRITICAL(...)					::lvn::logMessageCritical(lvn::getCoreLogger(), ##__VA_ARGS__)
-													
-													
+#define LVN_CORE_CRITICAL(...)				::lvn::logMessageCritical(lvn::getCoreLogger(), ##__VA_ARGS__)
+
 // Client Log macros								
 #define LVN_TRACE(...)							::lvn::logMessageTrace(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_INFO(...)							::lvn::logMessageInfo(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_WARN(...)							::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_INFO(...)							  ::lvn::logMessageInfo(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_WARN(...)							  ::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_ERROR(...)							::lvn::logMessageError(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_CRITICAL(...)						::lvn::logMessageCritical(lvn::getClientLogger(), ##__VA_ARGS__)
 
 
 // Logging utils
 #define LVN_PROPERTIES(prop)					#prop, &prop
-#define LVN_LOG_FILE							LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
+#define LVN_LOG_FILE							    LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
 
 
 /* [Core Enums] */
@@ -1784,7 +1790,7 @@ struct LvnMat4x4_t
 	LvnMat3x4_t<T> operator*(const LvnMat3x4_t<T>& m)
 	{
 		return LvnMat3x4_t<T>(
-			this->value[0.x] * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
 			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
 			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
 			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y + this->value[2].w * m.value[0].z + this->value[3].w * m.value[0].w,
