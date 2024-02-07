@@ -25,6 +25,9 @@ namespace lvn
 	LvnString	getDateHour12NumStr();
 	LvnString	getDateMinuteNumStr();
 	LvnString	getDateSecondNumStr();
+
+	LvnString	getFileSrc(const char* filepath);
+	LvnVector<uint8_t> getFileSrcBin(const char* filepath);
 }
 
 // ------------------------------------------------------------
@@ -103,6 +106,12 @@ struct LvnString
 
 	operator const char* () { return this->m_Str; }
 	operator char* () { return this->m_Str; }
+
+	char& operator [](uint32_t i)
+	{
+		LVN_CORE_ASSERT(i < this->m_Size, "string index out of range");
+		return this->m_Str[i];
+	}
 };
 
 
@@ -276,6 +285,11 @@ struct LvnGraphicsContext
 	void (*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
 	bool (*renderInit)(LvnRendererBackends*);
 
+	LvnResult (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
+	LvnResult (*createRenderPass)(LvnRenderPass**, LvnRenderPassCreateInfo*);
+
+	void (*destroyRenderPass)(LvnRenderPass*);
+
 	void (*renderClearColor)(const float, const float, const float, const float);
 	void (*renderClear)();
 	void (*renderDraw)(uint32_t);
@@ -288,6 +302,7 @@ struct LvnGraphicsContext
 	void (*renderDrawSubmit)();
 	void (*renderBeginRenderPass)();
 	void (*renderEndRenderPass)();
+
 };
 
 struct LvnPhysicalDevice
@@ -298,21 +313,32 @@ struct LvnPhysicalDevice
 	LvnPhysicalDeviceHandle device;
 };
 
+struct LvnRenderPass
+{
+	void* nativeRenderPass;
+};
+
+struct LvnPipeline
+{
+	
+};
 
 struct LvnContext
 {
-	LvnWindowApi		windowapi;
-	LvnWindowContext	windowContext;
-	LvnGraphicsApi		graphicsapi;
-	LvnGraphicsContext	graphicsContext;
-	bool				logging;
-	bool				vulkanValidationLayers;
-	LvnLogger			coreLogger;
-	LvnLogger			clientLogger;
-	LvnPhysicalDevice*	physicalDevices;
-	uint32_t			physicalDeviceCount;
+	LvnWindowApi				windowapi;
+	LvnWindowContext			windowContext;
+	LvnGraphicsApi				graphicsapi;
+	LvnGraphicsContext			graphicsContext;
+	bool						logging;
+	bool						vulkanValidationLayers;
+	LvnLogger					coreLogger;
+	LvnLogger					clientLogger;
+	LvnPhysicalDevice*			physicalDevices;
+	uint32_t					physicalDeviceCount;
 
-	size_t				numMemoryAllocations;
+	LvnPipelineSpecification	defaultPipelineSpecification;
+
+	size_t						numMemoryAllocations;
 };
 
 #endif

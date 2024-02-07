@@ -91,7 +91,7 @@ namespace lvn
 		else if (!window->data.resizable)
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-		LVN_CORE_INFO("creating window: %s - (w:%d, h:%d)", window->data.title, window->data.width, window->data.height);
+		LVN_CORE_INFO("creating window: \"%s\" (w:%d, h:%d)", window->data.title, window->data.width, window->data.height);
 		GLFWwindow* nativeWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title, fullScreen, nullptr);
 		LVN_CORE_ASSERT(nativeWindow, "window failed to load!");
 

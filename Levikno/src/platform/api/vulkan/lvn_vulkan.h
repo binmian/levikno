@@ -9,6 +9,11 @@ namespace lvn
 	void vksImplTerminateContext();
 	LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends);
 
+	LvnResult vksImplCreateRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
+	LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
+
+	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
+
 	void vksImplRenderClearColor(const float r, const float g, const float b, const float w);
 	void vksImplRenderClear();
 	void vksImplRenderDraw(uint32_t vertexCount);
@@ -21,6 +26,7 @@ namespace lvn
 	void vksImplRenderDrawSubmit();
 	void vksImplRenderBeginRenderPass();
 	void vksImplRenderEndRenderPass();
+
 }
 
 #endif

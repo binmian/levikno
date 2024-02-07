@@ -79,10 +79,7 @@ static const char* getLogLevelName(LvnLogLevel level)
 LvnResult createContext(LvnContextCreateInfo* createInfo)
 {
 	if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
-	void* newLvnContext = malloc(sizeof(LvnContext));
-	if (!newLvnContext) { return Lvn_Result_Failure; }
-	s_LvnContext = (LvnContext*)newLvnContext;
-	*s_LvnContext = {}; /* set variables to defualt values using value initialization */
+	s_LvnContext = new LvnContext();
 
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
@@ -116,7 +113,7 @@ void terminateContext()
 	
 	logTerminate();
 
-	free(s_LvnContext);
+	delete s_LvnContext;
 	s_LvnContext = nullptr;
 }
 
@@ -287,6 +284,7 @@ int getDateSecond()
 	struct tm tm = *localtime(&t);
 	return tm.tm_sec;
 }
+
 long long getSecondsSinceEpoch()
 {
 	return time(NULL);
@@ -306,6 +304,37 @@ void memFree(void* ptr)
 	if (!ptr) { return; }
 	free(ptr);
 	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
+}
+
+LvnString getFileSrc(const char* filepath)
+{
+	FILE* fileptr;
+	fileptr = fopen(filepath, "r");
+	
+	fseek(fileptr, 0, SEEK_END);
+	long int size = ftell(fileptr);
+	fseek(fileptr, 0, SEEK_SET);
+	
+	LvnString filesrc(size);
+	fread(filesrc, sizeof(char), size, fileptr);
+	fclose(fileptr);
+
+	return filesrc;
+}
+
+LvnVector<uint8_t> getFileSrcBin(const char* filepath)
+{
+	FILE* fileptr;
+	fileptr = fopen(filepath, "rb");
+
+	fseek(fileptr, 0, SEEK_END);
+	long int size = ftell(fileptr);
+	fseek(fileptr, 0, SEEK_SET);
+
+	LvnVector<uint8_t> bin(size);
+	fread(bin.data(), sizeof(uint8_t), size, fileptr);
+
+	return bin;
 }
 
 /* [Logging] */
@@ -1110,6 +1139,17 @@ LvnPhysicalDeviceInfo getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice)
 LvnResult renderInit(LvnRendererBackends* renderBackends)
 {
 	return vksImplRenderInit(renderBackends);
+}
+
+LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
+{
+	return s_LvnContext->graphicsContext.createRenderPass(renderPass, createInfo);
+}
+
+
+void destroyRenderPass(LvnRenderPass* renderPass)
+{
+	s_LvnContext->graphicsContext.destroyRenderPass(renderPass);
 }
 
 

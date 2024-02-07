@@ -61,8 +61,8 @@ int main()
 	lvn::createContext(&lvnCreateInfo);
 
 	//lvn::logInit();
-	//lvn::logSetPatternFormat(lvn::getCoreLogger(), "[%T] [%#%l%^] %n: %v%$");
-	//lvn::logSetPatternFormat(lvn::getClientLogger(), "%#[%T] %n <%l>: %v%^%$");
+	lvn::logSetPatternFormat(lvn::getCoreLogger(), "[%T] [%#%l%^] %n: %v%$");
+	lvn::logSetPatternFormat(lvn::getClientLogger(), "[%T] [%#%l%^] %n: %v%$");
 
 	LvnWindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
@@ -101,8 +101,25 @@ int main()
 	renderBackends.windowCount = 1;
 	lvn::renderInit(&renderBackends);
 
-	free(devices);
+	LvnRenderPassAttachment colorAttachment{};
+	colorAttachment.type = Lvn_AttachmentType_Color;
+	colorAttachment.format = Lvn_ImageFormat_RGBA8;
+	colorAttachment.loadOp = Lvn_AttachmentLoadOp_Clear;
+	colorAttachment.storeOp = Lvn_AttachmentStoreOp_Store;
+	colorAttachment.stencilLoadOp = Lvn_AttachmentLoadOp_DontCare;
+	colorAttachment.stencilStoreOp = Lvn_AttachmentStoreOp_DontCare;
+	colorAttachment.samples = Lvn_SampleCount_1_Bit;
+	colorAttachment.initialLayout = Lvn_ImageLayout_Undefined;
+	colorAttachment.finalLayout = Lvn_ImageLayout_Present;
 
+	LvnRenderPassCreateInfo renderPassCreateInfo{};
+	renderPassCreateInfo.attachmentCount = 1;
+	renderPassCreateInfo.pAttachments = &colorAttachment;
+
+	LvnRenderPass* renderPass;
+	lvn::createRenderPass(&renderPass, &renderPassCreateInfo);
+
+	free(devices);
 
 	lvn::vec2 a = { 1.0f, 2.0f };
 	lvn::vec2 b = { 3.0f, 5.0f };
@@ -135,8 +152,10 @@ int main()
 		auto [x, y] = lvn::getWindowDimensions(window);
 
 		LVN_TRACE("(x:%d,y:%d)", x, y);
+		break;
 	}
 
+	lvn::destroyRenderPass(renderPass);
 
 	lvn::destroyWindow(window);
 	lvn::terminateContext();

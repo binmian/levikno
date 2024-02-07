@@ -3,6 +3,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "levikno_internal.h"
+
 namespace lvn
 {
 	struct VulkanQueueFamilyIndices
@@ -11,33 +13,62 @@ namespace lvn
 		bool has_graphics, has_present;
 	};
 
-	struct SwapChainSupportDetails
+	struct VulkanSwapChainSupportDetails
 	{
 		VkSurfaceCapabilitiesKHR capabilities;
 		LvnVector<VkSurfaceFormatKHR> formats;
 		LvnVector<VkPresentModeKHR> presentModes;
 	};
 
+	struct VulkanWindowSurfaceData
+	{
+		VkSurfaceKHR surface;
+		VkSwapchainKHR swapChain;
+		VkFormat swapChainImageFormat;
+		VkExtent2D swapChainExtent;
+		VkImage* swapChainImages;
+		VkImageView* swapChainImageViews;
+		uint32_t swapChainImageCount;
+		uint32_t swapChainImageViewCount;
+	};
+
+	struct VulkanPipelineCreateData
+	{
+		LvnPipelineSpecification* pipelineSpecification;
+		VkRenderPass renderPass;
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo;
+		VkExtent2D* swapChainExtent;
+		VkPipelineShaderStageCreateInfo* shaderStages;
+		uint32_t shaderStageCount;
+		VkDescriptorSetLayout* pDescrptorSetLayouts;
+		uint32_t descriptorSetLayoutCount;
+		VkPushConstantRange* pPushConstants;
+		uint32_t pushConstantCount;
+	};
+
+	struct VulkanPipeline
+	{
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+	};
+
 	struct VulkanBackends
 	{
-		bool						enableValidationLayers;
-		VkInstance					instance;
-		VkDebugUtilsMessengerEXT	debugMessenger;
-		VkPhysicalDevice			physicalDevice;
-		VkPhysicalDevice*			pPhysicalDevices;
-		uint32_t					physicalDeviceCount;
-		VkDevice					device;
-		VkQueue						graphicsQueue;
-		VkSurfaceKHR				surface;
-		VkQueue						presentQueue;
+		bool								enableValidationLayers;
+		VkInstance							instance;
+		VkDebugUtilsMessengerEXT			debugMessenger;
+		LvnVector<VkPhysicalDevice>			physicalDevices;
+		
+		VkPhysicalDevice					physicalDevice;
+		VkDevice							device;
+		VkQueue								graphicsQueue;
+		VkQueue								presentQueue;
 
-		VkSwapchainKHR				swapChain;
-		VkImage*					swapChainImages;
-		uint32_t					swapChainImageCount;
-		VkFormat					swapChainImageFormat;
-		VkExtent2D					swapChainExtent;
-		VkImageView*				swapChainImageViews;
-		uint32_t					swapChainImageViewCount;
+		LvnVector<VulkanWindowSurfaceData>	windowSurfaceData;
+		VkFormat							defaultSwapChainFormat;
+
+		LvnPipelineSpecification			defaultPipelineSpecification;
+		bool								gammaCorrect;
 	};
 }
 

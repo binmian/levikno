@@ -12,14 +12,18 @@
 	#endif
 
 #elif __APPLE__
-	#define LVN_PLATFORM_APPLE
+	#ifndef LVN_PLATFORM_APPLE
+		#define LVN_PLATFORM_APPLE
+	#endif
 
 #elif __linux__
-	#define LVN_PLATFORM_LINUX
-  #include <cassert> /* use assert() */
+	#ifndef LVN_PLATFORM_LINUX
+		#define LVN_PLATFORM_LINUX
+	#endif
+	#include <cassert> /* use assert() */
 
 #else
-	#error "lvn does not support the current platform."
+	#error "Levikno does not support the current platform."
 #endif
 
 // dll
@@ -49,12 +53,18 @@
 		#endif
 	#endif
 #else
+	#ifndef NDEBUG
+		#ifndef LVN_DEBUG
+			#define LVN_DEBUG
+		#endif
+	#endif
+
 	#define LVN_ASSERT_BREAK assert(false)
 #endif
 
 // Debug
 #ifdef LVN_DEBUG
-	#define LVN_ENABLE_ASSERTS 
+	#define LVN_ENABLE_ASSERTS
 #endif
 
 #ifdef LVN_DISABLE_ASSERTS_KEEP_ERROR_MESSAGES
@@ -404,6 +414,26 @@ enum LvnWindowApi
 };
 
 /* [Graphics Enums] */
+enum LvnAttachmentType
+{
+	Lvn_AttachmentType_Color,
+	Lvn_AttachmentType_Depth,
+	Lvn_AttachmentType_Resolve,
+};
+
+enum LvnAttachmentLoadOperation
+{
+	Lvn_AttachmentLoadOp_Load,
+	Lvn_AttachmentLoadOp_Clear,
+	Lvn_AttachmentLoadOp_DontCare,
+};
+
+enum LvnAttachmentStoreOperation
+{
+	Lvn_AttachmentStoreOp_Store,
+	Lvn_AttachmentStoreOp_DontCare,
+};
+
 enum LvnCullFaceMode
 {
 	Lvn_CullFaceMode_Front,
@@ -511,22 +541,17 @@ enum LvnCompareOperation
 	Lvn_CompareOperation_Always			= 7,
 };
 
-enum LvnFrameBufferColorFormat
+enum LvnImageFormat
 {
-	Lvn_FrameBufferColorFormat_None = 0,
-	Lvn_FrameBufferColorFormat_RGB,
-	Lvn_FrameBufferColorFormat_RGBA,
-	Lvn_FrameBufferColorFormat_RGBA8,
-	Lvn_FrameBufferColorFormat_RGBA16F,
-	Lvn_FrameBufferColorFormat_RGBA32F,
-	Lvn_FrameBufferColorFormat_RedInt,
-};
-
-enum LvnFrameBufferDepthFormat
-{
-	Lvn_FrameBufferDepthFormat_None = 0,
-	Lvn_FrameBufferDepthFormat_DepthComponent,
-	Lvn_FrameBufferDepthFormat_Depth24Stencil8,
+	Lvn_ImageFormat_None = 0,
+	Lvn_ImageFormat_RGB,
+	Lvn_ImageFormat_RGBA,
+	Lvn_ImageFormat_RGBA8,
+	Lvn_ImageFormat_RGBA16F,
+	Lvn_ImageFormat_RGBA32F,
+	Lvn_ImageFormat_RedInt,
+	Lvn_ImageFormat_DepthComponent,
+	Lvn_ImageFormat_Depth24Stencil8,
 };
 
 enum LvnGraphicsApi
@@ -537,6 +562,14 @@ enum LvnGraphicsApi
 
 	Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
 	Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
+};
+
+enum LvnImageLayout
+{
+	Lvn_ImageLayout_Undefined,
+	Lvn_ImageLayout_Present,
+	Lvn_ImageLayout_ColorAttachment,
+	Lvn_ImageLayout_DepthStencilAttachment,
 };
 
 enum LvnPhysicalDeviceType
@@ -620,7 +653,12 @@ struct LvnMouseScrolledEvent;
 struct LvnOrthographicCamera;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
+struct LvnPipeline;
+struct LvnPipelineCreateInfo;
 struct LvnRendererBackends;
+struct LvnRenderPass;
+struct LvnRenderPassAttachment;
+struct LvnRenderPassCreateInfo;
 struct LvnShader;
 struct LvnString;
 struct LvnVertexArray;
@@ -869,6 +907,10 @@ namespace lvn
 	LVN_API void					getPhysicalDevices(LvnPhysicalDevice** ppPhysicalDevices, uint32_t* deviceCount);
 	LVN_API LvnPhysicalDeviceInfo	getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult				renderInit(LvnRendererBackends* renderBackends);
+	LVN_API LvnResult				createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
+	LVN_API LvnResult				createPipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
+
+	LVN_API void					destroyRenderPass(LvnRenderPass* renderPass);
 
 	LVN_API void					renderClearColor(const float r, const float g, const float b, const float w);
 	LVN_API void					renderClear();
@@ -2746,7 +2788,126 @@ struct LvnRendererBackends
 	LvnPhysicalDevice*	physicalDevice;
 	LvnWindow**			pWindows;
 	uint32_t			windowCount;
+	bool				gammaCorrection;
 };
 
+struct LvnPipelineInputAssembly
+{
+	LvnTopologyType topology;
+	bool primitiveRestartEnable;
+};
+
+// width and height are based on GLFW window framebuffer size
+// Note: GLFW framebuffer size and window pixel coordinates may not be the same on different systems
+// Set width and height to -1 if it does not need to be specified, width and height will then be automatically set to the framebuffer size
+struct LvnPipelineViewport
+{
+	float x, y;
+	float width, height;
+	float minDepth, maxDepth;
+	struct scissor { int x, y; } scissor;
+};
+
+struct LvnPipelineRasterizer
+{
+	LvnCullFaceMode cullMode;
+	LvnCullFrontFace frontFace;
+
+	float lineWidth;
+	float depthBiasConstantFactor;
+	float depthBiasClamp;
+	float depthBiasSlopeFactor;
+
+	bool depthClampEnable;
+	bool rasterizerDiscardEnable;
+	bool depthBiasEnable;
+};
+
+struct LvnPipelineColorWriteMask
+{
+	bool colorComponentR;
+	bool colorComponentG;
+	bool colorComponentB;
+	bool colorComponentA;
+};
+
+struct LvnPipelineMultiSampling
+{
+	LvnSampleCount rasterizationSamples;
+	float minSampleShading;
+	uint32_t* sampleMask;
+	bool sampleShadingEnable;
+	bool alphaToCoverageEnable;
+	bool alphaToOneEnable;
+};
+
+struct LvnPipelineColorBlendAttachment
+{
+	LvnPipelineColorWriteMask colorWriteMask;
+	LvnColorBlendFactor srcColorBlendFactor;
+	LvnColorBlendFactor dstColorBlendFactor;
+	LvnColorBlendOperation colorBlendOp;
+	LvnColorBlendFactor srcAlphaBlendFactor;
+	LvnColorBlendFactor dstAlphaBlendFactor;
+	LvnColorBlendOperation alphaBlendOp;
+	bool blendEnable;
+};
+
+struct LvnPipelineColorBlend
+{
+	LvnPipelineColorBlendAttachment* pColorBlendAttachments;
+	uint32_t colorBlendAttachmentCount;
+	float blendConstants[4];
+	bool logicOpEnable;
+};
+
+struct LvnPipelineStencilAttachment
+{
+	LvnStencilOperation failOp;
+	LvnStencilOperation passOp;
+	LvnStencilOperation depthFailOp;
+	LvnCompareOperation compareOp;
+	uint32_t compareMask;
+	uint32_t writeMask;
+	uint32_t reference;
+};
+
+struct LvnPipelineDepthStencil
+{
+	LvnCompareOperation depthOpCompare;
+	LvnPipelineStencilAttachment stencil;
+	bool enableDepth, enableStencil;
+};
+
+struct LvnPipelineSpecification
+{
+	LvnPipelineInputAssembly inputAssembly;
+	LvnPipelineViewport viewport;
+	LvnPipelineRasterizer rasterizer;
+	LvnPipelineMultiSampling multisampling;
+	LvnPipelineColorBlend colorBlend;
+	LvnPipelineDepthStencil depthstencil;
+};
+
+struct LvnPipelineCreateInfo
+{
+	LvnPipelineSpecification* pipelineSpecification;
+};
+
+struct LvnRenderPassAttachment
+{
+	LvnAttachmentType type;
+	LvnImageFormat format;
+	LvnSampleCount samples;
+	LvnAttachmentLoadOperation loadOp, stencilLoadOp;
+	LvnAttachmentStoreOperation storeOp, stencilStoreOp;
+	LvnImageLayout initialLayout, finalLayout;
+};
+
+struct LvnRenderPassCreateInfo
+{
+	LvnRenderPassAttachment* pAttachments;
+	uint32_t attachmentCount;
+};
 
 #endif

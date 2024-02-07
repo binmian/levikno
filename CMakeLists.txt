@@ -88,7 +88,7 @@ target_compile_definitions(levikno PRIVATE
 
 # Find VulkanSDK
 set(MIN_VULKAN_VERSION 1.3)
-find_package(Vulkan ${MIN_VULKAN_VERSION})
+find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED)
 
 if(Vulkan_FOUND)
     message ("Vulkan found")
@@ -98,11 +98,6 @@ endif()
 
 set(VULKAN_LIB_DIR
 	Vulkan::Vulkan
-)
-
-target_link_libraries(glfw
-	PRIVATE 
-		${VULKAN_LIB_DIR}
 )
 
 target_link_libraries(levikno
