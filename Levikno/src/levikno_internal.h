@@ -285,10 +285,14 @@ struct LvnGraphicsContext
 	void (*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
 	bool (*renderInit)(LvnRendererBackends*);
 
-	LvnResult (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
 	LvnResult (*createRenderPass)(LvnRenderPass**, LvnRenderPassCreateInfo*);
+	LvnResult (*createPipeline)(LvnPipeline**, LvnPipelineCreateInfo*);
+	void (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
+	LvnPipelineSpecification (*getDefaultPipelineSpecification)();
 
 	void (*destroyRenderPass)(LvnRenderPass*);
+	void (*destroyPipeline)(LvnPipeline*);
+
 
 	void (*renderClearColor)(const float, const float, const float, const float);
 	void (*renderClear)();
@@ -320,7 +324,8 @@ struct LvnRenderPass
 
 struct LvnPipeline
 {
-	
+	void* nativePipeline;
+	void* nativePipelineLayout;
 };
 
 struct LvnContext

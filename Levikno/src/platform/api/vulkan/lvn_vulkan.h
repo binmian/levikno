@@ -10,9 +10,13 @@ namespace lvn
 	LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends);
 
 	LvnResult vksImplCreateRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
-	LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
+	LvnResult vksImplCreatePipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);
+	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
+	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
 
 	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
+	void vksImplDestroyPipeline(LvnPipeline* pipeline);
+
 
 	void vksImplRenderClearColor(const float r, const float g, const float b, const float w);
 	void vksImplRenderClear();

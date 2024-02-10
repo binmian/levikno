@@ -119,6 +119,15 @@ int main()
 	LvnRenderPass* renderPass;
 	lvn::createRenderPass(&renderPass, &renderPassCreateInfo);
 
+	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
+	LvnPipelineCreateInfo pipelineCreateInfo{};
+	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
+	pipelineCreateInfo.renderPass = renderPass;
+	pipelineCreateInfo.window = window;
+
+	LvnPipeline* pipeline;
+	lvn::createPipeline(&pipeline, &pipelineCreateInfo);
+
 	free(devices);
 
 	lvn::vec2 a = { 1.0f, 2.0f };
@@ -155,6 +164,7 @@ int main()
 		break;
 	}
 
+	lvn::destroyPipeline(pipeline);
 	lvn::destroyRenderPass(renderPass);
 
 	lvn::destroyWindow(window);

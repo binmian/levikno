@@ -1146,11 +1146,29 @@ LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* 
 	return s_LvnContext->graphicsContext.createRenderPass(renderPass, createInfo);
 }
 
+LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
+{
+	return s_LvnContext->graphicsContext.createPipeline(pipeline, createInfo);
+}
+
+void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+{
+	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
+}
+
+LvnPipelineSpecification getDefaultPipelineSpecification()
+{
+	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
+}
 
 void destroyRenderPass(LvnRenderPass* renderPass)
 {
 	s_LvnContext->graphicsContext.destroyRenderPass(renderPass);
 }
 
+void destroyPipeline(LvnPipeline* pipeline)
+{
+	s_LvnContext->graphicsContext.destroyPipeline(pipeline);
+}
 
 } /* namespace lvn */

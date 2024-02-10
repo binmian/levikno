@@ -654,7 +654,18 @@ struct LvnOrthographicCamera;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
 struct LvnPipeline;
+struct LvnPipelineColorBlend;
+struct LvnPipelineColorBlendAttachment;
+struct LvnPipelineColorWriteMask;
 struct LvnPipelineCreateInfo;
+struct LvnPipelineDepthStencil;
+struct LvnPipelineInputAssembly;
+struct LvnPipelineMultiSampling;
+struct LvnPipelineRasterizer;
+struct LvnPipelineScissor;
+struct LvnPipelineSpecification;
+struct LvnPipelineStencilAttachment;
+struct LvnPipelineViewport;
 struct LvnRendererBackends;
 struct LvnRenderPass;
 struct LvnRenderPassAttachment;
@@ -786,21 +797,21 @@ namespace lvn
 
 
 	/* [API] */
-	LVN_API LvnResult			createContext(LvnContextCreateInfo* createInfo);
-	LVN_API void				terminateContext();
+	LVN_API LvnResult				createContext(LvnContextCreateInfo* createInfo);
+	LVN_API void					terminateContext();
 
-	LVN_API int					getDateYear();
-	LVN_API int					getDateYear02d();
-	LVN_API int					getDateMonth();
-	LVN_API int					getDateDay();
-	LVN_API int					getDateHour();
-	LVN_API int					getDateHour12();
-	LVN_API int					getDateMinute();
-	LVN_API int					getDateSecond();
-	LVN_API long long			getSecondsSinceEpoch();
+	LVN_API int						getDateYear();
+	LVN_API int						getDateYear02d();
+	LVN_API int						getDateMonth();
+	LVN_API int						getDateDay();
+	LVN_API int						getDateHour();
+	LVN_API int						getDateHour12();
+	LVN_API int						getDateMinute();
+	LVN_API int						getDateSecond();
+	LVN_API long long				getSecondsSinceEpoch();
 
-	LVN_API void*				memAlloc(size_t size);
-	LVN_API void				memFree(void* ptr);
+	LVN_API void*					memAlloc(size_t size);
+	LVN_API void					memFree(void* ptr);
 
 	/* [Logging] */
 
@@ -843,102 +854,105 @@ namespace lvn
 	// Ex: The default log pattern is: "%#[%T] [%l] %n: %v%^%$"
 	//     Which could output: "\x1b[0;32m[14:25:11] [info] CORE: some informational message\x1b[0m\n"
 
-	LVN_API LvnResult				logInit(); /* Initiates logging */
-	LVN_API void					logTerminate();
-	LVN_API void					logSetLevel(LvnLogger* logger, LvnLogLevel level);					/* sets the log level of logger, will only print messages with set log level and higher */
-	LVN_API bool					logCheckLevel(LvnLogger* logger, LvnLogLevel level);				/* checks level with loger, returns true if level is the same or higher level than the level of the logger */
-	LVN_API void					logRenameLogger(LvnLogger* logger, const char* name);				/* renames the name of the logger */
-	LVN_API void					logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);			/* prints the log message */
-	LVN_API void					logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);	/* log message with given log level */
-	LVN_API void					logMessageTrace(LvnLogger* logger, const char* fmt, ...);			/* log message with level trace; ANSI code "\x1b[1;37m" */
-	LVN_API void					logMessageInfo(LvnLogger* logger, const char* fmt, ...);			/* log message with level info; ANSI code "\x1b[0;32m" */
-	LVN_API void					logMessageWarn(LvnLogger* logger, const char* fmt, ...);			/* log message with level warn; ANSI code "\x1b[1;33m" */
-	LVN_API void					logMessageError(LvnLogger* logger, const char* fmt, ...);			/* log message with level error; ANSI code "\x1b[1;31m" */
-	LVN_API void					logMessageCritical(LvnLogger* logger, const char* fmt, ...);		/* log message with level critical; ANSI code "\x1b[1;37;41m" */
-	LVN_API LvnLogger*				getCoreLogger();													
-	LVN_API LvnLogger*				getClientLogger();													
-	LVN_API const char*				getLogANSIcodeColor(LvnLogLevel level);								/* get the ANSI color code of the log level in a string */
-	LVN_API void					logSetPatternFormat(LvnLogger* logger, const char* patternfmt);		/* set the log pattern of the logger; messages outputed from that logger will be in this format */
-	LVN_API void					logAddPattern();
+	LVN_API LvnResult					logInit(); /* Initiates logging */
+	LVN_API void						logTerminate();
+	LVN_API void						logSetLevel(LvnLogger* logger, LvnLogLevel level);					/* sets the log level of logger, will only print messages with set log level and higher */
+	LVN_API bool						logCheckLevel(LvnLogger* logger, LvnLogLevel level);				/* checks level with loger, returns true if level is the same or higher level than the level of the logger */
+	LVN_API void						logRenameLogger(LvnLogger* logger, const char* name);				/* renames the name of the logger */
+	LVN_API void						logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);			/* prints the log message */
+	LVN_API void						logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);	/* log message with given log level */
+	LVN_API void						logMessageTrace(LvnLogger* logger, const char* fmt, ...);			/* log message with level trace; ANSI code "\x1b[1;37m" */
+	LVN_API void						logMessageInfo(LvnLogger* logger, const char* fmt, ...);			/* log message with level info; ANSI code "\x1b[0;32m" */
+	LVN_API void						logMessageWarn(LvnLogger* logger, const char* fmt, ...);			/* log message with level warn; ANSI code "\x1b[1;33m" */
+	LVN_API void						logMessageError(LvnLogger* logger, const char* fmt, ...);			/* log message with level error; ANSI code "\x1b[1;31m" */
+	LVN_API void						logMessageCritical(LvnLogger* logger, const char* fmt, ...);		/* log message with level critical; ANSI code "\x1b[1;37;41m" */
+	LVN_API LvnLogger*					getCoreLogger();													
+	LVN_API LvnLogger*					getClientLogger();													
+	LVN_API const char*					getLogANSIcodeColor(LvnLogLevel level);								/* get the ANSI color code of the log level in a string */
+	LVN_API void						logSetPatternFormat(LvnLogger* logger, const char* patternfmt);		/* set the log pattern of the logger; messages outputed from that logger will be in this format */
+	LVN_API void						logAddPattern();
 
 
 	/* [Events] */
 	// Use these function within the call back function of LvnWindow (if it is set)
-	LVN_API bool					dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*));
-	LVN_API bool					dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*));
-	LVN_API bool					dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*));
-	LVN_API bool					dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*));
-	LVN_API bool					dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*));
-	LVN_API bool					dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*));
-	LVN_API bool					dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*));
-	LVN_API bool					dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*));
-	LVN_API bool					dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*));
-	LVN_API bool					dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*));
-	LVN_API bool					dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*));
-	LVN_API bool					dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*));
-	LVN_API bool					dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*));
-	LVN_API bool					dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*));
-	LVN_API bool					dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*));
-	LVN_API bool					dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*));
+	LVN_API bool						dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*));
+	LVN_API bool						dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*));
+	LVN_API bool						dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*));
+	LVN_API bool						dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*));
+	LVN_API bool						dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*));
+	LVN_API bool						dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*));
+	LVN_API bool						dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*));
+	LVN_API bool						dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*));
+	LVN_API bool						dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*));
+	LVN_API bool						dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*));
+	LVN_API bool						dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*));
+	LVN_API bool						dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*));
+	LVN_API bool						dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*));
+	LVN_API bool						dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*));
+	LVN_API bool						dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*));
+	LVN_API bool						dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*));
 
 	/* [Window] */
-	LVN_API LvnWindowApi			getWindowApi();
-	LVN_API const char*				getWindowApiName();
+	LVN_API LvnWindowApi				getWindowApi();
+	LVN_API const char*					getWindowApiName();
 
-	LVN_API LvnWindow*				createWindow(LvnWindowCreateInfo* winCreateInfo);
-	LVN_API void					destroyWindow(LvnWindow* window);
+	LVN_API LvnWindow*					createWindow(LvnWindowCreateInfo* winCreateInfo);
+	LVN_API void						destroyWindow(LvnWindow* window);
 
-	LVN_API void					updateWindow(LvnWindow* window);
-	LVN_API bool					windowOpen(LvnWindow* window);
-	LVN_API LvnWindowDimensions		getWindowDimensions(LvnWindow* window);
-	LVN_API int						getWindowWidth(LvnWindow* window);
-	LVN_API int						getWindowHeight(LvnWindow* window);
-	LVN_API void					setWindowEventCallback(LvnWindow* window, void (*callback)(LvnEvent*));
-	LVN_API void					setWindowVSync(LvnWindow* window, bool enable);
-	LVN_API bool					getWindowVSync(LvnWindow* window);
-	LVN_API void*					getNativeWindow(LvnWindow* window);
-	LVN_API void					setWindowContextCurrent(LvnWindow* window);
+	LVN_API void						updateWindow(LvnWindow* window);
+	LVN_API bool						windowOpen(LvnWindow* window);
+	LVN_API LvnWindowDimensions			getWindowDimensions(LvnWindow* window);
+	LVN_API int							getWindowWidth(LvnWindow* window);
+	LVN_API int							getWindowHeight(LvnWindow* window);
+	LVN_API void						setWindowEventCallback(LvnWindow* window, void (*callback)(LvnEvent*));
+	LVN_API void						setWindowVSync(LvnWindow* window, bool enable);
+	LVN_API bool						getWindowVSync(LvnWindow* window);
+	LVN_API void*						getNativeWindow(LvnWindow* window);
+	LVN_API void						setWindowContextCurrent(LvnWindow* window);
 
 
 
 	/* [Graphics API] */
-	LVN_API LvnGraphicsApi			getGraphicsApi();
-	LVN_API const char*				getGraphicsApiName();
-	LVN_API void					getPhysicalDevices(LvnPhysicalDevice** ppPhysicalDevices, uint32_t* deviceCount);
-	LVN_API LvnPhysicalDeviceInfo	getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
-	LVN_API LvnResult				renderInit(LvnRendererBackends* renderBackends);
-	LVN_API LvnResult				createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
-	LVN_API LvnResult				createPipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
+	LVN_API LvnGraphicsApi				getGraphicsApi();
+	LVN_API const char*					getGraphicsApiName();
+	LVN_API void						getPhysicalDevices(LvnPhysicalDevice** ppPhysicalDevices, uint32_t* deviceCount);
+	LVN_API LvnPhysicalDeviceInfo		getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
+	LVN_API LvnResult					renderInit(LvnRendererBackends* renderBackends);
+	LVN_API LvnResult					createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
+	LVN_API LvnResult					createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);
+	LVN_API void						setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
+	LVN_API LvnPipelineSpecification	getDefaultPipelineSpecification();
 
-	LVN_API void					destroyRenderPass(LvnRenderPass* renderPass);
+	LVN_API void						destroyRenderPass(LvnRenderPass* renderPass);
+	LVN_API void						destroyPipeline(LvnPipeline* pipeline);
 
-	LVN_API void					renderClearColor(const float r, const float g, const float b, const float w);
-	LVN_API void					renderClear();
-	LVN_API void					renderDraw(uint32_t vertexCount);
-	LVN_API void					renderDrawIndexed(uint32_t indexCount);
-	LVN_API void					renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
-	LVN_API void					renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
-	LVN_API void					renderSetStencilReference(uint32_t reference);
-	LVN_API void					renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	LVN_API void					renderBeginNextFrame();
-	LVN_API void					renderDrawSubmit();
-	LVN_API void					renderBeginRenderPass();
-	LVN_API void					renderEndRenderPass();
+	LVN_API void						renderClearColor(const float r, const float g, const float b, const float w);
+	LVN_API void						renderClear();
+	LVN_API void						renderDraw(uint32_t vertexCount);
+	LVN_API void						renderDrawIndexed(uint32_t indexCount);
+	LVN_API void						renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
+	LVN_API void						renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
+	LVN_API void						renderSetStencilReference(uint32_t reference);
+	LVN_API void						renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
+	LVN_API void						renderBeginNextFrame();
+	LVN_API void						renderDrawSubmit();
+	LVN_API void						renderBeginRenderPass();
+	LVN_API void						renderEndRenderPass();
 
-	LVN_API LvnVertexBuffer*		createVertexBuffer(float* vertices, uint32_t size);
-	LVN_API LvnIndexBuffer*			createIndexBuffer(uint32_t indices, uint32_t size);
-	LVN_API LvnVertexArray*			createVertexArray();
+	LVN_API LvnVertexBuffer*			createVertexBuffer(float* vertices, uint32_t size);
+	LVN_API LvnIndexBuffer*				createIndexBuffer(uint32_t indices, uint32_t size);
+	LVN_API LvnVertexArray*				createVertexArray();
 
-	LVN_API void					linkVertexArrayBuffers(LvnVertexBuffer* vertexBuffer, LvnIndexBuffer* indexBuffer, LvnVertexLayoutLinkInfo* vertexLayouts);
-	LVN_API void					linkVertexArrayBuffers(LvnVertexArrayCreateInfo* createInfo);
+	LVN_API void						linkVertexArrayBuffers(LvnVertexBuffer* vertexBuffer, LvnIndexBuffer* indexBuffer, LvnVertexLayoutLinkInfo* vertexLayouts);
+	LVN_API void						linkVertexArrayBuffers(LvnVertexArrayCreateInfo* createInfo);
 
-	LVN_API void					bindVertexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void					bindIndexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void					bindVertexArray(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						bindVertexBuffer(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						bindIndexBuffer(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						bindVertexArray(LvnVertexBuffer* vertexBuffer);
 
-	LVN_API void					destroyVertexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void					destroyIndexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void					destroyVertexArray(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						destroyVertexBuffer(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						destroyIndexBuffer(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						destroyVertexArray(LvnVertexBuffer* vertexBuffer);
 
 
 	/* [Math] */
@@ -2791,6 +2805,22 @@ struct LvnRendererBackends
 	bool				gammaCorrection;
 };
 
+struct LvnRenderPassAttachment
+{
+	LvnAttachmentType type;
+	LvnImageFormat format;
+	LvnSampleCount samples;
+	LvnAttachmentLoadOperation loadOp, stencilLoadOp;
+	LvnAttachmentStoreOperation storeOp, stencilStoreOp;
+	LvnImageLayout initialLayout, finalLayout;
+};
+
+struct LvnRenderPassCreateInfo
+{
+	LvnRenderPassAttachment* pAttachments;
+	uint32_t attachmentCount;
+};
+
 struct LvnPipelineInputAssembly
 {
 	LvnTopologyType topology;
@@ -2805,7 +2835,12 @@ struct LvnPipelineViewport
 	float x, y;
 	float width, height;
 	float minDepth, maxDepth;
-	struct scissor { int x, y; } scissor;
+};
+
+struct LvnPipelineScissor
+{
+	struct { uint32_t x, y; } offset;
+	struct { uint32_t width, height; } extent;
 };
 
 struct LvnPipelineRasterizer
@@ -2883,6 +2918,7 @@ struct LvnPipelineSpecification
 {
 	LvnPipelineInputAssembly inputAssembly;
 	LvnPipelineViewport viewport;
+	LvnPipelineScissor scissor;
 	LvnPipelineRasterizer rasterizer;
 	LvnPipelineMultiSampling multisampling;
 	LvnPipelineColorBlend colorBlend;
@@ -2892,22 +2928,9 @@ struct LvnPipelineSpecification
 struct LvnPipelineCreateInfo
 {
 	LvnPipelineSpecification* pipelineSpecification;
+	LvnWindow* window;
+	LvnRenderPass* renderPass;
 };
 
-struct LvnRenderPassAttachment
-{
-	LvnAttachmentType type;
-	LvnImageFormat format;
-	LvnSampleCount samples;
-	LvnAttachmentLoadOperation loadOp, stencilLoadOp;
-	LvnAttachmentStoreOperation storeOp, stencilStoreOp;
-	LvnImageLayout initialLayout, finalLayout;
-};
-
-struct LvnRenderPassCreateInfo
-{
-	LvnRenderPassAttachment* pAttachments;
-	uint32_t attachmentCount;
-};
 
 #endif

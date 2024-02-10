@@ -853,7 +853,8 @@ namespace vks
 		pipelineSpecification.viewport.maxDepth = 1.0f;
 
 		// Scissor
-		pipelineSpecification.viewport.scissor = { 0, 0 };
+		pipelineSpecification.scissor.offset = { 0, 0 };
+		pipelineSpecification.scissor.extent = { 800, 600 };
 
 		// Rasterizer
 		pipelineSpecification.rasterizer.depthClampEnable = false;
@@ -916,15 +917,16 @@ namespace vks
 		VkViewport viewport{};
 		viewport.x = pipelineSpecification->viewport.x;
 		viewport.y = pipelineSpecification->viewport.y;
-		pipelineSpecification->viewport.width < 0 ? viewport.width = (float)createData->swapChainExtent->width : viewport.width = pipelineSpecification->viewport.width;
-		pipelineSpecification->viewport.height < 0 ? viewport.height = (float)createData->swapChainExtent->height : viewport.height = pipelineSpecification->viewport.height;
+		viewport.width = pipelineSpecification->viewport.width;
+		viewport.height = pipelineSpecification->viewport.height;
 		viewport.minDepth = pipelineSpecification->viewport.minDepth;
 		viewport.maxDepth = pipelineSpecification->viewport.maxDepth;
 
 		VkRect2D scissor{};
-		scissor.offset.x = pipelineSpecification->viewport.scissor.x;
-		scissor.offset.y = pipelineSpecification->viewport.scissor.y;
-		scissor.extent = *createData->swapChainExtent;
+		scissor.offset.x = pipelineSpecification->scissor.offset.x;
+		scissor.offset.y = pipelineSpecification->scissor.offset.y;
+		scissor.extent.width = pipelineSpecification->scissor.extent.width;
+		scissor.extent.height = pipelineSpecification->scissor.extent.height;
 
 		LvnVector<VkDynamicState> dynamicStates;
 		dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
@@ -1129,9 +1131,12 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	LvnContext* lvnctx = lvn::getContext();
 	vkBackends->enableValidationLayers = lvnctx->vulkanValidationLayers;
 
-	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createRenderPass = vksImplCreateRenderPass;
+	graphicsContext->createPipeline = vksImplCreatePipeline;
+	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
+	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
 	graphicsContext->destroyRenderPass = vksImplDestroyRenderPass;
+	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->renderClearColor = vksImplRenderClearColor;
 	graphicsContext->renderClear = vksImplRenderClear;
 	graphicsContext->renderDraw = vksImplRenderDraw;
@@ -1271,6 +1276,7 @@ void vksImplTerminateContext()
 LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	vks::initStandardVulkanPipelineSpecification(vkBackends, lvn::getContext()); // set default pipeline fixed functions so that they don't need to be set on every pipeline creation
 
 	vkBackends->physicalDevice = static_cast<VkPhysicalDevice>(renderBackends->physicalDevice->device);
 
@@ -1450,17 +1456,17 @@ LvnResult vksImplCreateRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreat
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
 
-	VkRenderPass renderPassvk;
-	LVN_CORE_ASSERT(vkCreateRenderPass(vkbackends->device, &renderPassInfo, nullptr, &renderPassvk) == VK_SUCCESS, "vulkan - failed to create render pass!");
+	VkRenderPass vkRenderPass;
+	LVN_CORE_ASSERT(vkCreateRenderPass(vkbackends->device, &renderPassInfo, nullptr, &vkRenderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
 	
 	*renderPass = new LvnRenderPass();
 	LvnRenderPass* renderPassPtr = *renderPass;
-	renderPassPtr->nativeRenderPass = renderPassvk;
+	renderPassPtr->nativeRenderPass = vkRenderPass;
 
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
+LvnResult vksImplCreatePipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
 {
 	VulkanBackends* vkbackends = s_VkBackends;
 
@@ -1495,22 +1501,49 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	pipelineCreateData.shaderStages = shaderStages;
 	pipelineCreateData.shaderStageCount = ARRAY_LEN(shaderStages);
 	pipelineCreateData.vertexInputInfo = vertexInputInfo;
-	pipelineCreateData.swapChainExtent;
+	pipelineCreateData.renderPass = static_cast<VkRenderPass>(createInfo->renderPass->nativeRenderPass);
+	pipelineCreateData.pipelineSpecification = createInfo->pipelineSpecification != nullptr ? createInfo->pipelineSpecification : &vkbackends->defaultPipelineSpecification;
 
-	vks::createVulkanPipeline(vkbackends, &pipelineCreateData);
+	VulkanPipeline vkPipeline = vks::createVulkanPipeline(vkbackends, &pipelineCreateData);
 
 	vkDestroyShaderModule(vkbackends->device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(vkbackends->device, vertShaderModule, nullptr);
 
+	*pipeline = new LvnPipeline();
+	LvnPipeline* pipelinePtr = *pipeline;
+	pipelinePtr->nativePipeline = vkPipeline.pipeline;
+	pipelinePtr->nativePipelineLayout = vkPipeline.pipelineLayout;
+
 	return Lvn_Result_Success;
 }
 
+void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+{
+	s_VkBackends->defaultPipelineSpecification = *pipelineSpecification;
+}
+
+LvnPipelineSpecification vksImplGetDefaultPipelineSpecification()
+{
+	return s_VkBackends->defaultPipelineSpecification;
+}
 
 void vksImplDestroyRenderPass(LvnRenderPass* renderPass)
 {
-	VkRenderPass renderPassvk = static_cast<VkRenderPass>(renderPass->nativeRenderPass);
-	vkDestroyRenderPass(s_VkBackends->device, renderPassvk, nullptr);
+	VkRenderPass vkRenderPass = static_cast<VkRenderPass>(renderPass->nativeRenderPass);
+	vkDestroyRenderPass(s_VkBackends->device, vkRenderPass, nullptr);
 	delete renderPass;
+}
+
+void vksImplDestroyPipeline(LvnPipeline* pipeline)
+{
+	VulkanBackends* vkbackends = s_VkBackends;
+
+	VkPipeline vkPipeline = static_cast<VkPipeline>(pipeline->nativePipeline);
+	VkPipelineLayout vkPipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
+
+	vkDestroyPipeline(vkbackends->device, vkPipeline, nullptr);
+    vkDestroyPipelineLayout(vkbackends->device, vkPipelineLayout, nullptr);
+	delete pipeline;
 }
 
 } /* namespace lvn */
