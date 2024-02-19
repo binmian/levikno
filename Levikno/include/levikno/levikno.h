@@ -634,9 +634,7 @@ struct LvnFont;
 struct LvnFontGlyph;
 struct LvnFontMetrics;
 struct LvnFrameBuffer;
-struct LvnFrameBufferColorAttachment;
 struct LvnFrameBufferCreateInfo;
-struct LvnFrameBufferDepthAttachment;
 struct LvnGraphicsContext;
 struct LvnIndexBuffer;
 struct LvnKeyHoldEvent;
@@ -670,7 +668,6 @@ struct LvnRendererBackends;
 struct LvnRenderPass;
 struct LvnRenderPassAttachment;
 struct LvnRenderPassCreateInfo;
-struct LvnShader;
 struct LvnString;
 struct LvnVertexArray;
 struct LvnVertexArrayCreateInfo;
@@ -918,13 +915,10 @@ namespace lvn
 	LVN_API void						getPhysicalDevices(LvnPhysicalDevice** ppPhysicalDevices, uint32_t* deviceCount);
 	LVN_API LvnPhysicalDeviceInfo		getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult					renderInit(LvnRendererBackends* renderBackends);
-	LVN_API LvnResult					createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
-	LVN_API LvnResult					createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);
-	LVN_API void						setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
-	LVN_API LvnPipelineSpecification	getDefaultPipelineSpecification();
 
 	LVN_API void						destroyRenderPass(LvnRenderPass* renderPass);
 	LVN_API void						destroyPipeline(LvnPipeline* pipeline);
+	LVN_API void						destroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 
 	LVN_API void						renderClearColor(const float r, const float g, const float b, const float w);
 	LVN_API void						renderClear();
@@ -934,25 +928,19 @@ namespace lvn
 	LVN_API void						renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	LVN_API void						renderSetStencilReference(uint32_t reference);
 	LVN_API void						renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	LVN_API void						renderBeginNextFrame();
-	LVN_API void						renderDrawSubmit();
-	LVN_API void						renderBeginRenderPass();
-	LVN_API void						renderEndRenderPass();
+	LVN_API void						renderBeginNextFrame(LvnWindow* window);
+	LVN_API void						renderDrawSubmit(LvnWindow* window);
+	LVN_API void						renderBeginRenderPass(LvnWindow* window);
+	LVN_API void						renderEndRenderPass(LvnWindow* window);
 
-	LVN_API LvnVertexBuffer*			createVertexBuffer(float* vertices, uint32_t size);
-	LVN_API LvnIndexBuffer*				createIndexBuffer(uint32_t indices, uint32_t size);
-	LVN_API LvnVertexArray*				createVertexArray();
+	LVN_API LvnResult					createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
+	LVN_API LvnResult					createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);
+	LVN_API LvnResult					createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 
-	LVN_API void						linkVertexArrayBuffers(LvnVertexBuffer* vertexBuffer, LvnIndexBuffer* indexBuffer, LvnVertexLayoutLinkInfo* vertexLayouts);
-	LVN_API void						linkVertexArrayBuffers(LvnVertexArrayCreateInfo* createInfo);
+	LVN_API void						setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
+	LVN_API LvnPipelineSpecification	getDefaultPipelineSpecification();
 
-	LVN_API void						bindVertexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void						bindIndexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void						bindVertexArray(LvnVertexBuffer* vertexBuffer);
-
-	LVN_API void						destroyVertexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void						destroyIndexBuffer(LvnVertexBuffer* vertexBuffer);
-	LVN_API void						destroyVertexArray(LvnVertexBuffer* vertexBuffer);
+	LVN_API void						bindPipeline(LvnWindow* window, LvnPipeline* pipeline);
 
 
 	/* [Math] */
@@ -2803,6 +2791,7 @@ struct LvnRendererBackends
 	LvnWindow**			pWindows;
 	uint32_t			windowCount;
 	bool				gammaCorrection;
+	uint32_t			maxFramesInFlight;
 };
 
 struct LvnRenderPassAttachment
@@ -2927,10 +2916,18 @@ struct LvnPipelineSpecification
 
 struct LvnPipelineCreateInfo
 {
+	const char* shaderVertSrc;
+	const char* shaderFragSrc;
 	LvnPipelineSpecification* pipelineSpecification;
 	LvnWindow* window;
 	LvnRenderPass* renderPass;
 };
 
+struct LvnFrameBufferCreateInfo
+{
+	uint32_t width, height;
+	LvnWindow* window;
+	LvnRenderPass* renderPass;
+};
 
 #endif

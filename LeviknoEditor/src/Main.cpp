@@ -122,7 +122,7 @@ int main()
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
-	pipelineCreateInfo.renderPass = renderPass;
+	pipelineCreateInfo.renderPass = nullptr;
 	pipelineCreateInfo.window = window;
 
 	LvnPipeline* pipeline;
@@ -161,7 +161,16 @@ int main()
 		auto [x, y] = lvn::getWindowDimensions(window);
 
 		LVN_TRACE("(x:%d,y:%d)", x, y);
-		break;
+
+		lvn::renderBeginNextFrame(window);
+		lvn::renderBeginRenderPass(window);
+
+		lvn::bindPipeline(window, pipeline);
+
+		lvn::renderEndRenderPass(window);
+		lvn::renderDrawSubmit(window);
+
+		// break;
 	}
 
 	lvn::destroyPipeline(pipeline);

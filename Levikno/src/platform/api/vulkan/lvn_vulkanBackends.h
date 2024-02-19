@@ -23,13 +23,17 @@ namespace lvn
 	struct VulkanWindowSurfaceData
 	{
 		VkSurfaceKHR surface;
+		VkRenderPass renderPass;
 		VkSwapchainKHR swapChain;
 		VkFormat swapChainImageFormat;
 		VkExtent2D swapChainExtent;
 		VkImage* swapChainImages;
 		VkImageView* swapChainImageViews;
+		VkFramebuffer* frameBuffers;
 		uint32_t swapChainImageCount;
 		uint32_t swapChainImageViewCount;
+		uint32_t frameBufferCount;
+		uint32_t imageIndex;
 	};
 
 	struct VulkanPipelineCreateData
@@ -63,12 +67,23 @@ namespace lvn
 		VkDevice							device;
 		VkQueue								graphicsQueue;
 		VkQueue								presentQueue;
+		VulkanQueueFamilyIndices			deviceIndices;
 
 		LvnVector<VulkanWindowSurfaceData>	windowSurfaceData;
 		VkFormat							defaultSwapChainFormat;
 
+		/* command buffers and semaphore/fence object count are dependent on the max frames in flight */
+		VkCommandPool						commandPool;
+		VkCommandBuffer*				  	commandBuffers;
+
+		VkSemaphore*						imageAvailableSemaphores;
+		VkSemaphore*						renderFinishedSemaphores;
+		VkFence*							inFlightFences;
+
 		LvnPipelineSpecification			defaultPipelineSpecification;
 		bool								gammaCorrect;
+		uint32_t							maxFramesInFlight;
+		uint32_t							currentFrame;
 	};
 }
 

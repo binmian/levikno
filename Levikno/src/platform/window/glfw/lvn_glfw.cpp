@@ -333,7 +333,9 @@ namespace lvn
 
 	void glfwImplUpdateWindow(LvnWindow* window)
 	{
-		glfwSwapBuffers(static_cast<GLFWwindow*>(window->nativeWindow));
+		if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
+			glfwSwapBuffers(static_cast<GLFWwindow*>(window->nativeWindow));
+
 		glfwPollEvents();
 	}
 

@@ -123,7 +123,7 @@ struct LvnVector
 	uint32_t m_Capacity;
 
 	LvnVector()
-		: m_Data(0), m_Size(0), m_Capacity(0) {}
+		: m_Data((T*)lvn::memAlloc(0)), m_Size(0), m_Capacity(0) {}
 	~LvnVector() { lvn::memFree(m_Data); }
 
 	LvnVector(uint32_t size)
@@ -254,7 +254,8 @@ struct LvnWindowData
 struct LvnWindow
 {
 	LvnWindowData data;    /* holds data of window (eg. width, height) */
-	void* nativeWindow;    /* used to hold ptr to window api handle (eg. GLFWwindow) */
+	void* nativeWindow;    /* pointer to window api handle (eg. GLFWwindow) */
+	void* apiData;         /* used for graphics api related uses */
 };
 
 struct LvnWindowContext
@@ -287,11 +288,14 @@ struct LvnGraphicsContext
 
 	LvnResult (*createRenderPass)(LvnRenderPass**, LvnRenderPassCreateInfo*);
 	LvnResult (*createPipeline)(LvnPipeline**, LvnPipelineCreateInfo*);
+	LvnResult (*createFrameBuffer)(LvnFrameBuffer**, LvnFrameBufferCreateInfo*);
+
 	void (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification (*getDefaultPipelineSpecification)();
 
 	void (*destroyRenderPass)(LvnRenderPass*);
 	void (*destroyPipeline)(LvnPipeline*);
+	void (*destroyFrameBuffer)(LvnFrameBuffer*);
 
 
 	void (*renderClearColor)(const float, const float, const float, const float);
@@ -302,10 +306,11 @@ struct LvnGraphicsContext
 	void (*renderDrawIndexedInstanced)(uint32_t, uint32_t, uint32_t);
 	void (*renderSetStencilReference)(uint32_t);
 	void (*renderSetStencilMask)(uint32_t, uint32_t);
-	void (*renderBeginNextFrame)();
-	void (*renderDrawSubmit)();
-	void (*renderBeginRenderPass)();
-	void (*renderEndRenderPass)();
+	void (*renderBeginNextFrame)(LvnWindow* window);
+	void (*renderDrawSubmit)(LvnWindow* window);
+	void (*renderBeginRenderPass)(LvnWindow* window);
+	void (*renderEndRenderPass)(LvnWindow* window);
+	void (*renderBindPipeline)(LvnWindow* window, LvnPipeline* pipeline);
 
 };
 

@@ -970,7 +970,7 @@ LvnWindow* createWindow(LvnWindowCreateInfo* winCreateInfo)
 		return nullptr;
 	}
 
-	LvnWindow* window = (LvnWindow*)memAlloc(sizeof(LvnWindow));
+	LvnWindow* window = new LvnWindow();
 	s_LvnContext->windowContext.createWindowInfo(window, winCreateInfo);
 	return window;
 }
@@ -1028,7 +1028,7 @@ void setWindowContextCurrent(LvnWindow* window)
 void destroyWindow(LvnWindow* window)
 {
 	s_LvnContext->windowContext.destroyWindow(window);
-	memFree(window);
+	delete window;
 }
 
 
@@ -1141,6 +1141,61 @@ LvnResult renderInit(LvnRendererBackends* renderBackends)
 	return vksImplRenderInit(renderBackends);
 }
 
+void renderClear()
+{
+
+}
+
+void renderDraw(uint32_t vertexCount)
+{
+
+}
+
+void renderDrawIndexed(uint32_t indexCount)
+{
+
+}
+
+void renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
+{
+
+}
+
+void renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+{
+
+}
+
+void renderSetStencilReference(uint32_t reference)
+{
+
+}
+
+void renderSetStencilMask(uint32_t compareMask, uint32_t writeMask)
+{
+
+}
+
+void renderBeginNextFrame(LvnWindow* window)
+{
+	s_LvnContext->graphicsContext.renderBeginNextFrame(window);
+}
+
+void renderDrawSubmit(LvnWindow* window)
+{
+	s_LvnContext->graphicsContext.renderDrawSubmit(window);
+}
+
+void renderBeginRenderPass(LvnWindow* window)
+{
+	s_LvnContext->graphicsContext.renderBeginRenderPass(window);
+}
+
+void renderEndRenderPass(LvnWindow* window)
+{
+	s_LvnContext->graphicsContext.renderEndRenderPass(window);
+}
+
 LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
 {
 	return s_LvnContext->graphicsContext.createRenderPass(renderPass, createInfo);
@@ -1149,6 +1204,11 @@ LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* 
 LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
 {
 	return s_LvnContext->graphicsContext.createPipeline(pipeline, createInfo);
+}
+
+LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
+{
+	return s_LvnContext->graphicsContext.createFrameBuffer(frameBuffer, createInfo);
 }
 
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
@@ -1161,6 +1221,16 @@ LvnPipelineSpecification getDefaultPipelineSpecification()
 	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
 }
 
+void renderClearColor(const float r, const float g, const float b, const float w)
+{
+
+}
+
+void bindPipeline(LvnWindow* window, LvnPipeline* pipeline)
+{
+	s_LvnContext->graphicsContext.renderBindPipeline(window, pipeline);
+}
+
 void destroyRenderPass(LvnRenderPass* renderPass)
 {
 	s_LvnContext->graphicsContext.destroyRenderPass(renderPass);
@@ -1169,6 +1239,11 @@ void destroyRenderPass(LvnRenderPass* renderPass)
 void destroyPipeline(LvnPipeline* pipeline)
 {
 	s_LvnContext->graphicsContext.destroyPipeline(pipeline);
+}
+
+void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
+{
+	s_LvnContext->graphicsContext.destroyFrameBuffer(frameBuffer);
 }
 
 } /* namespace lvn */

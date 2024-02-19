@@ -11,11 +11,14 @@ namespace lvn
 
 	LvnResult vksImplCreateRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
 	LvnResult vksImplCreatePipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);
+	LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);
+
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
 
 	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
 	void vksImplDestroyPipeline(LvnPipeline* pipeline);
+	void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 
 
 	void vksImplRenderClearColor(const float r, const float g, const float b, const float w);
@@ -26,10 +29,11 @@ namespace lvn
 	void vksImplRenderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	void vksImplRenderSetStencilReference(uint32_t reference);
 	void vksImplRenderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	void vksImplRenderBeginNextFrame();
-	void vksImplRenderDrawSubmit();
-	void vksImplRenderBeginRenderPass();
-	void vksImplRenderEndRenderPass();
+	void vksImplRenderBeginNextFrame(LvnWindow* window);
+	void vksImplRenderDrawSubmit(LvnWindow* window);
+	void vksImplRenderBeginRenderPass(LvnWindow* window);
+	void vksImplRenderEndRenderPass(LvnWindow* window);
+	void vksImplBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
 
 }
 
