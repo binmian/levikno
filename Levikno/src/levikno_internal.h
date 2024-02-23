@@ -1,8 +1,12 @@
 #ifndef HG_LEVIKNO_INTERNAL_H
 #define HG_LEVIKNO_INTERNAL_H
 
-#include "levikno/levikno.h"
+#include "levikno.h"
 
+struct LvnString;
+
+template <typename T>
+struct LvnVector;
 
 namespace lvn
 {
@@ -41,6 +45,12 @@ struct LvnLogger
 	const char* logPatternFormat;
 	LvnLogPattern* pLogPatterns;
 	uint32_t logPatternCount;
+};
+
+struct LvnLogPattern
+{
+	char symbol;
+	LvnString (*func)(LvnLogMessage*);
 };
 
 // ------------------------------------------------------------
@@ -262,7 +272,8 @@ struct LvnWindowContext
 {
 	LvnWindowApi		windowapi;    /* window api enum */
 
-	void				(*createWindowInfo)(LvnWindow*, LvnWindowCreateInfo*);
+	LvnResult			(*createWindow)(LvnWindow*, LvnWindowCreateInfo*);
+	void				(*destroyWindow)(LvnWindow*);
 	void				(*updateWindow)(LvnWindow*);
 	bool				(*windowOpen)(LvnWindow*);
 	LvnWindowDimensions	(*getDimensions)(LvnWindow*);
@@ -271,7 +282,6 @@ struct LvnWindowContext
 	void				(*setWindowVSync)(LvnWindow*, bool);
 	bool				(*getWindowVSync)(LvnWindow*);
 	void				(*setWindowContextCurrent)(LvnWindow*);
-	void				(*destroyWindow)(LvnWindow*);
 };
 
 
@@ -283,35 +293,41 @@ struct LvnGraphicsContext
 {
 	LvnGraphicsApi graphicsapi;
 
-	void (*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
-	bool (*renderInit)(LvnRendererBackends*);
+	void						(*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
+	bool						(*renderInit)(LvnRendererBackends*);
 
-	LvnResult (*createRenderPass)(LvnRenderPass**, LvnRenderPassCreateInfo*);
-	LvnResult (*createPipeline)(LvnPipeline**, LvnPipelineCreateInfo*);
-	LvnResult (*createFrameBuffer)(LvnFrameBuffer**, LvnFrameBufferCreateInfo*);
+	LvnResult					(*createRenderPass)(LvnRenderPass*, LvnRenderPassCreateInfo*);
+	LvnResult					(*createShaderFromSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult					(*createShaderFromFileSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult					(*createShaderFromFileBin)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult					(*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
+	LvnResult					(*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
+	LvnResult					(*createVertexArrayBuffer)(LvnVertexArrayBuffer*, LvnVertexArrayBufferCreateInfo*);
 
-	void (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
-	LvnPipelineSpecification (*getDefaultPipelineSpecification)();
+	void						(*destroyRenderPass)(LvnRenderPass*);
+	void						(*destroyShader)(LvnShader*);
+	void						(*destroyPipeline)(LvnPipeline*);
+	void						(*destroyFrameBuffer)(LvnFrameBuffer*);
+	void						(*destroyVertexArrayBuffer)(LvnVertexArrayBuffer*);
 
-	void (*destroyRenderPass)(LvnRenderPass*);
-	void (*destroyPipeline)(LvnPipeline*);
-	void (*destroyFrameBuffer)(LvnFrameBuffer*);
+
+	void						(*renderBeginNextFrame)(LvnWindow*);
+	void						(*renderDrawSubmit)(LvnWindow*);
+	void						(*renderBeginCommandRecording)(LvnWindow*);
+	void						(*renderEndCommandRecording)(LvnWindow*);
+	void						(*renderCmdDraw)(LvnWindow*, uint32_t);
+	void						(*renderCmdDrawIndexed)(uint32_t);
+	void						(*renderCmdDrawInstanced)(uint32_t, uint32_t, uint32_t);
+	void						(*renderCmdDrawIndexedInstanced)(uint32_t, uint32_t, uint32_t);
+	void						(*renderCmdSetStencilReference)(uint32_t);
+	void						(*renderCmdSetStencilMask)(uint32_t, uint32_t);
+	void						(*renderCmdBeginRenderPass)(LvnWindow*);
+	void						(*renderCmdEndRenderPass)(LvnWindow*);
+	void						(*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
 
 
-	void (*renderClearColor)(const float, const float, const float, const float);
-	void (*renderClear)();
-	void (*renderDraw)(uint32_t);
-	void (*renderDrawIndexed)(uint32_t);
-	void (*renderDrawInstanced)(uint32_t, uint32_t, uint32_t);
-	void (*renderDrawIndexedInstanced)(uint32_t, uint32_t, uint32_t);
-	void (*renderSetStencilReference)(uint32_t);
-	void (*renderSetStencilMask)(uint32_t, uint32_t);
-	void (*renderBeginNextFrame)(LvnWindow* window);
-	void (*renderDrawSubmit)(LvnWindow* window);
-	void (*renderBeginRenderPass)(LvnWindow* window);
-	void (*renderEndRenderPass)(LvnWindow* window);
-	void (*renderBindPipeline)(LvnWindow* window, LvnPipeline* pipeline);
-
+	void						(*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
+	LvnPipelineSpecification	(*getDefaultPipelineSpecification)();
 };
 
 struct LvnPhysicalDevice
@@ -327,10 +343,26 @@ struct LvnRenderPass
 	void* nativeRenderPass;
 };
 
+struct LvnShader
+{
+	void* nativeVertexShaderModule;
+	void* nativeFragmentShaderModule;
+};
+
 struct LvnPipeline
 {
 	void* nativePipeline;
 	void* nativePipelineLayout;
+};
+
+struct LvnFrameBuffer
+{
+
+};
+
+struct LvnVertexArrayBuffer
+{
+
 };
 
 struct LvnContext

@@ -53,16 +53,12 @@ void eventsCallbackFn(LvnEvent* e)
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
-	lvnCreateInfo.useLogging = true;
-	lvnCreateInfo.vulkanValidationLayers = true;
+	lvnCreateInfo.enableLogging = true;
+	lvnCreateInfo.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
-
-	//lvn::logInit();
-	lvn::logSetPatternFormat(lvn::getCoreLogger(), "[%T] [%#%l%^] %n: %v%$");
-	lvn::logSetPatternFormat(lvn::getClientLogger(), "[%T] [%#%l%^] %n: %v%$");
 
 	LvnWindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
@@ -77,7 +73,8 @@ int main()
 	windowInfo.pIcons = nullptr;
 	windowInfo.iconCount = 0;
 
-	LvnWindow* window = lvn::createWindow(&windowInfo);
+	LvnWindow* window;
+	lvn::createWindow(&window, &windowInfo);
 
 	lvn::setWindowEventCallback(window, eventsCallbackFn);
 
@@ -119,14 +116,25 @@ int main()
 	LvnRenderPass* renderPass;
 	lvn::createRenderPass(&renderPass, &renderPassCreateInfo);
 
+
+	LvnShaderCreateInfo shaderCreateInfo{};
+	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkvert.spv";
+	shaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkfrag.spv";
+
+	LvnShader* shader;
+	lvn::createShaderFromFileBin(&shader, &shaderCreateInfo);
+
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
+	pipelineCreateInfo.shader = shader;
 	pipelineCreateInfo.renderPass = nullptr;
 	pipelineCreateInfo.window = window;
 
 	LvnPipeline* pipeline;
 	lvn::createPipeline(&pipeline, &pipelineCreateInfo);
+
+	lvn::destroyShader(shader);
 
 	free(devices);
 
@@ -163,14 +171,16 @@ int main()
 		LVN_TRACE("(x:%d,y:%d)", x, y);
 
 		lvn::renderBeginNextFrame(window);
-		lvn::renderBeginRenderPass(window);
+		lvn::renderBeginCommandRecording(window);
+		lvn::renderCmdBeginRenderPass(window);
 
-		lvn::bindPipeline(window, pipeline);
+		lvn::renderCmdBindPipeline(window, pipeline);
+		lvn::renderCmdDraw(window, 3);
 
-		lvn::renderEndRenderPass(window);
+		lvn::renderCmdEndRenderPass(window);
+		lvn::renderEndCommandRecording(window);
 		lvn::renderDrawSubmit(window);
 
-		// break;
 	}
 
 	lvn::destroyPipeline(pipeline);

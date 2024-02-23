@@ -163,28 +163,28 @@
 #define LVN_LOG_COLOR_INFO 						"\x1b[0;32m"
 #define LVN_LOG_COLOR_WARN 						"\x1b[1;33m"
 #define LVN_LOG_COLOR_ERROR 					"\x1b[1;31m"
-#define LVN_LOG_COLOR_CRITICAL				"\x1b[1;37;41m"
+#define LVN_LOG_COLOR_CRITICAL					"\x1b[1;37;41m"
 #define LVN_LOG_COLOR_RESET						"\x1b[0m"
 
 
-// Core Log macros									
+// Core Log macros
 #define LVN_CORE_TRACE(...)						::lvn::logMessageTrace(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_INFO(...)						::lvn::logMessageInfo(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_WARN(...)						::lvn::logMessageWarn(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_ERROR(...)						::lvn::logMessageError(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_CRITICAL(...)				::lvn::logMessageCritical(lvn::getCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_CRITICAL(...)					::lvn::logMessageCritical(lvn::getCoreLogger(), ##__VA_ARGS__)
 
-// Client Log macros								
-#define LVN_TRACE(...)							::lvn::logMessageTrace(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_INFO(...)							  ::lvn::logMessageInfo(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_WARN(...)							  ::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
+// Client Log macros
+#define LVN_TRACE(...)		  					::lvn::logMessageTrace(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_INFO(...)							::lvn::logMessageInfo(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_WARN(...)							::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_ERROR(...)							::lvn::logMessageError(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_CRITICAL(...)						::lvn::logMessageCritical(lvn::getClientLogger(), ##__VA_ARGS__)
 
 
 // Logging utils
 #define LVN_PROPERTIES(prop)					#prop, &prop
-#define LVN_LOG_FILE							    LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
+#define LVN_LOG_FILE							LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
 
 
 /* [Core Enums] */
@@ -194,6 +194,24 @@ enum LvnResult
 	Lvn_Result_Failure = 0,
 	Lvn_Result_Success = 1,
 	Lvn_Result_AlreadyCalled = 2
+};
+
+enum LvnStructureType
+{
+	Lvn_StructureType_Undefined = 0,
+	Lvn_StructureType_Window,
+	Lvn_StructureType_Logger,
+	Lvn_StructureType_RenderPass,
+	Lvn_StructureType_FrameBuffer,
+	Lvn_StructureType_Shader,
+	Lvn_StructureType_Pipeline,
+	Lvn_StructureType_VertexArrayBuffer,
+};
+
+enum LvnMemoryBlockUsage
+{
+	Lvn_MemoryBlockUsage_Static,
+	Lvn_MemoryBlockUsage_Dynamic,
 };
 
 /* Key Codes */
@@ -617,11 +635,35 @@ enum LvnTopologyType
 	Lvn_TopologyType_TriangleStrip,
 };
 
+enum LvnVertexDataType
+{
+	Lvn_VertexDataType_None = 0,
+	Lvn_VertexDataType_Float,
+	Lvn_VertexDataType_Double,
+	Lvn_VertexDataType_Int,
+	Lvn_VertexDataType_UnsignedInt,
+	Lvn_VertexDataType_Bool,
+	Lvn_VertexDataType_Vec2,
+	Lvn_VertexDataType_Vec3,
+	Lvn_VertexDataType_Vec4,
+	Lvn_VertexDataType_Vec2i,
+	Lvn_VertexDataType_Vec3i,
+	Lvn_VertexDataType_Vec4i,
+	Lvn_VertexDataType_Vec2ui,
+	Lvn_VertexDataType_Vec3ui,
+	Lvn_VertexDataType_Vec4ui,
+	Lvn_VertexDataType_Vec2d,
+	Lvn_VertexDataType_Vec3d,
+	Lvn_VertexDataType_Vec4d,
+	Lvn_VertexDataType_Vec2f = Lvn_VertexDataType_Vec2,
+	Lvn_VertexDataType_Vec3f = Lvn_VertexDataType_Vec3,
+	Lvn_VertexDataType_Vec4f = Lvn_VertexDataType_Vec4,
+};
+
 struct LvnAppRenderEvent;
 struct LvnAppTickEvent;
 struct LvnBatchCreateInfo;
 struct LvnBatchRenderer;
-struct LvnCamera;
 struct LvnCharset;
 struct LvnContext;
 struct LvnContextCreateInfo;
@@ -636,7 +678,6 @@ struct LvnFontMetrics;
 struct LvnFrameBuffer;
 struct LvnFrameBufferCreateInfo;
 struct LvnGraphicsContext;
-struct LvnIndexBuffer;
 struct LvnKeyHoldEvent;
 struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
@@ -644,6 +685,9 @@ struct LvnKeyTypedEvent;
 struct LvnLogMessage;
 struct LvnLogPattern;
 struct LvnLogger;
+struct LvnMemoryBlock;
+struct LvnMemoryPool;
+struct LvnMemoryPoolCreateInfo;
 struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
 struct LvnMouseMovedEvent;
@@ -668,12 +712,12 @@ struct LvnRendererBackends;
 struct LvnRenderPass;
 struct LvnRenderPassAttachment;
 struct LvnRenderPassCreateInfo;
-struct LvnString;
-struct LvnVertexArray;
-struct LvnVertexArrayCreateInfo;
-struct LvnVertexBuffer;
-struct LvnVertexLayout;
-struct LvnVertexLayoutLinkInfo;
+struct LvnShader;
+struct LvnShaderCreateInfo;
+struct LvnVertexArrayBuffer;
+struct LvnVertexArrayBufferCreateInfo;
+struct LvnVertexAttribute;
+struct LvnVertexBindingDescription;
 struct LvnWindow;
 struct LvnWindowCloseEvent;
 struct LvnWindowContext;
@@ -688,12 +732,6 @@ struct LvnWindowLostFocusEvent;
 struct LvnWindowMovedEvent;
 struct LvnWindowResizeEvent;
 
-template <typename T>
-struct LvnVector;
-
-typedef LvnCamera LvnPerspectiveCamera;
-typedef LvnCamera LvnCamera3D;
-typedef LvnOrthographicCamera LvnCamera2D;
 
 /* [Vectors] */
 template<typename T>
@@ -848,8 +886,8 @@ namespace lvn
 	//  - 'P' = get the time meridiem (AM/PM)
 	//  - 'p' = get the time meridiem in lower (am/pm)
 	// 
-	// Ex: The default log pattern is: "%#[%T] [%l] %n: %v%^%$"
-	//     Which could output: "\x1b[0;32m[14:25:11] [info] CORE: some informational message\x1b[0m\n"
+	// Ex: The default log pattern is: "[%d-%m-%Y] [%T] [%#%l%^] %n: %v%$"
+	//     Which could output: "[04-06-2025] [14:25:11] [\x1b[0;32minfo\x1b[0m] CORE: some informational message\n"
 
 	LVN_API LvnResult					logInit(); /* Initiates logging */
 	LVN_API void						logTerminate();
@@ -893,7 +931,7 @@ namespace lvn
 	LVN_API LvnWindowApi				getWindowApi();
 	LVN_API const char*					getWindowApiName();
 
-	LVN_API LvnWindow*					createWindow(LvnWindowCreateInfo* winCreateInfo);
+	LVN_API LvnResult					createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo);
 	LVN_API void						destroyWindow(LvnWindow* window);
 
 	LVN_API void						updateWindow(LvnWindow* window);
@@ -916,36 +954,49 @@ namespace lvn
 	LVN_API LvnPhysicalDeviceInfo		getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult					renderInit(LvnRendererBackends* renderBackends);
 
-	LVN_API void						destroyRenderPass(LvnRenderPass* renderPass);
-	LVN_API void						destroyPipeline(LvnPipeline* pipeline);
-	LVN_API void						destroyFrameBuffer(LvnFrameBuffer* frameBuffer);
+	LVN_API void						renderCmdDraw(LvnWindow* window, uint32_t vertexCount);
+	LVN_API void						renderCmdDrawIndexed(uint32_t indexCount);
+	LVN_API void						renderCmdDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
+	LVN_API void						renderCmdDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
+	LVN_API void						renderCmdSetStencilReference(uint32_t reference);
+	LVN_API void						renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
+	LVN_API void						renderBeginNextFrame(LvnWindow* window);																		// begins the next frame of the window
+	LVN_API void						renderDrawSubmit(LvnWindow* window);																			// submits all draw commands recorded and presents to window
+	LVN_API void						renderBeginCommandRecording(LvnWindow* window);																	// begins command buffer when recording draw commands start
+	LVN_API void						renderEndCommandRecording(LvnWindow* window);																	// ends command buffer when finished recording draw commands
+	LVN_API void						renderCmdBeginRenderPass(LvnWindow* window);																	// begins renderpass when rendering starts
+	LVN_API void						renderCmdEndRenderPass(LvnWindow* window);																		// ends renderpass when rendering has finished
+	LVN_API void						renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);												// bind a pipeline to begin shading during rendering
 
-	LVN_API void						renderClearColor(const float r, const float g, const float b, const float w);
-	LVN_API void						renderClear();
-	LVN_API void						renderDraw(uint32_t vertexCount);
-	LVN_API void						renderDrawIndexed(uint32_t indexCount);
-	LVN_API void						renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
-	LVN_API void						renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
-	LVN_API void						renderSetStencilReference(uint32_t reference);
-	LVN_API void						renderSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	LVN_API void						renderBeginNextFrame(LvnWindow* window);
-	LVN_API void						renderDrawSubmit(LvnWindow* window);
-	LVN_API void						renderBeginRenderPass(LvnWindow* window);
-	LVN_API void						renderEndRenderPass(LvnWindow* window);
+	LVN_API LvnResult					createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);								// create renderpass for rendering draw commands
+	LVN_API LvnResult					createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);										// create shader with the source code as input
+	LVN_API LvnResult					createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);									// create shader with the file paths to the source files as input
+	LVN_API LvnResult					createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo);									// create shader with the file paths to the binary files (.spv) as input
+	LVN_API LvnResult					createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);										// create pipeline to describe shading specifications
+	LVN_API LvnResult					createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);							// create framebuffer to render images to
+	LVN_API LvnResult					createVertexArrayBuffer(LvnVertexArrayBuffer** vertexArrayBuffer, LvnVertexArrayBufferCreateInfo* createInfo);	// create a single buffer object that can hold both the vertex and index buffers
 
-	LVN_API LvnResult					createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);
-	LVN_API LvnResult					createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);
-	LVN_API LvnResult					createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);
+	LVN_API void						destroyRenderPass(LvnRenderPass* renderPass);																	// destroy renderpass object
+	LVN_API void						destroyShader(LvnShader* shader);
+	LVN_API void						destroyPipeline(LvnPipeline* pipeline);																			// destroy pipeline object
+	LVN_API void						destroyFrameBuffer(LvnFrameBuffer* frameBuffer);																// destroy framebuffer object
+	LVN_API void						destroyVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer);												// destory vertex buffers object
 
 	LVN_API void						setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification	getDefaultPipelineSpecification();
 
-	LVN_API void						bindPipeline(LvnWindow* window, LvnPipeline* pipeline);
 
 
 	/* [Math] */
 	template <typename T>
-	LVN_API T						clamp(const T& val, const T& low, const T& high) { return low * (val < low) + val * (val >= low && val <= high) + high * (val > high); }
+	LVN_API T						min(const T& n1, const T& n2) { return n1 < n2 ? n1 : n2; }
+
+	template <typename T>
+	LVN_API T						max(const T& n1, const T& n2) { return n1 > n2 ? n1 : n2; }
+
+	template <typename T>
+	LVN_API T						clamp(const T& val, const T& low, const T& high) { return lvn::max(lvn::min(val, high), low); }
+
 }
 
 
@@ -955,22 +1006,30 @@ struct LvnContextCreateInfo
 {
 	LvnWindowApi		windowapi;
 	LvnGraphicsApi		graphicsapi;
-	bool				useLogging;
-	bool				vulkanValidationLayers;
+	bool				enableLogging;
+	bool				enableVulkanValidationLayers;
+};
+
+struct LvnMemoryBlock
+{
+	LvnStructureType sType;
+	LvnMemoryBlockUsage usage;
+	uint32_t numAllocations;
+	uint32_t numAdvanceAllocations;
+};
+
+struct LvnMemoryPoolCreateInfo
+{
+	LvnMemoryBlock* pMemoryBlocks;
+	uint32_t memoryBlockCount;
 };
 
 /* [Logging] */
 struct LvnLogMessage
 {
-	const char* msg, * loggerName;
+	const char *msg, *loggerName;
 	LvnLogLevel level;
 	long long timeEpoch;
-};
-
-struct LvnLogPattern
-{
-	char symbol;
-	LvnString(*func)(LvnLogMessage*);
 };
 
 
@@ -2914,13 +2973,34 @@ struct LvnPipelineSpecification
 	LvnPipelineDepthStencil depthstencil;
 };
 
+struct LvnVertexBindingDescription
+{
+	uint32_t binding, stride;
+};
+
+struct LvnVertexAttribute
+{
+	uint32_t layout, binding;
+	LvnVertexDataType type;
+	uint32_t offset;
+};
+
 struct LvnPipelineCreateInfo
 {
-	const char* shaderVertSrc;
-	const char* shaderFragSrc;
 	LvnPipelineSpecification* pipelineSpecification;
+	LvnShader* shader;
 	LvnWindow* window;
 	LvnRenderPass* renderPass;
+	LvnVertexBindingDescription* pVertexBindingDescriptions;
+	LvnVertexAttribute* pVertexAttributes;
+
+	uint32_t vertexBindingDescriptionCount, vertexAttributeCount;
+};
+
+struct LvnShaderCreateInfo
+{
+	const char* vertexSrc;
+	const char* fragmentSrc;
 };
 
 struct LvnFrameBufferCreateInfo
@@ -2929,5 +3009,16 @@ struct LvnFrameBufferCreateInfo
 	LvnWindow* window;
 	LvnRenderPass* renderPass;
 };
+
+struct LvnVertexArrayBufferCreateInfo
+{
+	float* pVertices;
+	uint32_t* pIndices;
+	LvnVertexBindingDescription* pVertexBindingDescriptions;
+	LvnVertexAttribute* pVertexAttributes;
+
+	uint32_t vertexCount, indexCount, vertexBindingDescriptionCount, vertexAttributeCount;
+};
+
 
 #endif

@@ -1,4 +1,4 @@
-#include "levikno/levikno.h"
+#include "levikno.h"
 #include "levikno_internal.h"
 
 #include <stdarg.h>
@@ -10,7 +10,7 @@
 
 #define LVN_ABORT abort()
 #define LVN_EMPTY_STR "\0"
-#define LVN_DEFAULT_LOG_PATTERN "%#[%T] [%l] %n: %v%^%$"
+#define LVN_DEFAULT_LOG_PATTERN "[%d-%m-%Y] [%T] [%#%l%^] %n: %v%$"
 
 #include "platform/window/glfw/lvn_glfw.h"
 #include "platform/api/vulkan/lvn_vulkan.h"
@@ -83,10 +83,10 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
-	s_LvnContext->vulkanValidationLayers = createInfo->vulkanValidationLayers;
+	s_LvnContext->vulkanValidationLayers = createInfo->enableVulkanValidationLayers;
 
 	// logging
-	if (createInfo->useLogging) { logInit(); }
+	if (createInfo->enableLogging) { logInit(); }
 
 	// window context
 	LvnResult result = setWindowContext(createInfo->windowapi);
@@ -292,7 +292,6 @@ long long getSecondsSinceEpoch()
 
 void* memAlloc(size_t size)
 {
-	if (!size) { return 0; }
 	void* allocmem = malloc(size);
 	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
 	if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
@@ -301,7 +300,6 @@ void* memAlloc(size_t size)
 
 void memFree(void* ptr)
 {
-	if (!ptr) { return; }
 	free(ptr);
 	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
 }
@@ -338,7 +336,7 @@ LvnVector<uint8_t> getFileSrcBin(const char* filepath)
 }
 
 /* [Logging] */
-const static LvnLogPattern s_LogPatterns[23] =
+const static LvnLogPattern s_LogPatterns[] =
 {
 	{ '$', [](LvnLogMessage* msg) -> LvnString { return "\n"; } },
 	{ 'n', [](LvnLogMessage* msg) -> LvnString { return msg->loggerName; } },
@@ -435,7 +433,7 @@ LvnResult logInit()
 		return Lvn_Result_Success;
 	}
 		
-	return Lvn_Result_Failure;
+	return Lvn_Result_AlreadyCalled;
 }
 
 void logTerminate()
@@ -962,17 +960,22 @@ const char* getWindowApiName()
 	return LVN_EMPTY_STR;
 }
 
-LvnWindow* createWindow(LvnWindowCreateInfo* winCreateInfo)
+LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 {
-	if (winCreateInfo->width * winCreateInfo->height < 0)
+	if (createInfo->width < 0 || createInfo->height < 0)
 	{
-		LVN_CORE_ERROR("Cannot create window with negative dimensions! (w:%d,h:%d)", winCreateInfo->width, winCreateInfo->height);
-		return nullptr;
+		LVN_CORE_ERROR("cannot create window with negative dimensions (w:%d,h:%d), window dimenstions need to be positive", createInfo->width, createInfo->height);
+		return Lvn_Result_Failure;
 	}
 
-	LvnWindow* window = new LvnWindow();
-	s_LvnContext->windowContext.createWindowInfo(window, winCreateInfo);
-	return window;
+	*window = new LvnWindow();
+	return s_LvnContext->windowContext.createWindow(*window, createInfo);
+}
+
+void destroyWindow(LvnWindow* window)
+{
+	s_LvnContext->windowContext.destroyWindow(window);
+	delete window;
 }
 
 void updateWindow(LvnWindow* window)
@@ -1023,12 +1026,6 @@ void* getNativeWindow(LvnWindow* window)
 void setWindowContextCurrent(LvnWindow* window)
 {
 	s_LvnContext->windowContext.setWindowContextCurrent(window);
-}
-
-void destroyWindow(LvnWindow* window)
-{
-	s_LvnContext->windowContext.destroyWindow(window);
-	delete window;
 }
 
 
@@ -1141,37 +1138,32 @@ LvnResult renderInit(LvnRendererBackends* renderBackends)
 	return vksImplRenderInit(renderBackends);
 }
 
-void renderClear()
+void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
+{
+	s_LvnContext->graphicsContext.renderCmdDraw(window, vertexCount);
+}
+
+void renderCmdDrawIndexed(uint32_t indexCount)
 {
 
 }
 
-void renderDraw(uint32_t vertexCount)
+void renderCmdDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
 
-void renderDrawIndexed(uint32_t indexCount)
+void renderCmdDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
 
-void renderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
+void renderCmdSetStencilReference(uint32_t reference)
 {
 
 }
 
-void renderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
-{
-
-}
-
-void renderSetStencilReference(uint32_t reference)
-{
-
-}
-
-void renderSetStencilMask(uint32_t compareMask, uint32_t writeMask)
+void renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 {
 
 }
@@ -1186,29 +1178,71 @@ void renderDrawSubmit(LvnWindow* window)
 	s_LvnContext->graphicsContext.renderDrawSubmit(window);
 }
 
-void renderBeginRenderPass(LvnWindow* window)
+void renderBeginCommandRecording(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderBeginRenderPass(window);
+	s_LvnContext->graphicsContext.renderBeginCommandRecording(window);
 }
 
-void renderEndRenderPass(LvnWindow* window)
+void renderEndCommandRecording(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderEndRenderPass(window);
+	s_LvnContext->graphicsContext.renderEndCommandRecording(window);
+}
+
+void renderCmdBeginRenderPass(LvnWindow* window)
+{
+	s_LvnContext->graphicsContext.renderCmdBeginRenderPass(window);
+}
+
+void renderCmdEndRenderPass(LvnWindow* window)
+{
+	s_LvnContext->graphicsContext.renderCmdEndRenderPass(window);
+}
+
+void renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
+{
+	s_LvnContext->graphicsContext.renderCmdBindPipeline(window, pipeline);
 }
 
 LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
 {
-	return s_LvnContext->graphicsContext.createRenderPass(renderPass, createInfo);
+	*renderPass = new LvnRenderPass();
+	return s_LvnContext->graphicsContext.createRenderPass(*renderPass, createInfo);
+}
+
+LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
+{
+	*shader = new LvnShader();
+	return s_LvnContext->graphicsContext.createShaderFromSrc(*shader, createInfo);
+}
+
+LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
+{
+	*shader = new LvnShader();
+	return s_LvnContext->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
+}
+
+LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo)
+{
+	*shader = new LvnShader();
+	return s_LvnContext->graphicsContext.createShaderFromFileBin(*shader, createInfo);
 }
 
 LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
 {
-	return s_LvnContext->graphicsContext.createPipeline(pipeline, createInfo);
+	*pipeline = new LvnPipeline();
+	return s_LvnContext->graphicsContext.createPipeline(*pipeline, createInfo);
 }
 
 LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
-	return s_LvnContext->graphicsContext.createFrameBuffer(frameBuffer, createInfo);
+	*frameBuffer = new LvnFrameBuffer();
+	return s_LvnContext->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
+}
+
+LvnResult createVertexArrayBuffer(LvnVertexArrayBuffer** vertexArrayBuffer, LvnVertexArrayBufferCreateInfo* createInfo)
+{
+	*vertexArrayBuffer = new LvnVertexArrayBuffer();
+	return s_LvnContext->graphicsContext.createVertexArrayBuffer(*vertexArrayBuffer, createInfo);
 }
 
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
@@ -1221,29 +1255,34 @@ LvnPipelineSpecification getDefaultPipelineSpecification()
 	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
 }
 
-void renderClearColor(const float r, const float g, const float b, const float w)
-{
-
-}
-
-void bindPipeline(LvnWindow* window, LvnPipeline* pipeline)
-{
-	s_LvnContext->graphicsContext.renderBindPipeline(window, pipeline);
-}
-
 void destroyRenderPass(LvnRenderPass* renderPass)
 {
 	s_LvnContext->graphicsContext.destroyRenderPass(renderPass);
+	delete renderPass;
+}
+
+void destroyShader(LvnShader* shader)
+{
+	s_LvnContext->graphicsContext.destroyShader(shader);
+	delete shader;
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
 {
 	s_LvnContext->graphicsContext.destroyPipeline(pipeline);
+	delete pipeline;
 }
 
 void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
 	s_LvnContext->graphicsContext.destroyFrameBuffer(frameBuffer);
+	delete frameBuffer;
+}
+
+void destroyVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer)
+{
+	s_LvnContext->graphicsContext.destroyVertexArrayBuffer(vertexArrayBuffer);
+	delete  vertexArrayBuffer;
 }
 
 } /* namespace lvn */

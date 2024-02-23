@@ -30,10 +30,20 @@ namespace lvn
 		VkImage* swapChainImages;
 		VkImageView* swapChainImageViews;
 		VkFramebuffer* frameBuffers;
+
+		/* command buffers and semaphore/fence object count are dependent on the max frames in flight */
+		VkCommandBuffer* commandBuffers;
+		VkSemaphore* imageAvailableSemaphores;
+		VkSemaphore* renderFinishedSemaphores;
+		VkFence* inFlightFences;
+
 		uint32_t swapChainImageCount;
 		uint32_t swapChainImageViewCount;
 		uint32_t frameBufferCount;
-		uint32_t imageIndex;
+		uint32_t commandBufferCount;
+		uint32_t imageIndex, currentFrame;
+
+		bool frameBufferResized;
 	};
 
 	struct VulkanPipelineCreateData
@@ -72,18 +82,11 @@ namespace lvn
 		LvnVector<VulkanWindowSurfaceData>	windowSurfaceData;
 		VkFormat							defaultSwapChainFormat;
 
-		/* command buffers and semaphore/fence object count are dependent on the max frames in flight */
 		VkCommandPool						commandPool;
-		VkCommandBuffer*				  	commandBuffers;
-
-		VkSemaphore*						imageAvailableSemaphores;
-		VkSemaphore*						renderFinishedSemaphores;
-		VkFence*							inFlightFences;
 
 		LvnPipelineSpecification			defaultPipelineSpecification;
 		bool								gammaCorrect;
 		uint32_t							maxFramesInFlight;
-		uint32_t							currentFrame;
 	};
 }
 

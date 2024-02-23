@@ -7,6 +7,12 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
+#ifdef LVN_DEBUG
+	#define LVN_CORE_CALL_ASSERT(x, ...) LVN_CORE_ASSERT(x, __VA_ARGS__)
+#else
+	#define LVN_CORE_CALL_ASSERT(x, ...) (x)
+#endif
+
 static const char* s_ValidationLayers[] =
 {
 	"VK_LAYER_KHRONOS_validation"
@@ -47,8 +53,10 @@ namespace vks
 	static void									createSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VulkanSwapChainSupportDetails swapChainSupport, VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode, VkExtent2D extent);
 	static void									createImageViews(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void									createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
-	static void									createCommandBuffers(VulkanBackends* vkBackends);
-	static void									createSyncObjects(VulkanBackends* vkBackends);
+	static void									createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void									createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void									cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void									recreateSwapChain(VulkanBackends* vkBackends, LvnWindow* window);
 	static VkPrimitiveTopology					getVulkanTopologyTypeEnum(LvnTopologyType topologyType);
 	static VkCullModeFlags						getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode);
 	static VkFrontFace							getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace);
@@ -61,6 +69,7 @@ namespace vks
 	static VkBlendOp							getBlendOperationEnum(LvnColorBlendOperation blendOp);
 	static VkCompareOp							getCompareOpEnum(LvnCompareOperation compare);
 	static VkStencilOp							getStencilOpEnum(LvnStencilOperation stencilOp);
+	static VkFormat								getVertexAttributeFormatEnum(LvnVertexDataType type);
 	static VkPipelineColorBlendAttachmentState	createColorAttachment();
 	static VkSampleCountFlagBits				getMaxUsableSampleCount(VulkanBackends* vkBackends);
 	static VkSampleCountFlagBits				getSampleCountFlagEnum(LvnSampleCount samples);
@@ -187,7 +196,7 @@ namespace vks
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
 		fillVulkanDebugMessengerCreateInfo(createInfo);
 
-		LVN_CORE_ASSERT(createDebugUtilsMessengerEXT(vkBackends->instance, &createInfo, nullptr, &vkBackends->debugMessenger) == VK_SUCCESS, "vulkan - failed to set up debug messenger!");
+		LVN_CORE_CALL_ASSERT(createDebugUtilsMessengerEXT(vkBackends->instance, &createInfo, nullptr, &vkBackends->debugMessenger) == VK_SUCCESS, "vulkan - failed to set up debug messenger!");
 	}
 
 	static LvnPhysicalDeviceType getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type)
@@ -255,7 +264,7 @@ namespace vks
 		LVN_CORE_ASSERT(queueIndices.has_graphics && queueIndices.has_present, "vulkan - physical device does not support queue families needed!");
 
 		// Check device extension support
-		LVN_CORE_ASSERT(vks::checkDeviceExtensionSupport(vkBackends->physicalDevice), "vulkan - physical device does not support required extensions!");
+		LVN_CORE_CALL_ASSERT(vks::checkDeviceExtensionSupport(vkBackends->physicalDevice), "vulkan - physical device does not support required extensions!");
 
 		float queuePriority = 1.0f;
 		LvnVector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -297,7 +306,7 @@ namespace vks
 		else
 			createInfo.enabledLayerCount = 0;
 
-		LVN_CORE_ASSERT(vkCreateDevice(vkBackends->physicalDevice, &createInfo, nullptr, &vkBackends->device) == VK_SUCCESS, "vulkan - failed to create logical device!");
+		LVN_CORE_CALL_ASSERT(vkCreateDevice(vkBackends->physicalDevice, &createInfo, nullptr, &vkBackends->device) == VK_SUCCESS, "vulkan - failed to create logical device!");
 
 
 		// Get device queues
@@ -343,7 +352,7 @@ namespace vks
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		LVN_CORE_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &surfaceData->renderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
+		LVN_CORE_CALL_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &surfaceData->renderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
 	}
 
 	static bool checkDeviceExtensionSupport(VkPhysicalDevice device)
@@ -490,7 +499,7 @@ namespace vks
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE; // TODO: add swap chain recreation (window resize)
 
-		LVN_CORE_ASSERT(vkCreateSwapchainKHR(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChain) == VK_SUCCESS, "vulkan - failed to create swap chain!");
+		LVN_CORE_CALL_ASSERT(vkCreateSwapchainKHR(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChain) == VK_SUCCESS, "vulkan - failed to create swap chain!");
 
 		vkGetSwapchainImagesKHR(vkBackends->device, surfaceData->swapChain, &imageCount, nullptr);
 		surfaceData->swapChainImages = (VkImage*)lvn::memAlloc(imageCount * sizeof(VkImage));
@@ -523,7 +532,7 @@ namespace vks
 			createInfo.subresourceRange.baseArrayLayer = 0;
 			createInfo.subresourceRange.layerCount = 1;
 
-			LVN_CORE_ASSERT(vkCreateImageView(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChainImageViews[i]) == VK_SUCCESS, "vulkan - failed to create image views!");
+			LVN_CORE_CALL_ASSERT(vkCreateImageView(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChainImageViews[i]) == VK_SUCCESS, "vulkan - failed to create image views!");
 		}
 	}
 
@@ -548,11 +557,11 @@ namespace vks
 			framebufferInfo.height = surfaceData->swapChainExtent.height;
 			framebufferInfo.layers = 1;
 
-			LVN_CORE_ASSERT(vkCreateFramebuffer(vkBackends->device, &framebufferInfo, nullptr, &surfaceData->frameBuffers[i]) == VK_SUCCESS, "vulkan - failed to create framebuffer!");
+			LVN_CORE_CALL_ASSERT(vkCreateFramebuffer(vkBackends->device, &framebufferInfo, nullptr, &surfaceData->frameBuffers[i]) == VK_SUCCESS, "vulkan - failed to create framebuffer!");
 		}
 	}
 
-	static void createCommandBuffers(VulkanBackends* vkBackends)
+	static void createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -560,11 +569,11 @@ namespace vks
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = vkBackends->maxFramesInFlight;
 
-		vkBackends->commandBuffers = (VkCommandBuffer*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkCommandBuffer));
-		LVN_CORE_ASSERT(vkAllocateCommandBuffers(vkBackends->device, &allocInfo, vkBackends->commandBuffers) == VK_SUCCESS, "vulkan - failed to allocate command buffers!");
+		surfaceData->commandBuffers = (VkCommandBuffer*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkCommandBuffer));
+		LVN_CORE_CALL_ASSERT(vkAllocateCommandBuffers(vkBackends->device, &allocInfo, surfaceData->commandBuffers) == VK_SUCCESS, "vulkan - failed to allocate command buffers!");
 	}
 
-	static void createSyncObjects(VulkanBackends* vkBackends)
+	static void createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
 		VkSemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -573,16 +582,64 @@ namespace vks
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-		vkBackends->imageAvailableSemaphores = (VkSemaphore*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkSemaphore));
-		vkBackends->renderFinishedSemaphores = (VkSemaphore*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkSemaphore));
-		vkBackends->inFlightFences = (VkFence*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkFence));
+		surfaceData->imageAvailableSemaphores = (VkSemaphore*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkSemaphore));
+		surfaceData->renderFinishedSemaphores = (VkSemaphore*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkSemaphore));
+		surfaceData->inFlightFences = (VkFence*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkFence));
 
 		for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
 		{
-			LVN_CORE_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &vkBackends->imageAvailableSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
-			LVN_CORE_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &vkBackends->renderFinishedSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
-			LVN_CORE_ASSERT(vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &vkBackends->inFlightFences[i]) == VK_SUCCESS, "vulkan - failed to create fence");
+			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->imageAvailableSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
+			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->renderFinishedSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
+			LVN_CORE_CALL_ASSERT(vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &surfaceData->inFlightFences[i]) == VK_SUCCESS, "vulkan - failed to create fence");
 		}
+	}
+
+	static void cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
+	{
+		// swap chain images
+		for (uint32_t j = 0; j < surfaceData->swapChainImageViewCount; j++)
+		{
+			vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[j], nullptr);
+		}
+
+		// frame buffers
+		for (uint32_t j = 0; j < surfaceData->frameBufferCount; j++)
+		{
+			vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[j], nullptr);
+		}
+
+		if (surfaceData->frameBuffers)
+			lvn::memFree(surfaceData->frameBuffers);
+
+		if (surfaceData->swapChainImageViews)
+			lvn::memFree(surfaceData->swapChainImageViews);
+
+		if (surfaceData->swapChainImages)
+			lvn::memFree(surfaceData->swapChainImages);
+
+		// swap chain
+		vkDestroySwapchainKHR(vkBackends->device, surfaceData->swapChain, nullptr);
+	}
+
+	static void recreateSwapChain(VulkanBackends* vkBackends, LvnWindow* window)
+	{
+		vkDeviceWaitIdle(vkBackends->device);
+
+		VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+
+		vks::cleanSwapChain(vkBackends, surfaceData);
+
+		VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData->surface, vkBackends->physicalDevice);
+		LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "vulkan - physical device does not have swap chain support formats or present modes!");
+
+		VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(swapChainSupport.formats.data(), swapChainSupport.formats.size());
+		VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
+		VkExtent2D extent = vks::chooseSwapExtent(glfwWin, &swapChainSupport.capabilities);
+
+		vks::createSwapChain(vkBackends, surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
+		vks::createImageViews(vkBackends, surfaceData);
+		vks::createFrameBuffers(vkBackends, surfaceData);
 	}
 
 	static VkPrimitiveTopology getVulkanTopologyTypeEnum(LvnTopologyType topologyType)
@@ -841,6 +898,36 @@ namespace vks
 			{
 				LVN_CORE_WARN("unknown stencil operation enum (%d), setting to stencil operation enum keep (default)", stencilOp);
 				return VK_STENCIL_OP_KEEP;
+			}
+		}
+	}
+
+	static VkFormat getVertexAttributeFormatEnum(LvnVertexDataType type)
+	{
+		switch (type)
+		{
+			case Lvn_VertexDataType_None: { return VK_FORMAT_UNDEFINED; }
+			case Lvn_VertexDataType_Float: { return VK_FORMAT_R32_SFLOAT; }
+			case Lvn_VertexDataType_Double: { return VK_FORMAT_R64_SFLOAT; }
+			case Lvn_VertexDataType_Int: { return VK_FORMAT_R32_SINT; }
+			case Lvn_VertexDataType_UnsignedInt: { return VK_FORMAT_R32_UINT; }
+			case Lvn_VertexDataType_Bool: { return VK_FORMAT_R8_SINT; }
+			case Lvn_VertexDataType_Vec2: { return VK_FORMAT_R32G32_SFLOAT; }
+			case Lvn_VertexDataType_Vec3: { return VK_FORMAT_R32G32B32_SFLOAT; }
+			case Lvn_VertexDataType_Vec4: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+			case Lvn_VertexDataType_Vec2i: { return VK_FORMAT_R32G32_SINT; }
+			case Lvn_VertexDataType_Vec3i: { return VK_FORMAT_R32G32B32_SINT; }
+			case Lvn_VertexDataType_Vec4i: { return VK_FORMAT_R32G32B32A32_SINT; }
+			case Lvn_VertexDataType_Vec2ui: { return VK_FORMAT_R32G32_UINT; }
+			case Lvn_VertexDataType_Vec3ui: { return VK_FORMAT_R32G32B32_UINT; }
+			case Lvn_VertexDataType_Vec4ui: { return VK_FORMAT_R32G32B32A32_UINT; }
+			case Lvn_VertexDataType_Vec2d: { return VK_FORMAT_R64G64_SFLOAT; }
+			case Lvn_VertexDataType_Vec3d: { return VK_FORMAT_R64G64B64_SFLOAT; }
+			case Lvn_VertexDataType_Vec4d: { return VK_FORMAT_R64G64B64A64_SFLOAT; }
+			default:
+			{
+				LVN_CORE_WARN("uknown vertex attribute format type enum (%d), setting to format type undefined", type);
+				return VK_FORMAT_UNDEFINED;
 			}
 		}
 	}
@@ -1148,7 +1235,7 @@ namespace vks
 			pipelineLayoutInfo.pPushConstantRanges = nullptr;
 		}
 
-		LVN_CORE_ASSERT(vkCreatePipelineLayout(vkBackends->device, &pipelineLayoutInfo, nullptr, &pipeline.pipelineLayout) == VK_SUCCESS, "vulkan - failed to create pipeline layout!");
+		LVN_CORE_CALL_ASSERT(vkCreatePipelineLayout(vkBackends->device, &pipelineLayoutInfo, nullptr, &pipeline.pipelineLayout) == VK_SUCCESS, "vulkan - failed to create pipeline layout!");
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1168,7 +1255,7 @@ namespace vks
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
 
-		LVN_CORE_ASSERT(vkCreateGraphicsPipelines(vkBackends->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.pipeline) == VK_SUCCESS, "vulkan - failed to create graphics pipeline!");
+		LVN_CORE_CALL_ASSERT(vkCreateGraphicsPipelines(vkBackends->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.pipeline) == VK_SUCCESS, "vulkan - failed to create graphics pipeline!");
 
 		return pipeline;
 	}
@@ -1181,7 +1268,7 @@ namespace vks
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(code);
 		
 		VkShaderModule shaderModule;
-		LVN_CORE_ASSERT(vkCreateShaderModule(vkBackends->device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "vulkan - failed to create shader module!");
+		LVN_CORE_CALL_ASSERT(vkCreateShaderModule(vkBackends->device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "vulkan - failed to create shader module!");
 
 		return shaderModule;
 	}
@@ -1229,26 +1316,35 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	vkBackends->enableValidationLayers = lvnctx->vulkanValidationLayers;
 
 	graphicsContext->createRenderPass = vksImplCreateRenderPass;
+	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromFileSrc;
+	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
+	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
 	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
-	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
-	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
+	graphicsContext->createVertexArrayBuffer = vksImplCreateVertexArrayBuffer;
+	
 	graphicsContext->destroyRenderPass = vksImplDestroyRenderPass;
+	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
-	graphicsContext->renderClearColor = vksImplRenderClearColor;
-	graphicsContext->renderClear = vksImplRenderClear;
-	graphicsContext->renderDraw = vksImplRenderDraw;
-	graphicsContext->renderDrawIndexed = vksImplRenderDrawIndexed;
-	graphicsContext->renderDrawInstanced = vksImplRenderDrawInstanced;
-	graphicsContext->renderDrawIndexedInstanced = vksImplRenderDrawIndexedInstanced;
-	graphicsContext->renderSetStencilReference = vksImplRenderSetStencilReference;
-	graphicsContext->renderSetStencilMask = vksImplRenderSetStencilMask;
+	graphicsContext->destroyVertexArrayBuffer = vksImplDestroyVertexArrayBuffer;
+
+	graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
+	graphicsContext->renderCmdDrawIndexed = vksImplRenderCmdDrawIndexed;
+	graphicsContext->renderCmdDrawInstanced = vksImplRenderCmdDrawInstanced;
+	graphicsContext->renderCmdDrawIndexedInstanced = vksImplRenderCmdDrawIndexedInstanced;
+	graphicsContext->renderCmdSetStencilReference = vksImplRenderCmdSetStencilReference;
+	graphicsContext->renderCmdSetStencilMask = vksImplRenderCmdSetStencilMask;
 	graphicsContext->renderBeginNextFrame = vksImplRenderBeginNextFrame;
 	graphicsContext->renderDrawSubmit = vksImplRenderDrawSubmit;
-	graphicsContext->renderBeginRenderPass = vksImplRenderBeginRenderPass;
-	graphicsContext->renderEndRenderPass = vksImplRenderEndRenderPass;
-	graphicsContext->renderBindPipeline = vksImplBindPipeline;
+	graphicsContext->renderBeginCommandRecording = vksImplRenderBeginCommandRecording;
+	graphicsContext->renderEndCommandRecording = vksImplRenderEndCommandRecording;
+	graphicsContext->renderCmdBeginRenderPass = vksImplRenderCmdBeginRenderPass;
+	graphicsContext->renderCmdEndRenderPass = vksImplRenderCmdEndRenderPass;
+	graphicsContext->renderCmdBindPipeline = vksImplRenderCmdBindPipeline;
+
+	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
+	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
 
 	// Create Vulkan Instance
 	VkApplicationInfo appInfo{};
@@ -1336,23 +1432,22 @@ void vksImplTerminateContext()
 
 	vkDeviceWaitIdle(vkBackends->device);
 
-	// sync objects
-	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
-	{
-		vkDestroySemaphore(vkBackends->device, vkBackends->imageAvailableSemaphores[i], nullptr);
-		vkDestroySemaphore(vkBackends->device, vkBackends->renderFinishedSemaphores[i], nullptr);
-		vkDestroyFence(vkBackends->device, vkBackends->inFlightFences[i], nullptr);
-	}
-
-	lvn::memFree(vkBackends->renderFinishedSemaphores);
-	lvn::memFree(vkBackends->imageAvailableSemaphores);
-	lvn::memFree(vkBackends->inFlightFences);
-
 	vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
-	lvn::memFree(vkBackends->commandBuffers);
 
 	for (uint32_t i = 0; i < vkBackends->windowSurfaceData.size(); i++)
 	{
+		// sync objects
+		for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
+		{
+			vkDestroySemaphore(vkBackends->device, vkBackends->windowSurfaceData[i].imageAvailableSemaphores[j], nullptr);
+			vkDestroySemaphore(vkBackends->device, vkBackends->windowSurfaceData[i].renderFinishedSemaphores[j], nullptr);
+			vkDestroyFence(vkBackends->device, vkBackends->windowSurfaceData[i].inFlightFences[j], nullptr);
+		}
+
+		lvn::memFree(vkBackends->windowSurfaceData[i].renderFinishedSemaphores);
+		lvn::memFree(vkBackends->windowSurfaceData[i].imageAvailableSemaphores);
+		lvn::memFree(vkBackends->windowSurfaceData[i].inFlightFences);
+
 		// swap chain images
 		for (uint32_t j = 0; j < vkBackends->windowSurfaceData[i].swapChainImageViewCount; j++)
 		{
@@ -1364,6 +1459,9 @@ void vksImplTerminateContext()
 		{
 			vkDestroyFramebuffer(vkBackends->device, vkBackends->windowSurfaceData[i].frameBuffers[j], nullptr);
 		}
+
+		if (vkBackends->windowSurfaceData[i].commandBuffers)
+			lvn::memFree(vkBackends->windowSurfaceData[i].commandBuffers);
 
 		if (vkBackends->windowSurfaceData[i].frameBuffers)
 			lvn::memFree(vkBackends->windowSurfaceData[i].frameBuffers);
@@ -1429,7 +1527,7 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 
 	VulkanWindowSurfaceData surfaceData{};
 	GLFWwindow* glfwWin = static_cast<GLFWwindow*>(renderBackends->pWindows[0]->nativeWindow);
-	LVN_CORE_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWin, nullptr, &surfaceData.surface) == VK_SUCCESS, "vulkan - failed to create window surface!");
+	LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWin, nullptr, &surfaceData.surface) == VK_SUCCESS, "vulkan - failed to create window surface!");
 	vks::createLogicalDevice(vkBackends, surfaceData.surface); // create logical device once
 
 	// create command buffer pool
@@ -1438,7 +1536,7 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	poolInfo.queueFamilyIndex = vkBackends->deviceIndices.graphicsIndex;
 
-	LVN_CORE_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "vulkan - failed to create command pool!");
+	LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "vulkan - failed to create command pool!");
 
 	// get swap chain specs
 	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData.surface, vkBackends->physicalDevice);
@@ -1453,6 +1551,8 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 	vks::createImageViews(vkBackends, &surfaceData);
 	vks::createRenderPass(vkBackends, &surfaceData, surfaceFormat.format);
 	vks::createFrameBuffers(vkBackends, &surfaceData);
+	vks::createCommandBuffers(vkBackends, &surfaceData);
+	vks::createSyncObjects(vkBackends, &surfaceData);
 
 	vkBackends->windowSurfaceData.push_back(surfaceData);
 	renderBackends->pWindows[0]->apiData = &vkBackends->windowSurfaceData[0];
@@ -1463,11 +1563,13 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 		{
 			VulkanWindowSurfaceData surfaceDataExt{};
 			GLFWwindow* glfwWin = static_cast<GLFWwindow*>(renderBackends->pWindows[i]->nativeWindow);
-			LVN_CORE_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWin, nullptr, &surfaceDataExt.surface) == VK_SUCCESS, "vulkan - failed to create window surface!");
+			LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWin, nullptr, &surfaceDataExt.surface) == VK_SUCCESS, "vulkan - failed to create window surface!");
 			vks::createSwapChain(vkBackends, &surfaceDataExt, swapChainSupport, surfaceFormat, presentMode, extent);
 			vks::createImageViews(vkBackends, &surfaceDataExt);
 			vks::createRenderPass(vkBackends, &surfaceDataExt, surfaceFormat.format);
 			vks::createFrameBuffers(vkBackends, &surfaceDataExt);
+			vks::createCommandBuffers(vkBackends, &surfaceDataExt);
+			vks::createSyncObjects(vkBackends, &surfaceDataExt);
 
 			vkBackends->windowSurfaceData.push_back(surfaceDataExt);
 			renderBackends->pWindows[i]->apiData = &vkBackends->windowSurfaceData.back();
@@ -1475,97 +1577,103 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 	}
 
 	// vks::createGraphicsPipeline(vkBackends);
-	vks::createCommandBuffers(vkBackends);
-	vks::createSyncObjects(vkBackends);
 
 	return Lvn_Result_Success;
 }
 
-void vksImplRenderClearColor(const float r, const float g, const float b, const float w)
+void vksImplRenderCmdClearColor(const float r, const float g, const float b, const float w)
 {
 
 }
 
-void vksImplRenderClear()
+void vksImplRenderCmdClear()
 {
 
 }
 
-void vksImplRenderDraw(uint32_t vertexCount)
+void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	vkCmdDraw(surfaceData->commandBuffers[surfaceData->currentFrame], vertexCount, 1, 0, 0);
+}
+
+void vksImplRenderCmdDrawIndexed(uint32_t indexCount)
 {
 
 }
 
-void vksImplRenderDrawIndexed(uint32_t indexCount)
+void vksImplRenderCmdDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
 
-void vksImplRenderDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
+void vksImplRenderCmdDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
 
-void vksImplRenderDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+void vksImplRenderCmdSetStencilReference(uint32_t reference)
 {
 
 }
 
-void vksImplRenderSetStencilReference(uint32_t reference)
-{
-
-}
-
-void vksImplRenderSetStencilMask(uint32_t compareMask, uint32_t writeMask)
+void vksImplRenderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 {
 
 }
 
 void vksImplRenderBeginNextFrame(LvnWindow* window)
 {
+	GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+	int width, height;
+	glfwGetFramebufferSize(glfwWin, &width, &height);
+	if (width == 0 || height == 0) { return; }
+
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
-	vkWaitForFences(vkBackends->device, 1, &vkBackends->inFlightFences[vkBackends->currentFrame], VK_TRUE, UINT64_MAX);
-	vkResetFences(vkBackends->device, 1, &vkBackends->inFlightFences[vkBackends->currentFrame]);
+	vkWaitForFences(vkBackends->device, 1, &surfaceData->inFlightFences[surfaceData->currentFrame], VK_TRUE, UINT64_MAX);
 
-    vkAcquireNextImageKHR(vkBackends->device, surfaceData->swapChain, UINT64_MAX, vkBackends->imageAvailableSemaphores[vkBackends->currentFrame], VK_NULL_HANDLE, &surfaceData->imageIndex);
+    VkResult result = vkAcquireNextImageKHR(vkBackends->device, surfaceData->swapChain, UINT64_MAX, surfaceData->imageAvailableSemaphores[surfaceData->currentFrame], VK_NULL_HANDLE, &surfaceData->imageIndex);
 
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	{
+		vks::recreateSwapChain(vkBackends, window);
+		return;
+	}
+	LVN_CORE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR, "vulkan - failed to acquire swap chain image!");
 
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = 0;
-	beginInfo.pInheritanceInfo = nullptr;
+	vkResetFences(vkBackends->device, 1, &surfaceData->inFlightFences[surfaceData->currentFrame]);
 
-	vkResetCommandBuffer(vkBackends->commandBuffers[vkBackends->currentFrame], 0);
-	LVN_CORE_ASSERT(vkBeginCommandBuffer(vkBackends->commandBuffers[vkBackends->currentFrame], &beginInfo) == VK_SUCCESS, "vulkan - failed to begin recording command buffer!");
 }
 
 void vksImplRenderDrawSubmit(LvnWindow* window)
 {
+	GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+	int width, height;
+	glfwGetFramebufferSize(glfwWin, &width, &height);
+	if (width == 0 || height == 0) { return; }
+
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-
-
-	LVN_CORE_ASSERT(vkEndCommandBuffer(vkBackends->commandBuffers[vkBackends->currentFrame]) == VK_SUCCESS, "vulkan - failed to record command buffer!");
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	VkSemaphore waitSemaphores[] = { vkBackends->imageAvailableSemaphores[vkBackends->currentFrame] };
+	VkSemaphore waitSemaphores[] = { surfaceData->imageAvailableSemaphores[surfaceData->currentFrame] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &vkBackends->commandBuffers[vkBackends->currentFrame];
+	submitInfo.pCommandBuffers = &surfaceData->commandBuffers[surfaceData->currentFrame];
 
-	VkSemaphore signalSemaphores[] = { vkBackends->renderFinishedSemaphores[vkBackends->currentFrame] };
+	VkSemaphore signalSemaphores[] = { surfaceData->renderFinishedSemaphores[surfaceData->currentFrame] };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	LVN_CORE_ASSERT(vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, vkBackends->inFlightFences[vkBackends->currentFrame]) == VK_SUCCESS, "vulkan - failed to submit draw command buffer!");
+	LVN_CORE_CALL_ASSERT(vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, surfaceData->inFlightFences[surfaceData->currentFrame]) == VK_SUCCESS, "vulkan - failed to submit draw command buffer!");
 
 
 	VkPresentInfoKHR presentInfo{};
@@ -1580,13 +1688,41 @@ void vksImplRenderDrawSubmit(LvnWindow* window)
 	presentInfo.pImageIndices = &surfaceData->imageIndex;
 	presentInfo.pResults = nullptr; // Optional
 
-	vkQueuePresentKHR(vkBackends->presentQueue, &presentInfo);
+	VkResult result = vkQueuePresentKHR(vkBackends->presentQueue, &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || surfaceData->frameBufferResized)
+	{
+		surfaceData->frameBufferResized = false;
+		vks::recreateSwapChain(vkBackends, window);
+	}
+	else
+	{
+		LVN_CORE_ASSERT(result == VK_SUCCESS, "vulkan - failed to present swap chain image");
+	}
 
 	// advance to next frame in flight
-	vkBackends->currentFrame = (vkBackends->currentFrame + 1) % vkBackends->maxFramesInFlight;
+	surfaceData->currentFrame = (surfaceData->currentFrame + 1) % vkBackends->maxFramesInFlight;
 }
 
-void vksImplRenderBeginRenderPass(LvnWindow* window)
+void vksImplRenderBeginCommandRecording(LvnWindow* window)
+{
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0;
+	beginInfo.pInheritanceInfo = nullptr;
+
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	vkResetCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], 0);
+	LVN_CORE_CALL_ASSERT(vkBeginCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], &beginInfo) == VK_SUCCESS, "vulkan - failed to begin recording command buffer!");
+}
+
+void vksImplRenderEndCommandRecording(LvnWindow* window)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	LVN_CORE_CALL_ASSERT(vkEndCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame]) == VK_SUCCESS, "vulkan - failed to record command buffer!");
+}
+
+void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
@@ -1601,7 +1737,7 @@ void vksImplRenderBeginRenderPass(LvnWindow* window)
 	renderPassInfo.clearValueCount = 1;
 	renderPassInfo.pClearValues = &clearColor;
 
-	vkCmdBeginRenderPass(vkBackends->commandBuffers[vkBackends->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
@@ -1610,33 +1746,32 @@ void vksImplRenderBeginRenderPass(LvnWindow* window)
 	viewport.height = static_cast<float>(surfaceData->swapChainExtent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(vkBackends->commandBuffers[vkBackends->currentFrame], 0, 1, &viewport);
+	vkCmdSetViewport(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = {0, 0};
 	scissor.extent = surfaceData->swapChainExtent;
-	vkCmdSetScissor(vkBackends->commandBuffers[vkBackends->currentFrame], 0, 1, &scissor);
+	vkCmdSetScissor(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &scissor);
 
 }
 
-void vksImplRenderEndRenderPass(LvnWindow* window)
+void vksImplRenderCmdEndRenderPass(LvnWindow* window)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
-	vkCmdDraw(vkBackends->commandBuffers[vkBackends->currentFrame], 3, 1, 0, 0); // temporary
-
-	vkCmdEndRenderPass(vkBackends->commandBuffers[vkBackends->currentFrame]);
+	vkCmdEndRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame]);
 }
 
-void vksImplBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
+void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 {
-	VulkanBackends* vkBackends = s_VkBackends;
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
 	VkPipeline graphicsPipeline = static_cast<VkPipeline>(pipeline->nativePipeline);
-	vkCmdBindPipeline(vkBackends->commandBuffers[vkBackends->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	vkCmdBindPipeline(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 }
 
-LvnResult vksImplCreateRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
+LvnResult vksImplCreateRenderPass(LvnRenderPass* renderPass, LvnRenderPassCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -1713,45 +1848,99 @@ LvnResult vksImplCreateRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreat
 	renderPassInfo.pSubpasses = &subpass;
 
 	VkRenderPass vkRenderPass;
-	LVN_CORE_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &vkRenderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
+	LVN_CORE_CALL_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &vkRenderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
 	
-	*renderPass = new LvnRenderPass();
-	LvnRenderPass* renderPassPtr = *renderPass;
-	renderPassPtr->nativeRenderPass = vkRenderPass;
+	renderPass->nativeRenderPass = vkRenderPass;
 
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreatePipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
+LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+{
+	return Lvn_Result_Failure; // TODO: add shader src function
+}
+
+LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+{
+	return Lvn_Result_Failure; // TODO: add shader src function
+}
+
+LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnVector<uint8_t> vertbin = lvn::getFileSrcBin("/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkvert.spv");
-	LvnVector<uint8_t> fragbin = lvn::getFileSrcBin("/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkfrag.spv");
+	LvnVector<uint8_t> vertbin = lvn::getFileSrcBin(createInfo->vertexSrc);
+	LvnVector<uint8_t> fragbin = lvn::getFileSrcBin(createInfo->fragmentSrc);
 
 	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertbin.data(), vertbin.size());
 	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragbin.data(), fragbin.size());
 
+	shader->nativeVertexShaderModule = vertShaderModule;
+	shader->nativeFragmentShaderModule = fragShaderModule;
+
+	return Lvn_Result_Success;
+}
+
+LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderStageInfo.module = vertShaderModule;
+	vertShaderStageInfo.module = static_cast<VkShaderModule>(createInfo->shader->nativeVertexShaderModule);
 	vertShaderStageInfo.pName = "main";
 
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
 	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragShaderStageInfo.module = fragShaderModule;
+	fragShaderStageInfo.module = static_cast<VkShaderModule>(createInfo->shader->nativeFragmentShaderModule);
 	fragShaderStageInfo.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+
+	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
+	{
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = createInfo->pVertexBindingDescriptions[i].binding;
+		bindingDescription.stride = createInfo->pVertexBindingDescriptions[i].stride;
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		bindingDescriptions[i] = bindingDescription;
+	}
+
+	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
+
+	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
+	{
+		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
+			LVN_CORE_WARN("createVertexArrayBuffer(LvnVertexArrayBuffer**, LvnVertexArrayBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
+
+		VkVertexInputAttributeDescription attributeDescription{};
+		attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
+		attributeDescription.location = createInfo->pVertexAttributes[i].layout;
+		attributeDescription.format = vks::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].type);
+		attributeDescription.offset = createInfo->pVertexAttributes[i].offset;
+
+		vertexAttributes[i] = attributeDescription;
+	}
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+
+	if (createInfo->pVertexBindingDescriptions && createInfo->vertexBindingDescriptionCount > 0)
+	{
+		vertexInputInfo.vertexBindingDescriptionCount = createInfo->vertexBindingDescriptionCount;
+		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+	}
+
+	if (createInfo->pVertexAttributes && createInfo->vertexAttributeCount > 0)
+	{
+		vertexInputInfo.vertexAttributeDescriptionCount = createInfo->vertexAttributeCount;
+		vertexInputInfo.pVertexAttributeDescriptions = vertexAttributes.data();
+	}
 
 	VkRenderPass renderPass = createInfo->renderPass != nullptr ? static_cast<VkRenderPass>(createInfo->renderPass->nativeRenderPass) : static_cast<VulkanWindowSurfaceData*>(createInfo->window->apiData)->renderPass;
 
@@ -1764,20 +1953,50 @@ LvnResult vksImplCreatePipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* c
 
 	VulkanPipeline vkPipeline = vks::createVulkanPipeline(vkBackends, &pipelineCreateData);
 
-	vkDestroyShaderModule(vkBackends->device, fragShaderModule, nullptr);
-	vkDestroyShaderModule(vkBackends->device, vertShaderModule, nullptr);
-
-	*pipeline = new LvnPipeline();
-	LvnPipeline* pipelinePtr = *pipeline;
-	pipelinePtr->nativePipeline = vkPipeline.pipeline;
-	pipelinePtr->nativePipelineLayout = vkPipeline.pipelineLayout;
+	pipeline->nativePipeline = vkPipeline.pipeline;
+	pipeline->nativePipelineLayout = vkPipeline.pipelineLayout;
 
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
+LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
 	return Lvn_Result_Success;
+}
+
+LvnResult vksImplCreateVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer, LvnVertexArrayBufferCreateInfo* createInfo)
+{
+	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+
+	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
+	{
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = createInfo->pVertexBindingDescriptions[i].binding;
+		bindingDescription.stride = createInfo->pVertexBindingDescriptions[i].stride;
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		bindingDescriptions[i] = bindingDescription;
+	}
+
+	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
+
+	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
+	{
+		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
+			LVN_CORE_WARN("createVertexArrayBuffer(LvnVertexArrayBuffer**, LvnVertexArrayBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
+
+		VkVertexInputAttributeDescription attributeDescription{};
+		attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
+		attributeDescription.location = createInfo->pVertexAttributes[i].layout;
+		attributeDescription.format = vks::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].type);
+		attributeDescription.offset = createInfo->pVertexAttributes[i].offset;
+
+		vertexAttributes[i] = attributeDescription;
+	}
+
+
+
+	return Lvn_Result_Success; // TODO: finish vertex array buffer function
 }
 
 void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
@@ -1792,9 +2011,21 @@ LvnPipelineSpecification vksImplGetDefaultPipelineSpecification()
 
 void vksImplDestroyRenderPass(LvnRenderPass* renderPass)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
+
 	VkRenderPass vkRenderPass = static_cast<VkRenderPass>(renderPass->nativeRenderPass);
-	vkDestroyRenderPass(s_VkBackends->device, vkRenderPass, nullptr);
-	delete renderPass;
+	vkDestroyRenderPass(vkBackends->device, vkRenderPass, nullptr);
+}
+
+void vksImplDestroyShader(LvnShader* shader)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	VkShaderModule vertShaderModule = static_cast<VkShaderModule>(shader->nativeVertexShaderModule);
+	VkShaderModule fragShaderModule = static_cast<VkShaderModule>(shader->nativeFragmentShaderModule);
+	vkDestroyShaderModule(vkBackends->device, fragShaderModule, nullptr);
+	vkDestroyShaderModule(vkBackends->device, vertShaderModule, nullptr);
+
 }
 
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
@@ -1806,7 +2037,6 @@ void vksImplDestroyPipeline(LvnPipeline* pipeline)
 
 	vkDestroyPipeline(vkBackends->device, vkPipeline, nullptr);
     vkDestroyPipelineLayout(vkBackends->device, vkPipelineLayout, nullptr);
-	delete pipeline;
 }
 
 void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
@@ -1814,5 +2044,9 @@ void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 
 }
 
+void vksImplDestroyVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer)
+{
+
+}
 
 } /* namespace lvn */

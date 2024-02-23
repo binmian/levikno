@@ -72,7 +72,9 @@ add_library(levikno STATIC ${LVN_SOURCES})
 target_include_directories(levikno
 	PRIVATE
 		${PROJECT_SOURCE_DIR}/Levikno/src
-		${PROJECT_SOURCE_DIR}/Levikno/include
+		${PROJECT_SOURCE_DIR}/Levikno/include/levikno
+		${PROJECT_SOURCE_DIR}/Levikno/src/platform/api/vulkan
+		${PROJECT_SOURCE_DIR}/Levikno/src/platform/window/glfw
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/glfw/include
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/glad/include
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vulkan/include
