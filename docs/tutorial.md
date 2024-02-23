@@ -16,7 +16,7 @@ The second parameter takes in a createInfo struct that tells Levikno what requir
 
 Each object will also have a createInfo struct associated with it.
 
-Also note that objects need to be declared as a pointer which points of the created object.
+Also note that objects need to be declared as a pointer which points to the created object.
 
 Example:
 ```
@@ -32,7 +32,7 @@ LvnWindow* window;
 // create the object by passing the object in and its createInfo
 lvn::createWindow(&window, &windowInfo);
 ```
-You may have also noticed that the create object function returns a ```LvnResult``` enum. This enum returns the success state or other state of a function. For each create object function, it returns whether it was successful or not when creating the object. This is useful for program control flow whenever an operation fails.
+You may have also noticed that the create object function returns a ```LvnResult``` enum. This enum returns the success state or other state of a function. For each create object function, it returns ```Lvn_Result_Success``` or ```Lvn_Result_Failure``` when creating the object. This is useful for program control flow whenever an operation fails.
 
 Example:
 ```

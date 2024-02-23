@@ -35,6 +35,7 @@
 bin/
 bin-obj/
 build/
+release/
 
 # Visual Studio Files
 .vs/
