@@ -10,48 +10,30 @@ struct LvnVector;
 
 namespace lvn
 {
-	LvnContext* getContext();
+	LvnContext*         getContext();
 
-	const char* getDateMonthName();
-	const char* getDateMonthNameShort();
-	const char* getDateWeekDayName();
-	const char* getDateWeekDayNameShort();
-	const char* getDateTimeMeridiem();
-	const char* getDateTimeMeridiemLower();
+	const char*         getDateMonthName();
+	const char*         getDateMonthNameShort();
+	const char*         getDateWeekDayName();
+	const char*         getDateWeekDayNameShort();
+	const char*         getDateTimeMeridiem();
+	const char*         getDateTimeMeridiemLower();
 
-	LvnString	getDateTimeHHMMSS();
-	LvnString	getDateTime12HHMMSS();
-	LvnString	getDateYearStr();
-	LvnString	getDateYear02dStr();
-	LvnString	getDateMonthNumStr();
-	LvnString	getDateDayNumStr();
-	LvnString	getDateHourNumStr();
-	LvnString	getDateHour12NumStr();
-	LvnString	getDateMinuteNumStr();
-	LvnString	getDateSecondNumStr();
+	LvnString           getDateTimeHHMMSS();
+	LvnString           getDateTime12HHMMSS();
+	LvnString           getDateYearStr();
+	LvnString           getDateYear02dStr();
+	LvnString           getDateMonthNumStr();
+	LvnString           getDateDayNumStr();
+	LvnString           getDateHourNumStr();
+	LvnString           getDateHour12NumStr();
+	LvnString           getDateMinuteNumStr();
+	LvnString           getDateSecondNumStr();
 
-	LvnString	getFileSrc(const char* filepath);
-	LvnVector<uint8_t> getFileSrcBin(const char* filepath);
+	LvnString           getFileSrc(const char* filepath);
+	LvnVector<uint8_t>  getFileSrcBin(const char* filepath);
 }
 
-// ------------------------------------------------------------
-// [SECTION]: Core Internal structs
-// ------------------------------------------------------------
-
-struct LvnLogger
-{
-	const char* loggerName;
-	LvnLogLevel logLevel;
-	const char* logPatternFormat;
-	LvnLogPattern* pLogPatterns;
-	uint32_t logPatternCount;
-};
-
-struct LvnLogPattern
-{
-	char symbol;
-	LvnString (*func)(LvnLogMessage*);
-};
 
 // ------------------------------------------------------------
 //  Data Structures
@@ -202,6 +184,43 @@ struct LvnVector
 };
 
 
+struct LvnMemoryBlockPointers
+{
+	LvnMemoryBlock* memBlockWindows;
+	LvnMemoryBlock* memBlockLoggers;
+	LvnMemoryBlock* memBlockRenderPasses;
+	LvnMemoryBlock* memBlockFrameBuffers;
+	LvnMemoryBlock* memBlockShaders;
+	LvnMemoryBlock* memBlockPipelines;
+	LvnMemoryBlock* memBlockBuffers;
+};
+
+// ------------------------------------------------------------
+// [SECTION]: Core Internal structs
+// ------------------------------------------------------------
+
+struct LvnLogger
+{
+	const char* loggerName;
+	LvnLogLevel logLevel;
+	const char* logPatternFormat;
+	LvnLogPattern* pLogPatterns;
+	uint32_t logPatternCount;
+};
+
+struct LvnLogPattern
+{
+	char symbol;
+	LvnString (*func)(LvnLogMessage*);
+};
+
+struct LvnMemoryPool
+{
+	LvnMemoryBlock* pMemoryBlocks;
+	uint32_t memoryBlockCount;
+};
+
+
 // ------------------------------------------------------------
 // [SECTION]: Window Internal structs
 // ------------------------------------------------------------
@@ -242,15 +261,15 @@ struct LvnEvent
 
 /* [Window] */
 struct LvnWindowData
-{                                        /* [Same use with LvnWindowCreateinfo] */
-	int width, height;                   /* width and height of window */
-	const char* title;				   	 /* title of window */
-	int minWidth, minHeight;		   	 /* minimum width and height of window */
-	int maxWidth, maxHeight;		   	 /* maximum width and height of window */
-	bool fullscreen, resizable, vSync; 	 /* sets window to fullscreen; enables window resizing; vSync controls window framerate */
-	LvnWindowIconData* pIcons;		   	 /* icon images used for window/app icon */
-	uint32_t iconCount;				   	 /* iconCount is the number of icons in pIcons */
-	void (*eventCallBackFn)(LvnEvent*);  /* function ptr used as a callback to get events from this window */
+{                                        // [Same use with LvnWindowCreateinfo]
+	int width, height;                   // width and height of window
+	const char* title;                   // title of window
+	int minWidth, minHeight;             // minimum width and height of window
+	int maxWidth, maxHeight;             // maximum width and height of window
+	bool fullscreen, resizable, vSync;   // sets window to fullscreen; enables window resizing; vSync controls window framerate
+	LvnWindowIconData* pIcons;           // icon images used for window/app icon
+	uint32_t iconCount;                  // iconCount is the number of icons in pIcons
+	void (*eventCallBackFn)(LvnEvent*);  // function ptr used as a callback to get events from this window
 };
 
 /*
@@ -258,8 +277,8 @@ struct LvnWindowData
   - Stores window data (eg. width, height, title)
   - window data is changed from the window api being used (eg. glfw)
   Note: LvnWindow is an imcomplete data type; LvnWindow needs to be
-		allocated and destroyed with its corresponding functions.
-		Use lvn::createWindow() and lvn::destroyWindow()
+        allocated and destroyed with its corresponding functions.
+        Use lvn::createWindow() and lvn::destroyWindow()
 */
 struct LvnWindow
 {
@@ -270,18 +289,18 @@ struct LvnWindow
 
 struct LvnWindowContext
 {
-	LvnWindowApi		windowapi;    /* window api enum */
+	LvnWindowApi        windowapi;    /* window api enum */
 
-	LvnResult			(*createWindow)(LvnWindow*, LvnWindowCreateInfo*);
-	void				(*destroyWindow)(LvnWindow*);
-	void				(*updateWindow)(LvnWindow*);
-	bool				(*windowOpen)(LvnWindow*);
-	LvnWindowDimensions	(*getDimensions)(LvnWindow*);
-	unsigned int		(*getWindowWidth)(LvnWindow*);
-	unsigned int		(*getWindowHeight)(LvnWindow*);
-	void				(*setWindowVSync)(LvnWindow*, bool);
-	bool				(*getWindowVSync)(LvnWindow*);
-	void				(*setWindowContextCurrent)(LvnWindow*);
+	LvnResult           (*createWindow)(LvnWindow*, LvnWindowCreateInfo*);
+	void                (*destroyWindow)(LvnWindow*);
+	void                (*updateWindow)(LvnWindow*);
+	bool                (*windowOpen)(LvnWindow*);
+	LvnWindowDimensions (*getDimensions)(LvnWindow*);
+	unsigned int        (*getWindowWidth)(LvnWindow*);
+	unsigned int        (*getWindowHeight)(LvnWindow*);
+	void                (*setWindowVSync)(LvnWindow*, bool);
+	bool                (*getWindowVSync)(LvnWindow*);
+	void                (*setWindowContextCurrent)(LvnWindow*);
 };
 
 
@@ -293,41 +312,41 @@ struct LvnGraphicsContext
 {
 	LvnGraphicsApi graphicsapi;
 
-	void						(*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
-	bool						(*renderInit)(LvnRendererBackends*);
+	void                        (*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
+	bool                        (*renderInit)(LvnRendererBackends*);
 
-	LvnResult					(*createRenderPass)(LvnRenderPass*, LvnRenderPassCreateInfo*);
-	LvnResult					(*createShaderFromSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
-	LvnResult					(*createShaderFromFileSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
-	LvnResult					(*createShaderFromFileBin)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
-	LvnResult					(*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
-	LvnResult					(*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
-	LvnResult					(*createVertexArrayBuffer)(LvnVertexArrayBuffer*, LvnVertexArrayBufferCreateInfo*);
+	LvnResult                   (*createRenderPass)(LvnRenderPass*, LvnRenderPassCreateInfo*);
+	LvnResult                   (*createShaderFromSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult                   (*createShaderFromFileSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult                   (*createShaderFromFileBin)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult                   (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
+	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
+	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
 
-	void						(*destroyRenderPass)(LvnRenderPass*);
-	void						(*destroyShader)(LvnShader*);
-	void						(*destroyPipeline)(LvnPipeline*);
-	void						(*destroyFrameBuffer)(LvnFrameBuffer*);
-	void						(*destroyVertexArrayBuffer)(LvnVertexArrayBuffer*);
-
-
-	void						(*renderBeginNextFrame)(LvnWindow*);
-	void						(*renderDrawSubmit)(LvnWindow*);
-	void						(*renderBeginCommandRecording)(LvnWindow*);
-	void						(*renderEndCommandRecording)(LvnWindow*);
-	void						(*renderCmdDraw)(LvnWindow*, uint32_t);
-	void						(*renderCmdDrawIndexed)(uint32_t);
-	void						(*renderCmdDrawInstanced)(uint32_t, uint32_t, uint32_t);
-	void						(*renderCmdDrawIndexedInstanced)(uint32_t, uint32_t, uint32_t);
-	void						(*renderCmdSetStencilReference)(uint32_t);
-	void						(*renderCmdSetStencilMask)(uint32_t, uint32_t);
-	void						(*renderCmdBeginRenderPass)(LvnWindow*);
-	void						(*renderCmdEndRenderPass)(LvnWindow*);
-	void						(*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
+	void                        (*destroyRenderPass)(LvnRenderPass*);
+	void                        (*destroyShader)(LvnShader*);
+	void                        (*destroyPipeline)(LvnPipeline*);
+	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
+	void                        (*destroyBuffer)(LvnBuffer*);
 
 
-	void						(*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
-	LvnPipelineSpecification	(*getDefaultPipelineSpecification)();
+	void                        (*renderBeginNextFrame)(LvnWindow*);
+	void                        (*renderDrawSubmit)(LvnWindow*);
+	void                        (*renderBeginCommandRecording)(LvnWindow*);
+	void                        (*renderEndCommandRecording)(LvnWindow*);
+	void                        (*renderCmdDraw)(LvnWindow*, uint32_t);
+	void                        (*renderCmdDrawIndexed)(LvnWindow*, uint32_t);
+	void                        (*renderCmdDrawInstanced)(LvnWindow*, uint32_t, uint32_t, uint32_t);
+	void                        (*renderCmdDrawIndexedInstanced)(LvnWindow*, uint32_t, uint32_t, uint32_t);
+	void                        (*renderCmdSetStencilReference)(uint32_t);
+	void                        (*renderCmdSetStencilMask)(uint32_t, uint32_t);
+	void                        (*renderCmdBeginRenderPass)(LvnWindow*);
+	void                        (*renderCmdEndRenderPass)(LvnWindow*);
+	void                        (*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
+	void                        (*renderCmdBindBuffer)(LvnWindow*, LvnBuffer*);
+
+	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
+	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
 };
 
 struct LvnPhysicalDevice
@@ -360,27 +379,30 @@ struct LvnFrameBuffer
 
 };
 
-struct LvnVertexArrayBuffer
+struct LvnBuffer
 {
+	void* buffer;
+	void* bufferMemory;
 
+	uint64_t indexOffset;
 };
 
 struct LvnContext
 {
-	LvnWindowApi				windowapi;
-	LvnWindowContext			windowContext;
-	LvnGraphicsApi				graphicsapi;
-	LvnGraphicsContext			graphicsContext;
-	bool						logging;
-	bool						vulkanValidationLayers;
-	LvnLogger					coreLogger;
-	LvnLogger					clientLogger;
-	LvnPhysicalDevice*			physicalDevices;
-	uint32_t					physicalDeviceCount;
-
-	LvnPipelineSpecification	defaultPipelineSpecification;
-
-	size_t						numMemoryAllocations;
+	LvnWindowApi                windowapi;
+	LvnWindowContext            windowContext;
+	LvnGraphicsApi              graphicsapi;
+	LvnGraphicsContext          graphicsContext;
+	bool                        logging;
+	bool                        vulkanValidationLayers;
+	LvnLogger                   coreLogger;
+	LvnLogger                   clientLogger;
+	LvnPhysicalDevice*          physicalDevices;
+	uint32_t                    physicalDeviceCount;
+	LvnPipelineSpecification    defaultPipelineSpecification;
+	LvnMemoryPool               memoryPool;
+	LvnMemoryBlockPointers      memBlockPtrs;
+	size_t                      numMemoryAllocations;
 };
 
 #endif

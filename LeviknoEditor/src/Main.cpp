@@ -48,7 +48,21 @@ void eventsCallbackFn(LvnEvent* e)
 	lvn::dispatchKeyHoldEvent(e, keyHold);
 	lvn::dispatchKeyReleasedEvent(e, keyRelease);
 	lvn::dispatchKeyTypedEvent(e, keyTyped);
+	lvn::dispatchMouseMovedEvent(e, mousePos);
 }
+
+float vertices[] = 
+{
+	-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+	 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
+	 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
+	-0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f,
+};
+
+uint32_t indices[] = 
+{
+	0, 1, 2, 2, 3, 0
+};
 
 int main()
 {
@@ -124,9 +138,24 @@ int main()
 	LvnShader* shader;
 	lvn::createShaderFromFileBin(&shader, &shaderCreateInfo);
 
+
+	LvnVertexBindingDescription vertexBindingDescroption{};
+	vertexBindingDescroption.stride = 6 * sizeof(float);
+	vertexBindingDescroption.binding = 0;
+
+	LvnVertexAttribute attributes[2] = 
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
+		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
+	};
+
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
+	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
+	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
+	pipelineCreateInfo.pVertexAttributes = attributes;
+	pipelineCreateInfo.vertexAttributeCount = 2;
 	pipelineCreateInfo.shader = shader;
 	pipelineCreateInfo.renderPass = nullptr;
 	pipelineCreateInfo.window = window;
@@ -135,6 +164,20 @@ int main()
 	lvn::createPipeline(&pipeline, &pipelineCreateInfo);
 
 	lvn::destroyShader(shader);
+
+
+	LvnBufferCreateInfo bufferCreateInfo{};
+	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
+	bufferCreateInfo.vertexBindingDescriptionCount = 1;
+	bufferCreateInfo.pVertexAttributes = attributes;
+	bufferCreateInfo.vertexAttributeCount = 2;
+	bufferCreateInfo.pVertices = vertices;
+	bufferCreateInfo.vertexBufferSize = sizeof(vertices);
+	bufferCreateInfo.pIndices = indices;
+	bufferCreateInfo.indexBufferSize = sizeof(indices);
+
+	LvnBuffer* buffer;
+	lvn::createBuffer(&buffer, &bufferCreateInfo);
 
 	free(devices);
 
@@ -166,16 +209,17 @@ int main()
 	{
 		lvn::updateWindow(window);
 
-		auto [x, y] = lvn::getWindowDimensions(window);
-
-		LVN_TRACE("(x:%d,y:%d)", x, y);
+		// auto [x, y] = lvn::getWindowDimensions(window);
+		// LVN_TRACE("(x:%d,y:%d)", x, y);
 
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
 		lvn::renderCmdBeginRenderPass(window);
 
 		lvn::renderCmdBindPipeline(window, pipeline);
-		lvn::renderCmdDraw(window, 3);
+
+		lvn::renderCmdBindBuffer(window, buffer);
+		lvn::renderCmdDrawIndexed(window, 6);
 
 		lvn::renderCmdEndRenderPass(window);
 		lvn::renderEndCommandRecording(window);
@@ -183,6 +227,7 @@ int main()
 
 	}
 
+	lvn::destroyBuffer(buffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyRenderPass(renderPass);
 

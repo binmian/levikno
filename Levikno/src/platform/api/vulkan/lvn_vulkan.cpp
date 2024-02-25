@@ -1,11 +1,12 @@
 #include "lvn_vulkan.h"
 
-#include "lvn_vulkanBackends.h"
-
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
+
+#include "lvn_vulkanBackends.h"
+#include "vk_mem_alloc.h"
 
 #ifdef LVN_DEBUG
 	#define LVN_CORE_CALL_ASSERT(x, ...) LVN_CORE_ASSERT(x, __VA_ARGS__)
@@ -34,51 +35,54 @@ static VulkanBackends* s_VkBackends = nullptr;
 
 namespace vks
 {
-	static VKAPI_ATTR VkBool32 VKAPI_CALL		debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
-	static bool									checkValidationLayerSupport();
-	static LvnVector<const char*>				getRequiredExtensions(VulkanBackends* vkBackends);
-	static VkResult								createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
-	static void									destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
-	static void									fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-	static void									setupDebugMessenger(VulkanBackends* vkBackends);
-	static LvnPhysicalDeviceType				getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type);
-	static bool									checkDeviceExtensionSupport(VkPhysicalDevice device);
-	static VulkanSwapChainSupportDetails		querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
-	static VulkanQueueFamilyIndices				findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
-	static void									createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
-	static void									createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format);
-	static VkSurfaceFormatKHR					chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
-	static VkPresentModeKHR						chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count);
-	static VkExtent2D							chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities);
-	static void									createSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VulkanSwapChainSupportDetails swapChainSupport, VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode, VkExtent2D extent);
-	static void									createImageViews(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
-	static void									createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
-	static void									createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
-	static void									createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
-	static void									cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
-	static void									recreateSwapChain(VulkanBackends* vkBackends, LvnWindow* window);
-	static VkPrimitiveTopology					getVulkanTopologyTypeEnum(LvnTopologyType topologyType);
-	static VkCullModeFlags						getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode);
-	static VkFrontFace							getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace);
-	static VkFormat								getVulkanFormatEnum(LvnImageFormat format);
-	static VkAttachmentLoadOp					getVulkanLoadOpEnum(LvnAttachmentLoadOperation loadOp);
-	static VkAttachmentStoreOp					getVulkanStoreOpEnum(LvnAttachmentStoreOperation storeOp);
-	static VkImageLayout						getVulkanImageLayoutEnum(LvnImageLayout layout);
-	static VkColorComponentFlags				getColorComponents(LvnPipelineColorWriteMask colorMask);
-	static VkBlendFactor						getBlendFactorEnum(LvnColorBlendFactor blendFactor);
-	static VkBlendOp							getBlendOperationEnum(LvnColorBlendOperation blendOp);
-	static VkCompareOp							getCompareOpEnum(LvnCompareOperation compare);
-	static VkStencilOp							getStencilOpEnum(LvnStencilOperation stencilOp);
-	static VkFormat								getVertexAttributeFormatEnum(LvnVertexDataType type);
-	static VkPipelineColorBlendAttachmentState	createColorAttachment();
-	static VkSampleCountFlagBits				getMaxUsableSampleCount(VulkanBackends* vkBackends);
-	static VkSampleCountFlagBits				getSampleCountFlagEnum(LvnSampleCount samples);
-	static uint32_t								getSampleCountValue(VkSampleCountFlagBits samples);
-	static VkSampleCountFlagBits				getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
-	static void									initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
-	static VulkanPipeline						createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
-	static VkShaderModule						createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
-	static void									createGraphicsPipeline(VulkanBackends* vkBackends);
+	static VKAPI_ATTR VkBool32 VKAPI_CALL       debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
+	static bool                                 checkValidationLayerSupport();
+	static LvnVector<const char*>               getRequiredExtensions(VulkanBackends* vkBackends);
+	static VkResult                             createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+	static void                                 destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+	static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	static void                                 setupDebugMessenger(VulkanBackends* vkBackends);
+	static LvnPhysicalDeviceType                getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type);
+	static bool                                 checkDeviceExtensionSupport(VkPhysicalDevice device);
+	static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
+	static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+	static uint32_t                             findMemoryType(VulkanBackends* vkBackends, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	static void                                 createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
+	static void                                 createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format);
+	static VkSurfaceFormatKHR                   chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
+	static VkPresentModeKHR                     chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count);
+	static VkExtent2D                           chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities);
+	static void                                 createSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VulkanSwapChainSupportDetails swapChainSupport, VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode, VkExtent2D extent);
+	static void                                 createImageViews(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void                                 createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void                                 createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void                                 createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void                                 cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void                                 recreateSwapChain(VulkanBackends* vkBackends, LvnWindow* window);
+	static VkPrimitiveTopology                  getVulkanTopologyTypeEnum(LvnTopologyType topologyType);
+	static VkCullModeFlags                      getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode);
+	static VkFrontFace                          getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace);
+	static VkFormat                             getVulkanFormatEnum(LvnImageFormat format);
+	static VkAttachmentLoadOp                   getVulkanLoadOpEnum(LvnAttachmentLoadOperation loadOp);
+	static VkAttachmentStoreOp                  getVulkanStoreOpEnum(LvnAttachmentStoreOperation storeOp);
+	static VkImageLayout                        getVulkanImageLayoutEnum(LvnImageLayout layout);
+	static VkColorComponentFlags                getColorComponents(LvnPipelineColorWriteMask colorMask);
+	static VkBlendFactor                        getBlendFactorEnum(LvnColorBlendFactor blendFactor);
+	static VkBlendOp                            getBlendOperationEnum(LvnColorBlendOperation blendOp);
+	static VkCompareOp                          getCompareOpEnum(LvnCompareOperation compare);
+	static VkStencilOp                          getStencilOpEnum(LvnStencilOperation stencilOp);
+	static VkFormat                             getVertexAttributeFormatEnum(LvnVertexDataType type);
+	static VkPipelineColorBlendAttachmentState  createColorAttachment();
+	static VkSampleCountFlagBits                getMaxUsableSampleCount(VulkanBackends* vkBackends);
+	static VkSampleCountFlagBits                getSampleCountFlagEnum(LvnSampleCount samples);
+	static uint32_t                             getSampleCountValue(VkSampleCountFlagBits samples);
+	static VkSampleCountFlagBits                getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
+	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
+	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
+	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
+	static void                                 createGraphicsPipeline(VulkanBackends* vkBackends);
+	static void                                 createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
+	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
 
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -203,11 +207,11 @@ namespace vks
 	{
 		switch (type)
 		{
-			case VK_PHYSICAL_DEVICE_TYPE_OTHER:			 { return Lvn_PhysicalDeviceType_Other; }
+			case VK_PHYSICAL_DEVICE_TYPE_OTHER:          { return Lvn_PhysicalDeviceType_Other; }
 			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: { return Lvn_PhysicalDeviceType_Integrated_GPU; }
-			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:	 { return Lvn_PhysicalDeviceType_Discrete_GPU; }
-			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:	 { return Lvn_PhysicalDeviceType_Virtual_GPU; }
-			case VK_PHYSICAL_DEVICE_TYPE_CPU:			 { return Lvn_PhysicalDeviceType_CPU; }
+			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:   { return Lvn_PhysicalDeviceType_Discrete_GPU; }
+			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:    { return Lvn_PhysicalDeviceType_Virtual_GPU; }
+			case VK_PHYSICAL_DEVICE_TYPE_CPU:            { return Lvn_PhysicalDeviceType_CPU; }
 			default: { break; }
 		}
 
@@ -252,6 +256,19 @@ namespace vks
 		}
 
 		return indices;
+	}
+
+	static uint32_t findMemoryType(VulkanBackends* vkBackends, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+	{
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(vkBackends->physicalDevice, &memProperties);
+
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if (typeFilter & (1 << i)) { return i; }
+		}
+
+		LVN_CORE_ASSERT(false, "vulkan - failed to find suitable memory type for physical device!");
 	}
 
 	static void createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface)
@@ -372,7 +389,7 @@ namespace vks
 			{
 				if (!strcmp(requiredExtensions[i], availableExtensions[j].extensionName))
 				{
-					LVN_CORE_TRACE("Vulkan extension found: %s", availableExtensions[j].extensionName);
+					LVN_CORE_TRACE("[vulkan] vulkan extension found: %s", availableExtensions[j].extensionName);
 					extensionFound = true;
 					break;
 				}
@@ -380,7 +397,7 @@ namespace vks
 
 			if (!extensionFound)
 			{
-				LVN_CORE_ERROR("required Vulkan extension not found: %s", requiredExtensions[i]);
+				LVN_CORE_ERROR("[vulkan] required vulkan extension not found: %s", requiredExtensions[i]);
 				return false;
 			}
 		}
@@ -1306,6 +1323,57 @@ namespace vks
 	    vkDestroyShaderModule(vkBackends->device, vertShaderModule, nullptr);
 	}
 
+	static void createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage)
+	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		VmaAllocationCreateInfo allocInfo{};
+		allocInfo.usage = memUsage;
+
+		LVN_CORE_CALL_ASSERT(vmaCreateBuffer(vkBackends->vmaAllocator, &bufferInfo, &allocInfo, buffer, bufferMemory, nullptr) == VK_SUCCESS, "vulkan - failed to create buffer!");
+		LVN_CORE_TRACE("[vulkan] created buffer <VkBuffer> (%p), buffer memory: (%p), buffer size: %zu bytes", *buffer, *bufferMemory, size);
+	}
+
+	void copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset)
+	{
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = vkBackends->commandPool;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(vkBackends->device, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		VkBufferCopy copyRegion{};
+		copyRegion.size = size;
+		copyRegion.srcOffset = srcOffset;
+		copyRegion.dstOffset = dstOffset;
+		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(vkBackends->graphicsQueue);
+
+		vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
+	}
+
 } /* namespace vks */
 
 LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidationLayers)
@@ -1321,13 +1389,13 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
 	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
-	graphicsContext->createVertexArrayBuffer = vksImplCreateVertexArrayBuffer;
+	graphicsContext->createBuffer = vksImplCreateBuffer;
 	
 	graphicsContext->destroyRenderPass = vksImplDestroyRenderPass;
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
-	graphicsContext->destroyVertexArrayBuffer = vksImplDestroyVertexArrayBuffer;
+	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
 
 	graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
 	graphicsContext->renderCmdDrawIndexed = vksImplRenderCmdDrawIndexed;
@@ -1342,6 +1410,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->renderCmdBeginRenderPass = vksImplRenderCmdBeginRenderPass;
 	graphicsContext->renderCmdEndRenderPass = vksImplRenderCmdEndRenderPass;
 	graphicsContext->renderCmdBindPipeline = vksImplRenderCmdBindPipeline;
+	graphicsContext->renderCmdBindBuffer = vksImplRenderCommandBindBuffer;
 
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
@@ -1422,6 +1491,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	lvnctx->physicalDeviceCount = deviceCount;
 
 
+
 	return Lvn_Result_Success;
 }
 
@@ -1482,6 +1552,8 @@ void vksImplTerminateContext()
 		vkDestroySurfaceKHR(vkBackends->instance, vkBackends->windowSurfaceData[i].surface, nullptr);
 	}
 
+	// VmaAllocator
+	vmaDestroyAllocator(vkBackends->vmaAllocator);
 
 	// logical device
 	vkDestroyDevice(vkBackends->device, nullptr);
@@ -1576,7 +1648,14 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 		}
 	}
 
-	// vks::createGraphicsPipeline(vkBackends);
+	// create VmaAllocator
+	VmaAllocatorCreateInfo allocatorInfo{};
+	allocatorInfo.device = vkBackends->device;
+	allocatorInfo.physicalDevice = vkBackends->physicalDevice;
+	allocatorInfo.instance = vkBackends->instance;
+
+	vmaCreateAllocator(&allocatorInfo, &vkBackends->vmaAllocator);
+
 
 	return Lvn_Result_Success;
 }
@@ -1597,17 +1676,18 @@ void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 	vkCmdDraw(surfaceData->commandBuffers[surfaceData->currentFrame], vertexCount, 1, 0, 0);
 }
 
-void vksImplRenderCmdDrawIndexed(uint32_t indexCount)
+void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	vkCmdDrawIndexed(surfaceData->commandBuffers[surfaceData->currentFrame], indexCount, 1, 0, 0, 0);
+}
+
+void vksImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
 
-void vksImplRenderCmdDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
-{
-
-}
-
-void vksImplRenderCmdDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+void vksImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
@@ -1771,6 +1851,16 @@ void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	vkCmdBindPipeline(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 }
 
+void vksImplRenderCommandBindBuffer(LvnWindow* window, LvnBuffer* buffer)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+	VkDeviceSize offsets[] = {0};
+
+	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &vkBuffer, offsets);
+	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], vkBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
+}
+
 LvnResult vksImplCreateRenderPass(LvnRenderPass* renderPass, LvnRenderPassCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
@@ -1916,7 +2006,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
 	{
 		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
-			LVN_CORE_WARN("createVertexArrayBuffer(LvnVertexArrayBuffer**, LvnVertexArrayBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
+			LVN_CORE_WARN("createPipeline(LvnPipeline**, LvnPipelineCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
 
 		VkVertexInputAttributeDescription attributeDescription{};
 		attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
@@ -1964,8 +2054,10 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer, LvnVertexArrayBufferCreateInfo* createInfo)
+LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
+
 	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
 
 	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
@@ -1983,7 +2075,7 @@ LvnResult vksImplCreateVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
 	{
 		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
-			LVN_CORE_WARN("createVertexArrayBuffer(LvnVertexArrayBuffer**, LvnVertexArrayBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
+			LVN_CORE_WARN("createBuffer(LvnBuffer**, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
 
 		VkVertexInputAttributeDescription attributeDescription{};
 		attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
@@ -1994,9 +2086,48 @@ LvnResult vksImplCreateVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer
 		vertexAttributes[i] = attributeDescription;
 	}
 
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = createInfo->vertexBufferSize + createInfo->indexBufferSize;
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+	VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
+	VkBuffer stagingBuffer;
+	VmaAllocation stagingMemory;
 
-	return Lvn_Result_Success; // TODO: finish vertex array buffer function
+	vks::createBuffer(vkBackends, &stagingBuffer, &stagingMemory, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	void* data;
+	vmaMapMemory(vkBackends->vmaAllocator, stagingMemory, &data);
+
+	if (createInfo->pVertices)
+	{
+		memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
+	}
+	if (createInfo->pIndices)
+	{
+		memcpy((char*)data + createInfo->vertexBufferSize, createInfo->pIndices, createInfo->indexBufferSize);
+	}
+
+	vmaUnmapMemory(vkBackends->vmaAllocator, stagingMemory);
+
+	VkBuffer vkBuffer;
+	VmaAllocation bufferMemory;
+	VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+	vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, bufferUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+
+	vks::copyBuffer(vkBackends, stagingBuffer, vkBuffer, bufferSize, 0, 0);
+
+	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+	vmaFreeMemory(vkBackends->vmaAllocator, stagingMemory);
+
+	buffer->buffer = vkBuffer;
+	buffer->bufferMemory = bufferMemory;
+	buffer->indexOffset = createInfo->vertexBufferSize;
+
+	return Lvn_Result_Success;
 }
 
 void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
@@ -2031,6 +2162,7 @@ void vksImplDestroyShader(LvnShader* shader)
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
 
 	VkPipeline vkPipeline = static_cast<VkPipeline>(pipeline->nativePipeline);
 	VkPipelineLayout vkPipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
@@ -2044,9 +2176,16 @@ void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 
 }
 
-void vksImplDestroyVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer)
+void vksImplDestroyBuffer(LvnBuffer* buffer)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
 
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
+
+	vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
+	vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
 }
 
 } /* namespace lvn */

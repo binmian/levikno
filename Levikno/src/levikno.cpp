@@ -10,26 +10,26 @@
 
 #define LVN_ABORT abort()
 #define LVN_EMPTY_STR "\0"
-#define LVN_DEFAULT_LOG_PATTERN "[%d-%m-%Y] [%T] [%#%l%^] %n: %v%$"
+#define LVN_DEFAULT_LOG_PATTERN "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 
-#include "platform/window/glfw/lvn_glfw.h"
-#include "platform/api/vulkan/lvn_vulkan.h"
+#include "lvn_glfw.h"
+#include "lvn_vulkan.h"
 
 static LvnContext* s_LvnContext = nullptr;
 
 namespace lvn
 {
 
-static void			enableLogANSIcodeColors();
-static void			logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32_t* logPatternCount);
+static void         enableLogANSIcodeColors();
+static void         logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32_t* logPatternCount);
 static const char*  getLogLevelColor(LvnLogLevel level);
 static const char*  getLogLevelName(LvnLogLevel level);
 static const char*  getGraphicsApiNameEnum(LvnGraphicsApi api);
-static const char*	getWindowApiNameEnum(LvnWindowApi api);
-static LvnResult	setWindowContext(LvnWindowApi windowapi);
-static void			terminateWindowContext();
-static LvnResult	setGraphicsContext(LvnGraphicsApi graphicsapi);
-static void			terminateGraphicsContext();
+static const char*  getWindowApiNameEnum(LvnWindowApi api);
+static LvnResult    setWindowContext(LvnWindowApi windowapi);
+static void         terminateWindowContext();
+static LvnResult    setGraphicsContext(LvnGraphicsApi graphicsapi);
+static void         terminateGraphicsContext();
 
 
 static void enableLogANSIcodeColors()
@@ -48,12 +48,12 @@ static const char* getLogLevelColor(LvnLogLevel level)
 {
 	switch (level)
 	{
-		case Lvn_LogLevel_None:		{ return LVN_LOG_COLOR_RESET; }
-		case Lvn_LogLevel_Trace:	{ return LVN_LOG_COLOR_TRACE; }
-		case Lvn_LogLevel_Info:		{ return LVN_LOG_COLOR_INFO; }
-		case Lvn_LogLevel_Warn:		{ return LVN_LOG_COLOR_WARN; }
-		case Lvn_LogLevel_Error:	{ return LVN_LOG_COLOR_ERROR; }
-		case Lvn_LogLevel_Critical:	{ return LVN_LOG_COLOR_CRITICAL; }
+		case Lvn_LogLevel_None:     { return LVN_LOG_COLOR_RESET; }
+		case Lvn_LogLevel_Trace:    { return LVN_LOG_COLOR_TRACE; }
+		case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
+		case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
+		case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
+		case Lvn_LogLevel_Critical: { return LVN_LOG_COLOR_CRITICAL; }
 	}
 
 	return nullptr;
@@ -63,12 +63,12 @@ static const char* getLogLevelName(LvnLogLevel level)
 {
 	switch (level)
 	{
-		case Lvn_LogLevel_None:		{ return "none"; }
-		case Lvn_LogLevel_Trace:	{ return "trace"; }
-		case Lvn_LogLevel_Info:		{ return "info"; }
-		case Lvn_LogLevel_Warn:		{ return "warn"; }
-		case Lvn_LogLevel_Error:	{ return "error"; }
-		case Lvn_LogLevel_Critical:	{ return "critical"; }
+		case Lvn_LogLevel_None:     { return "none"; }
+		case Lvn_LogLevel_Trace:    { return "trace"; }
+		case Lvn_LogLevel_Info:     { return "info"; }
+		case Lvn_LogLevel_Warn:     { return "warn"; }
+		case Lvn_LogLevel_Error:    { return "error"; }
+		case Lvn_LogLevel_Critical: { return "critical"; }
 	}
 
 	return nullptr;
@@ -91,7 +91,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	// window context
 	LvnResult result = setWindowContext(createInfo->windowapi);
 	if (result != Lvn_Result_Success) { return result; }
-	
+
 	// graphics context
 	result = setGraphicsContext(createInfo->graphicsapi);
 	if (result != Lvn_Result_Success) { return result; }
@@ -122,10 +122,10 @@ LvnContext* getContext()
 	return s_LvnContext;
 }
 
-static const char* s_MonthName[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
-static const char* s_MonthNameShort[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-static const char* s_WeekDayName[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-static const char* s_WeekDayNameShort[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+static const char* const s_MonthName[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+static const char* const s_MonthNameShort[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+static const char* const s_WeekDayName[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+static const char* const s_WeekDayNameShort[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
 /* Date Time Functions */
 const char* getDateMonthName()
@@ -468,10 +468,9 @@ void logRenameLogger(LvnLogger* logger, const char* name)
 
 void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
-	if (!s_LvnContext->logging) return;
+	if (!s_LvnContext->logging) { return; }
 
 	LvnVector<char> str;
-	uint32_t strsize = 0;
 
 	for (uint32_t i = 0; i < logger->logPatternCount; i++)
 	{
@@ -492,6 +491,8 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
+	if (!s_LvnContext->logging) { return; }
+
 	LvnLogMessage logMsg =
 	{
 		.msg = msg,
@@ -504,6 +505,8 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
+	if (!s_LvnContext->logging) { return; }
+
 	char buff[1024];
 
 	va_list argptr;
@@ -517,6 +520,8 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
+	if (!s_LvnContext->logging) { return; }
+
 	char buff[1024];
 
 	va_list argptr;
@@ -530,6 +535,8 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
+	if (!s_LvnContext->logging) { return; }
+
 	char buff[1024];
 
 	va_list argptr;
@@ -543,6 +550,8 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
+	if (!s_LvnContext->logging) { return; }
+
 	char buff[1024];
 
 	va_list argptr;
@@ -556,6 +565,8 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageCritical(LvnLogger* logger, const char* fmt, ...)
 {
+	if (!s_LvnContext->logging) { return; }
+
 	char buff[1024];
 
 	va_list argptr;
@@ -581,12 +592,12 @@ const char* getLogANSIcodeColor(LvnLogLevel level)
 {
 	switch (level)
 	{
-		case Lvn_LogLevel_None:		{ return LVN_LOG_COLOR_RESET;	}
-		case Lvn_LogLevel_Trace:	{ return LVN_LOG_COLOR_TRACE;	}
-		case Lvn_LogLevel_Info:		{ return LVN_LOG_COLOR_INFO;	}
-		case Lvn_LogLevel_Warn:		{ return LVN_LOG_COLOR_WARN;	}
-		case Lvn_LogLevel_Error:	{ return LVN_LOG_COLOR_ERROR;	}
-		case Lvn_LogLevel_Critical:	{ return LVN_LOG_COLOR_CRITICAL;}
+		case Lvn_LogLevel_None:     { return LVN_LOG_COLOR_RESET; }
+		case Lvn_LogLevel_Trace:    { return LVN_LOG_COLOR_TRACE; }
+		case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
+		case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
+		case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
+		case Lvn_LogLevel_Critical: { return LVN_LOG_COLOR_CRITICAL; }
 	}
 
 	return nullptr;
@@ -907,7 +918,7 @@ static LvnResult setWindowContext(LvnWindowApi windowapi)
 	if (result != Lvn_Result_Success)
 		LVN_CORE_ERROR("could not create window context for: %s", getWindowApiNameEnum(windowapi));
 	else
-		LVN_CORE_INFO("window context set: %s", getWindowApiNameEnum(windowapi));
+		LVN_CORE_TRACE("window context set: %s", getWindowApiNameEnum(windowapi));
 
 	return result;
 }
@@ -939,7 +950,7 @@ static void terminateWindowContext()
 		}
 	}
 
-	LVN_CORE_INFO("window context terminated: %s", getWindowApiNameEnum(lvnctx->windowapi));
+	LVN_CORE_TRACE("window context terminated: %s", getWindowApiNameEnum(lvnctx->windowapi));
 }
 
 LvnWindowApi getWindowApi()
@@ -1069,7 +1080,7 @@ static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi)
 	if (result != Lvn_Result_Success)
 		LVN_CORE_ERROR("could not create graphics context for: %s", getGraphicsApiNameEnum(graphicsapi));
 	else
-		LVN_CORE_INFO("graphics context set: %s", getGraphicsApiNameEnum(graphicsapi));
+		LVN_CORE_TRACE("graphics context set: %s", getGraphicsApiNameEnum(graphicsapi));
 
 	return result;
 }
@@ -1100,7 +1111,7 @@ static void terminateGraphicsContext()
 		}
 	}
 
-	LVN_CORE_INFO("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
+	LVN_CORE_TRACE("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
 }
 
 LvnGraphicsApi getGraphicsApi()
@@ -1143,17 +1154,17 @@ void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 	s_LvnContext->graphicsContext.renderCmdDraw(window, vertexCount);
 }
 
-void renderCmdDrawIndexed(uint32_t indexCount)
+void renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
+{
+	s_LvnContext->graphicsContext.renderCmdDrawIndexed(window, indexCount);
+}
+
+void renderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
 
-void renderCmdDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
-{
-
-}
-
-void renderCmdDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+void renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
 
 }
@@ -1203,6 +1214,11 @@ void renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	s_LvnContext->graphicsContext.renderCmdBindPipeline(window, pipeline);
 }
 
+void renderCmdBindBuffer(LvnWindow* window, LvnBuffer* buffer)
+{
+	s_LvnContext->graphicsContext.renderCmdBindBuffer(window, buffer);
+}
+
 LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
 {
 	*renderPass = new LvnRenderPass();
@@ -1239,10 +1255,32 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 	return s_LvnContext->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
 }
 
-LvnResult createVertexArrayBuffer(LvnVertexArrayBuffer** vertexArrayBuffer, LvnVertexArrayBufferCreateInfo* createInfo)
+LvnResult createBuffer(LvnBuffer** vertexArrayBuffer, LvnBufferCreateInfo* createInfo)
 {
-	*vertexArrayBuffer = new LvnVertexArrayBuffer();
-	return s_LvnContext->graphicsContext.createVertexArrayBuffer(*vertexArrayBuffer, createInfo);
+	if (!createInfo->pVertexBindingDescriptions)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexBindingDescriptions is nullptr; cannot create vertex buffer without the vertex binding descriptions");
+		return Lvn_Result_Failure;
+	}
+	else if (!createInfo->vertexBindingDescriptionCount)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexBindingDescriptionCount is 0; cannot create vertex buffer without the vertex binding descriptions");
+		return Lvn_Result_Failure;
+	}
+
+	if (!createInfo->pVertexAttributes)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes is nullptr; cannot create vertex buffer without the vertex attributes");
+		return Lvn_Result_Failure;
+	}
+	else if (!createInfo->vertexAttributeCount)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexAttributeCount is 0; cannot create vertex buffer without the vertex attributes");
+		return Lvn_Result_Failure;
+	}
+
+	*vertexArrayBuffer = new LvnBuffer();
+	return s_LvnContext->graphicsContext.createBuffer(*vertexArrayBuffer, createInfo);
 }
 
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
@@ -1279,9 +1317,9 @@ void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 	delete frameBuffer;
 }
 
-void destroyVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer)
+void destroyBuffer(LvnBuffer* vertexArrayBuffer)
 {
-	s_LvnContext->graphicsContext.destroyVertexArrayBuffer(vertexArrayBuffer);
+	s_LvnContext->graphicsContext.destroyBuffer(vertexArrayBuffer);
 	delete  vertexArrayBuffer;
 }
 

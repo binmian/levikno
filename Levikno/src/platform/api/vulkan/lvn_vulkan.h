@@ -15,18 +15,18 @@ namespace lvn
 	LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
 	LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
-	LvnResult vksImplCreateVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer, LvnVertexArrayBufferCreateInfo* createInfo);
+	LvnResult vksImplCreateBuffer(LvnBuffer* vertexArrayBuffer, LvnBufferCreateInfo* createInfo);
 
 	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
 	void vksImplDestroyShader(LvnShader* shader);
 	void vksImplDestroyPipeline(LvnPipeline* pipeline);
 	void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
-	void vksImplDestroyVertexArrayBuffer(LvnVertexArrayBuffer* vertexArrayBuffer);
+	void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);
 
 	void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount);
-	void vksImplRenderCmdDrawIndexed(uint32_t indexCount);
-	void vksImplRenderCmdDrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
-	void vksImplRenderCmdDrawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
+	void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
+	void vksImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
+	void vksImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	void vksImplRenderCmdSetStencilReference(uint32_t reference);
 	void vksImplRenderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
 	void vksImplRenderBeginNextFrame(LvnWindow* window);
@@ -36,6 +36,7 @@ namespace lvn
 	void vksImplRenderCmdBeginRenderPass(LvnWindow* window);
 	void vksImplRenderCmdEndRenderPass(LvnWindow* window);
 	void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
+	void vksImplRenderCommandBindBuffer(LvnWindow* window, LvnBuffer* buffer);
 
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();

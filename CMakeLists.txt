@@ -34,7 +34,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PLATFORM_TYPE}-${AR
 # Subdirectories ---------------------------------------- /
 
 # GLFW
-set(GLFW_BUILD_WAYLAND 1)
+# set(GLFW_BUILD_WAYLAND 1)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -60,9 +60,13 @@ set(LVN_SOURCES
 	Levikno/src/levikno.cpp
 	Levikno/src/levikno_internal.h
 
-  # glfw
+	# glfw
 	Levikno/src/platform/window/glfw/lvn_glfw.cpp
 	Levikno/src/platform/window/glfw/lvn_glfw.h
+
+	# vma
+	Levikno/src/dependencies/vma/include/vk_mem_alloc.cpp
+	Levikno/src/dependencies/vma/include/vk_mem_alloc.h
 
   ${LVN_GRAPHICS_SRC}
 )
@@ -108,7 +112,7 @@ target_link_libraries(levikno
 		${VULKAN_LIB_DIR}
 )
 
-# ChonpsEditor
+# LeviknoEditor
 set(LVN_EDITOR_SOURCES
 	LeviknoEditor/src/Main.cpp
 )

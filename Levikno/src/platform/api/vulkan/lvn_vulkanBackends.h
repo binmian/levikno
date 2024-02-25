@@ -2,6 +2,7 @@
 #define HG_LEVIKNO_VULKAN_BACKENDS_H
 
 #include <vulkan/vulkan.h>
+#include "vk_mem_alloc.h"
 
 #include "levikno_internal.h"
 
@@ -68,25 +69,26 @@ namespace lvn
 
 	struct VulkanBackends
 	{
-		bool								enableValidationLayers;
-		VkInstance							instance;
-		VkDebugUtilsMessengerEXT			debugMessenger;
-		LvnVector<VkPhysicalDevice>			physicalDevices;
+		bool                                enableValidationLayers;
+		VkInstance                          instance;
+		VkDebugUtilsMessengerEXT            debugMessenger;
+		LvnVector<VkPhysicalDevice>         physicalDevices;
 		
-		VkPhysicalDevice					physicalDevice;
-		VkDevice							device;
-		VkQueue								graphicsQueue;
-		VkQueue								presentQueue;
-		VulkanQueueFamilyIndices			deviceIndices;
+		VkPhysicalDevice                    physicalDevice;
+		VkDevice                            device;
+		VkQueue                             graphicsQueue;
+		VkQueue                             presentQueue;
+		VulkanQueueFamilyIndices            deviceIndices;
 
-		LvnVector<VulkanWindowSurfaceData>	windowSurfaceData;
-		VkFormat							defaultSwapChainFormat;
+		LvnVector<VulkanWindowSurfaceData>  windowSurfaceData;
+		VkFormat                            defaultSwapChainFormat;
 
-		VkCommandPool						commandPool;
+		VkCommandPool                       commandPool;
+		VmaAllocator                        vmaAllocator;
 
-		LvnPipelineSpecification			defaultPipelineSpecification;
-		bool								gammaCorrect;
-		uint32_t							maxFramesInFlight;
+		LvnPipelineSpecification            defaultPipelineSpecification;
+		bool                                gammaCorrect;
+		uint32_t                            maxFramesInFlight;
 	};
 }
 
