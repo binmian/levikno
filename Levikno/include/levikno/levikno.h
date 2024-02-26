@@ -452,13 +452,6 @@ enum LvnAttachmentStoreOperation
 	Lvn_AttachmentStoreOp_DontCare,
 };
 
-enum LvnBufferUsage
-{
-	Lvn_BufferUsage_None = 0,
-	Lvn_BufferUsage_VertexBuffer,
-	Lvn_BufferUsage_IndexBuffer,
-};
-
 enum LvnCullFaceMode
 {
 	Lvn_CullFaceMode_Front,
@@ -974,7 +967,9 @@ namespace lvn
 	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window);                                                            // begins renderpass when rendering starts
 	LVN_API void                        renderCmdEndRenderPass(LvnWindow* window);                                                              // ends renderpass when rendering has finished
 	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                        // bind a pipeline to begin shading during rendering
-	LVN_API void                        renderCmdBindBuffer(LvnWindow* window, LvnBuffer* buffer);
+	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	LVN_API void                        renderCmdBindUniformBuffer(LvnWindow* window, LvnBuffer* buffer);
 
 	LVN_API LvnResult                   createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);                      // create renderpass for rendering draw commands
 	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                               // create shader with the source code as input

@@ -36,7 +36,8 @@ namespace lvn
 	void vksImplRenderCmdBeginRenderPass(LvnWindow* window);
 	void vksImplRenderCmdEndRenderPass(LvnWindow* window);
 	void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
-	void vksImplRenderCommandBindBuffer(LvnWindow* window, LvnBuffer* buffer);
+	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();

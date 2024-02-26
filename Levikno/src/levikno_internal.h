@@ -343,7 +343,8 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBeginRenderPass)(LvnWindow*);
 	void                        (*renderCmdEndRenderPass)(LvnWindow*);
 	void                        (*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
-	void                        (*renderCmdBindBuffer)(LvnWindow*, LvnBuffer*);
+	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, LvnBuffer*);
+	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*);
 
 	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();

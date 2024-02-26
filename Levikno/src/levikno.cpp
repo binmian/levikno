@@ -1214,9 +1214,14 @@ void renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	s_LvnContext->graphicsContext.renderCmdBindPipeline(window, pipeline);
 }
 
-void renderCmdBindBuffer(LvnWindow* window, LvnBuffer* buffer)
+void renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
-	s_LvnContext->graphicsContext.renderCmdBindBuffer(window, buffer);
+	s_LvnContext->graphicsContext.renderCmdBindVertexBuffer(window, buffer);
+}
+
+void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+{
+	s_LvnContext->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
 }
 
 LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
@@ -1255,8 +1260,9 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 	return s_LvnContext->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
 }
 
-LvnResult createBuffer(LvnBuffer** vertexArrayBuffer, LvnBufferCreateInfo* createInfo)
+LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 {
+	// vertex binding descriptions
 	if (!createInfo->pVertexBindingDescriptions)
 	{
 		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexBindingDescriptions is nullptr; cannot create vertex buffer without the vertex binding descriptions");
@@ -1268,6 +1274,7 @@ LvnResult createBuffer(LvnBuffer** vertexArrayBuffer, LvnBufferCreateInfo* creat
 		return Lvn_Result_Failure;
 	}
 
+	// vertex attributes
 	if (!createInfo->pVertexAttributes)
 	{
 		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes is nullptr; cannot create vertex buffer without the vertex attributes");
@@ -1279,8 +1286,17 @@ LvnResult createBuffer(LvnBuffer** vertexArrayBuffer, LvnBufferCreateInfo* creat
 		return Lvn_Result_Failure;
 	}
 
-	*vertexArrayBuffer = new LvnBuffer();
-	return s_LvnContext->graphicsContext.createBuffer(*vertexArrayBuffer, createInfo);
+	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
+	{
+		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
+		{
+			LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_VertexDataType_None, cannot create vertex buffer without a vertex data type", i);
+			return Lvn_Result_Failure;
+		}
+	}
+
+	*buffer = new LvnBuffer();
+	return s_LvnContext->graphicsContext.createBuffer(*buffer, createInfo);
 }
 
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
@@ -1317,10 +1333,10 @@ void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 	delete frameBuffer;
 }
 
-void destroyBuffer(LvnBuffer* vertexArrayBuffer)
+void destroyBuffer(LvnBuffer* buffer)
 {
-	s_LvnContext->graphicsContext.destroyBuffer(vertexArrayBuffer);
-	delete  vertexArrayBuffer;
+	s_LvnContext->graphicsContext.destroyBuffer(buffer);
+	delete  buffer;
 }
 
 } /* namespace lvn */

@@ -1410,7 +1410,8 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->renderCmdBeginRenderPass = vksImplRenderCmdBeginRenderPass;
 	graphicsContext->renderCmdEndRenderPass = vksImplRenderCmdEndRenderPass;
 	graphicsContext->renderCmdBindPipeline = vksImplRenderCmdBindPipeline;
-	graphicsContext->renderCmdBindBuffer = vksImplRenderCommandBindBuffer;
+	graphicsContext->renderCmdBindVertexBuffer = vksImplRenderCmdBindVertexBuffer;
+	graphicsContext->renderCmdBindIndexBuffer = vksImplRenderCmdBindIndexBuffer;
 
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
@@ -1851,13 +1852,20 @@ void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	vkCmdBindPipeline(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 }
 
-void vksImplRenderCommandBindBuffer(LvnWindow* window, LvnBuffer* buffer)
+void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
 	VkDeviceSize offsets[] = {0};
 
 	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &vkBuffer, offsets);
+}
+
+void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+
 	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], vkBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
 }
 
@@ -1990,6 +1998,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
 	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
 
 	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
 	{
@@ -2000,8 +2009,6 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 
 		bindingDescriptions[i] = bindingDescription;
 	}
-
-	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
 
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
 	{
@@ -2058,41 +2065,14 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
-
-	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
-	{
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = createInfo->pVertexBindingDescriptions[i].binding;
-		bindingDescription.stride = createInfo->pVertexBindingDescriptions[i].stride;
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-		bindingDescriptions[i] = bindingDescription;
-	}
-
-	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
-
-	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
-	{
-		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
-			LVN_CORE_WARN("createBuffer(LvnBuffer**, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
-
-		VkVertexInputAttributeDescription attributeDescription{};
-		attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
-		attributeDescription.location = createInfo->pVertexAttributes[i].layout;
-		attributeDescription.format = vks::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].type);
-		attributeDescription.offset = createInfo->pVertexAttributes[i].offset;
-
-		vertexAttributes[i] = attributeDescription;
-	}
+	VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = createInfo->vertexBufferSize + createInfo->indexBufferSize;
+	bufferInfo.size = bufferSize;
 	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
 	VkBuffer stagingBuffer;
 	VmaAllocation stagingMemory;
 
