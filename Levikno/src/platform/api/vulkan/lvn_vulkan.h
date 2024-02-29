@@ -13,12 +13,14 @@ namespace lvn
 	LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo);
 	LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
 	LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateBuffer(LvnBuffer* vertexArrayBuffer, LvnBufferCreateInfo* createInfo);
 
 	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
 	void vksImplDestroyShader(LvnShader* shader);
+	void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
 	void vksImplDestroyPipeline(LvnPipeline* pipeline);
 	void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);

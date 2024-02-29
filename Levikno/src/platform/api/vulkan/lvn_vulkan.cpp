@@ -77,6 +77,7 @@ namespace vks
 	static VkSampleCountFlagBits                getSampleCountFlagEnum(LvnSampleCount samples);
 	static uint32_t                             getSampleCountValue(VkSampleCountFlagBits samples);
 	static VkSampleCountFlagBits                getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
+	static VkDescriptorType                     getDescriptorTypeEnum(LvnDescriptorType type);
 	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
 	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
@@ -1037,6 +1038,24 @@ namespace vks
 		return fbSampleCount;
 	}
 
+	static VkDescriptorType getDescriptorTypeEnum(LvnDescriptorType type)
+	{
+		switch (type)
+		{
+			case Lvn_DescriptorType_Sampler: { return VK_DESCRIPTOR_TYPE_SAMPLER; }
+			case Lvn_DescriptorType_CombinedImageSampler: { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; }
+			case Lvn_DescriptorType_SampledImage: { return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE; }
+			case Lvn_DescriptorType_UniformBuffer: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
+			case Lvn_DescriptorType_StorageBuffer: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown descriptor type enum (%d), setting to descriptor type sampler (defualt)", type);
+				return VK_DESCRIPTOR_TYPE_SAMPLER;
+			}
+		}
+	}
+
 	static void initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx)
 	{
 		LvnPipelineSpecification pipelineSpecification{};
@@ -1387,12 +1406,14 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
+	graphicsContext->createDescriptorLayout = vksImplCreateDescriptorLayout;
 	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
 	graphicsContext->createBuffer = vksImplCreateBuffer;
 	
 	graphicsContext->destroyRenderPass = vksImplDestroyRenderPass;
 	graphicsContext->destroyShader = vksImplDestroyShader;
+	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
@@ -1979,6 +2000,34 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo*
 	return Lvn_Result_Success;
 }
 
+LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	LvnVector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
+
+	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
+	{
+		layoutBindings[i].binding = createInfo->pDescriptorBindings[i].binding;
+		layoutBindings[i].descriptorType = vks::getDescriptorTypeEnum(createInfo->pDescriptorBindings[i].descriptorType);
+		layoutBindings[i].descriptorCount = createInfo->pDescriptorBindings[i].descriptorCount;
+	}
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = createInfo->descriptorBindingCount;
+	layoutInfo.pBindings = layoutBindings.data();
+
+	VkDescriptorSetLayout vkDescriptorLayout;
+	if (vkCreateDescriptorSetLayout(vkBackends->device, &layoutInfo, nullptr, &vkDescriptorLayout) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create descriptor set layout <VkDescriptorSetLayout> (%p)", vkDescriptorLayout);
+		return Lvn_Result_Failure;
+	}
+
+	return Lvn_Result_Success;
+}
+
 LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
@@ -2136,7 +2185,14 @@ void vksImplDestroyShader(LvnShader* shader)
 	VkShaderModule fragShaderModule = static_cast<VkShaderModule>(shader->nativeFragmentShaderModule);
 	vkDestroyShaderModule(vkBackends->device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(vkBackends->device, vertShaderModule, nullptr);
+}
 
+void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	VkDescriptorSetLayout vkDescriptorLayout = static_cast<VkDescriptorSetLayout>(descriptorLayout->descriptorLayout);
+	vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
 }
 
 void vksImplDestroyPipeline(LvnPipeline* pipeline)

@@ -316,15 +316,17 @@ struct LvnGraphicsContext
 	bool                        (*renderInit)(LvnRendererBackends*);
 
 	LvnResult                   (*createRenderPass)(LvnRenderPass*, LvnRenderPassCreateInfo*);
-	LvnResult                   (*createShaderFromSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
-	LvnResult                   (*createShaderFromFileSrc)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
-	LvnResult                   (*createShaderFromFileBin)(LvnShader* shader, LvnShaderCreateInfo* createInfo);
+	LvnResult                   (*createShaderFromSrc)(LvnShader*, LvnShaderCreateInfo*);
+	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, LvnShaderCreateInfo*);
+	LvnResult                   (*createShaderFromFileBin)(LvnShader*, LvnShaderCreateInfo*);
+	LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, LvnDescriptorLayoutCreateInfo*);
 	LvnResult                   (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
 	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
 
 	void                        (*destroyRenderPass)(LvnRenderPass*);
 	void                        (*destroyShader)(LvnShader*);
+	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout* descriptorLayout);
 	void                        (*destroyPipeline)(LvnPipeline*);
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
@@ -367,6 +369,11 @@ struct LvnShader
 {
 	void* nativeVertexShaderModule;
 	void* nativeFragmentShaderModule;
+};
+
+struct LvnDescriptorLayout
+{
+	void* descriptorLayout;
 };
 
 struct LvnPipeline

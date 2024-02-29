@@ -975,18 +975,21 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 {
 	if (createInfo->width < 0 || createInfo->height < 0)
 	{
-		LVN_CORE_ERROR("cannot create window with negative dimensions (w:%d,h:%d), window dimenstions need to be positive", createInfo->width, createInfo->height);
+		LVN_CORE_ERROR("cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
 		return Lvn_Result_Failure;
 	}
 
 	*window = new LvnWindow();
 	return s_LvnContext->windowContext.createWindow(*window, createInfo);
+
+	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d, h%d)", *window, createInfo->title, createInfo->width, createInfo->height);
 }
 
 void destroyWindow(LvnWindow* window)
 {
 	s_LvnContext->windowContext.destroyWindow(window);
 	delete window;
+	window = nullptr;
 }
 
 void updateWindow(LvnWindow* window)
@@ -1227,36 +1230,97 @@ void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
 {
 	*renderPass = new LvnRenderPass();
+	LVN_CORE_TRACE("created renderPass: (%p), attachment count: %u", *renderPass, createInfo->attachmentCount);
 	return s_LvnContext->graphicsContext.createRenderPass(*renderPass, createInfo);
 }
 
 LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
 {
+	if (!createInfo->vertexSrc)
+	{
+		LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
+		return Lvn_Result_Failure;
+	}
+
+	if (!createInfo->fragmentSrc)
+	{
+		LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
+		return Lvn_Result_Failure;
+	}
+
 	*shader = new LvnShader();
+	LVN_CORE_TRACE("created shader: (%p)", *shader);
 	return s_LvnContext->graphicsContext.createShaderFromSrc(*shader, createInfo);
 }
 
 LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
 {
+	if (!createInfo->vertexSrc)
+	{
+		LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
+		return Lvn_Result_Failure;
+	}
+
+	if (!createInfo->fragmentSrc)
+	{
+		LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
+		return Lvn_Result_Failure;
+	}
+
 	*shader = new LvnShader();
+	LVN_CORE_TRACE("created shader: (%p)", *shader);
 	return s_LvnContext->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
 }
 
 LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo)
 {
+	if (!createInfo->vertexSrc)
+	{
+		LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
+		return Lvn_Result_Failure;
+	}
+
+	if (!createInfo->fragmentSrc)
+	{
+		LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
+		return Lvn_Result_Failure;
+	}
+
 	*shader = new LvnShader();
+	LVN_CORE_TRACE("created shader: (%p)", *shader);
 	return s_LvnContext->graphicsContext.createShaderFromFileBin(*shader, createInfo);
+}
+
+LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
+{
+	if (!createInfo->descriptorBindingCount)
+	{
+		LVN_CORE_ERROR("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->descriptorBindingCount is 0, cannot create descriptor layout without the descriptor bindings count");
+		return Lvn_Result_Failure;
+	}
+
+	if (!createInfo->pDescriptorBindings)
+	{
+		LVN_CORE_ERROR("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings is nullptr, cannot create descriptor layout without the pointer to the array of descriptor bindings");
+		return Lvn_Result_Failure;
+	}
+
+	*descriptorLayout = new LvnDescriptorLayout();
+	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
+	return s_LvnContext->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
 }
 
 LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
 {
 	*pipeline = new LvnPipeline();
+	LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
 	return s_LvnContext->graphicsContext.createPipeline(*pipeline, createInfo);
 }
 
 LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
 	*frameBuffer = new LvnFrameBuffer();
+	LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
 	return s_LvnContext->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
 }
 
@@ -1296,6 +1360,7 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 	}
 
 	*buffer = new LvnBuffer();
+	LVN_CORE_TRACE("created buffer: (%p)", *buffer);
 	return s_LvnContext->graphicsContext.createBuffer(*buffer, createInfo);
 }
 
@@ -1336,7 +1401,14 @@ void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 void destroyBuffer(LvnBuffer* buffer)
 {
 	s_LvnContext->graphicsContext.destroyBuffer(buffer);
-	delete  buffer;
+	delete buffer;
 }
+
+void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
+{
+	s_LvnContext->graphicsContext.destroyDescriptorLayout(descriptorLayout);
+	delete descriptorLayout;
+}
+
 
 } /* namespace lvn */

@@ -559,6 +559,22 @@ enum LvnCompareOperation
 	Lvn_CompareOperation_Always         = 7,
 };
 
+enum LvnDescriptorType
+{
+	Lvn_DescriptorType_None = 0,
+	Lvn_DescriptorType_Sampler,
+	Lvn_DescriptorType_CombinedImageSampler,
+	Lvn_DescriptorType_SampledImage,
+	Lvn_DescriptorType_UniformBuffer,
+	Lvn_DescriptorType_StorageBuffer,
+	// Lvn_DescriptorType_StorageImage,
+	// Lvn_DescriptorType_UniformTexelBuffer,
+	// Lvn_DescriptorType_StorageTexelBuffer,
+	// Lvn_DescriptorType_UniformBufferDynamic,
+	// Lvn_DescriptorType_StorageBufferDynamic,
+	// Lvn_DescriptorType_InputAttachment,
+};
+
 enum LvnImageFormat
 {
 	Lvn_ImageFormat_None = 0,
@@ -613,6 +629,13 @@ enum LvnSampleCount
 	Lvn_SampleCount_Max_Bit = 0x7FFFFFFF
 };
 
+enum LvnShaderStage
+{
+	Lvn_ShaderStage_None = 0,
+	Lvn_ShaderStage_Vertex,
+	LvnShaderStage_Fragment,
+};
+
 enum LvnStencilOperation
 {
 	Lvn_StencilOperation_Keep = 0,
@@ -633,6 +656,12 @@ enum LvnTopologyType
 	Lvn_TopologyType_LineStrip,
 	Lvn_TopologyType_Triangle,
 	Lvn_TopologyType_TriangleStrip,
+};
+
+enum LvnUniformBufferType
+{
+	Lvn_UniformBufferType_Uniform,
+	Lvn_UniformBufferType_Storage,
 };
 
 enum LvnVertexDataType
@@ -664,11 +693,17 @@ struct LvnAppRenderEvent;
 struct LvnAppTickEvent;
 struct LvnBatchCreateInfo;
 struct LvnBatchRenderer;
+struct LvnBuffer;
+struct LvnBufferCreateInfo;
+struct LvnBufferUniformCreateInfo;
 struct LvnCharset;
 struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnCubemap;
 struct LvnCubemapCreateInfo;
+struct LvnDescriptorBinding;
+struct LvnDescriptorLayout;
+struct LvnDescriptorLayoutCreateInfo;
 struct LvnDrawCommand;
 struct LvnDrawList;
 struct LvnEvent;
@@ -714,8 +749,6 @@ struct LvnRenderPassAttachment;
 struct LvnRenderPassCreateInfo;
 struct LvnShader;
 struct LvnShaderCreateInfo;
-struct LvnBuffer;
-struct LvnBufferCreateInfo;
 struct LvnVertexAttribute;
 struct LvnVertexBindingDescription;
 struct LvnWindow;
@@ -960,30 +993,32 @@ namespace lvn
 	LVN_API void                        renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	LVN_API void                        renderCmdSetStencilReference(uint32_t reference);
 	LVN_API void                        renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	LVN_API void                        renderBeginNextFrame(LvnWindow* window);                                                                // begins the next frame of the window
-	LVN_API void                        renderDrawSubmit(LvnWindow* window);                                                                    // submits all draw commands recorded and presents to window
-	LVN_API void                        renderBeginCommandRecording(LvnWindow* window);                                                         // begins command buffer when recording draw commands start
-	LVN_API void                        renderEndCommandRecording(LvnWindow* window);                                                           // ends command buffer when finished recording draw commands
-	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window);                                                            // begins renderpass when rendering starts
-	LVN_API void                        renderCmdEndRenderPass(LvnWindow* window);                                                              // ends renderpass when rendering has finished
-	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                        // bind a pipeline to begin shading during rendering
+	LVN_API void                        renderBeginNextFrame(LvnWindow* window);                                                                      // begins the next frame of the window
+	LVN_API void                        renderDrawSubmit(LvnWindow* window);                                                                          // submits all draw commands recorded and presents to window
+	LVN_API void                        renderBeginCommandRecording(LvnWindow* window);                                                               // begins command buffer when recording draw commands start
+	LVN_API void                        renderEndCommandRecording(LvnWindow* window);                                                                 // ends command buffer when finished recording draw commands
+	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window);                                                                  // begins renderpass when rendering starts
+	LVN_API void                        renderCmdEndRenderPass(LvnWindow* window);                                                                    // ends renderpass when rendering has finished
+	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                              // bind a pipeline to begin shading during rendering
 	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindUniformBuffer(LvnWindow* window, LvnBuffer* buffer);
 
-	LVN_API LvnResult                   createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);                      // create renderpass for rendering draw commands
-	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                               // create shader with the source code as input
-	LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                           // create shader with the file paths to the source files as input
-	LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo);                           // create shader with the file paths to the binary files (.spv) as input
-	LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);                              // create pipeline to describe shading specifications
-	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                  // create framebuffer to render images to
-	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                      // create a single buffer object that can hold both the vertex and index buffers
+	LVN_API LvnResult                   createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);                            // create renderpass for rendering draw commands
+	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the source code as input
+	LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                 // create shader with the file paths to the binary files (.spv) as input
+	LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                 // create shader with the file paths to the source files as input
+	LVN_API LvnResult                   createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo);    // create descriptor layout to uplaod uniform data to shader pipeline
+	LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);                                    // create pipeline to describe shading specifications
+	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                        // create framebuffer to render images to
+	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                            // create a single buffer object that can hold both the vertex and index buffers
 
-	LVN_API void                        destroyRenderPass(LvnRenderPass* renderPass);                                                           // destroy renderpass object
-	LVN_API void                        destroyShader(LvnShader* shader);
-	LVN_API void                        destroyPipeline(LvnPipeline* pipeline);                                                                 // destroy pipeline object
-	LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                        // destroy framebuffer object
-	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                       // destory vertex buffers object
+	LVN_API void                        destroyRenderPass(LvnRenderPass* renderPass);                                                                 // destroy renderpass object
+	LVN_API void                        destroyShader(LvnShader* shader);                                                                             // destroy shader module object
+	LVN_API void                        destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);                                               // destroy descriptor layout
+	LVN_API void                        destroyPipeline(LvnPipeline* pipeline);                                                                       // destroy pipeline object
+	LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                              // destroy framebuffer object
+	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                             // destory buffers object
 
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
@@ -2999,6 +3034,8 @@ struct LvnPipelineCreateInfo
 	uint32_t vertexBindingDescriptionCount;
 	LvnVertexAttribute* pVertexAttributes;
 	uint32_t vertexAttributeCount;
+	LvnDescriptorLayout* pDescriptorLayouts;
+	uint32_t descriptorLayoutCount;
 };
 
 struct LvnShaderCreateInfo
@@ -3016,16 +3053,35 @@ struct LvnFrameBufferCreateInfo
 
 struct LvnBufferCreateInfo
 {
-	void* pVertices;
-	uint64_t vertexBufferSize;
-	uint32_t* pIndices;
-	uint64_t indexBufferSize;
 	LvnVertexBindingDescription* pVertexBindingDescriptions;
 	uint32_t vertexBindingDescriptionCount;
 	LvnVertexAttribute* pVertexAttributes;
 	uint32_t vertexAttributeCount;
+	void* pVertices;
+	uint64_t vertexBufferSize;
+	uint32_t* pIndices;
+	uint64_t indexBufferSize;
 
 };
 
+struct LvnDescriptorBinding
+{
+	uint32_t binding;
+	LvnDescriptorType descriptorType;
+	uint32_t descriptorCount;
+};
+
+struct LvnDescriptorLayoutCreateInfo
+{
+	LvnDescriptorBinding* pDescriptorBindings;
+	uint32_t descriptorBindingCount;
+};
+
+struct LvnBufferUniformCreateInfo
+{
+	LvnUniformBufferType type;
+	uint32_t binding;
+	uint32_t shaderStage;
+};
 
 #endif
