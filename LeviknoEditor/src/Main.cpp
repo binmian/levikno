@@ -64,6 +64,11 @@ uint32_t indices[] =
 	0, 1, 2, 2, 3, 0
 };
 
+struct UniformData
+{
+	lvn::mat4 matrix;
+};
+
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
@@ -112,6 +117,8 @@ int main()
 	renderBackends.windowCount = 1;
 	lvn::renderInit(&renderBackends);
 
+	free(devices);
+
 	LvnRenderPassAttachment colorAttachment{};
 	colorAttachment.type = Lvn_AttachmentType_Color;
 	colorAttachment.format = Lvn_ImageFormat_RGBA8;
@@ -149,6 +156,21 @@ int main()
 		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
 	};
 
+
+	LvnDescriptorBinding descriptorBinding{};
+	descriptorBinding.binding = 0;
+	descriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
+	descriptorBinding.descriptorCount = 1;
+
+	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
+	descriptorLayoutCreateInfo.pDescriptorBindings = &descriptorBinding;
+	descriptorLayoutCreateInfo.descriptorBindingCount = 1;
+
+	LvnDescriptorLayout* descriptorLayout;
+	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
+
+
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
@@ -156,6 +178,8 @@ int main()
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.pVertexAttributes = attributes;
 	pipelineCreateInfo.vertexAttributeCount = 2;
+	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
+	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
 	pipelineCreateInfo.renderPass = nullptr;
 	pipelineCreateInfo.window = window;
@@ -164,7 +188,6 @@ int main()
 	lvn::createPipeline(&pipeline, &pipelineCreateInfo);
 
 	lvn::destroyShader(shader);
-
 
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
@@ -181,31 +204,17 @@ int main()
 	LvnBuffer* buffer;
 	lvn::createBuffer(&buffer, &bufferCreateInfo);
 
-	free(devices);
 
-	lvn::vec2 a = { 1.0f, 2.0f };
-	lvn::vec2 b = { 3.0f, 5.0f };
+	LvnUniformBufferCreateInfo uniformBufferInfo{};
+	uniformBufferInfo.binding = 0;
+	uniformBufferInfo.type = Lvn_UniformBufferType_Uniform;
+	uniformBufferInfo.size = sizeof(UniformData);
+	uniformBufferInfo.descriptorLayout = descriptorLayout;
 
+	LvnUniformBuffer* uniformBuffer;
+	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
 
-	lvn::vec2 d = lvn::vec4(1.0f, 3.0f, 2.0f, 4.0f);
-
-	a[1] = 4.0f;
-
-	float c = a[1];
-
-	a += b;
-
-	lvn::vec4 g = -lvn::vec4(a, 1.0f, 0.0f);
-	lvn::mat4 matrix = lvn::mat4(lvn::vec4(1.0f, 2.0f, 7.0f, 4.0f), lvn::vec4(5.0f, 2.0f, 7.0f, 8.0f), lvn::vec4(9.0f, 12.0f, 11.0f, 32.0f), lvn::vec4(15.0f, 14.0f, 18.0f, 26.0f));
-	lvn::mat4 matrix2 = lvn::mat4(lvn::vec4(0.0f, 2.0f, 3.0f, 4.0f), lvn::vec4(5.0f, 6.0f, 7.0f, 8.0f), lvn::vec4(9.0f, 10.0f, 11.0f, 12.0f), lvn::vec4(13.0f, 14.0f, 15.0f, 16.0f));
-	lvn::mat4x3 matrix4x3 = LvnMat4x3(1.0f);
-
-	matrix = matrix * matrix2;
-
-	g = matrix * g;
-
-	int frame = 0;
-
+	UniformData uniformData{};
 
 	while (lvn::windowOpen(window))
 	{
@@ -214,14 +223,27 @@ int main()
 		// auto [x, y] = lvn::getWindowDimensions(window);
 		// LVN_TRACE("(x:%d,y:%d)", x, y);
 
+
+		auto [width, height] = lvn::getWindowDimensions(window);
+		lvn::mat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
+		lvn::mat4 view = lvn::lookAt(lvn::vec3(0.0f, 0.0f, 10.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 model = lvn::mat4(1.0f);
+		lvn::mat4 camera = proj * view * model;
+		
+		uniformData.matrix = camera;
+
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
 		lvn::renderCmdBeginRenderPass(window);
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
+
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
+
+		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 		lvn::renderCmdDrawIndexed(window, 6);
 
 		lvn::renderCmdEndRenderPass(window);
@@ -230,7 +252,9 @@ int main()
 
 	}
 
+	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyBuffer(buffer);
+	lvn::destroyDescriptorLayout(descriptorLayout);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyRenderPass(renderPass);
 

@@ -1,6 +1,7 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
+#include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
 
@@ -1227,6 +1228,11 @@ void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 	s_LvnContext->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
 }
 
+void renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout)
+{
+	s_LvnContext->graphicsContext.renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
+}
+
 LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
 {
 	*renderPass = new LvnRenderPass();
@@ -1364,14 +1370,11 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 	return s_LvnContext->graphicsContext.createBuffer(*buffer, createInfo);
 }
 
-void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
 {
-	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
-}
-
-LvnPipelineSpecification getDefaultPipelineSpecification()
-{
-	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
+	*uniformBuffer = new LvnUniformBuffer();
+	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
+	return s_LvnContext->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
 void destroyRenderPass(LvnRenderPass* renderPass)
@@ -1384,6 +1387,12 @@ void destroyShader(LvnShader* shader)
 {
 	s_LvnContext->graphicsContext.destroyShader(shader);
 	delete shader;
+}
+
+void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
+{
+	s_LvnContext->graphicsContext.destroyDescriptorLayout(descriptorLayout);
+	delete descriptorLayout;
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
@@ -1404,11 +1413,107 @@ void destroyBuffer(LvnBuffer* buffer)
 	delete buffer;
 }
 
-void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
+void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
-	s_LvnContext->graphicsContext.destroyDescriptorLayout(descriptorLayout);
-	delete descriptorLayout;
+	s_LvnContext->graphicsContext.destroyUniformBuffer(uniformBuffer);
+	delete uniformBuffer;
 }
 
+void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+{
+	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
+}
+
+LvnPipelineSpecification getDefaultPipelineSpecification()
+{
+	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
+}
+
+void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
+{
+	s_LvnContext->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
+}
+
+// [Section]: Math
+
+float radians(float deg)
+{
+	return deg * 0.0174532925199f; // deg * (PI / 180)
+}
+
+float degrees(float rad)
+{
+	return rad * 57.2957795131f; // rad * (180 / PI)
+}
+
+float inverseSqrt(float num)
+{
+	union
+	{
+		float f;
+		uint32_t i;
+	} conv;
+
+	float x2;
+	const float threehalfs = 1.5f;
+
+	x2 = num * 0.5f;
+	conv.f  = num;
+	conv.i  = 0x5f3759df - (conv.i >> 1);
+	conv.f  = conv.f * (threehalfs - (x2 * conv.f * conv.f));
+	return conv.f;
+}
+
+LvnVec2f normalize(LvnVec2f v)
+{
+	float u = inverseSqrt(v.x * v.x + v.y * v.y);
+	return { v.x * u, v.y * u };
+}
+
+LvnVec2d normalize(LvnVec2d v)
+{
+	double u = inverseSqrt(static_cast<float>(v.x * v.x + v.y * v.y));
+	return { v.x * u, v.y * u };
+}
+
+LvnVec3f normalize(LvnVec3f v)
+{
+	float u = inverseSqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	return { v.x * u, v.y * u, v.z * u };
+}
+
+LvnVec3d normalize(LvnVec3d v)
+{
+	double u = inverseSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z));
+	return { v.x * u, v.y * u, v.z * u };
+}
+
+LvnVec4f normalize(LvnVec4f v)
+{
+	float u = inverseSqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
+	return { v.x * u, v.y * u, v.z * u, v.w * u };
+}
+
+LvnVec4d normalize(LvnVec4d v)
+{
+	double u = inverseSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w));
+	return { v.x * u, v.y * u, v.z * u, v.w * u };
+}
+
+LvnVec3f cross(LvnVec3f v1, LvnVec3f v2)
+{
+	float cx = v1.y * v2.z - v1.z * v2.y;
+	float cy = v1.z * v2.x - v1.x * v2.z;
+	float cz = v1.x * v2.y - v1.y * v2.x;
+	return { cx, cy, cz };
+}
+
+LvnVec3d cross(LvnVec3d v1, LvnVec3d v2)
+{
+	double cx = v1.y * v2.z - v1.z * v2.y;
+	double cy = v1.z * v2.x - v1.x * v2.z;
+	double cz = v1.x * v2.y - v1.y * v2.x;
+	return { cx, cy, cz };
+}
 
 } /* namespace lvn */

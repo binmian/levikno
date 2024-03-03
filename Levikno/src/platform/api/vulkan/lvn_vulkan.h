@@ -1,6 +1,7 @@
 #ifndef HG_LEVIKNO_VULKAN_H
 #define HG_LEVIKNO_VULKAN_H
 
+#include "levikno.h"
 #include "levikno_internal.h"
 
 namespace lvn
@@ -17,6 +18,7 @@ namespace lvn
 	LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
 	LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateBuffer(LvnBuffer* vertexArrayBuffer, LvnBufferCreateInfo* createInfo);
+	LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
 
 	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
 	void vksImplDestroyShader(LvnShader* shader);
@@ -24,6 +26,7 @@ namespace lvn
 	void vksImplDestroyPipeline(LvnPipeline* pipeline);
 	void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);
+	void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
 
 	void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
@@ -40,9 +43,11 @@ namespace lvn
 	void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
 	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
 
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
+	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 
 }
 

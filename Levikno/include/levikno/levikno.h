@@ -82,11 +82,6 @@
 	#define LVN_CORE_ASSERT(x, ...)
 #endif
 
-// Warnings
-#ifdef LVN_DEBUG
-
-#endif
-
 
 #define LVN_TRUE 1
 #define LVN_FALSE 0
@@ -97,9 +92,6 @@
 #define LVN_UINT32_MAX 0xffffffff
 #define LVN_UINT64_MAX 0xffffffffffffffff
 
-#define LVN_ALIGN(x) alignas(x)
-#define LVN_SCAST(type, x) static_cast<type>(x)
-
 #define LVN_FILE_NAME __FILE__
 #define LVN_LINE __LINE__
 #define LVN_FUNC_NAME __func__
@@ -107,16 +99,15 @@
 #define LVN_STR(x) #x
 #define LVN_STRINGIFY(x) LVN_STR(x)
 
-#define LVN_MALLOC(size) ::lvn::memAlloc(size)
-#define LVN_FREE(ptr)    ::lvn::memFree(ptr)
-
+#define LVN_PI 3.14159265f
+#define LVN_PI_EXACT static_cast<double>(22.0/7.0) /* 3.1415... */
 
 #endif // !HG_LEVIKNO_DEFINE_CONFIG
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 /* [Logging] */
 
@@ -631,7 +622,7 @@ enum LvnSampleCount
 
 enum LvnShaderStage
 {
-	Lvn_ShaderStage_None = 0,
+	Lvn_ShaderStage_All,
 	Lvn_ShaderStage_Vertex,
 	LvnShaderStage_Fragment,
 };
@@ -695,7 +686,6 @@ struct LvnBatchCreateInfo;
 struct LvnBatchRenderer;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
-struct LvnBufferUniformCreateInfo;
 struct LvnCharset;
 struct LvnContext;
 struct LvnContextCreateInfo;
@@ -718,7 +708,6 @@ struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
 struct LvnKeyTypedEvent;
 struct LvnLogMessage;
-struct LvnLogPattern;
 struct LvnLogger;
 struct LvnMemoryBlock;
 struct LvnMemoryPool;
@@ -749,6 +738,8 @@ struct LvnRenderPassAttachment;
 struct LvnRenderPassCreateInfo;
 struct LvnShader;
 struct LvnShaderCreateInfo;
+struct LvnUniformBuffer;
+struct LvnUniformBufferCreateInfo;
 struct LvnVertexAttribute;
 struct LvnVertexBindingDescription;
 struct LvnWindow;
@@ -794,6 +785,71 @@ struct LvnMat4x2_t;
 template<typename T>
 struct LvnMat4x3_t;
 
+
+typedef LvnVec2_t<float>				LvnVec2;
+typedef LvnVec3_t<float>				LvnVec3;
+typedef LvnVec4_t<float>				LvnVec4;
+typedef LvnVec2_t<int>					LvnVec2i;
+typedef LvnVec3_t<int>					LvnVec3i;
+typedef LvnVec4_t<int>					LvnVec4i;
+typedef LvnVec2_t<unsigned int>			LvnVec2ui;
+typedef LvnVec3_t<unsigned int>			LvnVec3ui;
+typedef LvnVec4_t<unsigned int>			LvnVec4ui;
+typedef LvnVec2_t<float>				LvnVec2f;
+typedef LvnVec3_t<float>				LvnVec3f;
+typedef LvnVec4_t<float>				LvnVec4f;
+typedef LvnVec2_t<double>				LvnVec2d;
+typedef LvnVec3_t<double>				LvnVec3d;
+typedef LvnVec4_t<double>				LvnVec4d;
+typedef LvnVec2_t<bool>					LvnVec2b;
+typedef LvnVec3_t<bool>					LvnVec3b;
+typedef LvnVec4_t<bool>					LvnVec4b;
+
+typedef LvnMat2x2_t<float>				LvnMat2;
+typedef LvnMat3x3_t<float>				LvnMat3;
+typedef LvnMat4x4_t<float>				LvnMat4;
+typedef LvnMat2x3_t<float>				LvnMat2x3;
+typedef LvnMat2x4_t<float>				LvnMat2x4;
+typedef LvnMat3x2_t<float>				LvnMat3x2;
+typedef LvnMat3x4_t<float>				LvnMat3x4;
+typedef LvnMat4x2_t<float>				LvnMat4x2;
+typedef LvnMat4x3_t<float>				LvnMat4x3;
+typedef LvnMat2x2_t<int>				LvnMat2i;
+typedef LvnMat3x3_t<int>				LvnMat3i;
+typedef LvnMat4x4_t<int>				LvnMat4i;
+typedef LvnMat2x3_t<int>				LvnMat2x3i;
+typedef LvnMat2x4_t<int>				LvnMat2x4i;
+typedef LvnMat3x2_t<int>				LvnMat3x2i;
+typedef LvnMat3x4_t<int>				LvnMat3x4i;
+typedef LvnMat4x2_t<int>				LvnMat4x2i;
+typedef LvnMat4x3_t<int>				LvnMat4x3i;
+typedef LvnMat2x2_t<unsigned int>		LvnMat2ui;
+typedef LvnMat3x3_t<unsigned int>		LvnMat3ui;
+typedef LvnMat4x4_t<unsigned int>		LvnMat4ui;
+typedef LvnMat2x3_t<unsigned int>		LvnMat2x3ui;
+typedef LvnMat2x4_t<unsigned int>		LvnMat2x4ui;
+typedef LvnMat3x2_t<unsigned int>		LvnMat3x2ui;
+typedef LvnMat3x4_t<unsigned int>		LvnMat3x4ui;
+typedef LvnMat4x2_t<unsigned int>		LvnMat4x2ui;
+typedef LvnMat4x3_t<unsigned int>		LvnMat4x3ui;
+typedef LvnMat2x2_t<float>				LvnMat2f;
+typedef LvnMat3x3_t<float>				LvnMat3f;
+typedef LvnMat4x4_t<float>				LvnMat4f;
+typedef LvnMat2x3_t<float>				LvnMat2x3f;
+typedef LvnMat2x4_t<float>				LvnMat2x4f;
+typedef LvnMat3x2_t<float>				LvnMat3x2f;
+typedef LvnMat3x4_t<float>				LvnMat3x4f;
+typedef LvnMat4x2_t<float>				LvnMat4x2f;
+typedef LvnMat4x3_t<float>				LvnMat4x3f;
+typedef LvnMat2x2_t<double>				LvnMat2d;
+typedef LvnMat3x3_t<double>				LvnMat3d;
+typedef LvnMat4x4_t<double>				LvnMat4d;
+typedef LvnMat2x3_t<double>				LvnMat2x3d;
+typedef LvnMat2x4_t<double>				LvnMat2x4d;
+typedef LvnMat3x2_t<double>				LvnMat3x2d;
+typedef LvnMat3x4_t<double>				LvnMat3x4d;
+typedef LvnMat4x2_t<double>				LvnMat4x2d;
+typedef LvnMat4x3_t<double>				LvnMat4x3d;
 
 /* Functions */
 namespace lvn
@@ -1002,7 +1058,7 @@ namespace lvn
 	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                              // bind a pipeline to begin shading during rendering
 	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
-	LVN_API void                        renderCmdBindUniformBuffer(LvnWindow* window, LvnBuffer* buffer);
+	LVN_API void                        renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
 
 	LVN_API LvnResult                   createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);                            // create renderpass for rendering draw commands
 	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the source code as input
@@ -1012,6 +1068,7 @@ namespace lvn
 	LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);                                    // create pipeline to describe shading specifications
 	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                        // create framebuffer to render images to
 	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                            // create a single buffer object that can hold both the vertex and index buffers
+	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                // create a uniform buffer object to send changing data to the shader pipeline
 
 	LVN_API void                        destroyRenderPass(LvnRenderPass* renderPass);                                                                 // destroy renderpass object
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                             // destroy shader module object
@@ -1019,10 +1076,11 @@ namespace lvn
 	LVN_API void                        destroyPipeline(LvnPipeline* pipeline);                                                                       // destroy pipeline object
 	LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                              // destroy framebuffer object
 	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                             // destory buffers object
+	LVN_API void                        destroyUniformBuffer(LvnUniformBuffer* uniformBuffer);                                                        // destroy uniform buffer object
 
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
-
+	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 
 
 	/* [Math] */
@@ -1034,6 +1092,79 @@ namespace lvn
 
 	template <typename T>
 	LVN_API T                           clamp(const T& val, const T& low, const T& high) { return lvn::max(lvn::min(val, high), low); }
+
+	float radians(float deg);
+	float degrees(float rad);
+
+	float inverseSqrt(float num);
+
+	LvnVec2f normalize(LvnVec2f v);
+	LvnVec2d normalize(LvnVec2d v);
+	LvnVec3f normalize(LvnVec3f v);
+	LvnVec3d normalize(LvnVec3d v);
+	LvnVec4f normalize(LvnVec4f v);
+	LvnVec4d normalize(LvnVec4d v);
+
+	LvnVec3f cross(LvnVec3f v1, LvnVec3f v2);
+	LvnVec3d cross(LvnVec3d v1, LvnVec3d v2);
+
+	template <typename T>
+	T dot(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
+	{
+		return v1.x * v2.x + v1.y * v2.y;
+	}
+
+	template <typename T>
+	T dot(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+	{
+		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+	}
+
+	template <typename T>
+	T dot(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
+	{
+		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> perspective(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	{
+		LVN_CORE_ASSERT(aspect > 0, "aspect ratio cannot be negative");
+
+		T halfTanFovy = static_cast<T>(tan(fovy / 2));
+
+		LvnMat4x4_t<T> matrix(0);
+		matrix[0][0] = static_cast<T>(1) / (aspect * halfTanFovy);
+		matrix[1][1] = static_cast<T>(1) / (halfTanFovy);
+		matrix[2][2] = - (zFar + zNear) / (zFar - zNear);
+		matrix[2][3] = -1;
+		matrix[3][2] = - (2 * zFar * zNear) / (zFar - zNear);
+
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> lookAt(const LvnVec3_t<T>& eye, const LvnVec3_t<T>& center, const LvnVec3_t<T>& up)
+	{
+		LvnVec3_t<T> f(lvn::normalize(center - eye));
+		LvnVec3_t<T> s(lvn::normalize(lvn::cross(f, up)));
+		LvnVec3_t<T> u(lvn::cross(s, f));
+
+		LvnMat4x4_t<T> matrix(1);
+		matrix[0][0] = s.x;
+		matrix[1][0] = s.y;
+		matrix[2][0] = s.z;
+		matrix[0][1] = u.x;
+		matrix[1][1] = u.y;
+		matrix[2][1] = u.z;
+		matrix[0][2] = -f.x;
+		matrix[1][2] = -f.y;
+		matrix[2][2] = -f.z;
+		matrix[3][0] = -lvn::dot(s, eye);
+		matrix[3][1] = -lvn::dot(u, eye);
+		matrix[3][2] = lvn::dot(f, eye);
+		return matrix;
+	}
 
 }
 
@@ -1292,22 +1423,39 @@ struct LvnVec2_t
 	{
 		return { -this->x, -this->y };
 	}
-	LvnVec2_t<T> operator+(const LvnVec2_t<T>& v)
+	LvnVec2_t<T> operator+(LvnVec2_t<T>& v)
 	{
 		return { this->x + v.x, this->y + v.y };
 	}
-	LvnVec2_t<T> operator-(const LvnVec2_t<T>& v)
+	LvnVec2_t<T> operator-(LvnVec2_t<T>& v)
 	{
 		return { this->x - v.x, this->y - v.y };
 	}
-	LvnVec2_t<T> operator*(const LvnVec2_t<T>& v)
+	LvnVec2_t<T> operator*(LvnVec2_t<T>& v)
 	{
 		return { this->x * v.x, this->y * v.y };
 	}
-	LvnVec2_t<T> operator/(const LvnVec2_t<T>& v)
+	LvnVec2_t<T> operator/(LvnVec2_t<T>& v)
 	{
 		return { this->x / v.x, this->y / v.y };
 	}
+	LvnVec2_t<T> operator+(const LvnVec2_t<T>& v) const
+	{
+		return { this->x + v.x, this->y + v.y };
+	}
+	LvnVec2_t<T> operator-(const LvnVec2_t<T>& v) const
+	{
+		return { this->x - v.x, this->y - v.y };
+	}
+	LvnVec2_t<T> operator*(const LvnVec2_t<T>& v) const
+	{
+		return { this->x * v.x, this->y * v.y };
+	}
+	LvnVec2_t<T> operator/(const LvnVec2_t<T>& v) const
+	{
+		return { this->x / v.x, this->y / v.y };
+	}
+
 	LvnVec2_t<T>& operator+=(const LvnVec2_t<T>& v)
 	{
 		this->x += v.x;
@@ -1376,22 +1524,39 @@ struct LvnVec3_t
 	{
 		return { -this->x, -this->y, -this->z };
 	}
-	LvnVec3_t<T> operator+(const LvnVec3_t<T>& v)
+	LvnVec3_t<T> operator+(LvnVec3_t<T>& v)
 	{
 		return { this->x + v.x, this->y + v.y, this->z + v.z };
 	}
-	LvnVec3_t<T> operator-(const LvnVec3_t<T>& v)
+	LvnVec3_t<T> operator-(LvnVec3_t<T>& v)
 	{
 		return { this->x - v.x, this->y - v.y, this->z - v.z };
 	}
-	LvnVec3_t<T> operator*(const LvnVec3_t<T>& v)
+	LvnVec3_t<T> operator*(LvnVec3_t<T>& v)
 	{
 		return { this->x * v.x, this->y * v.y, this->z * v.z };
 	}
-	LvnVec3_t<T> operator/(const LvnVec3_t<T>& v)
+	LvnVec3_t<T> operator/(LvnVec3_t<T>& v)
 	{
 		return { this->x / v.x, this->y / v.y, this->z / v.z };
 	}
+	LvnVec3_t<T> operator+(const LvnVec3_t<T>& v) const
+	{
+		return { this->x + v.x, this->y + v.y, this->z + v.z };
+	}
+	LvnVec3_t<T> operator-(const LvnVec3_t<T>& v) const
+	{
+		return { this->x - v.x, this->y - v.y, this->z - v.z };
+	}
+	LvnVec3_t<T> operator*(const LvnVec3_t<T>& v) const
+	{
+		return { this->x * v.x, this->y * v.y, this->z * v.z };
+	}
+	LvnVec3_t<T> operator/(const LvnVec3_t<T>& v) const
+	{
+		return { this->x / v.x, this->y / v.y, this->z / v.z };
+	}
+
 	LvnVec3_t<T>& operator+=(const LvnVec3_t<T>& v)
 	{
 		this->x += v.x;
@@ -1430,7 +1595,7 @@ struct LvnVec3_t
 		case 1:
 			return y;
 		case 2:
-			return y;
+			return z;
 		}
 	}
 };
@@ -1467,22 +1632,39 @@ struct LvnVec4_t
 	{
 		return { -this->x, -this->y, -this->z, -this->w };
 	}
-	LvnVec4_t<T> operator+(const LvnVec4_t<T>& v)
+	LvnVec4_t<T> operator+(LvnVec4_t<T>& v)
 	{
 		return { this->x + v.x, this->y + v.y, this->z + v.z, this->w + v.w };
 	}
-	LvnVec4_t<T> operator-(const LvnVec4_t<T>& v)
+	LvnVec4_t<T> operator-(LvnVec4_t<T>& v)
 	{
 		return { this->x - v.x, this->y - v.y, this->z - v.z, this->w - v.w };
 	}
-	LvnVec4_t<T> operator*(const LvnVec4_t<T>& v)
+	LvnVec4_t<T> operator*(LvnVec4_t<T>& v)
 	{
 		return { this->x * v.x, this->y * v.y, this->z * v.z, this->w * v.w };
 	}
-	LvnVec4_t<T> operator/(const LvnVec4_t<T>& v)
+	LvnVec4_t<T> operator/(LvnVec4_t<T>& v)
 	{
 		return { this->x / v.x, this->y / v.y, this->z / v.z, this->w / v.w };
 	}
+	LvnVec4_t<T> operator+(const LvnVec4_t<T>& v) const
+	{
+		return { this->x + v.x, this->y + v.y, this->z + v.z, this->w + v.w };
+	}
+	LvnVec4_t<T> operator-(const LvnVec4_t<T>& v) const
+	{
+		return { this->x - v.x, this->y - v.y, this->z - v.z, this->w - v.w };
+	}
+	LvnVec4_t<T> operator*(const LvnVec4_t<T>& v) const
+	{
+		return { this->x * v.x, this->y * v.y, this->z * v.z, this->w * v.w };
+	}
+	LvnVec4_t<T> operator/(const LvnVec4_t<T>& v) const
+	{
+		return { this->x / v.x, this->y / v.y, this->z / v.z, this->w / v.w };
+	}
+
 	LvnVec4_t<T>& operator+=(const LvnVec4_t<T>& v)
 	{
 		this->x += v.x;
@@ -1525,7 +1707,7 @@ struct LvnVec4_t
 		case 1:
 			return y;
 		case 2:
-			return y;
+			return z;
 		case 3:
 			return w;
 		}
@@ -2809,70 +2991,6 @@ LvnVec4_t<T> operator*(const LvnVec3_t<T>& v, const LvnMat4x3_t<T>& m)
 		v.x * m.value[3].x + v.y * m.value[3].y + v.z * m.value[3].z);
 }
 
-typedef LvnVec2_t<float>				LvnVec2;
-typedef LvnVec3_t<float>				LvnVec3;
-typedef LvnVec4_t<float>				LvnVec4;
-typedef LvnVec2_t<int>					LvnVec2i;
-typedef LvnVec3_t<int>					LvnVec3i;
-typedef LvnVec4_t<int>					LvnVec4i;
-typedef LvnVec2_t<unsigned int>			LvnVec2ui;
-typedef LvnVec3_t<unsigned int>			LvnVec3ui;
-typedef LvnVec4_t<unsigned int>			LvnVec4ui;
-typedef LvnVec2_t<float>				LvnVec2f;
-typedef LvnVec3_t<float>				LvnVec3f;
-typedef LvnVec4_t<float>				LvnVec4f;
-typedef LvnVec2_t<double>				LvnVec2d;
-typedef LvnVec3_t<double>				LvnVec3d;
-typedef LvnVec4_t<double>				LvnVec4d;
-typedef LvnVec2_t<bool>					LvnVec2b;
-typedef LvnVec3_t<bool>					LvnVec3b;
-typedef LvnVec4_t<bool>					LvnVec4b;
-
-typedef LvnMat2x2_t<float>				LvnMat2;
-typedef LvnMat3x3_t<float>				LvnMat3;
-typedef LvnMat4x4_t<float>				LvnMat4;
-typedef LvnMat2x3_t<float>				LvnMat2x3;
-typedef LvnMat2x4_t<float>				LvnMat2x4;
-typedef LvnMat3x2_t<float>				LvnMat3x2;
-typedef LvnMat3x4_t<float>				LvnMat3x4;
-typedef LvnMat4x2_t<float>				LvnMat4x2;
-typedef LvnMat4x3_t<float>				LvnMat4x3;
-typedef LvnMat2x2_t<int>				LvnMat2i;
-typedef LvnMat3x3_t<int>				LvnMat3i;
-typedef LvnMat4x4_t<int>				LvnMat4i;
-typedef LvnMat2x3_t<int>				LvnMat2x3i;
-typedef LvnMat2x4_t<int>				LvnMat2x4i;
-typedef LvnMat3x2_t<int>				LvnMat3x2i;
-typedef LvnMat3x4_t<int>				LvnMat3x4i;
-typedef LvnMat4x2_t<int>				LvnMat4x2i;
-typedef LvnMat4x3_t<int>				LvnMat4x3i;
-typedef LvnMat2x2_t<unsigned int>		LvnMat2ui;
-typedef LvnMat3x3_t<unsigned int>		LvnMat3ui;
-typedef LvnMat4x4_t<unsigned int>		LvnMat4ui;
-typedef LvnMat2x3_t<unsigned int>		LvnMat2x3ui;
-typedef LvnMat2x4_t<unsigned int>		LvnMat2x4ui;
-typedef LvnMat3x2_t<unsigned int>		LvnMat3x2ui;
-typedef LvnMat3x4_t<unsigned int>		LvnMat3x4ui;
-typedef LvnMat4x2_t<unsigned int>		LvnMat4x2ui;
-typedef LvnMat4x3_t<unsigned int>		LvnMat4x3ui;
-typedef LvnMat2x2_t<float>				LvnMat2f;
-typedef LvnMat3x3_t<float>				LvnMat3f;
-typedef LvnMat4x4_t<float>				LvnMat4f;
-typedef LvnMat2x3_t<float>				LvnMat2x3f;
-typedef LvnMat2x4_t<float>				LvnMat2x4f;
-typedef LvnMat3x2_t<float>				LvnMat3x2f;
-typedef LvnMat3x4_t<float>				LvnMat3x4f;
-typedef LvnMat4x2_t<float>				LvnMat4x2f;
-typedef LvnMat4x3_t<float>				LvnMat4x3f;
-typedef LvnMat2x2_t<double>				LvnMat2d;
-typedef LvnMat3x3_t<double>				LvnMat3d;
-typedef LvnMat4x4_t<double>				LvnMat4d;
-typedef LvnMat2x3_t<double>				LvnMat2x3d;
-typedef LvnMat2x4_t<double>				LvnMat2x4d;
-typedef LvnMat3x2_t<double>				LvnMat3x2d;
-typedef LvnMat3x4_t<double>				LvnMat3x4d;
-typedef LvnMat4x2_t<double>				LvnMat4x2d;
-typedef LvnMat4x3_t<double>				LvnMat4x3d;
 
 struct LvnPhysicalDeviceInfo
 {
@@ -3024,6 +3142,20 @@ struct LvnVertexAttribute
 	uint32_t offset;
 };
 
+struct LvnDescriptorBinding
+{
+	uint32_t binding;
+	LvnDescriptorType descriptorType;
+	uint32_t descriptorCount;
+	LvnShaderStage shaderStage;
+};
+
+struct LvnDescriptorLayoutCreateInfo
+{
+	LvnDescriptorBinding* pDescriptorBindings;
+	uint32_t descriptorBindingCount;
+};
+
 struct LvnPipelineCreateInfo
 {
 	LvnPipelineSpecification* pipelineSpecification;
@@ -3034,7 +3166,7 @@ struct LvnPipelineCreateInfo
 	uint32_t vertexBindingDescriptionCount;
 	LvnVertexAttribute* pVertexAttributes;
 	uint32_t vertexAttributeCount;
-	LvnDescriptorLayout* pDescriptorLayouts;
+	LvnDescriptorLayout** pDescriptorLayouts;
 	uint32_t descriptorLayoutCount;
 };
 
@@ -3061,27 +3193,15 @@ struct LvnBufferCreateInfo
 	uint64_t vertexBufferSize;
 	uint32_t* pIndices;
 	uint64_t indexBufferSize;
-
 };
 
-struct LvnDescriptorBinding
-{
-	uint32_t binding;
-	LvnDescriptorType descriptorType;
-	uint32_t descriptorCount;
-};
-
-struct LvnDescriptorLayoutCreateInfo
-{
-	LvnDescriptorBinding* pDescriptorBindings;
-	uint32_t descriptorBindingCount;
-};
-
-struct LvnBufferUniformCreateInfo
+struct LvnUniformBufferCreateInfo
 {
 	LvnUniformBufferType type;
 	uint32_t binding;
-	uint32_t shaderStage;
+	LvnDescriptorLayout* descriptorLayout;
+	uint64_t size;
 };
+
 
 #endif

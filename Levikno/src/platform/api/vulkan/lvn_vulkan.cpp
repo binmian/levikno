@@ -78,6 +78,8 @@ namespace vks
 	static uint32_t                             getSampleCountValue(VkSampleCountFlagBits samples);
 	static VkSampleCountFlagBits                getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
 	static VkDescriptorType                     getDescriptorTypeEnum(LvnDescriptorType type);
+	static VkDescriptorType                     getUniformBufferTypeEnum(LvnUniformBufferType type);
+	static VkShaderStageFlags                   getShaderStageFlagEnum(LvnShaderStage stage);
 	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
 	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
@@ -1056,6 +1058,37 @@ namespace vks
 		}
 	}
 
+	static VkDescriptorType getUniformBufferTypeEnum(LvnUniformBufferType type)
+	{
+		switch (type)
+		{
+			case Lvn_UniformBufferType_Uniform: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
+			case Lvn_UniformBufferType_Storage: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown buffer enum type (%u), setting to buffer type uniform buffer (defualt)", type);
+				return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			}
+		}
+	}
+
+	static VkShaderStageFlags getShaderStageFlagEnum(LvnShaderStage stage)
+	{
+		switch (stage)
+		{
+			case Lvn_ShaderStage_All: { return VK_SHADER_STAGE_ALL; }
+			case Lvn_ShaderStage_Vertex: { return VK_SHADER_STAGE_VERTEX_BIT; }
+			case LvnShaderStage_Fragment: { return VK_SHADER_STAGE_FRAGMENT_BIT; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown shader stage enum type (%u), setting stage to \'VK_SHADER_STAGE_ALL\' as default", stage);
+				return VK_SHADER_STAGE_ALL;
+			}
+		}
+	}
+
 	static void initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx)
 	{
 		LvnPipelineSpecification pipelineSpecification{};
@@ -1410,6 +1443,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
 	graphicsContext->createBuffer = vksImplCreateBuffer;
+	graphicsContext->createUniformBuffer = vksImplCreateUniformBuffer;
 	
 	graphicsContext->destroyRenderPass = vksImplDestroyRenderPass;
 	graphicsContext->destroyShader = vksImplDestroyShader;
@@ -1417,6 +1451,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
+	graphicsContext->destroyUniformBuffer = vksImplDestroyUniformBuffer;
 
 	graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
 	graphicsContext->renderCmdDrawIndexed = vksImplRenderCmdDrawIndexed;
@@ -1433,9 +1468,11 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->renderCmdBindPipeline = vksImplRenderCmdBindPipeline;
 	graphicsContext->renderCmdBindVertexBuffer = vksImplRenderCmdBindVertexBuffer;
 	graphicsContext->renderCmdBindIndexBuffer = vksImplRenderCmdBindIndexBuffer;
+	graphicsContext->renderCmdBindDescriptorLayout = vksImplRenderCmdBindDescriptorLayout;
 
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
+	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 
 	// Create Vulkan Instance
 	VkApplicationInfo appInfo{};
@@ -1606,6 +1643,10 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 		LVN_CORE_WARN("vulkan validation layers enabled, but not available!");
 	else
 		vks::setupDebugMessenger(vkBackends);
+
+	VkPhysicalDeviceProperties physicalDeviceProperties{};
+	vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
+	LVN_CORE_TRACE("[vulkan] the physical device (GPU) will be used: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
 
 	// create surface
 	if (!renderBackends->pWindows)
@@ -1876,7 +1917,7 @@ void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
 	VkDeviceSize offsets[] = {0};
 
 	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &vkBuffer, offsets);
@@ -1885,9 +1926,18 @@ void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
 
 	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], vkBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
+}
+
+void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
+	VkDescriptorSet descriptorSet = static_cast<VkDescriptorSet>(descriptorLayout->descriptorSets[surfaceData->currentFrame]);
+
+	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 }
 
 LvnResult vksImplCreateRenderPass(LvnRenderPass* renderPass, LvnRenderPassCreateInfo* createInfo)
@@ -2011,6 +2061,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 		layoutBindings[i].binding = createInfo->pDescriptorBindings[i].binding;
 		layoutBindings[i].descriptorType = vks::getDescriptorTypeEnum(createInfo->pDescriptorBindings[i].descriptorType);
 		layoutBindings[i].descriptorCount = createInfo->pDescriptorBindings[i].descriptorCount;
+		layoutBindings[i].stageFlags = vks::getShaderStageFlagEnum(createInfo->pDescriptorBindings[i].shaderStage);
 	}
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -2021,9 +2072,46 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 	VkDescriptorSetLayout vkDescriptorLayout;
 	if (vkCreateDescriptorSetLayout(vkBackends->device, &layoutInfo, nullptr, &vkDescriptorLayout) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create descriptor set layout <VkDescriptorSetLayout> (%p)", vkDescriptorLayout);
+		LVN_CORE_ERROR("[vulkan] failed to create descriptor set layout <VkDescriptorSetLayout> at (%p)", vkDescriptorLayout);
 		return Lvn_Result_Failure;
 	}
+
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = vkBackends->maxFramesInFlight;
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.maxSets = vkBackends->maxFramesInFlight;
+
+	VkDescriptorPool descriptorPool;
+
+	if (vkCreateDescriptorPool(vkBackends->device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create descriptor pool at (%p)", descriptorPool);
+		return Lvn_Result_Failure;
+	}
+
+	LvnVector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = vkBackends->maxFramesInFlight;
+	allocInfo.pSetLayouts = layouts.data();
+
+	descriptorLayout->descriptorSets = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkDescriptorSet));
+
+	if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorLayout->descriptorSets) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet*> at (%p)", descriptorLayout->descriptorSets);
+		return Lvn_Result_Failure;
+	}
+
+	descriptorLayout->descriptorLayout = vkDescriptorLayout;
+	descriptorLayout->descriptorPool = descriptorPool;
 
 	return Lvn_Result_Success;
 }
@@ -2032,6 +2120,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
+	// shader modules
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -2046,6 +2135,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+	// vertex binding descriptions & attributes
 	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
 	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
 
@@ -2088,15 +2178,28 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 		vertexInputInfo.pVertexAttributeDescriptions = vertexAttributes.data();
 	}
 
+	// descriptor layouts
+	LvnVector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
+	for (uint32_t i = 0; i < createInfo->descriptorLayoutCount; i++)
+	{
+		VkDescriptorSetLayout descriptorLayout = static_cast<VkDescriptorSetLayout>(createInfo->pDescriptorLayouts[i]->descriptorLayout);
+		descriptorLayouts[i] = descriptorLayout;
+	}
+
+	// render pass
 	VkRenderPass renderPass = createInfo->renderPass != nullptr ? static_cast<VkRenderPass>(createInfo->renderPass->nativeRenderPass) : static_cast<VulkanWindowSurfaceData*>(createInfo->window->apiData)->renderPass;
 
+	// prepare pipeline create info
 	VulkanPipelineCreateData pipelineCreateData{};
 	pipelineCreateData.shaderStages = shaderStages;
 	pipelineCreateData.shaderStageCount = ARRAY_LEN(shaderStages);
 	pipelineCreateData.vertexInputInfo = vertexInputInfo;
 	pipelineCreateData.renderPass = renderPass;
 	pipelineCreateData.pipelineSpecification = createInfo->pipelineSpecification != nullptr ? createInfo->pipelineSpecification : &vkBackends->defaultPipelineSpecification;
+	pipelineCreateData.pDescrptorSetLayouts = descriptorLayouts.data();
+	pipelineCreateData.descriptorSetLayoutCount = createInfo->descriptorLayoutCount;
 
+	// create pipeline
 	VulkanPipeline vkPipeline = vks::createVulkanPipeline(vkBackends, &pipelineCreateData);
 
 	pipeline->nativePipeline = vkPipeline.pipeline;
@@ -2110,7 +2213,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
+LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo) // TODO: create buffers for static and dynamic data
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -2152,21 +2255,51 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, stagingMemory);
 
-	buffer->buffer = vkBuffer;
-	buffer->bufferMemory = bufferMemory;
+	buffer->vertexBuffer = vkBuffer;
+	buffer->vertexBufferMemory = bufferMemory;
+	buffer->indexBuffer = vkBuffer;
+	buffer->indexBufferMemory = bufferMemory;
 	buffer->indexOffset = createInfo->vertexBufferSize;
+
 
 	return Lvn_Result_Success;
 }
 
-void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
 {
-	s_VkBackends->defaultPipelineSpecification = *pipelineSpecification;
-}
+	VulkanBackends* vkBackends = s_VkBackends;
 
-LvnPipelineSpecification vksImplGetDefaultPipelineSpecification()
-{
-	return s_VkBackends->defaultPipelineSpecification;
+	VkBuffer vkUniformBuffer;
+	VmaAllocation uniformBufferMemory;
+	vks::createBuffer(vkBackends, &vkUniformBuffer, &uniformBufferMemory, createInfo->size * vkBackends->maxFramesInFlight, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	uniformBuffer->uniformBuffer = vkUniformBuffer;
+	uniformBuffer->uniformBufferMemory = uniformBufferMemory;
+	uniformBuffer->uniformBufferMapped = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(void*));
+
+	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)createInfo->descriptorLayout->descriptorSets;
+
+	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
+	{
+		vmaMapMemory(vkBackends->vmaAllocator, uniformBufferMemory, &uniformBuffer->uniformBufferMapped[i]);
+
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = vkUniformBuffer;
+		bufferInfo.offset = createInfo->size * i;
+		bufferInfo.range = createInfo->size;
+
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = descriptorSets[i];
+		descriptorWrite.dstBinding = createInfo->binding;
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = vks::getUniformBufferTypeEnum(createInfo->type);
+		descriptorWrite.descriptorCount = 1; // TODO: change descriptor count
+		descriptorWrite.pBufferInfo = &bufferInfo;
+		vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);
+	}
+
+	return Lvn_Result_Success;
 }
 
 void vksImplDestroyRenderPass(LvnRenderPass* renderPass)
@@ -2192,7 +2325,13 @@ void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	VkDescriptorSetLayout vkDescriptorLayout = static_cast<VkDescriptorSetLayout>(descriptorLayout->descriptorLayout);
+	VkDescriptorPool descriptorPool = static_cast<VkDescriptorPool>(descriptorLayout->descriptorPool);
+
+	vkDestroyDescriptorPool(vkBackends->device, descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
+
+	if (descriptorLayout->descriptorSets)
+		lvn::memFree(descriptorLayout->descriptorSets);
 }
 
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
@@ -2217,11 +2356,44 @@ void vksImplDestroyBuffer(LvnBuffer* buffer)
 	VulkanBackends* vkBackends = s_VkBackends;
 	vkDeviceWaitIdle(vkBackends->device);
 
-	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
-	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
+	// TODO: delete logic for dynamic buffers
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
+	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
 
 	vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
 }
+
+void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
+
+	VkBuffer vkUniformBuffer = static_cast<VkBuffer>(uniformBuffer->uniformBuffer);
+	VmaAllocation uniformBufferMemory = static_cast<VmaAllocation>(uniformBuffer->uniformBufferMemory);
+	vkDestroyBuffer(vkBackends->device, vkUniformBuffer, nullptr);
+	vmaUnmapMemory(vkBackends->vmaAllocator, uniformBufferMemory);
+	vmaFreeMemory(vkBackends->vmaAllocator, uniformBufferMemory);
+
+	if (uniformBuffer->uniformBufferMapped)
+		lvn::memFree(uniformBuffer->uniformBufferMapped);
+}
+
+void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+{
+	s_VkBackends->defaultPipelineSpecification = *pipelineSpecification;
+}
+
+LvnPipelineSpecification vksImplGetDefaultPipelineSpecification()
+{
+	return s_VkBackends->defaultPipelineSpecification;
+}
+
+void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	memcpy(uniformBuffer->uniformBufferMapped[surfaceData->currentFrame], data, size);
+}
+
 
 } /* namespace lvn */

@@ -3,6 +3,7 @@
 
 #include "levikno.h"
 
+struct LvnLogPattern;
 struct LvnString;
 
 template <typename T>
@@ -110,9 +111,9 @@ struct LvnString
 template <typename T>
 struct LvnVector
 {
-	T* m_Data;
-	uint32_t m_Size;
-	uint32_t m_Capacity;
+	T* m_Data;            // pointer array to data
+	uint32_t m_Size;      // number of elements that are in this vector; size of vector
+	uint32_t m_Capacity;  // max number of elements allocated/reserved for this vector; note that m_Size can be less than or equal to the capacity
 
 	LvnVector()
 		: m_Data((T*)lvn::memAlloc(0)), m_Size(0), m_Capacity(0) {}
@@ -132,6 +133,17 @@ struct LvnVector
 		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
 		memcpy(m_Data, data, size * sizeof(T));
 	}
+
+	LvnVector(uint32_t size, T data)
+	{
+		m_Size = size;
+		m_Capacity = size;
+		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
+
+		for (uint32_t i = 0; i < size; i++)
+			memcpy(&m_Data[i], &data, sizeof(T));
+	}
+
 	LvnVector(const LvnVector<T>& lvnvec)
 	{
 		m_Size = lvnvec.m_Size;
@@ -139,6 +151,7 @@ struct LvnVector
 		m_Data = (T*)lvn::memAlloc(m_Size * sizeof(T));
 		memcpy(m_Data, lvnvec.m_Data, m_Size * sizeof(T));
 	}
+
 	LvnVector<T>& operator=(const LvnVector<T>& lvnvec)
 	{
 		resize(lvnvec.m_Size);
@@ -310,7 +323,7 @@ struct LvnWindowContext
 
 struct LvnGraphicsContext
 {
-	LvnGraphicsApi graphicsapi;
+	LvnGraphicsApi              graphicsapi;
 
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
 	bool                        (*renderInit)(LvnRendererBackends*);
@@ -323,14 +336,15 @@ struct LvnGraphicsContext
 	LvnResult                   (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
 	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
+	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
 
 	void                        (*destroyRenderPass)(LvnRenderPass*);
 	void                        (*destroyShader)(LvnShader*);
-	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout* descriptorLayout);
+	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
 	void                        (*destroyPipeline)(LvnPipeline*);
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
-
+	void                        (*destroyUniformBuffer)(LvnUniformBuffer*);
 
 	void                        (*renderBeginNextFrame)(LvnWindow*);
 	void                        (*renderDrawSubmit)(LvnWindow*);
@@ -347,9 +361,11 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
 	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, LvnBuffer*);
 	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*);
+	void                        (*renderCmdBindDescriptorLayout)(LvnWindow*, LvnPipeline*, LvnDescriptorLayout*);
 
 	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
+	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
 };
 
 struct LvnPhysicalDevice
@@ -374,6 +390,9 @@ struct LvnShader
 struct LvnDescriptorLayout
 {
 	void* descriptorLayout;
+	void* descriptorPool;
+	void** descriptorSets;
+	uint32_t descriptorCount;
 };
 
 struct LvnPipeline
@@ -389,10 +408,19 @@ struct LvnFrameBuffer
 
 struct LvnBuffer
 {
-	void* buffer;
-	void* bufferMemory;
+	void* vertexBuffer;
+	void* vertexBufferMemory;
+	void* indexBuffer;
+	void* indexBufferMemory;
 
 	uint64_t indexOffset;
+};
+
+struct LvnUniformBuffer
+{
+	void* uniformBuffer;
+	void* uniformBufferMemory;
+	void** uniformBufferMapped;
 };
 
 struct LvnContext
