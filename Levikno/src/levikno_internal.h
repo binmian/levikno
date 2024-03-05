@@ -325,8 +325,8 @@ struct LvnGraphicsContext
 {
 	LvnGraphicsApi              graphicsapi;
 
-	void                        (*getPhysicalDevices)(LvnPhysicalDevice*, uint32_t*);
-	bool                        (*renderInit)(LvnRendererBackends*);
+	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
+	LvnResult                   (*renderInit)(LvnRenderInitInfo*);
 
 	LvnResult                   (*createRenderPass)(LvnRenderPass*, LvnRenderPassCreateInfo*);
 	LvnResult                   (*createShaderFromSrc)(LvnShader*, LvnShaderCreateInfo*);
@@ -430,11 +430,8 @@ struct LvnContext
 	LvnGraphicsApi              graphicsapi;
 	LvnGraphicsContext          graphicsContext;
 	bool                        logging;
-	bool                        vulkanValidationLayers;
 	LvnLogger                   coreLogger;
 	LvnLogger                   clientLogger;
-	LvnPhysicalDevice*          physicalDevices;
-	uint32_t                    physicalDeviceCount;
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	LvnMemoryPool               memoryPool;
 	LvnMemoryBlockPointers      memBlockPtrs;

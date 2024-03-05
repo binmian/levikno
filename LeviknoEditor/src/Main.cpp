@@ -1,4 +1,5 @@
 ﻿#include <levikno/levikno.h>
+#include <vector>
 
 bool windowMoved(LvnWindowMovedEvent* e)
 {
@@ -79,6 +80,24 @@ int main()
 
 	lvn::createContext(&lvnCreateInfo);
 
+	uint32_t deviceCount = 0;
+	std::vector<LvnPhysicalDevice*> devices;
+	lvn::getPhysicalDevices(nullptr, &deviceCount);
+
+	devices.resize(deviceCount);
+	lvn::getPhysicalDevices(devices.data(), &deviceCount);
+
+	for (uint32_t i = 0; i < deviceCount; i++)
+	{
+		LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
+		LVN_TRACE("name: %s, version: %d", deviceInfo.name, deviceInfo.driverVersion);
+	}
+
+	LvnRenderInitInfo renderInfo{};
+	renderInfo.physicalDevice = devices[0];
+	lvn::renderInit(&renderInfo);
+
+
 	LvnWindowCreateInfo windowInfo{};
 	windowInfo.width = 800;
 	windowInfo.height = 600;
@@ -94,30 +113,8 @@ int main()
 
 	LvnWindow* window;
 	lvn::createWindow(&window, &windowInfo);
-
 	lvn::setWindowEventCallback(window, eventsCallbackFn);
 
-	uint32_t deviceCount = 0;
-	LvnPhysicalDevice** devices = nullptr;
-	lvn::getPhysicalDevices(nullptr, &deviceCount);
-
-	devices = (LvnPhysicalDevice**)malloc(deviceCount * sizeof(LvnPhysicalDevice*));
-	if (!devices) { return 1; }
-	lvn::getPhysicalDevices(devices, &deviceCount);
-
-	for (uint32_t i = 0; i < deviceCount; i++)
-	{
-		LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
-		LVN_TRACE("name: %s\tversion: %d", deviceInfo.name, deviceInfo.driverVersion);
-	}
-
-	LvnRendererBackends renderBackends{};
-	renderBackends.physicalDevice = devices[0];
-	renderBackends.pWindows = &window;
-	renderBackends.windowCount = 1;
-	lvn::renderInit(&renderBackends);
-
-	free(devices);
 
 	LvnRenderPassAttachment colorAttachment{};
 	colorAttachment.type = Lvn_AttachmentType_Color;
@@ -190,6 +187,7 @@ int main()
 	lvn::destroyShader(shader);
 
 	LvnBufferCreateInfo bufferCreateInfo{};
+	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
 	bufferCreateInfo.pVertexAttributes = attributes;
@@ -207,7 +205,7 @@ int main()
 
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
 	uniformBufferInfo.binding = 0;
-	uniformBufferInfo.type = Lvn_UniformBufferType_Uniform;
+	uniformBufferInfo.type = Lvn_BufferType_Uniform;
 	uniformBufferInfo.size = sizeof(UniformData);
 	uniformBufferInfo.descriptorLayout = descriptorLayout;
 

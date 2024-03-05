@@ -6,9 +6,10 @@
 
 namespace lvn
 {
-	LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidationLayers = false);
+	LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidation);
 	void vksImplTerminateContext();
-	LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends);
+	void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
+	LvnResult vksImplRenderInit(LvnRenderInitInfo* renderBackends);
 
 	LvnResult vksImplCreateRenderPass(LvnRenderPass* renderPass, LvnRenderPassCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);

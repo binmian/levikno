@@ -73,15 +73,13 @@ namespace lvn
 		VkInstance                          instance;
 		VkDebugUtilsMessengerEXT            debugMessenger;
 		LvnVector<VkPhysicalDevice>         physicalDevices;
+		LvnVector<LvnPhysicalDevice>        lvnPhysicalDevices;
 		
 		VkPhysicalDevice                    physicalDevice;
 		VkDevice                            device;
 		VkQueue                             graphicsQueue;
 		VkQueue                             presentQueue;
 		VulkanQueueFamilyIndices            deviceIndices;
-
-		LvnVector<VulkanWindowSurfaceData>  windowSurfaceData;
-		VkFormat                            defaultSwapChainFormat;
 
 		VkCommandPool                       commandPool;
 		VmaAllocator                        vmaAllocator;
@@ -90,6 +88,10 @@ namespace lvn
 		bool                                gammaCorrect;
 		uint32_t                            maxFramesInFlight;
 	};
+
+	VulkanBackends* getVulkanBackends();
+	void createVulkanWindowSurfaceData(LvnWindow* window);
+	void destroyVulkanWindowSurfaceData(LvnWindow* window);
 }
 
 #endif

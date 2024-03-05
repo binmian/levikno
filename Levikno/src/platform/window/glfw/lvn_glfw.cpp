@@ -12,9 +12,46 @@ namespace lvn
 {
 	static bool s_glfwInit = false;
 
+	static void      GLFWerrorCallback(int error, const char* descripion);
+	static LvnResult createGraphicsRelatedAPIData(LvnWindow* window);
+	static void      destroyGraphicsRelatedAPIData(LvnWindow* window);
+
 	static void GLFWerrorCallback(int error, const char* descripion)
 	{
 		LVN_CORE_ERROR("glfw-error: (%d): %s", error, descripion);
+	}
+
+	static LvnResult createGraphicsRelatedAPIData(LvnWindow* window)
+	{
+		switch (lvn::getGraphicsApi())
+		{
+			case Lvn_GraphicsApi_vulkan:
+			{
+				createVulkanWindowSurfaceData(window);
+				return Lvn_Result_Success;
+			}
+
+			default:
+			{
+				return Lvn_Result_Success;
+			}
+		}
+	}
+
+	static void destroyGraphicsRelatedAPIData(LvnWindow* window)
+	{
+		switch (lvn::getGraphicsApi())
+		{
+			case Lvn_GraphicsApi_vulkan:
+			{
+				destroyVulkanWindowSurfaceData(window);
+			}
+
+			default:
+			{
+				return;
+			}
+		}
 	}
 
 	LvnResult glfwImplInitWindowContext(LvnWindowContext* windowContext)
@@ -118,6 +155,11 @@ namespace lvn
 		glfwSetWindowUserPointer(nativeWindow, window);
 
 		window->nativeWindow = nativeWindow;
+		if (createGraphicsRelatedAPIData(window) != Lvn_Result_Success)
+		{
+			LVN_CORE_ERROR("[glfw] failed to create graphics api related data for window: (%p), native glfw window <GLFWwindow*> (%p)", window, nativeWindow);
+			return Lvn_Result_Failure;
+		}
 
 		// Set GLFW Callbacks
 		glfwSetWindowSizeCallback(nativeWindow, [](GLFWwindow* window, int width, int height)
@@ -134,20 +176,6 @@ namespace lvn
 			event.data.y = height;
 
 			data->eventCallBackFn(&event);
-
-			/*switch (getGraphicsContext())
-			{
-				case GraphicsContext::OpenGL:
-				{
-					gladUpdateViewPort(window, width, height);
-					break;
-				}
-				case GraphicsContext::Vulkan:
-				{
-					getVulkanBackends()->framebufferResized = true;
-					break;
-				}
-			}*/
 		});
 
 		glfwSetFramebufferSizeCallback(nativeWindow, [](GLFWwindow* window, int width, int height)
@@ -396,6 +424,7 @@ namespace lvn
 
 	void glfwImplDestroyWindow(LvnWindow* window)
 	{
+		destroyGraphicsRelatedAPIData(window);
 		glfwDestroyWindow(static_cast<GLFWwindow*>(window->nativeWindow));
 	}
 

@@ -29,7 +29,7 @@ static const char*  getGraphicsApiNameEnum(LvnGraphicsApi api);
 static const char*  getWindowApiNameEnum(LvnWindowApi api);
 static LvnResult    setWindowContext(LvnWindowApi windowapi);
 static void         terminateWindowContext();
-static LvnResult    setGraphicsContext(LvnGraphicsApi graphicsapi);
+static LvnResult    setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation);
 static void         terminateGraphicsContext();
 
 
@@ -84,7 +84,6 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
-	s_LvnContext->vulkanValidationLayers = createInfo->enableVulkanValidationLayers;
 
 	// logging
 	if (createInfo->enableLogging) { logInit(); }
@@ -94,7 +93,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	if (result != Lvn_Result_Success) { return result; }
 
 	// graphics context
-	result = setGraphicsContext(createInfo->graphicsapi);
+	result = setGraphicsContext(createInfo->graphicsapi, createInfo->enableVulkanValidationLayers);
 	if (result != Lvn_Result_Success) { return result; }
 
 	return Lvn_Result_Success;
@@ -506,7 +505,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 
 	char buff[1024];
 
@@ -521,7 +520,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 
 	char buff[1024];
 
@@ -536,7 +535,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 
 	char buff[1024];
 
@@ -551,7 +550,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 
 	char buff[1024];
 
@@ -566,7 +565,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageCritical(LvnLogger* logger, const char* fmt, ...)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 
 	char buff[1024];
 
@@ -1058,7 +1057,7 @@ static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
 	return LVN_EMPTY_STR;
 }
 
-static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi)
+static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation)
 {
 	LvnContext* lvnctx = s_LvnContext;
 
@@ -1072,7 +1071,7 @@ static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi)
 		}
 		case Lvn_GraphicsApi_vulkan:
 		{
-			result = vksImplCreateContext(&lvnctx->graphicsContext, lvnctx->vulkanValidationLayers);
+			result = vksImplCreateContext(&lvnctx->graphicsContext, enableValidation);
 			break;
 		}
 		case Lvn_GraphicsApi_opengl:
@@ -1136,11 +1135,20 @@ const char* getGraphicsApiName()
 	return LVN_EMPTY_STR;
 }
 
-void getPhysicalDevices(LvnPhysicalDevice** ppPhysicalDevices, uint32_t* deviceCount)
+void getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCount)
 {
-	if (!s_LvnContext) { return; }
-	if (!ppPhysicalDevices) { *deviceCount = s_LvnContext->physicalDeviceCount; return; }
-	*ppPhysicalDevices = s_LvnContext->physicalDevices;
+	uint32_t getDeviceCount;
+	s_LvnContext->graphicsContext.getPhysicalDevices(nullptr, &getDeviceCount);
+
+	if (pPhysicalDevices == nullptr)
+	{
+		*deviceCount = getDeviceCount;
+		return;
+	}
+
+	s_LvnContext->graphicsContext.getPhysicalDevices(pPhysicalDevices, &getDeviceCount);
+
+	return;
 }
 
 LvnPhysicalDeviceInfo getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice)
@@ -1148,9 +1156,9 @@ LvnPhysicalDeviceInfo getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice)
 	return physicalDevice->info;
 }
 
-LvnResult renderInit(LvnRendererBackends* renderBackends)
+LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 {
-	return vksImplRenderInit(renderBackends);
+	return s_LvnContext->graphicsContext.renderInit(renderInfo);
 }
 
 void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
@@ -1332,6 +1340,18 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 
 LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 {
+	// check valid buffer type
+	if (createInfo->type == Lvn_BufferType_Unknown)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type is \'Lvn_BufferType_Unknown\'; cannot create vertex buffer without knowing the type of buffer usage");
+		return Lvn_Result_Failure;
+	}
+	if (createInfo->type & (Lvn_BufferType_Uniform | Lvn_BufferType_Storage))
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type does not have vertex or index buffer type (%u); cannot create vertexbuffer that does not have a vertex or index buffer type", createInfo->type);
+		return Lvn_Result_Failure;
+	}
+
 	// vertex binding descriptions
 	if (!createInfo->pVertexBindingDescriptions)
 	{
@@ -1372,6 +1392,18 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 
 LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
 {
+	// check valid buffer type
+	if (createInfo->type & Lvn_BufferType_Unknown)
+	{
+		LVN_CORE_ERROR("createUniformBuffer(LvnUniformBuffer*, LvnUniformBufferCreateInfo*) | createInfo->type is \'Lvn_BufferType_Unknown\'; cannot create uniform buffer without knowing the type of buffer usage");
+		return Lvn_Result_Failure;
+	}
+	if (createInfo->type & (Lvn_BufferType_Vertex | Lvn_BufferType_Index))
+	{
+		LVN_CORE_ERROR("createUniformBuffer(LvnUniformBuffer*, LvnUniformBufferCreateInfo*) | createInfo->type does not have uniform buffer type (%u); cannot create uniform buffer that does not have a uniform buffer type", createInfo->type);
+		return Lvn_Result_Failure;
+	}
+
 	*uniformBuffer = new LvnUniformBuffer();
 	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
 	return s_LvnContext->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);

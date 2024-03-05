@@ -1,4 +1,5 @@
 #include "lvn_vulkan.h"
+#include "levikno.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -31,10 +32,9 @@ namespace lvn
 
 static VulkanBackends* s_VkBackends = nullptr;
 
-
-
 namespace vks
 {
+	static LvnResult                            createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers);
 	static VKAPI_ATTR VkBool32 VKAPI_CALL       debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 	static bool                                 checkValidationLayerSupport();
 	static LvnVector<const char*>               getRequiredExtensions(VulkanBackends* vkBackends);
@@ -78,7 +78,7 @@ namespace vks
 	static uint32_t                             getSampleCountValue(VkSampleCountFlagBits samples);
 	static VkSampleCountFlagBits                getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
 	static VkDescriptorType                     getDescriptorTypeEnum(LvnDescriptorType type);
-	static VkDescriptorType                     getUniformBufferTypeEnum(LvnUniformBufferType type);
+	static VkDescriptorType                     getUniformBufferTypeEnum(LvnBufferType type);
 	static VkShaderStageFlags                   getShaderStageFlagEnum(LvnShaderStage stage);
 	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
@@ -87,6 +87,46 @@ namespace vks
 	static void                                 createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
 	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
 
+	static LvnResult createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers)
+	{
+		// Create Vulkan Instance
+		VkApplicationInfo appInfo{};
+		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		appInfo.pApplicationName = "levikno";
+		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+		appInfo.pEngineName = "levikno";
+		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+		appInfo.apiVersion = VK_API_VERSION_1_0;
+
+
+		VkInstanceCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+		createInfo.pApplicationInfo = &appInfo;
+
+		LvnVector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
+		createInfo.enabledExtensionCount = extensions.size();
+		createInfo.ppEnabledExtensionNames = extensions.data();
+
+		if (enableValidationLayers)
+		{
+			VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+
+			createInfo.enabledLayerCount = ARRAY_LEN(s_ValidationLayers);
+			createInfo.ppEnabledLayerNames = s_ValidationLayers;
+
+			vks::fillVulkanDebugMessengerCreateInfo(debugCreateInfo);
+			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+		}
+
+		// Create Instance
+		if (vkCreateInstance(&createInfo, nullptr, &vkBackends->instance) != VK_SUCCESS)
+		{
+			LVN_CORE_ERROR("[vulkan] failed to create instance at (%p)", vkBackends->instance);
+			return Lvn_Result_Failure;
+		}
+
+		return Lvn_Result_Success;
+	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -1058,12 +1098,12 @@ namespace vks
 		}
 	}
 
-	static VkDescriptorType getUniformBufferTypeEnum(LvnUniformBufferType type)
+	static VkDescriptorType getUniformBufferTypeEnum(LvnBufferType type)
 	{
 		switch (type)
 		{
-			case Lvn_UniformBufferType_Uniform: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
-			case Lvn_UniformBufferType_Storage: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
+			case Lvn_BufferType_Uniform: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
+			case Lvn_BufferType_Storage: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
 
 			default:
 			{
@@ -1428,13 +1468,108 @@ namespace vks
 
 } /* namespace vks */
 
-LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidationLayers)
+VulkanBackends* getVulkanBackends()
 {
-	VulkanBackends* vkBackends = new VulkanBackends();
-	s_VkBackends = vkBackends;
-	LvnContext* lvnctx = lvn::getContext();
-	vkBackends->enableValidationLayers = lvnctx->vulkanValidationLayers;
+	return s_VkBackends;
+}
 
+void createVulkanWindowSurfaceData(LvnWindow* window)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
+	VulkanWindowSurfaceData surfaceData{};
+	LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surfaceData.surface) == VK_SUCCESS, "[vulkan] failed to create temporary window surface at (%p)", surfaceData.surface);
+
+	// get and check swap chain specs
+	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData.surface, vkBackends->physicalDevice);
+	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] device does not have supported swap chain formats or present modes");
+
+	VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(swapChainSupport.formats.data(), swapChainSupport.formats.size());
+	VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
+	VkExtent2D extent = vks::chooseSwapExtent(glfwWindow, &swapChainSupport.capabilities);
+
+	vks::createSwapChain(vkBackends, &surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
+	vks::createImageViews(vkBackends, &surfaceData);
+	vks::createRenderPass(vkBackends, &surfaceData, surfaceFormat.format);
+	vks::createFrameBuffers(vkBackends, &surfaceData);
+	vks::createCommandBuffers(vkBackends, &surfaceData);
+	vks::createSyncObjects(vkBackends, &surfaceData);
+
+	window->apiData = lvn::memAlloc(sizeof(VulkanWindowSurfaceData));
+	memcpy(window->apiData, &surfaceData, sizeof(VulkanWindowSurfaceData));
+}
+
+void destroyVulkanWindowSurfaceData(LvnWindow* window)
+{
+	if (!window->apiData) { return; }
+
+	VulkanBackends* vkBackends = s_VkBackends;
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+
+	// sync objects
+	for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
+	{
+		vkDestroySemaphore(vkBackends->device, surfaceData->imageAvailableSemaphores[j], nullptr);
+		vkDestroySemaphore(vkBackends->device, surfaceData->renderFinishedSemaphores[j], nullptr);
+		vkDestroyFence(vkBackends->device, surfaceData->inFlightFences[j], nullptr);
+	}
+
+	lvn::memFree(surfaceData->renderFinishedSemaphores);
+	lvn::memFree(surfaceData->imageAvailableSemaphores);
+	lvn::memFree(surfaceData->inFlightFences);
+
+	// swap chain images
+	for (uint32_t j = 0; j < surfaceData->swapChainImageViewCount; j++)
+	{
+		vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[j], nullptr);
+	}
+
+	// frame buffers
+	for (uint32_t j = 0; j < surfaceData->frameBufferCount; j++)
+	{
+		vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[j], nullptr);
+	}
+
+	if (surfaceData->commandBuffers)
+		lvn::memFree(surfaceData->commandBuffers);
+
+	if (surfaceData->frameBuffers)
+		lvn::memFree(surfaceData->frameBuffers);
+
+	if (surfaceData->swapChainImageViews)
+		lvn::memFree(surfaceData->swapChainImageViews);
+
+	if (surfaceData->swapChainImages)
+		lvn::memFree(surfaceData->swapChainImages);
+
+	// swap chain
+	vkDestroySwapchainKHR(vkBackends->device, surfaceData->swapChain, nullptr);
+
+	// render pass
+	vkDestroyRenderPass(vkBackends->device, surfaceData->renderPass, nullptr);
+
+	// window surface
+	vkDestroySurfaceKHR(vkBackends->instance, surfaceData->surface, nullptr);
+
+	lvn::memFree(window->apiData);
+}
+
+
+LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidation)
+{
+	if (s_VkBackends == nullptr)
+	{
+		s_VkBackends = new VulkanBackends();
+	}
+
+	VulkanBackends* vkBackends = s_VkBackends;
+	LvnContext* lvnctx = lvn::getContext();
+
+	vkBackends->enableValidationLayers = enableValidation;
+
+	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
+	graphicsContext->renderInit = vksImplRenderInit;
 	graphicsContext->createRenderPass = vksImplCreateRenderPass;
 	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
@@ -1475,81 +1610,11 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 
 	// Create Vulkan Instance
-	VkApplicationInfo appInfo{};
-	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "levikno editor";
-	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.pEngineName = "levikno";
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_0;
-
-
-	VkInstanceCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = &appInfo;
-
-	LvnVector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
-	createInfo.enabledExtensionCount = extensions.size();
-	createInfo.ppEnabledExtensionNames = extensions.data();
-
-	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-	if (vkBackends->enableValidationLayers)
+	if (vks::createVulkanInstace(vkBackends, enableValidation) != Lvn_Result_Success)
 	{
-		createInfo.enabledLayerCount = ARRAY_LEN(s_ValidationLayers);
-		createInfo.ppEnabledLayerNames = s_ValidationLayers;
-
-		vks::fillVulkanDebugMessengerCreateInfo(debugCreateInfo);
-		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-	}
-	else
-	{
-		createInfo.enabledLayerCount = 0;
-		createInfo.pNext = nullptr;
-	}
-
-	// Create Instance
-	if (vkCreateInstance(&createInfo, nullptr, &vkBackends->instance) != VK_SUCCESS)
-	{
-		LVN_CORE_ASSERT(false, "vulkan - failed to create instance!");
+		LVN_CORE_ERROR("[vulkan] failed to create vulkan instance when creating graphics context");
 		return Lvn_Result_Failure;
 	}
-
-		
-	// Get Physical Devices
-	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, nullptr);
-
-	if (deviceCount == 0)
-	{
-		LVN_CORE_ASSERT(false, "vulkan - failed to find Physical Devices with Vulkan support!");
-		return Lvn_Result_Failure;
-	}
-
-	// Create vulkan physical devices
-	vkBackends->physicalDevices.resize(deviceCount);
-	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, vkBackends->physicalDevices.data());
-
-	// Create our own implementation of physical devices
-	LvnPhysicalDevice* lvnDevices = (LvnPhysicalDevice*)lvn::memAlloc(deviceCount * sizeof(LvnPhysicalDevice));
-	for (uint32_t i = 0; i < vkBackends->physicalDevices.size(); i++)
-	{
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(vkBackends->physicalDevices[i], &deviceProperties);
-
-		LvnPhysicalDeviceInfo deviceInfo{};
-		deviceInfo.type = vks::getPhysicalDeviceTypeEnum(deviceProperties.deviceType);
-			
-		deviceInfo.apiVersion = deviceProperties.apiVersion;
-		deviceInfo.driverVersion = deviceProperties.driverVersion;
-		memcpy(deviceInfo.name, deviceProperties.deviceName, 226);
-		lvnDevices[i].info = deviceInfo;
-		lvnDevices[i].device = vkBackends->physicalDevices[i];
-	}
-
-	lvnctx->physicalDevices = lvnDevices;
-	lvnctx->physicalDeviceCount = deviceCount;
-
-
 
 	return Lvn_Result_Success;
 }
@@ -1563,54 +1628,6 @@ void vksImplTerminateContext()
 
 	vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
 
-	for (uint32_t i = 0; i < vkBackends->windowSurfaceData.size(); i++)
-	{
-		// sync objects
-		for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
-		{
-			vkDestroySemaphore(vkBackends->device, vkBackends->windowSurfaceData[i].imageAvailableSemaphores[j], nullptr);
-			vkDestroySemaphore(vkBackends->device, vkBackends->windowSurfaceData[i].renderFinishedSemaphores[j], nullptr);
-			vkDestroyFence(vkBackends->device, vkBackends->windowSurfaceData[i].inFlightFences[j], nullptr);
-		}
-
-		lvn::memFree(vkBackends->windowSurfaceData[i].renderFinishedSemaphores);
-		lvn::memFree(vkBackends->windowSurfaceData[i].imageAvailableSemaphores);
-		lvn::memFree(vkBackends->windowSurfaceData[i].inFlightFences);
-
-		// swap chain images
-		for (uint32_t j = 0; j < vkBackends->windowSurfaceData[i].swapChainImageViewCount; j++)
-		{
-			vkDestroyImageView(vkBackends->device, vkBackends->windowSurfaceData[i].swapChainImageViews[j], nullptr);
-		}
-
-		// frame buffers
-		for (uint32_t j = 0; j < vkBackends->windowSurfaceData[i].frameBufferCount; j++)
-		{
-			vkDestroyFramebuffer(vkBackends->device, vkBackends->windowSurfaceData[i].frameBuffers[j], nullptr);
-		}
-
-		if (vkBackends->windowSurfaceData[i].commandBuffers)
-			lvn::memFree(vkBackends->windowSurfaceData[i].commandBuffers);
-
-		if (vkBackends->windowSurfaceData[i].frameBuffers)
-			lvn::memFree(vkBackends->windowSurfaceData[i].frameBuffers);
-
-		if (vkBackends->windowSurfaceData[i].swapChainImageViews)
-			lvn::memFree(vkBackends->windowSurfaceData[i].swapChainImageViews);
-
-		if (vkBackends->windowSurfaceData[i].swapChainImages)
-			lvn::memFree(vkBackends->windowSurfaceData[i].swapChainImages);
-
-		// swap chain
-		vkDestroySwapchainKHR(vkBackends->device, vkBackends->windowSurfaceData[i].swapChain, nullptr);
-
-		// render pass
-		vkDestroyRenderPass(vkBackends->device, vkBackends->windowSurfaceData[i].renderPass, nullptr);
-
-		// window surface
-		vkDestroySurfaceKHR(vkBackends->instance, vkBackends->windowSurfaceData[i].surface, nullptr);
-	}
-
 	// VmaAllocator
 	vmaDestroyAllocator(vkBackends->vmaAllocator);
 
@@ -1620,10 +1637,6 @@ void vksImplTerminateContext()
 	// debug validation layers
 	if (vkBackends->enableValidationLayers)
 		vks::destroyDebugUtilsMessengerEXT(vkBackends->instance, vkBackends->debugMessenger, nullptr);
-		
-	// allocated physical devices
-	if (lvnctx->physicalDevices)
-		memFree(lvnctx->physicalDevices);
 
 	// instance
 	vkDestroyInstance(vkBackends->instance, nullptr);
@@ -1631,13 +1644,58 @@ void vksImplTerminateContext()
 	delete s_VkBackends;
 }
 
-LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
+void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+
+	// Get Physical Devices
+	uint32_t deviceCount = 0;
+	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, nullptr);
+
+	if (pPhysicalDevices == nullptr)
+	{
+		*physicalDeviceCount = deviceCount;
+		return;
+	}
+	if (!deviceCount)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to find physical devices with vulkan support");
+		return;
+	}
+
+
+	// Create vulkan physical devices
+	vkBackends->lvnPhysicalDevices.resize(deviceCount);
+	vkBackends->physicalDevices.resize(deviceCount);
+	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, vkBackends->physicalDevices.data());
+
+	for (uint32_t i = 0; i < vkBackends->physicalDevices.size(); i++)
+	{
+		VkPhysicalDeviceProperties deviceProperties;
+		vkGetPhysicalDeviceProperties(vkBackends->physicalDevices[i], &deviceProperties);
+
+		LvnPhysicalDeviceInfo deviceInfo{};
+		deviceInfo.type = vks::getPhysicalDeviceTypeEnum(deviceProperties.deviceType);
+			
+		deviceInfo.apiVersion = deviceProperties.apiVersion;
+		deviceInfo.driverVersion = deviceProperties.driverVersion;
+		memcpy(deviceInfo.name, deviceProperties.deviceName, 226);
+		vkBackends->lvnPhysicalDevices[i].info = deviceInfo;
+		vkBackends->lvnPhysicalDevices[i].device = vkBackends->physicalDevices[i];
+	}
+
+	*pPhysicalDevices = vkBackends->lvnPhysicalDevices.data();
+
+}
+
+LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 	vks::initStandardVulkanPipelineSpecification(vkBackends, lvn::getContext()); // set default pipeline fixed functions so that they don't need to be set on every pipeline creation
 
-	vkBackends->physicalDevice = static_cast<VkPhysicalDevice>(renderBackends->physicalDevice->device);
-	vkBackends->maxFramesInFlight = renderBackends->maxFramesInFlight != 0 ? renderBackends->maxFramesInFlight : 1;
+	vkBackends->physicalDevice = static_cast<VkPhysicalDevice>(renderInfo->physicalDevice->device);
+	vkBackends->maxFramesInFlight = renderInfo->maxFramesInFlight != 0 ? renderInfo->maxFramesInFlight : 1;
 
 	if (vkBackends->enableValidationLayers && !vks::checkValidationLayerSupport())
 		LVN_CORE_WARN("vulkan validation layers enabled, but not available!");
@@ -1648,22 +1706,29 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 	vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
 	LVN_CORE_TRACE("[vulkan] the physical device (GPU) will be used: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
 
-	// create surface
-	if (!renderBackends->pWindows)
+
+	// create dummy window and surface to get device queue indices support
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+	VkSurfaceKHR surface;
+	GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+
+	if (glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("renderBackends->pWindows was nullptr, cannot initialize rendering without a window first");
-		return Lvn_Result_Failure;
-	}
-	else if (!renderBackends->windowCount)
-	{
-		LVN_CORE_WARN("renderBackends->windowCount was 0, cannot initialize rendering without a window first");
+		LVN_CORE_ERROR("[vulkan] failed to create temporary window surface at (%p)", surface);
 		return Lvn_Result_Failure;
 	}
 
-	VulkanWindowSurfaceData surfaceData{};
-	GLFWwindow* glfwWin = static_cast<GLFWwindow*>(renderBackends->pWindows[0]->nativeWindow);
-	LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWin, nullptr, &surfaceData.surface) == VK_SUCCESS, "vulkan - failed to create window surface!");
-	vks::createLogicalDevice(vkBackends, surfaceData.surface); // create logical device once
+	// create logical device once
+	vks::createLogicalDevice(vkBackends, surface);
+
+	// get and check swap chain specs
+	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surface, vkBackends->physicalDevice);
+	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] selected physical device does not have supported swap chain formats or present modes");
+
+	// destroy dummy window and surface
+	vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
+	glfwDestroyWindow(glfwWindow);
+	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
 	// create command buffer pool
 	VkCommandPoolCreateInfo poolInfo{};
@@ -1673,43 +1738,6 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 
 	LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "vulkan - failed to create command pool!");
 
-	// get swap chain specs
-	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData.surface, vkBackends->physicalDevice);
-	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "vulkan - physical device does not have swap chain support formats or present modes!");
-
-	VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(swapChainSupport.formats.data(), swapChainSupport.formats.size());
-	VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
-	VkExtent2D extent = vks::chooseSwapExtent(glfwWin, &swapChainSupport.capabilities);
-	vkBackends->defaultSwapChainFormat = surfaceFormat.format;
-
-	vks::createSwapChain(vkBackends, &surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
-	vks::createImageViews(vkBackends, &surfaceData);
-	vks::createRenderPass(vkBackends, &surfaceData, surfaceFormat.format);
-	vks::createFrameBuffers(vkBackends, &surfaceData);
-	vks::createCommandBuffers(vkBackends, &surfaceData);
-	vks::createSyncObjects(vkBackends, &surfaceData);
-
-	vkBackends->windowSurfaceData.push_back(surfaceData);
-	renderBackends->pWindows[0]->apiData = &vkBackends->windowSurfaceData[0];
-
-	if (renderBackends->windowCount > 1)
-	{
-		for (uint32_t i = 1; i < renderBackends->windowCount; i++) // create surface for each window if there is more than one window
-		{
-			VulkanWindowSurfaceData surfaceDataExt{};
-			GLFWwindow* glfwWin = static_cast<GLFWwindow*>(renderBackends->pWindows[i]->nativeWindow);
-			LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWin, nullptr, &surfaceDataExt.surface) == VK_SUCCESS, "vulkan - failed to create window surface!");
-			vks::createSwapChain(vkBackends, &surfaceDataExt, swapChainSupport, surfaceFormat, presentMode, extent);
-			vks::createImageViews(vkBackends, &surfaceDataExt);
-			vks::createRenderPass(vkBackends, &surfaceDataExt, surfaceFormat.format);
-			vks::createFrameBuffers(vkBackends, &surfaceDataExt);
-			vks::createCommandBuffers(vkBackends, &surfaceDataExt);
-			vks::createSyncObjects(vkBackends, &surfaceDataExt);
-
-			vkBackends->windowSurfaceData.push_back(surfaceDataExt);
-			renderBackends->pWindows[i]->apiData = &vkBackends->windowSurfaceData.back();
-		}
-	}
 
 	// create VmaAllocator
 	VmaAllocatorCreateInfo allocatorInfo{};
@@ -1718,7 +1746,6 @@ LvnResult vksImplRenderInit(LvnRendererBackends* renderBackends)
 	allocatorInfo.instance = vkBackends->instance;
 
 	vmaCreateAllocator(&allocatorInfo, &vkBackends->vmaAllocator);
-
 
 	return Lvn_Result_Success;
 }

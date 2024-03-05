@@ -402,12 +402,12 @@ enum LvnEventType
 
 enum LvnEventCategory
 {
-	Lvn_EventCategory_Application   = (1 << 0),
-	Lvn_EventCategory_Input         = (1 << 1),
-	Lvn_EventCategory_Keyboard      = (1 << 2),
-	Lvn_EventCategory_Mouse         = (1 << 3),
-	Lvn_EventCategory_MouseButton   = (1 << 4),
-	Lvn_EventCategory_Window        = (1 << 5),
+	Lvn_EventCategory_Application   = (1U << 0),
+	Lvn_EventCategory_Input         = (1U << 1),
+	Lvn_EventCategory_Keyboard      = (1U << 2),
+	Lvn_EventCategory_Mouse         = (1U << 3),
+	Lvn_EventCategory_MouseButton   = (1U << 4),
+	Lvn_EventCategory_Window        = (1U << 5),
 };
 
 enum LvnWindowApi
@@ -441,6 +441,18 @@ enum LvnAttachmentStoreOperation
 {
 	Lvn_AttachmentStoreOp_Store,
 	Lvn_AttachmentStoreOp_DontCare,
+};
+
+enum LvnBufferType
+{
+	Lvn_BufferType_Unknown         = 0,
+	Lvn_BufferType_Vertex          = (1U << 0),
+	Lvn_BufferType_Index           = (1U << 1),
+	Lvn_BufferType_Uniform         = (1U << 2),
+	Lvn_BufferType_Storage         = (1U << 3),
+	Lvn_BufferType_DynamicVertex   = (1U << 4),
+	Lvn_BufferType_DynamicIndex    = (1U << 5),
+	Lvn_BufferType_DynamicUniform  = (1U << 6),
 };
 
 enum LvnCullFaceMode
@@ -649,12 +661,6 @@ enum LvnTopologyType
 	Lvn_TopologyType_TriangleStrip,
 };
 
-enum LvnUniformBufferType
-{
-	Lvn_UniformBufferType_Uniform,
-	Lvn_UniformBufferType_Storage,
-};
-
 enum LvnVertexDataType
 {
 	Lvn_VertexDataType_None = 0,
@@ -732,12 +738,14 @@ struct LvnPipelineScissor;
 struct LvnPipelineSpecification;
 struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
-struct LvnRendererBackends;
+struct LvnRenderInitInfo;
 struct LvnRenderPass;
 struct LvnRenderPassAttachment;
 struct LvnRenderPassCreateInfo;
 struct LvnShader;
 struct LvnShaderCreateInfo;
+struct LvnTexture;
+struct LvnTextureCreateInfo;
 struct LvnUniformBuffer;
 struct LvnUniformBufferCreateInfo;
 struct LvnVertexAttribute;
@@ -1039,9 +1047,9 @@ namespace lvn
 	/* [Graphics API] */
 	LVN_API LvnGraphicsApi              getGraphicsApi();
 	LVN_API const char*                 getGraphicsApiName();
-	LVN_API void                        getPhysicalDevices(LvnPhysicalDevice** ppPhysicalDevices, uint32_t* deviceCount);
+	LVN_API void                        getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCount);
 	LVN_API LvnPhysicalDeviceInfo       getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
-	LVN_API LvnResult                   renderInit(LvnRendererBackends* renderBackends);
+	LVN_API LvnResult                   renderInit(LvnRenderInitInfo* renderInfo);
 
 	LVN_API void                        renderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	LVN_API void                        renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
@@ -1373,9 +1381,12 @@ struct LvnWindowCreateInfo
 
 	LvnWindowCreateInfo()
 	{
-		width = 0; height = 0; title = nullptr;
-		minWidth = 0; minHeight = 0; maxWidth = -1; maxHeight = -1;
-		resizable = true; vSync = false;
+		width = 0;
+		height = 0;
+		title = nullptr;
+		minWidth = 0, minHeight = 0;
+		maxWidth = -1, maxHeight = -1;
+		fullscreen = false, resizable = true, vSync = false;
 		pIcons = nullptr;
 		iconCount = 0;
 	}
@@ -3000,13 +3011,11 @@ struct LvnPhysicalDeviceInfo
 	uint32_t driverVersion;
 };
 
-struct LvnRendererBackends
+struct LvnRenderInitInfo
 {
-	LvnPhysicalDevice*	physicalDevice;
-	LvnWindow**			pWindows;
-	uint32_t			windowCount;
-	bool				gammaCorrection;
-	uint32_t			maxFramesInFlight;
+	LvnPhysicalDevice*  physicalDevice;
+	bool                gammaCorrection;
+	uint32_t            maxFramesInFlight;
 };
 
 struct LvnRenderPassAttachment
@@ -3185,6 +3194,7 @@ struct LvnFrameBufferCreateInfo
 
 struct LvnBufferCreateInfo
 {
+	uint32_t type;
 	LvnVertexBindingDescription* pVertexBindingDescriptions;
 	uint32_t vertexBindingDescriptionCount;
 	LvnVertexAttribute* pVertexAttributes;
@@ -3197,11 +3207,15 @@ struct LvnBufferCreateInfo
 
 struct LvnUniformBufferCreateInfo
 {
-	LvnUniformBufferType type;
+	LvnBufferType type;
 	uint32_t binding;
 	LvnDescriptorLayout* descriptorLayout;
 	uint64_t size;
 };
 
+struct LvnTextureCreateInfo
+{
+	
+};
 
 #endif
