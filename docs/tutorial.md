@@ -1,11 +1,12 @@
 
+
 # Levikno Documentation
 The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document will give a brief tutorial on how to use the library.
 
 
 ## Design Architecture
 ### Creating and Destroying Objects
-Levikno's API structure is built on top of other graphics APIs such as Vulkan and OpenGL which requires objects to be created and destroyed that are used for rendering (eg. vertex buffers, shaders, framebuffers, and pipelines)
+Levikno's API structure is built directly on top of Vulkan which requires a low level and explicit interface, this also requires objects to be created and destroyed when used for rendering (eg. vertex buffers, shaders, framebuffers, pipelines, etc)
 In Levikno, objects are usually created through this function format:
 ```
 LvnResult createObject(Object** object, ObjectCreateInfoStruct* createInfo)
@@ -16,7 +17,7 @@ The second parameter takes in a createInfo struct that tells Levikno what requir
 
 Each object will also have a createInfo struct associated with it.
 
-Also note that objects need to be declared as a pointer which points to the created object.
+Note that objects need to be declared as a pointer which points to the created object.
 
 Example:
 ```
@@ -32,7 +33,7 @@ LvnWindow* window;
 // create the object by passing the object in and its createInfo
 lvn::createWindow(&window, &windowInfo);
 ```
-You may have also noticed that the create object function returns a ```LvnResult``` enum. This enum returns the success state or other state of a function. For each create object function, it returns ```Lvn_Result_Success``` or ```Lvn_Result_Failure``` when creating the object. This is useful for program control flow whenever an operation fails.
+You may have also noticed that the create object function returns a ```LvnResult``` enum. This enum returns a value which can be determined whether the function was executed successfully or not. For each create object function, it returns either ```Lvn_Result_Success``` or ```Lvn_Result_Failure``` when creating the object. In case if an error happens, the program can respond whenever the function returns on failure.
 
 Example:
 ```
@@ -75,7 +76,7 @@ int main()
 	lvn::createContext(&lvnCreateInfo);
 }
 ```
-The ```LvnContextCreateInfo``` struct defines certain requirements for initializing and what window and graphics API to use when creating windows and rendering to them. Pass the createInfo struct into ```lvn::createContext(&lvnCreateInfo)``` to create the levikno context.
+The ```LvnContextCreateInfo``` struct is used for initializing and to choose what window and graphics API to use when creating windows and rendering to them. Pass the createInfo struct into ```lvn::createContext(&lvnCreateInfo)``` to create the levikno context.
 
 We will be using Vulkan for the graphics API and GLFW for the window API since these are what Levikno was originally built upon.
 
@@ -101,6 +102,33 @@ Note that ```enableLogging``` also has to be true in order to show vulkan valida
 When the levikno context is created with logging enabled, the context will create two loggers by default, the core logger and the client logger. The core logger is technically reserved for use within the library although it can still be used outside it. The client logger is the general logger the user would use when building applications.
 
 We won't be using logging that much in this tutorial so we will only use it to display info and error messages.
+
+### Initialize Rendering
+Before we create a window, we first have to declare some preset values before rendering to a window. Since we are using Vulkan, we need to know which physical device (or GPU) to use to perform our rendering on. In most cases a desktop PC will on likely have only 1 GPU, however there are some cases such as in laptops where there are two GPUs (an integrated CPU and dedicated GPU). The physical devices and their information can be obtained after the context is created:
+```
+#include <vector>
+#include <cstdint>
+
+...
+
+uint32_t deviceCount = 0;
+std::vector<LvnPhysicalDevice*> devices;
+lvn::getPhysicalDevices(nullptr, &deviceCount);
+
+devices.resize(deviceCount);
+lvn::getPhysicalDevices(devices.data(), &deviceCount);
+
+for (uint32_t i = 0; i < deviceCount; i++)
+{
+	LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
+	LVN_TRACE("name: %s, version: %d", deviceInfo.name, deviceInfo.driverVersion);
+}
+
+``` 
+We first use ```lvn::getPhysicalDevices``` to get the number of physical devices available which is then used to create a temporary storage of ```LvnPhysicalDevices*``` in an ```std::vector```. We then call ```lvn::getPhysicalDevices``` again, this time with the vector of devices passed in to acquire the physical devices. After that we can check each physical device's information such as the name of the device and version by retrieving a ```LvnPhysicalDeviceInfo``` struct through ```lvn::getPhysicalDeviceInfo```.
+
+Note that the driver and api version in the info struct directly corresponds to the information Vulkan provides in ```VkPhysicalDeviceProperties```.
+
 
 ### Creating a Window
 Like creating any other object, we first declare the create info struct:
@@ -130,4 +158,5 @@ Most of these parameters are self-explanatory
 * The ```iconCount``` parameter is the number of icon structs within the ```pIcons``` array.
 
 Note: Whenever parameters have a prefix ```p``` in front of the type name, it indicates that an array of data can be taken in with a pointer to the first element in the array. This parameter is usually followed by another unsigned integer parameter that asks for the number of elements in the array with the suffix ```Count```. For example, ```pIcons``` and ```iconCount```
+
 

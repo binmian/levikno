@@ -337,6 +337,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
 	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
+	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
 
 	void                        (*destroyRenderPass)(LvnRenderPass*);
 	void                        (*destroyShader)(LvnShader*);
@@ -345,6 +346,7 @@ struct LvnGraphicsContext
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
 	void                        (*destroyUniformBuffer)(LvnUniformBuffer*);
+	void                        (*destroyTexture)(LvnTexture*);
 
 	void                        (*renderBeginNextFrame)(LvnWindow*);
 	void                        (*renderDrawSubmit)(LvnWindow*);
@@ -421,6 +423,13 @@ struct LvnUniformBuffer
 	void* uniformBuffer;
 	void* uniformBufferMemory;
 	void** uniformBufferMapped;
+};
+
+struct LvnTexture
+{
+	void* image;
+	void* imageMemory;
+	void* sampler;
 };
 
 struct LvnContext

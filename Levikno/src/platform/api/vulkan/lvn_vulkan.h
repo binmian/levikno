@@ -20,6 +20,7 @@ namespace lvn
 	LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateBuffer(LvnBuffer* vertexArrayBuffer, LvnBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
+	LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
 
 	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
 	void vksImplDestroyShader(LvnShader* shader);
@@ -28,6 +29,7 @@ namespace lvn
 	void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);
 	void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
+	void vksImplDestroyTexture(LvnTexture* texture);
 
 	void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);

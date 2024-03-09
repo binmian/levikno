@@ -709,6 +709,7 @@ struct LvnFontMetrics;
 struct LvnFrameBuffer;
 struct LvnFrameBufferCreateInfo;
 struct LvnGraphicsContext;
+struct LvnImageData;
 struct LvnKeyHoldEvent;
 struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
@@ -1077,6 +1078,7 @@ namespace lvn
 	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                        // create framebuffer to render images to
 	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                            // create a single buffer object that can hold both the vertex and index buffers
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                // create a uniform buffer object to send changing data to the shader pipeline
+	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                        // create a texture object to hold image pixel data and sampler
 
 	LVN_API void                        destroyRenderPass(LvnRenderPass* renderPass);                                                                 // destroy renderpass object
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                             // destroy shader module object
@@ -1085,10 +1087,14 @@ namespace lvn
 	LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                              // destroy framebuffer object
 	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                             // destory buffers object
 	LVN_API void                        destroyUniformBuffer(LvnUniformBuffer* uniformBuffer);                                                        // destroy uniform buffer object
+	LVN_API void                        destroyTexture(LvnTexture* texture);                                                                          // destroy texture object
 
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
+
+	LVN_API LvnResult                   loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels = 0);
+	LVN_API void                        freeImageData(LvnImageData* imageData);
 
 
 	/* [Math] */
@@ -3215,7 +3221,14 @@ struct LvnUniformBufferCreateInfo
 
 struct LvnTextureCreateInfo
 {
-	
+	uint32_t binding;
+	const char* filepath;
+};
+
+struct LvnImageData
+{
+	void* data;
+	uint32_t width, height, channels;
 };
 
 #endif

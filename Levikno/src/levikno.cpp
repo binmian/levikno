@@ -5,6 +5,8 @@
 #include <stdarg.h>
 #include <time.h>
 
+#include "stb_image.h"
+
 #ifdef LVN_PLATFORM_WINDOWS
 	#include <windows.h>
 #endif
@@ -1409,6 +1411,12 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 	return s_LvnContext->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
+LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
+{
+	*texture = new LvnTexture();
+	return s_LvnContext->graphicsContext.createTexture(*texture, createInfo);
+}
+
 void destroyRenderPass(LvnRenderPass* renderPass)
 {
 	s_LvnContext->graphicsContext.destroyRenderPass(renderPass);
@@ -1451,6 +1459,12 @@ void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 	delete uniformBuffer;
 }
 
+void destroyTexture(LvnTexture* texture)
+{
+	s_LvnContext->graphicsContext.destroyTexture(texture);
+	delete texture;
+}
+
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
 {
 	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
@@ -1464,6 +1478,53 @@ LvnPipelineSpecification getDefaultPipelineSpecification()
 void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
 {
 	s_LvnContext->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
+}
+
+LvnResult loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels)
+{
+	if (imageData == nullptr)
+	{
+		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | imageData is nullptr, cannot load image data without a valid LvnImageData struct");
+		return Lvn_Result_Failure;
+	}
+
+	if (filepath == nullptr)
+	{
+		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | invalid filepath, filepath must not be nullptr");
+		return Lvn_Result_Failure;
+	}
+
+	if (forceChannels < 0)
+	{
+		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | forceChannels < 0, channels cannot be negative");
+		return Lvn_Result_Failure;
+	}
+	else if (forceChannels > 4)
+	{
+		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		return Lvn_Result_Failure;
+	}
+
+	int imageWidth, imageHeight, imageChannels;
+	stbi_uc* pixels = stbi_load(filepath, &imageWidth, &imageHeight, &imageChannels, forceChannels);
+
+	if (!pixels)
+	{
+		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*) | failed to load image pixel data to (%p) from file: %s", pixels, filepath);
+		return Lvn_Result_Failure;
+	}
+
+	imageData->data = pixels;
+	imageData->width = imageWidth;
+	imageData->height = imageHeight;
+	imageData->channels = forceChannels ? forceChannels : imageChannels;
+
+	return Lvn_Result_Success;
+}
+
+void freeImageData(LvnImageData* imageData)
+{
+	stbi_image_free(imageData->data);
 }
 
 // [Section]: Math

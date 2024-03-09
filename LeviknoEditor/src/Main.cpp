@@ -212,6 +212,15 @@ int main()
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
 
+
+	LvnTextureCreateInfo textureCreateInfo{};
+	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png";
+	textureCreateInfo.binding = 1;
+
+	LvnTexture* texture;
+	lvn::createTexture(&texture, &textureCreateInfo);
+
+
 	UniformData uniformData{};
 
 	while (lvn::windowOpen(window))
@@ -250,6 +259,7 @@ int main()
 
 	}
 
+	lvn::destroyTexture(texture);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyBuffer(buffer);
 	lvn::destroyDescriptorLayout(descriptorLayout);

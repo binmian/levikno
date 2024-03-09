@@ -68,6 +68,10 @@ set(LVN_SOURCES
 	Levikno/src/dependencies/vma/include/vk_mem_alloc.cpp
 	Levikno/src/dependencies/vma/include/vk_mem_alloc.h
 
+	# stb
+	Levikno/src/dependencies/stb/include/stb_image.cpp
+	Levikno/src/dependencies/stb/include/stb_image.h
+
   ${LVN_GRAPHICS_SRC}
 )
 
@@ -83,6 +87,7 @@ target_include_directories(levikno
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/glad/include
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vulkan/include
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vma/include
+		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/stb/include
 )
 
 
