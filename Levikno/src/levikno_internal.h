@@ -429,6 +429,7 @@ struct LvnTexture
 {
 	void* image;
 	void* imageMemory;
+	void* imageView;
 	void* sampler;
 };
 

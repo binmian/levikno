@@ -651,6 +651,20 @@ enum LvnStencilOperation
 	Lvn_StencilOperation_DecrementAndWrap = 7,
 };
 
+enum LvnTextureFilter
+{
+	Lvn_TextureFilter_Nearest,
+	Lvn_TextureFilter_Linear,
+};
+
+enum LvnTextureMode
+{
+	Lvn_TextureMode_Repeat,
+	Lvn_TextureMode_MirrorRepeat,
+	Lvn_TextureMode_ClampToEdge,
+	Lvn_TextureMode_ClampToBorder,
+};
+
 enum LvnTopologyType
 {
 	Lvn_TopologyType_None = 0,
@@ -3221,8 +3235,11 @@ struct LvnUniformBufferCreateInfo
 
 struct LvnTextureCreateInfo
 {
-	uint32_t binding;
 	const char* filepath;
+	uint32_t binding;
+	LvnTextureFilter minFilter, magFilter;
+	LvnTextureMode wrapMode;
+
 };
 
 struct LvnImageData

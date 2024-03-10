@@ -80,6 +80,8 @@ namespace lvn
 		VkQueue                             graphicsQueue;
 		VkQueue                             presentQueue;
 		VulkanQueueFamilyIndices            deviceIndices;
+		VkPhysicalDeviceProperties          deviceProperties;
+		VkPhysicalDeviceFeatures            deviceSupportedFeatures;
 
 		VkCommandPool                       commandPool;
 		VmaAllocator                        vmaAllocator;

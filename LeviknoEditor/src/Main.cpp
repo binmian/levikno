@@ -216,6 +216,9 @@ int main()
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png";
 	textureCreateInfo.binding = 1;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);

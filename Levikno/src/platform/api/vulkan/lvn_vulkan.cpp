@@ -47,7 +47,7 @@ namespace vks
 	static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
 	static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 	static uint32_t                             findMemoryType(VulkanBackends* vkBackends, uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	static void                                 createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
+	static LvnResult                            createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
 	static void                                 createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format);
 	static VkSurfaceFormatKHR                   chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
 	static VkPresentModeKHR                     chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count);
@@ -80,6 +80,8 @@ namespace vks
 	static VkDescriptorType                     getDescriptorTypeEnum(LvnDescriptorType type);
 	static VkDescriptorType                     getUniformBufferTypeEnum(LvnBufferType type);
 	static VkShaderStageFlags                   getShaderStageFlagEnum(LvnShaderStage stage);
+	static VkFilter                             getTextureFilterEnum(LvnTextureFilter filter);
+	static VkSamplerAddressMode                 getTextureWrapModeEnum(LvnTextureMode mode);
 	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
 	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
@@ -317,17 +319,25 @@ namespace vks
 		LVN_CORE_ASSERT(false, "vulkan - failed to find suitable memory type for physical device!");
 	}
 
-	static void createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface)
+	static LvnResult createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface)
 	{
 		// Find queue families
 		VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(vkBackends->physicalDevice, surface);
 		vkBackends->deviceIndices = queueIndices;
 
 		// Check queue families
-		LVN_CORE_ASSERT(queueIndices.has_graphics && queueIndices.has_present, "vulkan - physical device does not support queue families needed!");
+		if (!queueIndices.has_graphics || !queueIndices.has_present)
+		{
+			LVN_CORE_ERROR("[vulkan] failed to create logical device, physical device does not support queue families needed");
+			return Lvn_Result_Failure;
+		}
 
 		// Check device extension support
-		LVN_CORE_CALL_ASSERT(vks::checkDeviceExtensionSupport(vkBackends->physicalDevice), "vulkan - physical device does not support required extensions!");
+		if (!vks::checkDeviceExtensionSupport(vkBackends->physicalDevice))
+		{
+			LVN_CORE_ERROR("[vulkan] failed to create logical device, physical device does not support required extensions");
+			return Lvn_Result_Failure;
+		}
 
 		float queuePriority = 1.0f;
 		LvnVector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -351,6 +361,9 @@ namespace vks
 		// Create Logical Device
 		VkPhysicalDeviceFeatures deviceFeatures{};
 
+		if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
+			deviceFeatures.samplerAnisotropy = VK_TRUE;
+
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
@@ -369,12 +382,17 @@ namespace vks
 		else
 			createInfo.enabledLayerCount = 0;
 
-		LVN_CORE_CALL_ASSERT(vkCreateDevice(vkBackends->physicalDevice, &createInfo, nullptr, &vkBackends->device) == VK_SUCCESS, "vulkan - failed to create logical device!");
-
+		if (vkCreateDevice(vkBackends->physicalDevice, &createInfo, nullptr, &vkBackends->device) != VK_SUCCESS)
+		{
+			LVN_CORE_ERROR("[vulkan] failed to create logical device <VkDevice> (%p)", vkBackends->device);
+			return Lvn_Result_Failure;
+		}
 
 		// Get device queues
 		vkGetDeviceQueue(vkBackends->device, queueIndices.presentIndex, 0, &vkBackends->presentQueue);
 		vkGetDeviceQueue(vkBackends->device, queueIndices.graphicsIndex, 0, &vkBackends->graphicsQueue);
+
+		return Lvn_Result_Success;
 	}
 
 	static void createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format)
@@ -1132,6 +1150,38 @@ namespace vks
 		}
 	}
 
+	static VkFilter getTextureFilterEnum(LvnTextureFilter filter)
+	{
+		switch (filter)
+		{
+			case Lvn_TextureFilter_Nearest: { return VK_FILTER_NEAREST; }
+			case Lvn_TextureFilter_Linear: { return VK_FILTER_LINEAR; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown sampler filter enum type (%u), setting filter to \'VK_FILTER_NEAREST\' as default", filter);
+				return VK_FILTER_NEAREST;
+			}
+		}
+	}
+
+	static VkSamplerAddressMode getTextureWrapModeEnum(LvnTextureMode mode)
+	{
+		switch (mode)
+		{
+			case Lvn_TextureMode_Repeat: { return VK_SAMPLER_ADDRESS_MODE_REPEAT; }
+			case Lvn_TextureMode_MirrorRepeat: { return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; }
+			case Lvn_TextureMode_ClampToEdge: { return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; }
+			case Lvn_TextureMode_ClampToBorder: { return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown sampler address mode enum type (%u), setting mode to \'VK_SAMPLER_ADDRESS_MODE_REPEAT\' as default", mode);
+				return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+			}
+		}
+	}
+
 	static void initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx)
 	{
 		LvnPipelineSpecification pipelineSpecification{};
@@ -1862,7 +1912,11 @@ LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
 	VkPhysicalDeviceProperties physicalDeviceProperties{};
 	vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
 	LVN_CORE_TRACE("[vulkan] the physical device (GPU) will be used: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
+	vkBackends->deviceProperties = physicalDeviceProperties;
 
+	VkPhysicalDeviceFeatures supportedFeatures;
+	vkGetPhysicalDeviceFeatures(vkBackends->physicalDevice, &supportedFeatures);
+	vkBackends->deviceSupportedFeatures = supportedFeatures;
 
 	// create dummy window and surface to get device queue indices support
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
@@ -2529,8 +2583,71 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, imageData.width, imageData.height);
 	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+
+	// texture image view
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = textureImage;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 1;
+
+	VkImageView imageView;
+	if (vkCreateImageView(vkBackends->device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create texture image view <VkImageView> (%p)", imageView);
+		return Lvn_Result_Failure;
+	}
+
+
+	// texture sampler
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.minFilter = vks::getTextureFilterEnum(createInfo->minFilter);
+	samplerInfo.magFilter = vks::getTextureFilterEnum(createInfo->magFilter);
+
+	VkSamplerAddressMode addressMode = vks::getTextureWrapModeEnum(createInfo->wrapMode);
+	samplerInfo.addressModeU = addressMode;
+	samplerInfo.addressModeV = addressMode;
+	samplerInfo.addressModeW = addressMode;
+
+	if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
+	{
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = vkBackends->deviceProperties.limits.maxSamplerAnisotropy;
+	}
+	else
+	{
+		samplerInfo.anisotropyEnable = VK_FALSE;
+		samplerInfo.maxAnisotropy = 1.0f;
+	}
+
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	VkSampler textureSampler;
+
+	if (vkCreateSampler(vkBackends->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create texture sampler <VkSampler> (%p)", textureSampler);
+		return Lvn_Result_Failure;
+	}
+
+
 	texture->image = textureImage;
 	texture->imageMemory = textureImageMemory;
+	texture->imageView = imageView;
+	texture->sampler = textureSampler;
 
 	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
@@ -2621,8 +2738,13 @@ void vksImplDestroyTexture(LvnTexture* texture)
 
 	VkImage image = static_cast<VkImage>(texture->image);
 	VmaAllocation imageMemory = static_cast<VmaAllocation>(texture->imageMemory);
+	VkImageView imageView = static_cast<VkImageView>(texture->imageView);
+	VkSampler textureSampler = static_cast<VkSampler>(texture->sampler);
+
 	vkDestroyImage(vkBackends->device, image, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, imageMemory);;
+	vkDestroyImageView(vkBackends->device, imageView, nullptr);
+	vkDestroySampler(vkBackends->device, textureSampler, nullptr);
 }
 
 void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
