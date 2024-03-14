@@ -1,5 +1,7 @@
 ﻿#include <levikno/levikno.h>
+
 #include <vector>
+#include <chrono>
 
 bool windowMoved(LvnWindowMovedEvent* e)
 {
@@ -43,6 +45,12 @@ bool keyTyped(LvnKeyTypedEvent* e)
 	return true;
 }
 
+bool mousePress(LvnMouseButtonPressedEvent* e)
+{
+	LVN_TRACE("%s: button: %d", e->name, e->buttonCode);
+	return true;
+}
+
 void eventsCallbackFn(LvnEvent* e)
 {
 	lvn::dispatchKeyPressedEvent(e, keyPress);
@@ -50,14 +58,16 @@ void eventsCallbackFn(LvnEvent* e)
 	lvn::dispatchKeyReleasedEvent(e, keyRelease);
 	lvn::dispatchKeyTypedEvent(e, keyTyped);
 	lvn::dispatchMouseMovedEvent(e, mousePos);
+	lvn::dispatchMouseButtonPressedEvent(e, mousePress);
 }
 
 float vertices[] = 
 {
-	-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-	 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
-	-0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f,
+	/*      pos        |       color     |   TexUV    */
+	-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+	 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+	 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+	-0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
 uint32_t indices[] = 
@@ -144,25 +154,37 @@ int main()
 
 
 	LvnVertexBindingDescription vertexBindingDescroption{};
-	vertexBindingDescroption.stride = 6 * sizeof(float);
+	vertexBindingDescroption.stride = 8 * sizeof(float);
 	vertexBindingDescroption.binding = 0;
 
-	LvnVertexAttribute attributes[2] = 
+	LvnVertexAttribute attributes[3] = 
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
 		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
+		{ 0, 2, Lvn_VertexDataType_Vec2f, (6 * sizeof(float)) },
 	};
 
 
-	LvnDescriptorBinding descriptorBinding{};
-	descriptorBinding.binding = 0;
-	descriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
-	descriptorBinding.descriptorCount = 1;
+	LvnDescriptorBinding uniformDescriptorBinding{};
+	uniformDescriptorBinding.binding = 0;
+	uniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
+	uniformDescriptorBinding.descriptorCount = 1;
+
+	LvnDescriptorBinding textureDescriptorBinding{};
+	textureDescriptorBinding.binding = 1;
+	textureDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	textureDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	textureDescriptorBinding.descriptorCount = 1;
+
+	std::vector<LvnDescriptorBinding> descriptorBindings = 
+	{
+		uniformDescriptorBinding, textureDescriptorBinding,
+	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
-	descriptorLayoutCreateInfo.pDescriptorBindings = &descriptorBinding;
-	descriptorLayoutCreateInfo.descriptorBindingCount = 1;
+	descriptorLayoutCreateInfo.pDescriptorBindings = descriptorBindings.data();
+	descriptorLayoutCreateInfo.descriptorBindingCount = descriptorBindings.size();
 
 	LvnDescriptorLayout* descriptorLayout;
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
@@ -174,7 +196,7 @@ int main()
 	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.pVertexAttributes = attributes;
-	pipelineCreateInfo.vertexAttributeCount = 2;
+	pipelineCreateInfo.vertexAttributeCount = 3;
 	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
@@ -191,7 +213,7 @@ int main()
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
 	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = 2;
+	bufferCreateInfo.vertexAttributeCount = 3;
 
 	bufferCreateInfo.pVertices = vertices;
 	bufferCreateInfo.vertexBufferSize = sizeof(vertices);
@@ -207,7 +229,6 @@ int main()
 	uniformBufferInfo.binding = 0;
 	uniformBufferInfo.type = Lvn_BufferType_Uniform;
 	uniformBufferInfo.size = sizeof(UniformData);
-	uniformBufferInfo.descriptorLayout = descriptorLayout;
 
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
@@ -224,6 +245,28 @@ int main()
 	lvn::createTexture(&texture, &textureCreateInfo);
 
 
+	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
+	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorUniformUpdateInfo.binding = 0;
+	descriptorUniformUpdateInfo.descriptorCount = 1;
+	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
+
+	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.binding = 1;
+	descriptorTextureUpdateInfo.descriptorCount = 1;
+	descriptorTextureUpdateInfo.textureInfo = texture;
+
+	std::vector<LvnDescriptorUpdateInfo> descriptorUpdateInfo =
+	{
+		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
+	};
+
+	lvn::updateDescriptorLayoutData(descriptorLayout, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
+
+	auto startTime = std::chrono::high_resolution_clock::now();
+
+
 	UniformData uniformData{};
 
 	while (lvn::windowOpen(window))
@@ -232,12 +275,14 @@ int main()
 
 		// auto [x, y] = lvn::getWindowDimensions(window);
 		// LVN_TRACE("(x:%d,y:%d)", x, y);
-
-
 		auto [width, height] = lvn::getWindowDimensions(window);
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
 		lvn::mat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-		lvn::mat4 view = lvn::lookAt(lvn::vec3(0.0f, 0.0f, 10.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
-		lvn::mat4 model = lvn::mat4(1.0f);
+		lvn::mat4 view = lvn::lookAt(lvn::vec3(0.0f, 0.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 model = lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 0.0f, 1.0f));
 		lvn::mat4 camera = proj * view * model;
 		
 		uniformData.matrix = camera;

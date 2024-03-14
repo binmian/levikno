@@ -48,9 +48,11 @@ namespace lvn
 	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
 
+	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
+	void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
+
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
-	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 
 }
 

@@ -368,6 +368,7 @@ struct LvnGraphicsContext
 	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
 	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
+	void                        (*updateDescriptorLayoutData)(LvnDescriptorLayout*, LvnDescriptorUpdateInfo*, uint32_t);
 };
 
 struct LvnPhysicalDevice
@@ -423,6 +424,7 @@ struct LvnUniformBuffer
 	void* uniformBuffer;
 	void* uniformBufferMemory;
 	void** uniformBufferMapped;
+	uint64_t size;
 };
 
 struct LvnTexture

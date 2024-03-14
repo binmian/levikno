@@ -1140,7 +1140,7 @@ namespace vks
 		{
 			case Lvn_ShaderStage_All: { return VK_SHADER_STAGE_ALL; }
 			case Lvn_ShaderStage_Vertex: { return VK_SHADER_STAGE_VERTEX_BIT; }
-			case LvnShaderStage_Fragment: { return VK_SHADER_STAGE_FRAGMENT_BIT; }
+			case Lvn_ShaderStage_Fragment: { return VK_SHADER_STAGE_FRAGMENT_BIT; }
 
 			default:
 			{
@@ -1815,6 +1815,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
+	graphicsContext->updateDescriptorLayoutData = vksImplUpdateDescriptorLayoutData;
 
 	// Create Vulkan Instance
 	if (vks::createVulkanInstace(vkBackends, enableValidation) != Lvn_Result_Success)
@@ -2293,18 +2294,25 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	LvnVector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
+	LvnVector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
 
 	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
 	{
+		VkDescriptorType descriptorType = vks::getDescriptorTypeEnum(createInfo->pDescriptorBindings[i].descriptorType);
+
 		layoutBindings[i].binding = createInfo->pDescriptorBindings[i].binding;
-		layoutBindings[i].descriptorType = vks::getDescriptorTypeEnum(createInfo->pDescriptorBindings[i].descriptorType);
+		layoutBindings[i].descriptorType = descriptorType;
 		layoutBindings[i].descriptorCount = createInfo->pDescriptorBindings[i].descriptorCount;
+		layoutBindings[i].pImmutableSamplers = nullptr;
 		layoutBindings[i].stageFlags = vks::getShaderStageFlagEnum(createInfo->pDescriptorBindings[i].shaderStage);
+
+		poolSizes[i].type = descriptorType;
+		poolSizes[i].descriptorCount = vkBackends->maxFramesInFlight;
 	}
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = createInfo->descriptorBindingCount;
+	layoutInfo.bindingCount = layoutBindings.size();
 	layoutInfo.pBindings = layoutBindings.data();
 
 	VkDescriptorSetLayout vkDescriptorLayout;
@@ -2314,14 +2322,10 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 		return Lvn_Result_Failure;
 	}
 
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = vkBackends->maxFramesInFlight;
-
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.poolSizeCount = poolSizes.size();
+	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = vkBackends->maxFramesInFlight;
 
 	VkDescriptorPool descriptorPool;
@@ -2514,27 +2518,11 @@ LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniform
 	uniformBuffer->uniformBuffer = vkUniformBuffer;
 	uniformBuffer->uniformBufferMemory = uniformBufferMemory;
 	uniformBuffer->uniformBufferMapped = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(void*));
-
-	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)createInfo->descriptorLayout->descriptorSets;
+	uniformBuffer->size = createInfo->size;
 
 	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
 	{
 		vmaMapMemory(vkBackends->vmaAllocator, uniformBufferMemory, &uniformBuffer->uniformBufferMapped[i]);
-
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = vkUniformBuffer;
-		bufferInfo.offset = createInfo->size * i;
-		bufferInfo.range = createInfo->size;
-
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = descriptorSets[i];
-		descriptorWrite.dstBinding = createInfo->binding;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = vks::getUniformBufferTypeEnum(createInfo->type);
-		descriptorWrite.descriptorCount = 1; // TODO: change descriptor count
-		descriptorWrite.pBufferInfo = &bufferInfo;
-		vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);
 	}
 
 	return Lvn_Result_Success;
@@ -2735,6 +2723,7 @@ void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 void vksImplDestroyTexture(LvnTexture* texture)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
 
 	VkImage image = static_cast<VkImage>(texture->image);
 	VmaAllocation imageMemory = static_cast<VmaAllocation>(texture->imageMemory);
@@ -2763,5 +2752,50 @@ void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniform
 	memcpy(uniformBuffer->uniformBufferMapped[surfaceData->currentFrame], data, size);
 }
 
+void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorLayout->descriptorSets;
+
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		VkDescriptorBufferInfo bufferInfo{};
+		VkDescriptorImageInfo imageInfo{};
+
+		for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
+		{
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = descriptorSets[j]; // update descriptor set for each frame in flight
+			descriptorWrite.dstBinding = pUpdateInfo[i].binding;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(pUpdateInfo[i].descriptorType);
+			descriptorWrite.descriptorCount = pUpdateInfo->descriptorCount;
+
+			// if descriptor using uniform buffers
+			if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
+			{
+				bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->uniformBuffer);
+				bufferInfo.offset = pUpdateInfo[i].bufferInfo->size * j; // offset buffer range for each frame in flight
+				bufferInfo.range = pUpdateInfo[i].bufferInfo->size;
+				descriptorWrite.pBufferInfo = &bufferInfo;
+			}
+
+			// if descriptor using textures
+			else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler ||
+				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage ||
+				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+			{
+				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.imageView = static_cast<VkImageView>(pUpdateInfo[i].textureInfo->imageView);
+				imageInfo.sampler = static_cast<VkSampler>(pUpdateInfo[i].textureInfo->sampler);
+				descriptorWrite.pImageInfo = &imageInfo;
+			}
+
+			vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);
+		}
+	}
+}
 
 } /* namespace lvn */

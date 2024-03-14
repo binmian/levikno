@@ -109,6 +109,22 @@
 #include <string.h>
 #include <math.h>
 
+
+/* [Vectors & Matrices] */
+
+/*
+ * NOTE: vector values can be retrieved by index or accessing member: vec[0] or vec.x
+ * NOTE: vectors with multiple components will have different variable members but share the same memory through unions: vec.x is the same as vec.r and vec.s
+ *
+ * Matrices: used for graphics math and transformations
+ * NOTE: Accessing Matrices by index start with column then row:
+ *       mat4x4 = [ [0][0], [0][1], [0][2], [0][3] ]
+ *                [ [1][0], [1][1], [1][2], [1][3] ]
+ *                [ [2][0], [2][1], [2][2], [2][3] ]
+ *                [ [3][0], [3][1], [3][2], [3][3] ]
+ *
+ */
+
 /* [Logging] */
 
 /*
@@ -636,7 +652,7 @@ enum LvnShaderStage
 {
 	Lvn_ShaderStage_All,
 	Lvn_ShaderStage_Vertex,
-	LvnShaderStage_Fragment,
+	Lvn_ShaderStage_Fragment,
 };
 
 enum LvnStencilOperation
@@ -714,6 +730,7 @@ struct LvnCubemapCreateInfo;
 struct LvnDescriptorBinding;
 struct LvnDescriptorLayout;
 struct LvnDescriptorLayoutCreateInfo;
+struct LvnDescriptorUpdateInfo;
 struct LvnDrawCommand;
 struct LvnDrawList;
 struct LvnEvent;
@@ -1106,6 +1123,7 @@ namespace lvn
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
+	LVN_API void                        updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
 
 	LVN_API LvnResult                   loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels = 0);
 	LVN_API void                        freeImageData(LvnImageData* imageData);
@@ -1192,6 +1210,29 @@ namespace lvn
 		matrix[3][1] = -lvn::dot(u, eye);
 		matrix[3][2] = lvn::dot(f, eye);
 		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> rotate(const LvnMat4x4_t<T>& mat, T angle, const LvnVec3_t<T>& axis)
+	{
+		const T c = cos(angle);
+		const T s = sin(angle);
+		const T nc = static_cast<T>(1) - cos(angle);
+
+		LvnMat4x4_t<T> rotate(static_cast<T>(1));
+		rotate[0][0] = c + axis.x * axis.x * nc;
+		rotate[0][1] = axis.x * axis.y * nc + axis.z * s;
+		rotate[0][2] = axis.x * axis.z * nc - axis.y * s;
+
+		rotate[1][0] = axis.x * axis.y * nc - axis.z * s;
+		rotate[1][1] = c + axis.y * axis.y * nc;
+		rotate[1][2] = axis.y * axis.z * nc + axis.x * s;
+
+		rotate[2][0] = axis.x * axis.z * nc + axis.y * s;
+		rotate[2][1] = axis.y * axis.z * nc - axis.x * s;
+		rotate[2][2] = c + axis.z * axis.z * nc;
+
+		return mat * rotate;
 	}
 
 }
@@ -1858,6 +1899,67 @@ struct LvnMat2x2_t
 			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y,
 			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y);
 	}
+
+	LvnMat2x2_t<T> operator+() const
+	{
+		return LvnMat2x2_t<T>(
+			this->value[0],
+			this->value[1]);
+	}
+	LvnMat2x2_t<T> operator-() const
+	{
+		return LvnMat2x2_t<T>(
+			-this->value[0],
+			-this->value[1]);
+	}
+	LvnMat2x2_t<T> operator+(const LvnMat2x2_t<T>& m) const
+	{
+		return LvnMat2x2_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1]);
+	}
+	LvnMat2x2_t<T> operator-(const LvnMat2x2_t<T>& m) const
+	{
+		return LvnMat2x2_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1]);
+	}
+	LvnMat2x2_t<T> operator*(const T& n) const
+	{
+		return LvnMat2x2_t<T>(
+			this->value[0] * n,
+			this->value[1] * n);
+	}
+	LvnMat2x2_t<T> operator*(const LvnMat2x2_t<T>& m) const
+	{
+		return LvnMat2x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y);
+	}
+	LvnMat3x2_t<T> operator*(const LvnMat3x2_t<T>& m) const
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y);
+	}
+	LvnMat4x2_t<T> operator*(const LvnMat4x2_t<T>& m) const
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y);
+	}
 };
 
 template<typename T>
@@ -1983,6 +2085,74 @@ struct LvnMat3x3_t
 			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z);
 	}
 	LvnMat4x3_t<T> operator*(const LvnMat4x3_t<T>& m)
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y + this->value[2].x * m.value[3].z,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y + this->value[2].y * m.value[3].z,
+			this->value[0].z * m.value[3].x + this->value[1].z * m.value[3].y + this->value[2].z * m.value[3].z);
+	}
+
+	LvnMat3x3_t<T> operator+() const
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0],
+			this->value[1],
+			this->value[2]);
+	}
+	LvnMat3x3_t<T> operator-() const
+	{
+		return LvnMat3x3_t<T>(
+			-this->value[0],
+			-this->value[1],
+			-this->value[2]);
+	}
+	LvnMat3x3_t<T> operator+(const LvnMat3x3_t<T>& m) const
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1],
+			this->value[2] + m.value[2]);
+	}
+	LvnMat3x3_t<T> operator-(const LvnMat3x3_t<T>& m) const
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1],
+			this->value[2] - m.value[2]);
+	}
+	LvnMat3x3_t<T> operator*(const LvnMat3x3_t<T>& m) const
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z);
+	}
+	LvnMat2x3_t<T> operator*(const LvnMat2x3_t<T>& m) const
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z);
+	}
+	LvnMat4x3_t<T> operator*(const LvnMat4x3_t<T>& m) const
 	{
 		return LvnMat4x3_t<T>(
 			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
@@ -2157,6 +2327,87 @@ struct LvnMat4x4_t
 			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z + this->value[3].z * m.value[2].w,
 			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y + this->value[2].w * m.value[2].z + this->value[3].w * m.value[2].w);
 	}
+
+	LvnMat4x4_t<T> operator+() const
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0],
+			this->value[1],
+			this->value[2],
+			this->value[3]);
+	}
+	LvnMat4x4_t<T> operator-() const
+	{
+		return LvnMat4x4_t<T>(
+			-this->value[0],
+			-this->value[1],
+			-this->value[2],
+			-this->value[3]);
+	}
+	LvnMat4x4_t<T> operator+(const LvnMat4x4_t<T>& m) const
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1],
+			this->value[2] + m.value[2],
+			this->value[3] + m.value[3]);
+	}
+	LvnMat4x4_t<T> operator-(const LvnMat4x4_t<T>& m) const
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1],
+			this->value[2] - m.value[2],
+			this->value[3] - m.value[3]);
+	}
+	LvnMat4x4_t<T> operator*(const LvnMat4x4_t<T>& m) const
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y + this->value[2].w * m.value[0].z + this->value[3].w * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z + this->value[3].z * m.value[1].w,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y + this->value[2].w * m.value[1].z + this->value[3].w * m.value[1].w,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z + this->value[3].x * m.value[2].w,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z + this->value[3].z * m.value[2].w,
+			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y + this->value[2].w * m.value[2].z + this->value[3].w * m.value[2].w,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y + this->value[2].x * m.value[3].z + this->value[3].x * m.value[3].w,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y + this->value[2].y * m.value[3].z + this->value[3].y * m.value[3].w,
+			this->value[0].z * m.value[3].x + this->value[1].z * m.value[3].y + this->value[2].z * m.value[3].z + this->value[3].z * m.value[3].w,
+			this->value[0].w * m.value[3].x + this->value[1].w * m.value[3].y + this->value[2].w * m.value[3].z + this->value[3].w * m.value[3].w);
+	}
+	LvnMat2x4_t<T> operator*(const LvnMat2x4_t<T>& m) const
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y + this->value[2].w * m.value[0].z + this->value[3].w * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z + this->value[3].z * m.value[1].w,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y + this->value[2].w * m.value[1].z + this->value[3].w * m.value[1].w);
+	}
+	LvnMat3x4_t<T> operator*(const LvnMat3x4_t<T>& m) const
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y + this->value[2].w * m.value[0].z + this->value[3].w * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z + this->value[3].z * m.value[1].w,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y + this->value[2].w * m.value[1].z + this->value[3].w * m.value[1].w,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z + this->value[3].x * m.value[2].w,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z + this->value[3].z * m.value[2].w,
+			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y + this->value[2].w * m.value[2].z + this->value[3].w * m.value[2].w);
+	}
 };
 
 template<typename T>
@@ -2278,6 +2529,70 @@ struct LvnMat2x3_t
 			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y);
 	}
 	LvnMat4x3_t<T> operator*(const LvnMat4x2_t<T>& m)
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y,
+			this->value[0].z * m.value[3].x + this->value[1].z * m.value[3].y);
+	}
+
+	LvnMat2x3_t<T> operator+() const
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0],
+			this->value[1]);
+	}
+	LvnMat2x3_t<T> operator-() const
+	{
+		return LvnMat2x3_t<T>(
+			-this->value[0],
+			-this->value[1]);
+	}
+	LvnMat2x3_t<T> operator+(const LvnMat2x3_t<T>& m) const
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1]);
+	}
+	LvnMat2x3_t<T> operator-(const LvnMat2x3_t<T>& m) const
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1]);
+	}
+	LvnMat2x3_t<T> operator*(const LvnMat2x2_t<T>& m) const
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y);
+	}
+	LvnMat3x3_t<T> operator*(const LvnMat3x2_t<T>& m) const
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y);
+	}
+	LvnMat4x3_t<T> operator*(const LvnMat4x2_t<T>& m) const
 	{
 		return LvnMat4x3_t<T>(
 			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
@@ -2435,6 +2750,79 @@ struct LvnMat2x4_t
 			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y,
 			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y);
 	}
+
+	LvnMat2x4_t<T> operator+() const
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0],
+			this->value[1]);
+	}
+	LvnMat2x4_t<T> operator-() const
+	{
+		return LvnMat2x4_t<T>(
+			-this->value[0],
+			-this->value[1]);
+	}
+	LvnMat2x4_t<T> operator+(const LvnMat2x4_t<T>& m) const
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1]);
+	}
+	LvnMat2x4_t<T> operator-(const LvnMat2x4_t<T>& m) const
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1]);
+	}
+	LvnMat4x4_t<T> operator*(const LvnMat4x2_t<T>& m) const
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y,
+			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y,
+			this->value[0].z * m.value[3].x + this->value[1].z * m.value[3].y,
+			this->value[0].w * m.value[3].x + this->value[1].w * m.value[3].y);
+	}
+	LvnMat2x4_t<T> operator*(const LvnMat2x2_t<T>& m) const
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y);
+	}
+	LvnMat3x4_t<T> operator*(const LvnMat3x2_t<T>& m) const
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y,
+			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y);
+	}
 };
 
 template<typename T>
@@ -2549,6 +2937,57 @@ struct LvnMat3x2_t
 			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z);
 	}
 	LvnMat4x2_t<T> operator*(const LvnMat4x3_t<T>& m)
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y + this->value[2].x * m.value[3].z,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y + this->value[2].y * m.value[3].z);
+	}
+
+	LvnMat3x2_t<T> operator+() const
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0],
+			this->value[1],
+			this->value[2]);
+	}
+	LvnMat3x2_t<T> operator-() const
+	{
+		return LvnMat3x2_t<T>(
+			-this->value[0],
+			-this->value[1],
+			-this->value[2]);
+	}
+	LvnMat3x2_t<T> operator+(const LvnMat3x2_t<T>& m) const
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1],
+			this->value[2] + m.value[2]);
+	}
+	LvnMat3x2_t<T> operator-(const LvnMat3x2_t<T>& m) const
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1],
+			this->value[2] - m.value[2]);
+	}
+	LvnMat3x2_t<T> operator*(const LvnMat3x3_t<T>& m) const
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z);
+	}
+	LvnMat4x2_t<T> operator*(const LvnMat4x3_t<T>& m) const
 	{
 		return LvnMat4x2_t<T>(
 			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
@@ -2710,6 +3149,83 @@ struct LvnMat3x4_t
 			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z,
 			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y + this->value[2].w * m.value[2].z);
 	}
+
+	LvnMat3x4_t<T> operator+() const
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0],
+			this->value[1],
+			this->value[2]);
+	}
+	LvnMat3x4_t<T> operator-() const
+	{
+		return LvnMat3x4_t<T>(
+			-this->value[0],
+			-this->value[1],
+			-this->value[2]);
+	}
+	LvnMat3x4_t<T> operator+(const LvnMat3x4_t<T>& m) const
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1],
+			this->value[2] + m.value[2]);
+	}
+	LvnMat3x4_t<T> operator-(const LvnMat3x4_t<T>& m) const
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1],
+			this->value[2] - m.value[2]);
+	}
+	LvnMat4x4_t<T> operator*(const LvnMat4x3_t<T>& m) const
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y + this->value[2].w * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y + this->value[2].w * m.value[1].z,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z,
+			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y + this->value[2].w * m.value[2].z,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y + this->value[2].x * m.value[3].z,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y + this->value[2].y * m.value[3].z,
+			this->value[0].z * m.value[3].x + this->value[1].z * m.value[3].y + this->value[2].z * m.value[3].z,
+			this->value[0].w * m.value[3].x + this->value[1].w * m.value[3].y + this->value[2].w * m.value[3].z);
+	}
+	LvnMat2x4_t<T> operator*(const LvnMat2x3_t<T>& m) const
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].x + this->value[2].x * m.value[0].x,
+			this->value[0].y * m.value[0].y + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].y,
+			this->value[0].z * m.value[0].z + this->value[1].z * m.value[0].z + this->value[2].z * m.value[0].z,
+			this->value[0].w * m.value[0].w + this->value[1].w * m.value[0].w + this->value[2].w * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].x + this->value[2].x * m.value[1].x,
+			this->value[0].y * m.value[1].y + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].y,
+			this->value[0].z * m.value[1].z + this->value[1].z * m.value[1].z + this->value[2].z * m.value[1].z,
+			this->value[0].w * m.value[1].w + this->value[1].w * m.value[1].w + this->value[2].w * m.value[1].w);
+	}
+	LvnMat3x4_t<T> operator*(const LvnMat3x3_t<T>& m) const
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z,
+			this->value[0].w * m.value[0].x + this->value[1].w * m.value[0].y + this->value[2].w * m.value[0].z,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z,
+			this->value[0].w * m.value[1].x + this->value[1].w * m.value[1].y + this->value[2].w * m.value[1].z,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z,
+			this->value[0].w * m.value[2].x + this->value[1].w * m.value[2].y + this->value[2].w * m.value[2].z);
+	}
 };
 
 template<typename T>
@@ -2841,6 +3357,69 @@ struct LvnMat4x2_t
 			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w);
 	}
 	LvnMat4x2_t<T> operator*(const LvnMat4x4_t<T>& m)
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z + this->value[3].x * m.value[2].w,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y + this->value[2].x * m.value[3].z + this->value[3].x * m.value[3].w,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y + this->value[2].y * m.value[3].z + this->value[3].y * m.value[3].w);
+	}
+
+	LvnMat4x2_t<T> operator+() const
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0],
+			this->value[1],
+			this->value[2],
+			this->value[3]);
+	}
+	LvnMat4x2_t<T> operator-() const
+	{
+		return LvnMat4x2_t<T>(
+			-this->value[0],
+			-this->value[1],
+			-this->value[2],
+			-this->value[3]);
+	}
+	LvnMat4x2_t<T> operator+(const LvnMat4x2_t<T>& m) const
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1],
+			this->value[2] + m.value[2],
+			this->value[3] + m.value[3]);
+	}
+	LvnMat4x2_t<T> operator-(const LvnMat4x2_t<T>& m) const
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1],
+			this->value[2] - m.value[2],
+			this->value[3] - m.value[3]);
+	}
+	LvnMat2x2_t<T> operator*(const LvnMat2x4_t<T>& m) const
+	{
+		return LvnMat2x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w);
+	}
+	LvnMat3x2_t<T> operator*(const LvnMat3x4_t<T>& m) const
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z + this->value[3].x * m.value[2].w,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w);
+	}
+	LvnMat4x2_t<T> operator*(const LvnMat4x4_t<T>& m) const
 	{
 		return LvnMat4x2_t<T>(
 			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
@@ -2987,6 +3566,78 @@ struct LvnMat4x3_t
 			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z + this->value[3].z * m.value[2].w);
 	}
 	LvnMat4x3_t<T> operator*(const LvnMat4x4_t<T>& m)
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z + this->value[3].z * m.value[1].w,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z + this->value[3].x * m.value[2].w,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z + this->value[3].z * m.value[2].w,
+			this->value[0].x * m.value[3].x + this->value[1].x * m.value[3].y + this->value[2].x * m.value[3].z + this->value[3].x * m.value[3].w,
+			this->value[0].y * m.value[3].x + this->value[1].y * m.value[3].y + this->value[2].y * m.value[3].z + this->value[3].y * m.value[3].w,
+			this->value[0].z * m.value[3].x + this->value[1].z * m.value[3].y + this->value[2].z * m.value[3].z + this->value[3].z * m.value[3].w);
+	}
+
+	LvnMat4x3_t<T> operator+() const
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0],
+			this->value[1],
+			this->value[2],
+			this->value[3]);
+	}
+	LvnMat4x3_t<T> operator-() const
+	{
+		return LvnMat4x3_t<T>(
+			-this->value[0],
+			-this->value[1],
+			-this->value[2],
+			-this->value[3]);
+	}
+	LvnMat4x3_t<T> operator+(const LvnMat4x3_t<T>& m) const
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0] + m.value[0],
+			this->value[1] + m.value[1],
+			this->value[2] + m.value[2],
+			this->value[3] + m.value[3]);
+	}
+	LvnMat4x3_t<T> operator-(const LvnMat4x3_t<T>& m) const
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0] - m.value[0],
+			this->value[1] - m.value[1],
+			this->value[2] - m.value[2],
+			this->value[3] - m.value[3]);
+	}
+	LvnMat2x3_t<T> operator*(const LvnMat2x4_t<T>& m) const
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z + this->value[3].z * m.value[1].w);
+	}
+	LvnMat3x3_t<T> operator*(const LvnMat3x4_t<T>& m) const
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
+			this->value[0].y * m.value[0].x + this->value[1].y * m.value[0].y + this->value[2].y * m.value[0].z + this->value[3].y * m.value[0].w,
+			this->value[0].z * m.value[0].x + this->value[1].z * m.value[0].y + this->value[2].z * m.value[0].z + this->value[3].z * m.value[0].w,
+			this->value[0].x * m.value[1].x + this->value[1].x * m.value[1].y + this->value[2].x * m.value[1].z + this->value[3].x * m.value[1].w,
+			this->value[0].y * m.value[1].x + this->value[1].y * m.value[1].y + this->value[2].y * m.value[1].z + this->value[3].y * m.value[1].w,
+			this->value[0].z * m.value[1].x + this->value[1].z * m.value[1].y + this->value[2].z * m.value[1].z + this->value[3].z * m.value[1].w,
+			this->value[0].x * m.value[2].x + this->value[1].x * m.value[2].y + this->value[2].x * m.value[2].z + this->value[3].x * m.value[2].w,
+			this->value[0].y * m.value[2].x + this->value[1].y * m.value[2].y + this->value[2].y * m.value[2].z + this->value[3].y * m.value[2].w,
+			this->value[0].z * m.value[2].x + this->value[1].z * m.value[2].y + this->value[2].z * m.value[2].z + this->value[3].z * m.value[2].w);
+	}
+	LvnMat4x3_t<T> operator*(const LvnMat4x4_t<T>& m) const
 	{
 		return LvnMat4x3_t<T>(
 			this->value[0].x * m.value[0].x + this->value[1].x * m.value[0].y + this->value[2].x * m.value[0].z + this->value[3].x * m.value[0].w,
@@ -3185,6 +3836,15 @@ struct LvnDescriptorLayoutCreateInfo
 	uint32_t descriptorBindingCount;
 };
 
+struct LvnDescriptorUpdateInfo
+{
+	uint32_t binding;
+	LvnDescriptorType descriptorType;
+	uint32_t descriptorCount;
+	LvnUniformBuffer* bufferInfo;
+	LvnTexture* textureInfo;
+};
+
 struct LvnPipelineCreateInfo
 {
 	LvnPipelineSpecification* pipelineSpecification;
@@ -3229,7 +3889,6 @@ struct LvnUniformBufferCreateInfo
 {
 	LvnBufferType type;
 	uint32_t binding;
-	LvnDescriptorLayout* descriptorLayout;
 	uint64_t size;
 };
 

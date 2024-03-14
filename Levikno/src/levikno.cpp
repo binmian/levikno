@@ -1480,6 +1480,11 @@ void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer,
 	s_LvnContext->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
 }
 
+void updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
+{
+	s_LvnContext->graphicsContext.updateDescriptorLayoutData(descriptorLayout, pUpdateInfo, count);
+}
+
 LvnResult loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels)
 {
 	if (imageData == nullptr)
