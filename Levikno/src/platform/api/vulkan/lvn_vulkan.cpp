@@ -47,13 +47,18 @@ namespace vks
 	static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
 	static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 	static uint32_t                             findMemoryType(VulkanBackends* vkBackends, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	static VkFormat                             findSupportedFormat(VkPhysicalDevice physicalDevice, const VkFormat* candidates, uint32_t count, VkImageTiling tiling, VkFormatFeatureFlags features);
+	static VkFormat                             findDepthFormat(VkPhysicalDevice physicalDevice);
+	static bool                                 hasStencilComponent(VkFormat format);
 	static LvnResult                            createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
 	static void                                 createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format);
 	static VkSurfaceFormatKHR                   chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
 	static VkPresentModeKHR                     chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count);
 	static VkExtent2D                           chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities);
 	static void                                 createSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VulkanSwapChainSupportDetails swapChainSupport, VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode, VkExtent2D extent);
+	static VkImageView                          createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 	static void                                 createImageViews(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static void                                 createDepthResources(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
@@ -316,7 +321,40 @@ namespace vks
 			if (typeFilter & (1 << i)) { return i; }
 		}
 
-		LVN_CORE_ASSERT(false, "vulkan - failed to find suitable memory type for physical device!");
+		LVN_CORE_ASSERT(false, "[vulkan] failed to find suitable memory type for physical device!");
+		return 0;
+	}
+
+	static VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const VkFormat* candidates, uint32_t count, VkImageTiling tiling, VkFormatFeatureFlags features)
+	{
+		for (uint32_t i = 0; i < count; i++)
+		{
+			VkFormatProperties props;
+			vkGetPhysicalDeviceFormatProperties(physicalDevice, candidates[i], &props);
+
+			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+			{
+				return candidates[i];
+			}
+			else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+			{
+				return candidates[i];
+			}
+		}
+
+		LVN_CORE_ASSERT(false, "[vulkan] failed to find supported format type for physical device!");
+		return VK_FORMAT_UNDEFINED;
+	}
+
+	static VkFormat findDepthFormat(VkPhysicalDevice physicalDevice)
+	{
+		VkFormat formats[] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT };
+		return findSupportedFormat(physicalDevice, formats, ARRAY_LEN(formats), VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	}
+
+	static bool hasStencilComponent(VkFormat format)
+	{
+		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
 	static LvnResult createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface)
@@ -397,6 +435,7 @@ namespace vks
 
 	static void createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format)
 	{
+		// color attachment
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = format;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -411,23 +450,41 @@ namespace vks
 		colorAttachmentRef.attachment = 0;
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+		// depth attachment
+		VkAttachmentDescription depthAttachment{};
+		depthAttachment.format = vks::findDepthFormat(vkBackends->physicalDevice);
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentRef{};
+		depthAttachmentRef.attachment = 1;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
 		VkSubpassDependency dependency{};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.srcAccessMask = 0;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
+
+		VkAttachmentDescription attachments[] = { colorAttachment, depthAttachment };
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = &colorAttachment;
+		renderPassInfo.attachmentCount = ARRAY_LEN(attachments);
+		renderPassInfo.pAttachments = attachments;
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
 		renderPassInfo.dependencyCount = 1;
@@ -591,6 +648,29 @@ namespace vks
 		surfaceData->swapChainExtent = extent;
 	}
 
+	static VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+	{
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = image;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = format;
+		viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.subresourceRange.aspectMask = aspectFlags;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		VkImageView imageView;
+		LVN_CORE_CALL_ASSERT(vkCreateImageView(device, &viewInfo, nullptr, &imageView) == VK_SUCCESS, "[vulkan] failed to create image view!");
+
+		return imageView;
+	}
+
 	static void createImageViews(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
 		surfaceData->swapChainImageViews = (VkImageView*)lvn::memAlloc(surfaceData->swapChainImageCount * sizeof(VkImageView));
@@ -598,23 +678,18 @@ namespace vks
 
 		for (size_t i = 0; i < surfaceData->swapChainImageCount; i++)
 		{
-			VkImageViewCreateInfo createInfo{};
-			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			createInfo.image = surfaceData->swapChainImages[i];
-			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			createInfo.format = surfaceData->swapChainImageFormat;
-			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			createInfo.subresourceRange.baseMipLevel = 0;
-			createInfo.subresourceRange.levelCount = 1;
-			createInfo.subresourceRange.baseArrayLayer = 0;
-			createInfo.subresourceRange.layerCount = 1;
-
-			LVN_CORE_CALL_ASSERT(vkCreateImageView(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChainImageViews[i]) == VK_SUCCESS, "vulkan - failed to create image views!");
+			surfaceData->swapChainImageViews[i] = vks::createImageView(vkBackends->device, surfaceData->swapChainImages[i], surfaceData->swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
+	}
+
+	static void createDepthResources(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
+	{
+		VkFormat depthFormat = vks::findDepthFormat(vkBackends->physicalDevice);
+
+		vks::createImage(vkBackends, &surfaceData->depthImage, &surfaceData->depthImageMemory, surfaceData->swapChainExtent.width, surfaceData->swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+		surfaceData->depthImageView = vks::createImageView(vkBackends->device, surfaceData->depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+		vks::transitionImageLayout(vkBackends, surfaceData->depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	}
 
 	static void createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
@@ -626,13 +701,14 @@ namespace vks
 		{
 			VkImageView attachments[] =
 			{
-				surfaceData->swapChainImageViews[i]
+				surfaceData->swapChainImageViews[i],
+				surfaceData->depthImageView
 			};
 
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			framebufferInfo.renderPass = surfaceData->renderPass;
-			framebufferInfo.attachmentCount = 1;
+			framebufferInfo.attachmentCount = ARRAY_LEN(attachments);
 			framebufferInfo.pAttachments = attachments;
 			framebufferInfo.width = surfaceData->swapChainExtent.width;
 			framebufferInfo.height = surfaceData->swapChainExtent.height;
@@ -683,6 +759,10 @@ namespace vks
 			vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[j], nullptr);
 		}
 
+		vkDestroyImageView(vkBackends->device, surfaceData->depthImageView, nullptr);
+		vkDestroyImage(vkBackends->device, surfaceData->depthImage, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
+
 		// frame buffers
 		for (uint32_t j = 0; j < surfaceData->frameBufferCount; j++)
 		{
@@ -720,6 +800,7 @@ namespace vks
 
 		vks::createSwapChain(vkBackends, surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
 		vks::createImageViews(vkBackends, surfaceData);
+		vks::createDepthResources(vkBackends, surfaceData);
 		vks::createFrameBuffers(vkBackends, surfaceData);
 	}
 
@@ -781,6 +862,11 @@ namespace vks
 			case Lvn_ImageFormat_RGBA8: { return VK_FORMAT_R8G8B8A8_UNORM; }
 			case Lvn_ImageFormat_RGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
 			case Lvn_ImageFormat_RGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+			case Lvn_ImageFormat_SRGB: { return VK_FORMAT_R8G8B8_SRGB; }
+			case Lvn_ImageFormat_SRGBA: { return VK_FORMAT_R8G8B8A8_SRGB; }
+			case Lvn_ImageFormat_SRGBA8: { return VK_FORMAT_R8G8B8A8_SRGB; }
+			case Lvn_ImageFormat_SRGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+			case Lvn_ImageFormat_SRGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
 			case Lvn_ImageFormat_RedInt: { return VK_FORMAT_R8_SINT; }
 			// case Lvn_ImageFormat_DepthComponent: { return VK_FORMAT_DEPTH_COMPONENT; }
 			case Lvn_ImageFormat_Depth24Stencil8: { return VK_FORMAT_D24_UNORM_S8_UINT; }
@@ -1580,11 +1666,20 @@ namespace vks
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.image = image;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = 1;
 		barrier.subresourceRange.baseArrayLayer = 0;
 		barrier.subresourceRange.layerCount = 1;
+
+		if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		{
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+			if (vks::hasStencilComponent(format))
+				barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+		else
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 		VkPipelineStageFlags sourceStage;
 		VkPipelineStageFlags destinationStage;
@@ -1604,6 +1699,14 @@ namespace vks
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		}
+		else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		{
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		} 
 		else
 		{
 			LVN_CORE_ASSERT(false, "[vulkan] unsupported layout transition during image layout transition");
@@ -1696,6 +1799,7 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 
 	vks::createSwapChain(vkBackends, &surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
 	vks::createImageViews(vkBackends, &surfaceData);
+	vks::createDepthResources(vkBackends, &surfaceData);
 	vks::createRenderPass(vkBackends, &surfaceData, surfaceFormat.format);
 	vks::createFrameBuffers(vkBackends, &surfaceData);
 	vks::createCommandBuffers(vkBackends, &surfaceData);
@@ -1729,6 +1833,10 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	{
 		vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[j], nullptr);
 	}
+
+	vkDestroyImageView(vkBackends->device, surfaceData->depthImageView, nullptr);
+    vkDestroyImage(vkBackends->device, surfaceData->depthImage, nullptr);
+	vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
 
 	// frame buffers
 	for (uint32_t j = 0; j < surfaceData->frameBufferCount; j++)
@@ -2115,9 +2223,13 @@ void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 	renderPassInfo.framebuffer = surfaceData->frameBuffers[surfaceData->imageIndex];
 	renderPassInfo.renderArea.offset = {0, 0};
 	renderPassInfo.renderArea.extent = surfaceData->swapChainExtent;
-	VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
+
+	VkClearValue clearColor[2];
+	clearColor[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+	clearColor[1].depthStencil = {1.0f, 0};
+
+	renderPassInfo.clearValueCount = ARRAY_LEN(clearColor);
+	renderPassInfo.pClearValues = clearColor;
 
 	vkCmdBeginRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -2460,12 +2572,6 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
-
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = bufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	VkBuffer stagingBuffer;
 	VmaAllocation stagingMemory;

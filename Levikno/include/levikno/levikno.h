@@ -602,6 +602,11 @@ enum LvnImageFormat
 	Lvn_ImageFormat_RGBA8,
 	Lvn_ImageFormat_RGBA16F,
 	Lvn_ImageFormat_RGBA32F,
+	Lvn_ImageFormat_SRGB,
+	Lvn_ImageFormat_SRGBA,
+	Lvn_ImageFormat_SRGBA8,
+	Lvn_ImageFormat_SRGBA16F,
+	Lvn_ImageFormat_SRGBA32F,
 	Lvn_ImageFormat_RedInt,
 	Lvn_ImageFormat_DepthComponent,
 	Lvn_ImageFormat_Depth24Stencil8,
@@ -1182,9 +1187,9 @@ namespace lvn
 		LvnMat4x4_t<T> matrix(0);
 		matrix[0][0] = static_cast<T>(1) / (aspect * halfTanFovy);
 		matrix[1][1] = static_cast<T>(1) / (halfTanFovy);
-		matrix[2][2] = - (zFar + zNear) / (zFar - zNear);
+		matrix[2][2] = zFar / (zNear - zFar);
 		matrix[2][3] = -1;
-		matrix[3][2] = - (2 * zFar * zNear) / (zFar - zNear);
+		matrix[3][2] = - (zFar * zNear) / (zFar - zNear);
 
 		return matrix;
 	}
@@ -1210,6 +1215,28 @@ namespace lvn
 		matrix[3][1] = -lvn::dot(u, eye);
 		matrix[3][2] = lvn::dot(f, eye);
 		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> translate(const LvnMat4x4_t<T>& mat, const LvnVec3_t<T>& vec)
+	{
+		LvnMat4x4_t<T> translate(static_cast<T>(1));
+		translate[3][0] = vec.x;
+		translate[3][1] = vec.y;
+		translate[3][2] = vec.z;
+
+		return mat * translate;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> scale(const LvnMat4x4_t<T>& mat, const LvnVec3_t<T>& vec)
+	{
+		LvnMat4x4_t<T> scale(static_cast<T>(1));
+		scale[0][0] = vec.x;
+		scale[1][1] = vec.y;
+		scale[2][2] = vec.z;
+
+		return mat * scale;
 	}
 
 	template <typename T>
@@ -1245,6 +1272,7 @@ struct LvnContextCreateInfo
 	LvnWindowApi        windowapi;
 	LvnGraphicsApi      graphicsapi;
 	bool                enableLogging;
+	LvnLogLevel         coreLogLevel;
 	bool                enableVulkanValidationLayers;
 };
 

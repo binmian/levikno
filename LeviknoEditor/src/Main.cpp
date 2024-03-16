@@ -61,18 +61,24 @@ void eventsCallbackFn(LvnEvent* e)
 	lvn::dispatchMouseButtonPressedEvent(e, mousePress);
 }
 
-float vertices[] = 
+float vertices[] =
 {
 	/*      pos        |       color     |   TexUV    */
 	-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
 	 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
 	 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
 	-0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+
+	-0.5f, -0.5f,-0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+	 0.5f, -0.5f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+	 0.5f,  0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+	-0.5f,  0.5f,-0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
-uint32_t indices[] = 
+uint32_t indices[] =
 {
-	0, 1, 2, 2, 3, 0
+	0, 1, 2, 2, 3, 0,
+	4, 5, 6, 6, 7, 4,
 };
 
 struct UniformData
@@ -191,6 +197,9 @@ int main()
 
 
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
+	pipelineSpec.depthstencil.enableDepth = true;
+	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_Less;
+
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
 	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
@@ -280,8 +289,8 @@ int main()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		lvn::mat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-		lvn::mat4 view = lvn::lookAt(lvn::vec3(0.0f, 0.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.1f, 100.0f);
+		lvn::mat4 view = lvn::lookAt(lvn::vec3(2.0f, 2.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 0.0f, -2.0f));
 		lvn::mat4 model = lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 0.0f, 1.0f));
 		lvn::mat4 camera = proj * view * model;
 		
@@ -299,7 +308,7 @@ int main()
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
-		lvn::renderCmdDrawIndexed(window, 6);
+		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
 		lvn::renderCmdEndRenderPass(window);
 		lvn::renderEndCommandRecording(window);

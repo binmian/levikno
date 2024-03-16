@@ -90,6 +90,8 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	// logging
 	if (createInfo->enableLogging) { logInit(); }
 
+	s_LvnContext->coreLogger.logLevel = createInfo->coreLogLevel;
+
 	// window context
 	LvnResult result = setWindowContext(createInfo->windowapi);
 	if (result != Lvn_Result_Success) { return result; }
@@ -508,6 +510,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
 	char buff[1024];
 
@@ -523,6 +526,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
 	char buff[1024];
 
@@ -538,6 +542,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
 	char buff[1024];
 
@@ -553,6 +558,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
 	char buff[1024];
 
@@ -568,6 +574,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 void logMessageCritical(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Critical)) { return; }
 
 	char buff[1024];
 
@@ -977,7 +984,7 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 {
 	if (createInfo->width < 0 || createInfo->height < 0)
 	{
-		LVN_CORE_ERROR("cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
+		LVN_CORE_ERROR("createWindow(LvnWindow**, LvnWindowCreateInfo*) | cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
 		return Lvn_Result_Failure;
 	}
 

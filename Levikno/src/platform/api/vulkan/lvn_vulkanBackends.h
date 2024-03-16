@@ -30,6 +30,9 @@ namespace lvn
 		VkExtent2D swapChainExtent;
 		VkImage* swapChainImages;
 		VkImageView* swapChainImageViews;
+		VkImage depthImage;
+		VmaAllocation depthImageMemory;
+		VkImageView depthImageView;
 		VkFramebuffer* frameBuffers;
 
 		/* command buffers and semaphore/fence object count are dependent on the max frames in flight */
