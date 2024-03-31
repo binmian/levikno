@@ -439,26 +439,6 @@ enum LvnWindowApi
 };
 
 /* [Graphics Enums] */
-enum LvnAttachmentType
-{
-	Lvn_AttachmentType_Color,
-	Lvn_AttachmentType_Depth,
-	Lvn_AttachmentType_Resolve,
-};
-
-enum LvnAttachmentLoadOperation
-{
-	Lvn_AttachmentLoadOp_Load,
-	Lvn_AttachmentLoadOp_Clear,
-	Lvn_AttachmentLoadOp_DontCare,
-};
-
-enum LvnAttachmentStoreOperation
-{
-	Lvn_AttachmentStoreOp_Store,
-	Lvn_AttachmentStoreOp_DontCare,
-};
-
 enum LvnBufferType
 {
 	Lvn_BufferType_Unknown         = 0,
@@ -566,6 +546,22 @@ enum LvnColorBlendOperation
 	Lvn_ColorBlendOperation_BlueExt             = 1000148045,
 };
 
+enum LvnColorImageFormat
+{
+	Lvn_ImageFormat_None = 0,
+	Lvn_ImageFormat_RGB,
+	Lvn_ImageFormat_RGBA,
+	Lvn_ImageFormat_RGBA8,
+	Lvn_ImageFormat_RGBA16F,
+	Lvn_ImageFormat_RGBA32F,
+	Lvn_ImageFormat_SRGB,
+	Lvn_ImageFormat_SRGBA,
+	Lvn_ImageFormat_SRGBA8,
+	Lvn_ImageFormat_SRGBA16F,
+	Lvn_ImageFormat_SRGBA32F,
+	Lvn_ImageFormat_RedInt,
+};
+
 enum LvnCompareOperation
 {
 	Lvn_CompareOperation_Never          = 0,
@@ -576,6 +572,13 @@ enum LvnCompareOperation
 	Lvn_CompareOperation_NotEqual       = 5,
 	Lvn_CompareOperation_GreaterOrEqual = 6,
 	Lvn_CompareOperation_Always         = 7,
+};
+
+enum LvnDepthImageFormat
+{
+	Lvn_ImageFormat_DepthComponent,
+	Lvn_ImageFormat_Depth24Stencil8,
+	Lvn_ImageFormat_Depth32Stencil8,
 };
 
 enum LvnDescriptorType
@@ -594,24 +597,6 @@ enum LvnDescriptorType
 	// Lvn_DescriptorType_InputAttachment,
 };
 
-enum LvnImageFormat
-{
-	Lvn_ImageFormat_None = 0,
-	Lvn_ImageFormat_RGB,
-	Lvn_ImageFormat_RGBA,
-	Lvn_ImageFormat_RGBA8,
-	Lvn_ImageFormat_RGBA16F,
-	Lvn_ImageFormat_RGBA32F,
-	Lvn_ImageFormat_SRGB,
-	Lvn_ImageFormat_SRGBA,
-	Lvn_ImageFormat_SRGBA8,
-	Lvn_ImageFormat_SRGBA16F,
-	Lvn_ImageFormat_SRGBA32F,
-	Lvn_ImageFormat_RedInt,
-	Lvn_ImageFormat_DepthComponent,
-	Lvn_ImageFormat_Depth24Stencil8,
-};
-
 enum LvnGraphicsApi
 {
 	Lvn_GraphicsApi_None = 0,
@@ -620,14 +605,6 @@ enum LvnGraphicsApi
 
 	Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
 	Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
-};
-
-enum LvnImageLayout
-{
-	Lvn_ImageLayout_Undefined,
-	Lvn_ImageLayout_Present,
-	Lvn_ImageLayout_ColorAttachment,
-	Lvn_ImageLayout_DepthStencilAttachment,
 };
 
 enum LvnPhysicalDeviceType
@@ -650,7 +627,6 @@ enum LvnSampleCount
 	Lvn_SampleCount_16_Bit = 0x00000010,
 	Lvn_SampleCount_32_Bit = 0x00000020,
 	Lvn_SampleCount_64_Bit = 0x00000040,
-	Lvn_SampleCount_Max_Bit = 0x7FFFFFFF
 };
 
 enum LvnShaderStage
@@ -743,7 +719,9 @@ struct LvnFont;
 struct LvnFontGlyph;
 struct LvnFontMetrics;
 struct LvnFrameBuffer;
+struct LvnFrameBufferColorAttachment;
 struct LvnFrameBufferCreateInfo;
+struct LvnFrameBufferDepthAttachment;
 struct LvnGraphicsContext;
 struct LvnImageData;
 struct LvnKeyHoldEvent;
@@ -777,8 +755,6 @@ struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
 struct LvnRenderInitInfo;
 struct LvnRenderPass;
-struct LvnRenderPassAttachment;
-struct LvnRenderPassCreateInfo;
 struct LvnShader;
 struct LvnShaderCreateInfo;
 struct LvnTexture;
@@ -1088,6 +1064,7 @@ namespace lvn
 	LVN_API LvnPhysicalDeviceInfo       getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult                   renderInit(LvnRenderInitInfo* renderInfo);
 
+	LVN_API void                        renderClearColor(LvnWindow* window, float r, float g, float b, float a);
 	LVN_API void                        renderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	LVN_API void                        renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
 	LVN_API void                        renderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
@@ -1104,8 +1081,9 @@ namespace lvn
 	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
+	LVN_API void                        renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
+	LVN_API void                        renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
-	LVN_API LvnResult                   createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo);                            // create renderpass for rendering draw commands
 	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the source code as input
 	LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                 // create shader with the file paths to the binary files (.spv) as input
 	LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                 // create shader with the file paths to the source files as input
@@ -1116,7 +1094,6 @@ namespace lvn
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                // create a uniform buffer object to send changing data to the shader pipeline
 	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                        // create a texture object to hold image pixel data and sampler
 
-	LVN_API void                        destroyRenderPass(LvnRenderPass* renderPass);                                                                 // destroy renderpass object
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                             // destroy shader module object
 	LVN_API void                        destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);                                               // destroy descriptor layout
 	LVN_API void                        destroyPipeline(LvnPipeline* pipeline);                                                                       // destroy pipeline object
@@ -1127,8 +1104,14 @@ namespace lvn
 
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
+
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 	LVN_API void                        updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
+
+	LVN_API LvnTexture*                 getFrameBufferImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
+	LVN_API LvnRenderPass*              getFrameBufferRenderPass(LvnFrameBuffer* frameBuffer);
+	LVN_API void                        updateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
+	LVN_API void                        setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 
 	LVN_API LvnResult                   loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels = 0);
 	LVN_API void                        freeImageData(LvnImageData* imageData);
@@ -3717,22 +3700,6 @@ struct LvnRenderInitInfo
 	uint32_t            maxFramesInFlight;
 };
 
-struct LvnRenderPassAttachment
-{
-	LvnAttachmentType type;
-	LvnImageFormat format;
-	LvnSampleCount samples;
-	LvnAttachmentLoadOperation loadOp, stencilLoadOp;
-	LvnAttachmentStoreOperation storeOp, stencilStoreOp;
-	LvnImageLayout initialLayout, finalLayout;
-};
-
-struct LvnRenderPassCreateInfo
-{
-	LvnRenderPassAttachment* pAttachments;
-	uint32_t attachmentCount;
-};
-
 struct LvnPipelineInputAssembly
 {
 	LvnTopologyType topology;
@@ -3893,11 +3860,27 @@ struct LvnShaderCreateInfo
 	const char* fragmentSrc;
 };
 
+struct LvnFrameBufferColorAttachment
+{
+	uint32_t index;
+	LvnColorImageFormat format;
+};
+
+struct LvnFrameBufferDepthAttachment
+{
+	uint32_t index;
+	LvnDepthImageFormat format;
+};
+
 struct LvnFrameBufferCreateInfo
 {
 	uint32_t width, height;
-	LvnWindow* window;
-	LvnRenderPass* renderPass;
+	LvnSampleCount sampleCount;
+	LvnFrameBufferColorAttachment* pColorAttachments;
+	uint32_t colorAttachmentCount;
+	LvnFrameBufferDepthAttachment* depthAttachment;
+	LvnTextureFilter textureFilter;
+	LvnTextureMode textureMode;
 };
 
 struct LvnBufferCreateInfo

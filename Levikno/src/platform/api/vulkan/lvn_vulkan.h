@@ -11,7 +11,6 @@ namespace lvn
 	void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
 	LvnResult vksImplRenderInit(LvnRenderInitInfo* renderBackends);
 
-	LvnResult vksImplCreateRenderPass(LvnRenderPass* renderPass, LvnRenderPassCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo);
@@ -22,7 +21,6 @@ namespace lvn
 	LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
 
-	void vksImplDestroyRenderPass(LvnRenderPass* renderPass);
 	void vksImplDestroyShader(LvnShader* shader);
 	void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
 	void vksImplDestroyPipeline(LvnPipeline* pipeline);
@@ -31,6 +29,7 @@ namespace lvn
 	void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
 	void vksImplDestroyTexture(LvnTexture* texture);
 
+	void vksImplRenderClearColor(LvnWindow* window, float r, float g, float b, float a);
 	void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
 	void vksImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
@@ -47,13 +46,17 @@ namespace lvn
 	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
-
-	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
-	void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
+	void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
+	void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
-
+	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
+	void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
+	LvnTexture* vksImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex);
+	LvnRenderPass* vksImplGetFrameBufferRenderPass(LvnFrameBuffer* frameBuffer);
+	void vksImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
+	void vksImplSetFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 }
 
 #endif

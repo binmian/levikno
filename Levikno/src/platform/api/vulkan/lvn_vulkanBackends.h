@@ -21,6 +21,38 @@ namespace lvn
 		LvnVector<VkPresentModeKHR> presentModes;
 	};
 
+	struct VulkanFrameBufferData
+	{
+		uint32_t width, height;
+		uint32_t totalAttachmentCount;
+		VkSampleCountFlagBits sampleCount;
+		bool multisampling, hasDepth;
+
+		VkRenderPass renderPass;
+		VkFramebuffer framebuffer;
+
+		LvnVector<LvnFrameBufferColorAttachment> colorAttachments;
+		LvnFrameBufferDepthAttachment depthAttachment;
+
+		LvnVector<VkImage> colorImages;
+		LvnVector<VkImageView> colorImageViews;
+		LvnVector<VmaAllocation> colorImageMemory;
+
+		LvnVector<VkImage> msaaColorImages;
+		LvnVector<VkImageView> msaaColorImageViews;
+		LvnVector<VmaAllocation> msaaColorImageMemory;
+		LvnVector<VkClearValue> clearValues;
+
+		LvnVector<LvnTexture> frameBufferImages;
+		LvnRenderPass frameBufferRenderPass;
+
+		VkImage depthImage;
+		VkImageView depthImageView;
+		VmaAllocation depthImageMemory;
+
+		VkSampler sampler;
+	};
+
 	struct VulkanWindowSurfaceData
 	{
 		VkSurfaceKHR surface;
@@ -40,6 +72,8 @@ namespace lvn
 		VkSemaphore* imageAvailableSemaphores;
 		VkSemaphore* renderFinishedSemaphores;
 		VkFence* inFlightFences;
+
+		VkClearColorValue clearColor;
 
 		uint32_t swapChainImageCount;
 		uint32_t swapChainImageViewCount;

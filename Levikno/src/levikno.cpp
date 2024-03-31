@@ -1170,6 +1170,11 @@ LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 	return s_LvnContext->graphicsContext.renderInit(renderInfo);
 }
 
+void renderClearColor(LvnWindow* window, float r, float g, float b, float a)
+{
+	s_LvnContext->graphicsContext.renderClearColor(window, r, g, b, a);
+}
+
 void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
 	s_LvnContext->graphicsContext.renderCmdDraw(window, vertexCount);
@@ -1250,11 +1255,14 @@ void renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, Lvn
 	s_LvnContext->graphicsContext.renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 }
 
-LvnResult createRenderPass(LvnRenderPass** renderPass, LvnRenderPassCreateInfo* createInfo)
+void renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
-	*renderPass = new LvnRenderPass();
-	LVN_CORE_TRACE("created renderPass: (%p), attachment count: %u", *renderPass, createInfo->attachmentCount);
-	return s_LvnContext->graphicsContext.createRenderPass(*renderPass, createInfo);
+	s_LvnContext->graphicsContext.renderCmdBeginFrameBuffer(window, frameBuffer);
+}
+
+void renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
+{
+	s_LvnContext->graphicsContext.renderCmdEndFrameBuffer(window, frameBuffer);
 }
 
 LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
@@ -1342,6 +1350,37 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 
 LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
+	if (createInfo->pColorAttachments == nullptr)
+	{
+		LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments is nullptr, cannot create framebuffer without one or more color attachments");
+		return Lvn_Result_Failure;
+	}
+
+	uint32_t totalAttachments = createInfo->colorAttachmentCount + (createInfo->depthAttachment != nullptr ? 1 : 0);
+
+	for (uint32_t i = 0; i < createInfo->colorAttachmentCount; i++)
+	{
+		if (createInfo->pColorAttachments[i].index >= totalAttachments)
+		{
+			LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index is greater than or equal to total attachments, color attachment index must be less than the total number of attachments", i);
+			return Lvn_Result_Failure;
+		}
+		if (createInfo->depthAttachment != nullptr && createInfo->pColorAttachments[i].index == createInfo->depthAttachment->index)
+		{
+			LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index has the same value as createInfo->depthAttachment->index, color attachment index must not be the same as the depth attachment index", i);
+			return Lvn_Result_Failure;
+		}
+	}
+
+	if (createInfo->depthAttachment != nullptr)
+	{
+		if (createInfo->depthAttachment->index >= totalAttachments)
+		{
+			LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index is greater than or equal to total attachments, depth attachment index must be less than the total number of attachments");
+			return Lvn_Result_Failure;
+		}
+	}
+
 	*frameBuffer = new LvnFrameBuffer();
 	LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
 	return s_LvnContext->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
@@ -1424,12 +1463,6 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 	return s_LvnContext->graphicsContext.createTexture(*texture, createInfo);
 }
 
-void destroyRenderPass(LvnRenderPass* renderPass)
-{
-	s_LvnContext->graphicsContext.destroyRenderPass(renderPass);
-	delete renderPass;
-}
-
 void destroyShader(LvnShader* shader)
 {
 	s_LvnContext->graphicsContext.destroyShader(shader);
@@ -1490,6 +1523,26 @@ void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer,
 void updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
 	s_LvnContext->graphicsContext.updateDescriptorLayoutData(descriptorLayout, pUpdateInfo, count);
+}
+
+LvnTexture* getFrameBufferImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
+{
+	return s_LvnContext->graphicsContext.getFrameBufferImage(frameBuffer, attachmentIndex);
+}
+
+LvnRenderPass* getFrameBufferRenderPass(LvnFrameBuffer* frameBuffer)
+{
+	return s_LvnContext->graphicsContext.getFrameBufferRenderPass(frameBuffer);
+}
+
+void updateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
+{
+	return s_LvnContext->graphicsContext.updateFrameBuffer(frameBuffer, width, height);
+}
+
+void setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
+{
+	return s_LvnContext->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
 LvnResult loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels)

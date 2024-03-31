@@ -62,15 +62,14 @@ namespace vks
 	static void                                 createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
+	static LvnResult                            createOffscreenFrameBuffer(VulkanBackends* vkBackends, LvnFrameBuffer* frameBuffer);
 	static void                                 cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 recreateSwapChain(VulkanBackends* vkBackends, LvnWindow* window);
 	static VkPrimitiveTopology                  getVulkanTopologyTypeEnum(LvnTopologyType topologyType);
 	static VkCullModeFlags                      getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode);
 	static VkFrontFace                          getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace);
-	static VkFormat                             getVulkanFormatEnum(LvnImageFormat format);
-	static VkAttachmentLoadOp                   getVulkanLoadOpEnum(LvnAttachmentLoadOperation loadOp);
-	static VkAttachmentStoreOp                  getVulkanStoreOpEnum(LvnAttachmentStoreOperation storeOp);
-	static VkImageLayout                        getVulkanImageLayoutEnum(LvnImageLayout layout);
+	static VkFormat                             getVulkanColorFormatEnum(LvnColorImageFormat format);
+	static VkFormat                             getVulkanDepthFormatEnum(LvnDepthImageFormat format);
 	static VkColorComponentFlags                getColorComponents(LvnPipelineColorWriteMask colorMask);
 	static VkBlendFactor                        getBlendFactorEnum(LvnColorBlendFactor blendFactor);
 	static VkBlendOp                            getBlendOperationEnum(LvnColorBlendOperation blendOp);
@@ -93,7 +92,7 @@ namespace vks
 	static void                                 createGraphicsPipeline(VulkanBackends* vkBackends);
 	static LvnResult                            createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
 	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
-	static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage memUsage);
+	static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage);
 	static void                                 transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	static void                                 copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
@@ -635,7 +634,7 @@ namespace vks
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		createInfo.presentMode = presentMode;
 		createInfo.clipped = VK_TRUE;
-		createInfo.oldSwapchain = VK_NULL_HANDLE; // TODO: add swap chain recreation (window resize)
+		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 		LVN_CORE_CALL_ASSERT(vkCreateSwapchainKHR(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChain) == VK_SUCCESS, "vulkan - failed to create swap chain!");
 
@@ -686,7 +685,7 @@ namespace vks
 	{
 		VkFormat depthFormat = vks::findDepthFormat(vkBackends->physicalDevice);
 
-		vks::createImage(vkBackends, &surfaceData->depthImage, &surfaceData->depthImageMemory, surfaceData->swapChainExtent.width, surfaceData->swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+		vks::createImage(vkBackends, &surfaceData->depthImage, &surfaceData->depthImageMemory, surfaceData->swapChainExtent.width, surfaceData->swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_SAMPLE_COUNT_1_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 		surfaceData->depthImageView = vks::createImageView(vkBackends->device, surfaceData->depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 		vks::transitionImageLayout(vkBackends, surfaceData->depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -749,6 +748,165 @@ namespace vks
 			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->renderFinishedSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
 			LVN_CORE_CALL_ASSERT(vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &surfaceData->inFlightFences[i]) == VK_SUCCESS, "vulkan - failed to create fence");
 		}
+	}
+
+	static LvnResult createOffscreenFrameBuffer(VulkanBackends* vkBackends, LvnFrameBuffer* frameBuffer)
+	{
+		VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+		frameBufferData->frameBufferImages.resize(frameBufferData->totalAttachmentCount);
+
+		LvnVector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
+
+		for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
+		{
+			VkFormat colorFormat = vks::getVulkanColorFormatEnum(frameBufferData->colorAttachments[i].format);
+
+			if (vks::createImage(vkBackends, &frameBufferData->colorImages[i], &frameBufferData->colorImageMemory[i], frameBufferData->width, frameBufferData->height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, frameBufferData->sampleCount, VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
+			{
+				LVN_CORE_ERROR("[vulkan] failed to create image <VkImage> when creating framebuffer at (%p)", frameBuffer);
+				return Lvn_Result_Failure;
+			}
+
+			VkImageViewCreateInfo colorImageView{};
+			colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			colorImageView.format = colorFormat;
+			colorImageView.flags = 0;
+			colorImageView.subresourceRange = {};
+			colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			colorImageView.subresourceRange.baseMipLevel = 0;
+			colorImageView.subresourceRange.levelCount = 1;
+			colorImageView.subresourceRange.baseArrayLayer = 0;
+			colorImageView.subresourceRange.layerCount = 1;
+			colorImageView.image = frameBufferData->colorImages[i];
+
+			if (vkCreateImageView(vkBackends->device, &colorImageView, nullptr, &frameBufferData->colorImageViews[i]) != VK_SUCCESS)
+			{
+				LVN_CORE_ERROR("[vulkan] failed to create image view <VkImageView> when creating framebuffer at (%p)", frameBuffer);
+				return Lvn_Result_Failure;
+			}
+
+			attachments[frameBufferData->colorAttachments[i].index] = frameBufferData->colorImageViews[i];
+
+			if (!frameBufferData->multisampling)
+			{
+				LvnTexture textureImage{};
+				textureImage.image = frameBufferData->colorImageViews[i];
+				textureImage.imageView = frameBufferData->colorImageViews[i];
+				textureImage.imageMemory = frameBufferData->colorImageMemory[i];
+				textureImage.sampler = frameBufferData->sampler;
+				frameBufferData->frameBufferImages[frameBufferData->colorAttachments[i].index] = textureImage;
+			}
+		}
+
+		// depth stencil attachment
+		if (frameBufferData->hasDepth)
+		{
+			VkFormat depthFormat = vks::getVulkanDepthFormatEnum(frameBufferData->depthAttachment.format);
+
+			if (vks::createImage(vkBackends, &frameBufferData->depthImage, &frameBufferData->depthImageMemory, frameBufferData->width, frameBufferData->height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, frameBufferData->sampleCount, VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
+			{
+				LVN_CORE_ERROR("[vulkan] failed to create image <VkImage> when creating framebuffer at (%p)", frameBuffer);
+				return Lvn_Result_Failure;
+			}
+
+			VkImageViewCreateInfo depthStencilView{};
+			depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			depthStencilView.format = depthFormat;
+			depthStencilView.flags = 0;
+			depthStencilView.subresourceRange = {};
+			depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (vks::hasStencilComponent(depthFormat))
+				depthStencilView.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+			depthStencilView.subresourceRange.baseMipLevel = 0;
+			depthStencilView.subresourceRange.levelCount = 1;
+			depthStencilView.subresourceRange.baseArrayLayer = 0;
+			depthStencilView.subresourceRange.layerCount = 1;
+
+			depthStencilView.image = frameBufferData->depthImage;
+			if (vkCreateImageView(vkBackends->device, &depthStencilView, nullptr, &frameBufferData->depthImageView) != VK_SUCCESS)
+			{
+				LVN_CORE_ERROR("[vulkan] failed to create image view <VkImageView> when creating frambuffer at (%p)", frameBuffer);
+				return Lvn_Result_Failure;
+			}
+
+			attachments[frameBufferData->depthAttachment.index] = frameBufferData->depthImageView;
+
+			LvnTexture textureImage{};
+			textureImage.image = frameBufferData->depthImage;
+			textureImage.imageView = frameBufferData->depthImageView;
+			textureImage.imageMemory = frameBufferData->depthImageMemory;
+			textureImage.sampler = frameBufferData->sampler;
+			frameBufferData->frameBufferImages[frameBufferData->depthAttachment.index] = textureImage;
+		}
+
+		// multisampling
+		if (frameBufferData->multisampling)
+		{
+			uint32_t colorAttachmentCount = frameBufferData->colorAttachments.size();
+			frameBufferData->msaaColorImages.resize(colorAttachmentCount);
+			frameBufferData->msaaColorImageViews.resize(colorAttachmentCount);
+			frameBufferData->msaaColorImageMemory.resize(colorAttachmentCount);
+
+			for (uint32_t i = 0; i < colorAttachmentCount; i++)
+			{
+				VkFormat colorFormat = vks::getVulkanColorFormatEnum(frameBufferData->colorAttachments[i].format);
+
+				if (vks::createImage(vkBackends, &frameBufferData->msaaColorImages[i], &frameBufferData->msaaColorImageMemory[i], frameBufferData->width, frameBufferData->height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT, VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
+				{
+					LVN_CORE_ERROR("[vulkan] failed to create image <VkImage> when creating framebuffer at (%p)", frameBuffer);
+					return Lvn_Result_Failure;
+				}
+
+				VkImageViewCreateInfo colorImageView{};
+				colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+				colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+				colorImageView.format = colorFormat;
+				colorImageView.flags = 0;
+				colorImageView.subresourceRange = {};
+				colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				colorImageView.subresourceRange.baseMipLevel = 0;
+				colorImageView.subresourceRange.levelCount = 1;
+				colorImageView.subresourceRange.baseArrayLayer = 0;
+				colorImageView.subresourceRange.layerCount = 1;
+				colorImageView.image = frameBufferData->msaaColorImages[i];
+
+				if (vkCreateImageView(vkBackends->device, &colorImageView, nullptr, &frameBufferData->msaaColorImageViews[i]) != VK_SUCCESS)
+				{
+					LVN_CORE_ERROR("[vulkan] failed to create image view <VkImageView> when creating framebuffer at (%p)", frameBuffer);
+					return Lvn_Result_Failure;
+				}
+
+				// msaa images should be in the same order to the attachments in render pass
+				attachments.push_back(frameBufferData->msaaColorImageViews[i]);
+
+				LvnTexture textureImage{};
+				textureImage.image = frameBufferData->msaaColorImages[i];
+				textureImage.imageView = frameBufferData->msaaColorImageViews[i];
+				textureImage.imageMemory = frameBufferData->msaaColorImageMemory[i];
+				textureImage.sampler = frameBufferData->sampler;
+				frameBufferData->frameBufferImages[frameBufferData->colorAttachments[i].index] = textureImage;
+			}
+		}
+
+		VkFramebufferCreateInfo fbufCreateInfo{};
+		fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		fbufCreateInfo.renderPass = frameBufferData->renderPass;
+		fbufCreateInfo.attachmentCount = attachments.size();
+		fbufCreateInfo.pAttachments = attachments.data();
+		fbufCreateInfo.width = frameBufferData->width;
+		fbufCreateInfo.height = frameBufferData->height;
+		fbufCreateInfo.layers = 1;
+
+		if (vkCreateFramebuffer(vkBackends->device, &fbufCreateInfo, nullptr, &frameBufferData->framebuffer) != VK_SUCCESS)
+		{
+			LVN_CORE_ERROR("[vulkan] failed to create offscreen framebuffer <VkFrameBuffer> when creating framebuffer object at (%p)", frameBuffer);
+			return Lvn_Result_Failure;
+		}
+
+		return Lvn_Result_Success;
 	}
 
 	static void cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
@@ -852,7 +1010,7 @@ namespace vks
 
 	}
 
-	static VkFormat	getVulkanFormatEnum(LvnImageFormat format)
+	static VkFormat	getVulkanColorFormatEnum(LvnColorImageFormat format)
 	{
 		switch (format)
 		{
@@ -868,8 +1026,7 @@ namespace vks
 			case Lvn_ImageFormat_SRGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
 			case Lvn_ImageFormat_SRGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
 			case Lvn_ImageFormat_RedInt: { return VK_FORMAT_R8_SINT; }
-			// case Lvn_ImageFormat_DepthComponent: { return VK_FORMAT_DEPTH_COMPONENT; }
-			case Lvn_ImageFormat_Depth24Stencil8: { return VK_FORMAT_D24_UNORM_S8_UINT; }
+
 			default:
 			{
 				LVN_CORE_WARN("unknown image format enum (%d), setting image format to undefined", format);
@@ -878,47 +1035,17 @@ namespace vks
 		}
 	}
 
-	static VkAttachmentLoadOp getVulkanLoadOpEnum(LvnAttachmentLoadOperation loadOp)
+	static VkFormat getVulkanDepthFormatEnum(LvnDepthImageFormat format)
 	{
-		switch (loadOp)
+		switch (format)
 		{
-			case Lvn_AttachmentLoadOp_Load: { return VK_ATTACHMENT_LOAD_OP_LOAD; }
-			case Lvn_AttachmentLoadOp_Clear: { return VK_ATTACHMENT_LOAD_OP_CLEAR; }
-			case Lvn_AttachmentLoadOp_DontCare: { return VK_ATTACHMENT_LOAD_OP_DONT_CARE; }
-			default:
-			{
-				LVN_CORE_WARN("unknown attachment load operation enum (%d), setting load op to dont_care", loadOp);
-				return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			}
-		}
-	}
+			case Lvn_ImageFormat_Depth24Stencil8: { return VK_FORMAT_D24_UNORM_S8_UINT; }
+			case Lvn_ImageFormat_Depth32Stencil8: { return VK_FORMAT_D32_SFLOAT_S8_UINT; }
 
-	static VkAttachmentStoreOp getVulkanStoreOpEnum(LvnAttachmentStoreOperation storeOp)
-	{
-		switch (storeOp)
-		{
-			case Lvn_AttachmentStoreOp_Store: { return VK_ATTACHMENT_STORE_OP_STORE; }
-			case Lvn_AttachmentStoreOp_DontCare: { return VK_ATTACHMENT_STORE_OP_DONT_CARE; }
 			default:
 			{
-				LVN_CORE_WARN("unknown attachment store operation enum (%d), setting store op to dont_care", storeOp);
-				return VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			}
-		}
-	}
-
-	static VkImageLayout getVulkanImageLayoutEnum(LvnImageLayout layout)
-	{
-		switch (layout)
-		{
-			case Lvn_ImageLayout_Undefined: { return VK_IMAGE_LAYOUT_UNDEFINED; }
-			case Lvn_ImageLayout_Present: { return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; }
-			case Lvn_ImageLayout_ColorAttachment: { return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; }
-			case Lvn_ImageLayout_DepthStencilAttachment: { return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; }
-			default:
-			{
-				LVN_CORE_WARN("unknown image layout enum (%d), setting image layout to undefined", layout);
-				return VK_IMAGE_LAYOUT_UNDEFINED;
+				LVN_CORE_WARN("unknown image format enum (%u), image format must be a depth component format", format);
+				return VK_FORMAT_UNDEFINED;
 			}
 		}
 	}
@@ -1141,7 +1268,6 @@ namespace vks
 			case Lvn_SampleCount_16_Bit: { return VK_SAMPLE_COUNT_16_BIT; }
 			case Lvn_SampleCount_32_Bit: { return VK_SAMPLE_COUNT_32_BIT; }
 			case Lvn_SampleCount_64_Bit: { return VK_SAMPLE_COUNT_64_BIT; }
-			case Lvn_SampleCount_Max_Bit: { return VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM; }
 			default:
 			{
 				LVN_CORE_WARN("unknown sampler count enum (%d), setting to sample count enum 1 bit (default)", samples);
@@ -1611,7 +1737,7 @@ namespace vks
 		vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
 	}
 
-	static LvnResult createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage memUsage)
+	static LvnResult createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage)
 	{
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1625,7 +1751,7 @@ namespace vks
 		imageInfo.tiling = tiling;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageInfo.usage = usage;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageInfo.samples = samples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		VmaAllocationCreateInfo allocInfo{};
@@ -1633,7 +1759,7 @@ namespace vks
 
 		if (vmaCreateImage(vkBackends->vmaAllocator, &imageInfo, &allocInfo, image, imageMemory, nullptr) != VK_SUCCESS)
 		{
-			LVN_CORE_ERROR("[vulkan] failed to create image <VkImage> (%p), image memory: (%p), image size: (w:%u, h:%u)", *image, *imageMemory, width, height);
+			LVN_CORE_ERROR("[vulkan] failed to create image <VkImage>, image size: (w:%u, h:%u)", width, height);
 			return Lvn_Result_Failure;
 		}
 
@@ -1805,6 +1931,8 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 	vks::createCommandBuffers(vkBackends, &surfaceData);
 	vks::createSyncObjects(vkBackends, &surfaceData);
 
+	surfaceData.clearColor = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+
 	window->apiData = lvn::memAlloc(sizeof(VulkanWindowSurfaceData));
 	memcpy(window->apiData, &surfaceData, sizeof(VulkanWindowSurfaceData));
 }
@@ -1883,7 +2011,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
 	graphicsContext->renderInit = vksImplRenderInit;
-	graphicsContext->createRenderPass = vksImplCreateRenderPass;
 	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
@@ -1894,7 +2021,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->createUniformBuffer = vksImplCreateUniformBuffer;
 	graphicsContext->createTexture = vksImplCreateTexture;
 	
-	graphicsContext->destroyRenderPass = vksImplDestroyRenderPass;
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
@@ -1903,6 +2029,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->destroyUniformBuffer = vksImplDestroyUniformBuffer;
 	graphicsContext->destroyTexture = vksImplDestroyTexture;
 
+	graphicsContext->renderClearColor = vksImplRenderClearColor;
 	graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
 	graphicsContext->renderCmdDrawIndexed = vksImplRenderCmdDrawIndexed;
 	graphicsContext->renderCmdDrawInstanced = vksImplRenderCmdDrawInstanced;
@@ -1919,11 +2046,17 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->renderCmdBindVertexBuffer = vksImplRenderCmdBindVertexBuffer;
 	graphicsContext->renderCmdBindIndexBuffer = vksImplRenderCmdBindIndexBuffer;
 	graphicsContext->renderCmdBindDescriptorLayout = vksImplRenderCmdBindDescriptorLayout;
+	graphicsContext->renderCmdBeginFrameBuffer = vksImplRenderCmdBeginFrameBuffer;
+	graphicsContext->renderCmdEndFrameBuffer = vksImplRenderCmdEndFrameBuffer;
 
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 	graphicsContext->updateDescriptorLayoutData = vksImplUpdateDescriptorLayoutData;
+	graphicsContext->getFrameBufferImage = vksImplGetFrameBufferImage;
+	graphicsContext->getFrameBufferRenderPass = vksImplGetFrameBufferRenderPass;
+	graphicsContext->updateFrameBuffer = vksImplUpdateFrameBuffer;
+	graphicsContext->setFrameBufferClearColor = vksImplSetFrameBufferClearColor;
 
 	// Create Vulkan Instance
 	if (vks::createVulkanInstace(vkBackends, enableValidation) != Lvn_Result_Success)
@@ -2080,6 +2213,12 @@ void vksImplRenderCmdClear()
 
 }
 
+void vksImplRenderClearColor(LvnWindow* window, float r, float g, float b, float a)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	surfaceData->clearColor = {{ r, g, b, a }};
+}
+
 void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
@@ -2225,7 +2364,7 @@ void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 	renderPassInfo.renderArea.extent = surfaceData->swapChainExtent;
 
 	VkClearValue clearColor[2];
-	clearColor[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+	clearColor[0].color = surfaceData->clearColor;
 	clearColor[1].depthStencil = {1.0f, 0};
 
 	renderPassInfo.clearValueCount = ARRAY_LEN(clearColor);
@@ -2291,88 +2430,45 @@ void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeli
 	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 }
 
-LvnResult vksImplCreateRenderPass(LvnRenderPass* renderPass, LvnRenderPassCreateInfo* createInfo)
+void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
-	VulkanBackends* vkBackends = s_VkBackends;
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 
-	LvnVector<VkAttachmentDescription> attachments(createInfo->attachmentCount);
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = frameBufferData->renderPass;
+	renderPassInfo.framebuffer = frameBufferData->framebuffer;
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent.width = frameBufferData->width;
+	renderPassInfo.renderArea.extent.height = frameBufferData->height;
+	renderPassInfo.clearValueCount = frameBufferData->clearValues.size();
+	renderPassInfo.pClearValues = frameBufferData->clearValues.data();
 
-	LvnVector<VkAttachmentReference> colorReferences;
-	LvnVector<VkAttachmentReference> resolveReferences;
-	VkAttachmentReference depthReference;
-	bool hasDepth = false, hasResolve = false, multisampling = false;
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = static_cast<float>(frameBufferData->width);
+	viewport.height = static_cast<float>(frameBufferData->height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &viewport);
 
-	for (uint32_t i = 0; i < createInfo->attachmentCount; i++)
-	{
-		LvnRenderPassAttachment* attachment = &createInfo->pAttachments[i];
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent.width = frameBufferData->width;
+	scissor.extent.height = frameBufferData->height;
+	vkCmdSetScissor(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &scissor);
 
-		VkAttachmentDescription attachmentDescription{};
-		attachmentDescription.format = vks::getVulkanFormatEnum(attachment->format);
-		attachmentDescription.samples = vks::getSampleCountFlagEnum(attachment->samples);
-		attachmentDescription.loadOp = vks::getVulkanLoadOpEnum(attachment->loadOp);
-		attachmentDescription.storeOp = vks::getVulkanStoreOpEnum(attachment->storeOp);
-		attachmentDescription.stencilLoadOp = vks::getVulkanLoadOpEnum(attachment->stencilLoadOp);
-		attachmentDescription.stencilStoreOp = vks::getVulkanStoreOpEnum(attachment->stencilStoreOp);
-		attachmentDescription.initialLayout = vks::getVulkanImageLayoutEnum(attachment->initialLayout);
-		attachmentDescription.finalLayout = vks::getVulkanImageLayoutEnum(attachment->finalLayout);
+	vkCmdBeginRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
 
-		attachments[i] = attachmentDescription;
+void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 
-		if (attachment->samples != Lvn_SampleCount_1_Bit) { multisampling = true; }
-
-		if (attachment->type == Lvn_AttachmentType_Color) // color
-		{
-			colorReferences.push_back({ i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-		}
-		else if (attachment->type == Lvn_AttachmentType_Depth) // depth
-		{
-			if (hasDepth) // check depth included once
-			{
-				LVN_CORE_ERROR("attachment->type is \'Lvn_AttachmentType_Depth\' but a depth attachment has already been included before, a render pass cannot have more than one depth attachments");
-				return Lvn_Result_Failure;
-			}
-			hasDepth = true;
-
-			depthReference = { i, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-		}
-		else if (attachment->type == Lvn_AttachmentType_Resolve) // multisampling
-		{
-			resolveReferences.push_back({ i, vks::getVulkanImageLayoutEnum(attachment->finalLayout) });
-			hasResolve = true;
-		}
-		else
-		{
-			LVN_CORE_ERROR("cannot identify attachment->type to its attachment reference");
-			return Lvn_Result_Failure;
-		}
-	}
-
-	if (hasResolve != multisampling)
-	{
-		LVN_CORE_ERROR("attachment->samples has samples greater than one (multisampling) but not resolve attachments were included");
-		return Lvn_Result_Failure;
-	}
-
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = colorReferences.size();
-	subpass.pColorAttachments = colorReferences.data();
-	if (hasDepth) { subpass.pDepthStencilAttachment = &depthReference; }
-	if (hasResolve) { subpass.pResolveAttachments = resolveReferences.data(); }
-
-	VkRenderPassCreateInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = attachments.size();
-	renderPassInfo.pAttachments = attachments.data();
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-
-	VkRenderPass vkRenderPass;
-	LVN_CORE_CALL_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &vkRenderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
-	
-	renderPass->nativeRenderPass = vkRenderPass;
-
-	return Lvn_Result_Success;
+	vkCmdEndRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame]);
 }
 
 LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
@@ -2564,6 +2660,177 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 
 LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	frameBuffer->frameBufferData = new VulkanFrameBufferData();
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+	frameBufferData->width = createInfo->width;
+	frameBufferData->height = createInfo->height;
+
+	frameBufferData->colorAttachments.copy_back(createInfo->pColorAttachments, createInfo->colorAttachmentCount);
+	frameBufferData->colorImages.resize(createInfo->colorAttachmentCount);
+	frameBufferData->colorImageMemory.resize(createInfo->colorAttachmentCount);
+	frameBufferData->colorImageViews.resize(createInfo->colorAttachmentCount);
+
+	VkFilter filter = vks::getTextureFilterEnum(createInfo->textureFilter);
+	VkSamplerAddressMode addressMode = vks::getTextureWrapModeEnum(createInfo->textureMode);
+
+	frameBufferData->sampleCount = vks::getSampleCountFlagEnum(createInfo->sampleCount);
+	frameBufferData->multisampling = createInfo->sampleCount != Lvn_SampleCount_1_Bit;
+	frameBufferData->hasDepth = createInfo->depthAttachment != nullptr;
+	frameBufferData->totalAttachmentCount = createInfo->colorAttachmentCount + (frameBufferData->hasDepth ? 1 : 0);
+	frameBufferData->clearValues.resize(frameBufferData->totalAttachmentCount);
+
+	LvnVector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
+
+	LvnVector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
+	VkAttachmentReference depthReference;
+
+	// Color attachments
+	for (uint32_t i = 0; i < createInfo->colorAttachmentCount; i++)
+	{
+		LvnFrameBufferColorAttachment colorAttachment = createInfo->pColorAttachments[i];
+		VkFormat colorFormat = vks::getVulkanColorFormatEnum(createInfo->pColorAttachments[i].format);
+
+		VkAttachmentDescription attchmentDescription{};
+		attchmentDescription.format = colorFormat;
+		attchmentDescription.samples = frameBufferData->sampleCount;
+		attchmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attchmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attchmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attchmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attchmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attchmentDescription.finalLayout = frameBufferData->multisampling ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		attachmentDescriptions[colorAttachment.index] = attchmentDescription;
+		colorReference[i] = { colorAttachment.index, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+		frameBufferData->clearValues[createInfo->pColorAttachments[i].index].color = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+	}
+
+	// Depth attachment
+	if (createInfo->depthAttachment != nullptr)
+	{
+		frameBufferData->depthAttachment = *createInfo->depthAttachment;
+
+		VkAttachmentDescription attchmentDescription{};
+		attchmentDescription.format = vks::getVulkanDepthFormatEnum(createInfo->depthAttachment->format);
+		attchmentDescription.samples = frameBufferData->sampleCount;
+		attchmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attchmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attchmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attchmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attchmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attchmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		attachmentDescriptions[createInfo->depthAttachment->index] = attchmentDescription;
+		depthReference = { createInfo->depthAttachment->index, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+		frameBufferData->clearValues[createInfo->depthAttachment->index].depthStencil = { 1.0f, 0 };
+	}
+
+	// Multisample
+	LvnVector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
+
+	if (frameBufferData->multisampling)
+	{
+		uint32_t attachmentCount = attachmentDescriptions.size();
+
+		for (uint32_t i = 0; i < createInfo->colorAttachmentCount; i++)
+		{
+			VkFormat colorFormat = vks::getVulkanColorFormatEnum(frameBufferData->colorAttachments[i].format);
+
+			VkAttachmentDescription attachmentResolve{};
+			attachmentResolve.format = colorFormat;
+			attachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+			attachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			attachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			attachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			attachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			attachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			attachmentDescriptions.push_back(attachmentResolve);
+
+			VkAttachmentReference attachResolve{};
+			attachResolve.attachment = attachmentCount + i;
+			attachResolve.layout = attachmentDescriptions[i].finalLayout;
+			attachReferenceResolves[i] = attachResolve;
+		}
+	}
+
+	VkSubpassDescription subpassDescription{};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = colorReference.size();
+	subpassDescription.pColorAttachments = colorReference.data();
+
+	if (frameBufferData->hasDepth)
+		subpassDescription.pDepthStencilAttachment = &depthReference;
+	if (frameBufferData->multisampling)
+		subpassDescription.pResolveAttachments = attachReferenceResolves.data();
+
+	// Use subpass dependencies for layout transitions
+	VkSubpassDependency dependencies[2];
+
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass = 0;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	dependencies[1].srcSubpass = 0;
+	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	// create the renderpass framebuffer
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = attachmentDescriptions.size();
+	renderPassInfo.pAttachments = attachmentDescriptions.data();
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpassDescription;
+	renderPassInfo.dependencyCount = ARRAY_LEN(dependencies);
+	renderPassInfo.pDependencies = dependencies;
+
+	VkRenderPass renderPass;
+	if (vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create render pass <VkRenderPass> (%p) when creating framebuffer at (%p)", renderPass, frameBuffer);
+		return Lvn_Result_Failure;
+	}
+	frameBufferData->renderPass = renderPass;
+	frameBufferData->frameBufferRenderPass.nativeRenderPass = renderPass;
+
+	// create texture info
+	VkSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.magFilter = filter;
+	samplerCreateInfo.minFilter = filter;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = addressMode;
+	samplerCreateInfo.addressModeV = addressMode;
+	samplerCreateInfo.addressModeW = addressMode;
+	samplerCreateInfo.mipLodBias = 0.0f;
+	samplerCreateInfo.maxAnisotropy = 1.0f;
+	samplerCreateInfo.minLod = 0.0f;
+	samplerCreateInfo.maxLod = 1.0f;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+
+	VkSampler sampler;
+	if (vkCreateSampler(vkBackends->device, &samplerCreateInfo, nullptr, &sampler) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create sampler <VkSampler> (%p) when creating framebuffer at (%p)", sampler, frameBuffer);
+		return Lvn_Result_Failure;
+	}
+	frameBufferData->sampler = sampler;
+
+	// create actual framebuffer
+	vks::createOffscreenFrameBuffer(vkBackends, frameBuffer);
+
 	return Lvn_Result_Success;
 }
 
@@ -2667,6 +2934,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 		VK_FORMAT_R8G8B8A8_SRGB,
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_SAMPLE_COUNT_1_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
 	{
 		return Lvn_Result_Failure;
@@ -2749,14 +3017,6 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	return Lvn_Result_Success;
 }
 
-void vksImplDestroyRenderPass(LvnRenderPass* renderPass)
-{
-	VulkanBackends* vkBackends = s_VkBackends;
-
-	VkRenderPass vkRenderPass = static_cast<VkRenderPass>(renderPass->nativeRenderPass);
-	vkDestroyRenderPass(vkBackends->device, vkRenderPass, nullptr);
-}
-
 void vksImplDestroyShader(LvnShader* shader)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
@@ -2795,7 +3055,40 @@ void vksImplDestroyPipeline(LvnPipeline* pipeline)
 
 void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
 
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+
+	for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
+	{
+		vkDestroyImage(vkBackends->device, frameBufferData->colorImages[i], nullptr);
+		vkDestroyImageView(vkBackends->device, frameBufferData->colorImageViews[i], nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, frameBufferData->colorImageMemory[i]);
+	}
+
+	if (frameBufferData->hasDepth)
+	{
+		vkDestroyImage(vkBackends->device, frameBufferData->depthImage, nullptr);
+		vkDestroyImageView(vkBackends->device, frameBufferData->depthImageView, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, frameBufferData->depthImageMemory);
+	}
+
+	if (frameBufferData->multisampling)
+	{
+		for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
+		{
+			vkDestroyImage(vkBackends->device, frameBufferData->msaaColorImages[i], nullptr);
+			vkDestroyImageView(vkBackends->device, frameBufferData->msaaColorImageViews[i], nullptr);
+			vmaFreeMemory(vkBackends->vmaAllocator, frameBufferData->msaaColorImageMemory[i]);
+		}
+	}
+
+	vkDestroyRenderPass(vkBackends->device, frameBufferData->renderPass, nullptr);
+	vkDestroySampler(vkBackends->device, frameBufferData->sampler, nullptr);
+	vkDestroyFramebuffer(vkBackends->device, frameBufferData->framebuffer, nullptr);
+
+	delete frameBufferData;
 }
 
 void vksImplDestroyBuffer(LvnBuffer* buffer)
@@ -2862,7 +3155,7 @@ void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, Lv
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorLayout->descriptorSets;
-
+	vkDeviceWaitIdle(vkBackends->device);
 
 	for (uint32_t i = 0; i < count; i++)
 	{
@@ -2902,6 +3195,66 @@ void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, Lv
 			vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);
 		}
 	}
+}
+
+LvnTexture* vksImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex)
+{
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(framebuffer->frameBufferData);
+	LVN_CORE_ASSERT(attachmentIndex < frameBufferData->totalAttachmentCount, "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->totalAttachmentCount, framebuffer);
+
+	return &frameBufferData->frameBufferImages[attachmentIndex];
+}
+
+LvnRenderPass* vksImplGetFrameBufferRenderPass(LvnFrameBuffer* frameBuffer)
+{
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+	return &frameBufferData->frameBufferRenderPass;
+}
+
+void vksImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
+
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+
+	for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
+	{
+		vkDestroyImage(vkBackends->device, frameBufferData->colorImages[i], nullptr);
+		vkDestroyImageView(vkBackends->device, frameBufferData->colorImageViews[i], nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, frameBufferData->colorImageMemory[i]);
+	}
+
+	if (frameBufferData->hasDepth)
+	{
+		vkDestroyImage(vkBackends->device, frameBufferData->depthImage, nullptr);
+		vkDestroyImageView(vkBackends->device, frameBufferData->depthImageView, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, frameBufferData->depthImageMemory);
+	}
+
+	if (frameBufferData->multisampling)
+	{
+		for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
+		{
+			vkDestroyImage(vkBackends->device, frameBufferData->msaaColorImages[i], nullptr);
+			vkDestroyImageView(vkBackends->device, frameBufferData->msaaColorImageViews[i], nullptr);
+			vmaFreeMemory(vkBackends->vmaAllocator, frameBufferData->msaaColorImageMemory[i]);
+		}
+	}
+
+	vkDestroyFramebuffer(vkBackends->device, frameBufferData->framebuffer, nullptr);
+
+	frameBufferData->width = width;
+	frameBufferData->height = height;
+	vks::createOffscreenFrameBuffer(vkBackends, frameBuffer);
+}
+
+void vksImplSetFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
+{
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+	LVN_CORE_ASSERT(attachmentIndex < frameBufferData->totalAttachmentCount, "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->totalAttachmentCount, frameBuffer);
+
+	frameBufferData->clearValues[attachmentIndex].color = {{ r, g, b, a }};
 }
 
 } /* namespace lvn */

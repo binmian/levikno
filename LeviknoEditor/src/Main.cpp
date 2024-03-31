@@ -132,24 +132,21 @@ int main()
 	lvn::setWindowEventCallback(window, eventsCallbackFn);
 
 
-	LvnRenderPassAttachment colorAttachment{};
-	colorAttachment.type = Lvn_AttachmentType_Color;
-	colorAttachment.format = Lvn_ImageFormat_RGBA8;
-	colorAttachment.loadOp = Lvn_AttachmentLoadOp_Clear;
-	colorAttachment.storeOp = Lvn_AttachmentStoreOp_Store;
-	colorAttachment.stencilLoadOp = Lvn_AttachmentLoadOp_DontCare;
-	colorAttachment.stencilStoreOp = Lvn_AttachmentStoreOp_DontCare;
-	colorAttachment.samples = Lvn_SampleCount_1_Bit;
-	colorAttachment.initialLayout = Lvn_ImageLayout_Undefined;
-	colorAttachment.finalLayout = Lvn_ImageLayout_Present;
+	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ImageFormat_RGBA32F };
+	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, Lvn_ImageFormat_Depth32Stencil8 };
 
-	LvnRenderPassCreateInfo renderPassCreateInfo{};
-	renderPassCreateInfo.attachmentCount = 1;
-	renderPassCreateInfo.pAttachments = &colorAttachment;
+	LvnFrameBufferCreateInfo frameBufferCreateInfo{};
+	frameBufferCreateInfo.width = 800;
+	frameBufferCreateInfo.height = 600;
+	frameBufferCreateInfo.sampleCount = Lvn_SampleCount_8_Bit;
+	frameBufferCreateInfo.pColorAttachments = &frameBufferColorAttachment;
+	frameBufferCreateInfo.colorAttachmentCount = 1;
+	frameBufferCreateInfo.depthAttachment = &frameBufferDepthAttachment;
+	frameBufferCreateInfo.textureMode = Lvn_TextureMode_ClampToEdge;
+	frameBufferCreateInfo.textureFilter = Lvn_TextureFilter_Linear;
 
-	LvnRenderPass* renderPass;
-	lvn::createRenderPass(&renderPass, &renderPassCreateInfo);
-
+	LvnFrameBuffer* frameBuffer;
+	lvn::createFrameBuffer(&frameBuffer, &frameBufferCreateInfo);
 
 	LvnShaderCreateInfo shaderCreateInfo{};
 	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkvert.spv";
@@ -182,6 +179,12 @@ int main()
 	textureDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	textureDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	textureDescriptorBinding.descriptorCount = 1;
+
+	LvnDescriptorBinding framebufferDescriptorBinding{};
+	framebufferDescriptorBinding.binding = 1;
+	framebufferDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	framebufferDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	framebufferDescriptorBinding.descriptorCount = 1;
 
 	std::vector<LvnDescriptorBinding> descriptorBindings = 
 	{
@@ -217,6 +220,36 @@ int main()
 
 	lvn::destroyShader(shader);
 
+
+	LvnShaderCreateInfo fbShaderCreateInfo{};
+	fbShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFBvert.spv";
+	fbShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFBfrag.spv";
+
+	LvnShader* fbShader;
+	lvn::createShaderFromFileBin(&fbShader, &fbShaderCreateInfo);
+
+	std::vector<LvnDescriptorBinding> fbDescriptorBinding =
+	{
+		uniformDescriptorBinding, framebufferDescriptorBinding,
+	};
+
+	LvnDescriptorLayoutCreateInfo fbDescriptorLayoutCreateInfo{};
+	fbDescriptorLayoutCreateInfo.pDescriptorBindings = fbDescriptorBinding.data();
+	fbDescriptorLayoutCreateInfo.descriptorBindingCount = fbDescriptorBinding.size();
+
+	LvnDescriptorLayout* fbDescriptorLayout;
+	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
+
+	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
+	pipelineCreateInfo.shader = fbShader;
+	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
+	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
+
+	LvnPipeline* fbPipeline;
+	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
+
+	lvn::destroyShader(fbShader);
+
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
@@ -242,9 +275,16 @@ int main()
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
 
+	LvnUniformBufferCreateInfo fbUniformBufferInfo{};
+	fbUniformBufferInfo.binding = 0;
+	fbUniformBufferInfo.type = Lvn_BufferType_Uniform;
+	fbUniformBufferInfo.size = sizeof(UniformData);
+
+	LvnUniformBuffer* fbUniformBuffer;
+	lvn::createUniformBuffer(&fbUniformBuffer, &fbUniformBufferInfo);
 
 	LvnTextureCreateInfo textureCreateInfo{};
-	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png";
+	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/grass.png";
 	textureCreateInfo.binding = 1;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
@@ -273,10 +313,31 @@ int main()
 
 	lvn::updateDescriptorLayoutData(descriptorLayout, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
 
+	LvnDescriptorUpdateInfo fbDescriptorUniformUpdateInfo{};
+	fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	fbDescriptorUniformUpdateInfo.binding = 0;
+	fbDescriptorUniformUpdateInfo.descriptorCount = 1;
+	fbDescriptorUniformUpdateInfo.bufferInfo = fbUniformBuffer;
+
+	LvnDescriptorUpdateInfo fbDescriptorTextureUpdateInfo{};
+	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	fbDescriptorTextureUpdateInfo.binding = 1;
+	fbDescriptorTextureUpdateInfo.descriptorCount = 1;
+	fbDescriptorTextureUpdateInfo.textureInfo = lvn::getFrameBufferImage(frameBuffer, 0);
+
+	std::vector<LvnDescriptorUpdateInfo> fbDescriptorUpdateInfo =
+	{
+		fbDescriptorUniformUpdateInfo, fbDescriptorTextureUpdateInfo,
+	};
+
+	lvn::updateDescriptorLayoutData(fbDescriptorLayout, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
+
+
 	auto startTime = std::chrono::high_resolution_clock::now();
 
 
 	UniformData uniformData{};
+	int winWidth, winHeight;
 
 	while (lvn::windowOpen(window))
 	{
@@ -296,11 +357,35 @@ int main()
 		
 		uniformData.matrix = camera;
 
+		if (winWidth != width || winHeight != height)
+		{
+			lvn::updateFrameBuffer(frameBuffer, width, height);
+
+			fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+			fbDescriptorUniformUpdateInfo.binding = 0;
+			fbDescriptorUniformUpdateInfo.descriptorCount = 1;
+			fbDescriptorUniformUpdateInfo.bufferInfo = fbUniformBuffer;
+
+			fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+			fbDescriptorTextureUpdateInfo.binding = 1;
+			fbDescriptorTextureUpdateInfo.descriptorCount = 1;
+			fbDescriptorTextureUpdateInfo.textureInfo = lvn::getFrameBufferImage(frameBuffer, 0);
+
+			fbDescriptorUpdateInfo =
+			{
+				fbDescriptorUniformUpdateInfo, fbDescriptorTextureUpdateInfo,
+			};
+
+			lvn::updateDescriptorLayoutData(fbDescriptorLayout, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
+		}
+
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
-		lvn::renderCmdBeginRenderPass(window);
 
-		lvn::renderCmdBindPipeline(window, pipeline);
+		lvn::setFrameBufferClearColor(frameBuffer, 0, 0.01f, 0.06f, 0.12f, 1.0f);
+		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
+
+		lvn::renderCmdBindPipeline(window, fbPipeline);
 
 		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
 
@@ -310,18 +395,40 @@ int main()
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
+		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
+
+		lvn::renderClearColor(window, abs(sin(time)) * 0.1f, 0.0f, abs(cos(time)) * 0.1f, 1.0f);
+		lvn::renderCmdBeginRenderPass(window);
+
+		uniformData.matrix = lvn::mat4(1.0f);
+
+		lvn::renderCmdBindPipeline(window, pipeline);
+		lvn::updateUniformBufferData(window, fbUniformBuffer, &uniformData, sizeof(UniformData));
+
+		lvn::renderCmdBindVertexBuffer(window, buffer);
+		lvn::renderCmdBindIndexBuffer(window, buffer);
+
+		lvn::renderCmdBindDescriptorLayout(window, fbPipeline, fbDescriptorLayout);
+		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
+
 		lvn::renderCmdEndRenderPass(window);
 		lvn::renderEndCommandRecording(window);
 		lvn::renderDrawSubmit(window);
 
+		winWidth = width;
+		winHeight = height;
 	}
 
+	lvn::destroyFrameBuffer(frameBuffer);
 	lvn::destroyTexture(texture);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyBuffer(buffer);
 	lvn::destroyDescriptorLayout(descriptorLayout);
 	lvn::destroyPipeline(pipeline);
-	lvn::destroyRenderPass(renderPass);
+
+	lvn::destroyUniformBuffer(fbUniformBuffer);
+	lvn::destroyDescriptorLayout(fbDescriptorLayout);
+	lvn::destroyPipeline(fbPipeline);
 
 	lvn::destroyWindow(window);
 	lvn::terminateContext();

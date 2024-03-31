@@ -171,29 +171,29 @@ struct LvnVector
 		return m_Data[i];
 	}
 
-	T*			begin() { return m_Data; }
-	const T*	begin() const { return m_Data; }
-	T*			end() { return m_Data + m_Size; }
-	const T*	end() const { return m_Data + m_Size; }
-	T&			front() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
-	const T&	front() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
-	T&			back() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
-	const T&	back() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
+	T*          begin() { return m_Data; }
+	const T*    begin() const { return m_Data; }
+	T*          end() { return m_Data + m_Size; }
+	const T*    end() const { return m_Data + m_Size; }
+	T&          front() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
+	const T&    front() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
+	T&          back() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
+	const T&    back() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
 
 
-	bool		empty() { return m_Size == 0; }
-	void		clear() { if (m_Data) { memset(m_Data, 0, m_Size * sizeof(T)); } m_Size = 0; }
-	void		clear_free() { if (m_Data) { lvn::memFree(m_Data); m_Size = 0; m_Capacity = 0; m_Data = nullptr; } }
-	void		erase(const T* it) { LVN_CORE_ASSERT(it >= m_Data && it < m_Data + m_Size, "element not within vector index!"); size_t off = it - m_Data; memmove(m_Data + off, m_Data + off + 1, (m_Size - off - 1) * sizeof(T)); m_Size--; }
-	T*			data() { return m_Data; }
-	uint32_t	size() { return m_Size; }
-	uint32_t	memsize() { return m_Size * sizeof(T); }
-	void		resize(uint32_t size) { if (size > m_Capacity) { reserve(size); } m_Size = size; }
-	void		reserve(uint32_t size) { if (size <= m_Size) return; T* newsize = (T*)lvn::memAlloc(size * sizeof(T)); memcpy(newsize, m_Data, m_Size * sizeof(T)); lvn::memFree(m_Data); m_Data = newsize; m_Capacity = size; }
+	bool        empty() { return m_Size == 0; }
+	void        clear() { if (m_Data) { memset(m_Data, 0, m_Size * sizeof(T)); } m_Size = 0; }
+	void        clear_free() { if (m_Data) { lvn::memFree(m_Data); m_Size = 0; m_Capacity = 0; m_Data = nullptr; } }
+	void        erase(const T* it) { LVN_CORE_ASSERT(it >= m_Data && it < m_Data + m_Size, "element not within vector index!"); size_t off = it - m_Data; memmove(m_Data + off, m_Data + off + 1, (m_Size - off - 1) * sizeof(T)); m_Size--; }
+	T*          data() { return m_Data; }
+	uint32_t    size() { return m_Size; }
+	uint32_t    memsize() { return m_Size * sizeof(T); }
+	void        resize(uint32_t size) { if (size > m_Capacity) { reserve(size); } m_Size = size; }
+	void        reserve(uint32_t size) { if (size <= m_Size) return; T* newsize = (T*)lvn::memAlloc(size * sizeof(T)); memcpy(newsize, m_Data, m_Size * sizeof(T)); lvn::memFree(m_Data); m_Data = newsize; m_Capacity = size; }
 
-	void		push_back(const T& e) { resize(m_Size + 1); memcpy(&m_Data[m_Size - 1], &e, sizeof(T)); }
-	void		copy_back(T* data, uint32_t size) { resize(m_Size + size); memcpy(&m_Data[m_Size - size], data, size * sizeof(T)); }
-	T*			find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
+	void        push_back(const T& e) { resize(m_Size + 1); memcpy(&m_Data[m_Size - 1], &e, sizeof(T)); }
+	void        copy_back(T* data, uint32_t size) { resize(m_Size + size); memcpy(&m_Data[m_Size - size], data, size * sizeof(T)); }
+	T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
 };
 
 
@@ -328,7 +328,6 @@ struct LvnGraphicsContext
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
 	LvnResult                   (*renderInit)(LvnRenderInitInfo*);
 
-	LvnResult                   (*createRenderPass)(LvnRenderPass*, LvnRenderPassCreateInfo*);
 	LvnResult                   (*createShaderFromSrc)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createShaderFromFileBin)(LvnShader*, LvnShaderCreateInfo*);
@@ -339,7 +338,6 @@ struct LvnGraphicsContext
 	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
 	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
 
-	void                        (*destroyRenderPass)(LvnRenderPass*);
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
 	void                        (*destroyPipeline)(LvnPipeline*);
@@ -348,6 +346,7 @@ struct LvnGraphicsContext
 	void                        (*destroyUniformBuffer)(LvnUniformBuffer*);
 	void                        (*destroyTexture)(LvnTexture*);
 
+	void                        (*renderClearColor)(LvnWindow* window, float r, float g, float b, float a);
 	void                        (*renderBeginNextFrame)(LvnWindow*);
 	void                        (*renderDrawSubmit)(LvnWindow*);
 	void                        (*renderBeginCommandRecording)(LvnWindow*);
@@ -364,11 +363,17 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, LvnBuffer*);
 	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*);
 	void                        (*renderCmdBindDescriptorLayout)(LvnWindow*, LvnPipeline*, LvnDescriptorLayout*);
+	void                        (*renderCmdBeginFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
+	void                        (*renderCmdEndFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 
 	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
 	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
 	void                        (*updateDescriptorLayoutData)(LvnDescriptorLayout*, LvnDescriptorUpdateInfo*, uint32_t);
+	LvnTexture*                 (*getFrameBufferImage)(LvnFrameBuffer*, uint32_t);
+	LvnRenderPass*              (*getFrameBufferRenderPass)(LvnFrameBuffer*);
+	void                        (*updateFrameBuffer)(LvnFrameBuffer*, uint32_t, uint32_t);
+	void                        (*setFrameBufferClearColor)(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 };
 
 struct LvnPhysicalDevice
@@ -404,11 +409,6 @@ struct LvnPipeline
 	void* nativePipelineLayout;
 };
 
-struct LvnFrameBuffer
-{
-
-};
-
 struct LvnBuffer
 {
 	void* vertexBuffer;
@@ -433,6 +433,11 @@ struct LvnTexture
 	void* imageMemory;
 	void* imageView;
 	void* sampler;
+};
+
+struct LvnFrameBuffer
+{
+	void* frameBufferData;
 };
 
 struct LvnContext
