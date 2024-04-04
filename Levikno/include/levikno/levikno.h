@@ -992,7 +992,8 @@ namespace lvn
 	LVN_API std::string             getDateSecondNumStr();                              // get the current second as a string
 
 
-	LvnData<uint8_t>                getFileSrcBin(const char* filepath);                // get the binary data contents (in unsigned char*) from a binary file, filepath must be a valid path to a binary file
+	LVN_API std::string             getFileSrc(const char* filepath);                   // get the src contents from a text file format, filepath must be a valid path to a text file
+	LvnData<uint8_t>                getFileSrcBin(const char* filepath);                // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
 
 
 	LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use

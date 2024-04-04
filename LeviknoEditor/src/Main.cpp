@@ -1,5 +1,6 @@
 ﻿#include <levikno/levikno.h>
 
+#include <string>
 #include <vector>
 #include <chrono>
 
@@ -89,7 +90,6 @@ int main()
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
-
 
 	uint32_t deviceCount = 0;
 	std::vector<LvnPhysicalDevice*> devices;

@@ -317,14 +317,11 @@ std::string getFileSrc(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 	
-	char* filesrc = (char*)lvn::memAlloc(size * sizeof(char));
-	fread(filesrc, sizeof(char), size, fileptr);
+	std::vector<char> src(size);
+	fread(src.data(), sizeof(char), size, fileptr);
 	fclose(fileptr);
 
-	std::string fileStr = std::string(filesrc, size);
-	lvn::memFree(filesrc);
-
-	return fileStr;
+	return std::string(src.data(), src.data() + src.size());
 }
 
 LvnData<uint8_t> getFileSrcBin(const char* filepath)
@@ -338,6 +335,7 @@ LvnData<uint8_t> getFileSrcBin(const char* filepath)
 
 	std::vector<uint8_t> bin(size);
 	fread(bin.data(), sizeof(uint8_t), size, fileptr);
+	fclose(fileptr);
 
 	return LvnData<uint8_t>(bin.data(), bin.size());
 }
