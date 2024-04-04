@@ -23,16 +23,16 @@ static LvnContext* s_LvnContext = nullptr;
 namespace lvn
 {
 
-static void         enableLogANSIcodeColors();
-static void         logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32_t* logPatternCount);
-static const char*  getLogLevelColor(LvnLogLevel level);
-static const char*  getLogLevelName(LvnLogLevel level);
-static const char*  getGraphicsApiNameEnum(LvnGraphicsApi api);
-static const char*  getWindowApiNameEnum(LvnWindowApi api);
-static LvnResult    setWindowContext(LvnWindowApi windowapi);
-static void         terminateWindowContext();
-static LvnResult    setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation);
-static void         terminateGraphicsContext();
+static void                         enableLogANSIcodeColors();
+static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
+static const char*                  getLogLevelColor(LvnLogLevel level);
+static const char*                  getLogLevelName(LvnLogLevel level);
+static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
+static const char*                  getWindowApiNameEnum(LvnWindowApi api);
+static LvnResult                    setWindowContext(LvnWindowApi windowapi);
+static void                         terminateWindowContext();
+static LvnResult                    setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation);
+static void                         terminateGraphicsContext();
 
 
 static void enableLogANSIcodeColors()
@@ -156,21 +156,21 @@ const char* getDateWeekDayNameShort()
 	struct tm tm = *localtime(&t);
 	return s_WeekDayNameShort[tm.tm_wday];
 }
-LvnString getDateTimeHHMMSS()
+std::string getDateTimeHHMMSS()
 {
-	LvnString str(9);
+	char buff[9];
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
-	snprintf(str, 9, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
-	return str;
+	snprintf(buff, 9, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+	return std::string(buff);
 }
-LvnString getDateTime12HHMMSS()
+std::string getDateTime12HHMMSS()
 {
-	LvnString str(9);
+	char buff[9];
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
-	snprintf(str, 9, "%02d:%02d:%02d", ((tm.tm_hour + 11) % 12) + 1, tm.tm_min, tm.tm_sec);
-	return str;
+	snprintf(buff, 9, "%02d:%02d:%02d", ((tm.tm_hour + 11) % 12) + 1, tm.tm_min, tm.tm_sec);
+	return std::string(buff);
 }
 const char* getDateTimeMeridiem()
 {
@@ -191,53 +191,53 @@ const char* getDateTimeMeridiemLower()
 		return "pm";
 }
 
-LvnString getDateYearStr()
+std::string getDateYearStr()
 {
-	LvnString str(5);
-	snprintf(str, 5, "%d", getDateYear());
-	return str;
+	char buff[5];
+	snprintf(buff, 5, "%d", getDateYear());
+	return std::string(buff);
 }
-LvnString getDateYear02dStr()
+std::string getDateYear02dStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%d", getDateYear02d());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%d", getDateYear02d());
+	return std::string(buff);
 }
-LvnString getDateMonthNumStr()
+std::string getDateMonthNumStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%02d", getDateMonth());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%02d", getDateMonth());
+	return std::string(buff);
 }
-LvnString getDateDayNumStr()
+std::string getDateDayNumStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%02d", getDateDay());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%02d", getDateDay());
+	return std::string(buff);
 }
-LvnString getDateHourNumStr()
+std::string getDateHourNumStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%02d", getDateHour());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%02d", getDateHour());
+	return std::string(buff);
 }
-LvnString getDateHour12NumStr()
+std::string getDateHour12NumStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%02d", getDateHour12());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%02d", getDateHour12());
+	return std::string(buff);
 }
-LvnString getDateMinuteNumStr()
+std::string getDateMinuteNumStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%02d", getDateMinute());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%02d", getDateMinute());
+	return std::string(buff);
 }
-LvnString getDateSecondNumStr()
+std::string getDateSecondNumStr()
 {
-	LvnString str(3);
-	snprintf(str, 3, "%02d", getDateSecond());
-	return str;
+	char buff[3];
+	snprintf(buff, 3, "%02d", getDateSecond());
+	return std::string(buff);
 }
 
 int getDateYear()
@@ -308,7 +308,7 @@ void memFree(void* ptr)
 	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
 }
 
-LvnString getFileSrc(const char* filepath)
+std::string getFileSrc(const char* filepath)
 {
 	FILE* fileptr;
 	fileptr = fopen(filepath, "r");
@@ -317,14 +317,17 @@ LvnString getFileSrc(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 	
-	LvnString filesrc(size);
+	char* filesrc = (char*)lvn::memAlloc(size * sizeof(char));
 	fread(filesrc, sizeof(char), size, fileptr);
 	fclose(fileptr);
 
-	return filesrc;
+	std::string fileStr = std::string(filesrc, size);
+	lvn::memFree(filesrc);
+
+	return fileStr;
 }
 
-LvnVector<uint8_t> getFileSrcBin(const char* filepath)
+LvnData<uint8_t> getFileSrcBin(const char* filepath)
 {
 	FILE* fileptr;
 	fileptr = fopen(filepath, "rb");
@@ -333,46 +336,45 @@ LvnVector<uint8_t> getFileSrcBin(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 
-	LvnVector<uint8_t> bin(size);
+	std::vector<uint8_t> bin(size);
 	fread(bin.data(), sizeof(uint8_t), size, fileptr);
 
-	return bin;
+	return LvnData<uint8_t>(bin.data(), bin.size());
 }
 
 /* [Logging] */
 const static LvnLogPattern s_LogPatterns[] =
 {
-	{ '$', [](LvnLogMessage* msg) -> LvnString { return "\n"; } },
-	{ 'n', [](LvnLogMessage* msg) -> LvnString { return msg->loggerName; } },
-	{ 'l', [](LvnLogMessage* msg) -> LvnString { return getLogLevelName(msg->level); }},
-	{ '#', [](LvnLogMessage* msg) -> LvnString { return getLogLevelColor(msg->level); }},
-	{ '^', [](LvnLogMessage* msg) -> LvnString { return LVN_LOG_COLOR_RESET; }},
-	{ 'v', [](LvnLogMessage* msg) -> LvnString { return msg->msg; }},
-	{ '%', [](LvnLogMessage* msg) -> LvnString { return "%"; } },
-	{ 'T', [](LvnLogMessage* msg) -> LvnString { return getDateTimeHHMMSS(); } },
-	{ 't', [](LvnLogMessage* msg) -> LvnString { return getDateTime12HHMMSS(); } },
-	{ 'Y', [](LvnLogMessage* msg) -> LvnString { return getDateYearStr(); }},
-	{ 'y', [](LvnLogMessage* msg) -> LvnString { return getDateYear02dStr(); } },
-	{ 'm', [](LvnLogMessage* msg) -> LvnString { return getDateMonthNumStr(); } },
-	{ 'B', [](LvnLogMessage* msg) -> LvnString { return getDateMonthName(); } },
-	{ 'b', [](LvnLogMessage* msg) -> LvnString { return getDateMonthNameShort(); } },
-	{ 'd', [](LvnLogMessage* msg) -> LvnString { return getDateDayNumStr(); } },
-	{ 'A', [](LvnLogMessage* msg) -> LvnString { return getDateWeekDayName(); } },
-	{ 'a', [](LvnLogMessage* msg) -> LvnString { return getDateWeekDayNameShort(); } },
-	{ 'H', [](LvnLogMessage* msg) -> LvnString { return getDateHourNumStr(); } },
-	{ 'h', [](LvnLogMessage* msg) -> LvnString { return getDateHour12NumStr(); } },
-	{ 'M', [](LvnLogMessage* msg) -> LvnString { return getDateMinuteNumStr(); } },
-	{ 'S', [](LvnLogMessage* msg) -> LvnString { return getDateSecondNumStr(); } },
-	{ 'P', [](LvnLogMessage* msg) -> LvnString { return getDateTimeMeridiem(); } },
-	{ 'p', [](LvnLogMessage* msg) -> LvnString { return getDateTimeMeridiemLower(); }},
+	{ '$', [](LvnLogMessage* msg) -> std::string { return "\n"; } },
+	{ 'n', [](LvnLogMessage* msg) -> std::string { return msg->loggerName; } },
+	{ 'l', [](LvnLogMessage* msg) -> std::string { return getLogLevelName(msg->level); }},
+	{ '#', [](LvnLogMessage* msg) -> std::string { return getLogLevelColor(msg->level); }},
+	{ '^', [](LvnLogMessage* msg) -> std::string { return LVN_LOG_COLOR_RESET; }},
+	{ 'v', [](LvnLogMessage* msg) -> std::string { return msg->msg; }},
+	{ '%', [](LvnLogMessage* msg) -> std::string { return "%"; } },
+	{ 'T', [](LvnLogMessage* msg) -> std::string { return getDateTimeHHMMSS(); } },
+	{ 't', [](LvnLogMessage* msg) -> std::string { return getDateTime12HHMMSS(); } },
+	{ 'Y', [](LvnLogMessage* msg) -> std::string { return getDateYearStr(); }},
+	{ 'y', [](LvnLogMessage* msg) -> std::string { return getDateYear02dStr(); } },
+	{ 'm', [](LvnLogMessage* msg) -> std::string { return getDateMonthNumStr(); } },
+	{ 'B', [](LvnLogMessage* msg) -> std::string { return getDateMonthName(); } },
+	{ 'b', [](LvnLogMessage* msg) -> std::string { return getDateMonthNameShort(); } },
+	{ 'd', [](LvnLogMessage* msg) -> std::string { return getDateDayNumStr(); } },
+	{ 'A', [](LvnLogMessage* msg) -> std::string { return getDateWeekDayName(); } },
+	{ 'a', [](LvnLogMessage* msg) -> std::string { return getDateWeekDayNameShort(); } },
+	{ 'H', [](LvnLogMessage* msg) -> std::string { return getDateHourNumStr(); } },
+	{ 'h', [](LvnLogMessage* msg) -> std::string { return getDateHour12NumStr(); } },
+	{ 'M', [](LvnLogMessage* msg) -> std::string { return getDateMinuteNumStr(); } },
+	{ 'S', [](LvnLogMessage* msg) -> std::string { return getDateSecondNumStr(); } },
+	{ 'P', [](LvnLogMessage* msg) -> std::string { return getDateTimeMeridiem(); } },
+	{ 'p', [](LvnLogMessage* msg) -> std::string { return getDateTimeMeridiemLower(); }},
 };
 
-static void logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32_t* logPatternCount)
+static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
 {
-	if (!fmt || !strlen(fmt))
-		return;
+	if (!fmt || fmt[0] == '\0') { return {}; }
 
-	LvnVector<LvnLogPattern> patterns;
+	std::vector<LvnLogPattern> patterns;
 
 	for (uint32_t i = 0; i < strlen(fmt) - 1; i++)
 	{
@@ -392,14 +394,19 @@ static void logParseFormat(const char* fmt, LvnLogPattern** pLogPatterns, uint32
 			patterns.push_back(s_LogPatterns[j]);
 		}
 
+		// find and add user defined patterns
+		for (uint32_t j = 0; j < s_LvnContext->userLogPatterns.size(); j++)
+		{
+			if (fmt[i + 1] != s_LvnContext->userLogPatterns[j].symbol)
+				continue;
+
+			patterns.push_back(s_LvnContext->userLogPatterns[j]);
+		}
+
 		i++; // incramant past symbol on next character in format
 	}
 
-	void* allocLogPatterns = malloc(patterns.memsize());
-	if (!allocLogPatterns) { LVN_ABORT; }
-	*logPatternCount = patterns.size();
-	*pLogPatterns = (LvnLogPattern*)allocLogPatterns;
-	memcpy(*pLogPatterns, patterns.data(), patterns.memsize());
+	return patterns;
 }
 
 LvnResult logInit()
@@ -417,18 +424,7 @@ LvnResult logInit()
 		lvnctx->coreLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
 		lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
 
-		LvnLogPattern* coreLogPatterns = nullptr;
-		uint32_t coreLogPatternCount = 0;
-		logParseFormat(LVN_DEFAULT_LOG_PATTERN, &coreLogPatterns, &coreLogPatternCount);
-
-		LvnLogPattern* clientLogPatterns = nullptr;
-		uint32_t clientLogPatternCount = 0;
-		logParseFormat(LVN_DEFAULT_LOG_PATTERN, &clientLogPatterns, &clientLogPatternCount);
-
-		lvnctx->coreLogger.pLogPatterns = coreLogPatterns;
-		lvnctx->coreLogger.logPatternCount = coreLogPatternCount;
-		lvnctx->clientLogger.pLogPatterns = clientLogPatterns;
-		lvnctx->clientLogger.logPatternCount = clientLogPatternCount;
+		lvnctx->coreLogger.logPatterns = lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
 
 		#ifdef LVN_PLATFORM_WINDOWS 
 		enableLogANSIcodeColors();
@@ -447,11 +443,6 @@ void logTerminate()
 	if (lvnctx->logging)
 	{
 		lvnctx->logging = false;
-
-		if (lvnctx->coreLogger.pLogPatterns)
-			free(lvnctx->coreLogger.pLogPatterns);
-		if (lvnctx->clientLogger.pLogPatterns)
-			free(lvnctx->clientLogger.pLogPatterns);
 	}
 }
 
@@ -474,23 +465,21 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
 	if (!s_LvnContext->logging) { return; }
 
-	LvnVector<char> str;
+	std::string msgstr;
 
-	for (uint32_t i = 0; i < logger->logPatternCount; i++)
+	for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
 	{
-		if (logger->pLogPatterns[i].func == nullptr) // no special format character '%' found
+		if (logger->logPatterns[i].func == nullptr) // no special format character '%' found
 		{
-			str.push_back(logger->pLogPatterns[i].symbol);
+			msgstr += logger->logPatterns[i].symbol;
 		}
 		else // call func of special format
 		{
-			LvnString fmtstr = logger->pLogPatterns[i].func(msg);
-			uint32_t fmtstrlen = fmtstr.size();
-			str.copy_back(fmtstr, fmtstr.size() - 1);
+			msgstr += logger->logPatterns[i].func(msg);
 		}
 	}
 
-	printf("%.*s",str.size(), str.data());
+	printf("%s", msgstr.c_str());
 }
 
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
@@ -612,14 +601,30 @@ const char* getLogANSIcodeColor(LvnLogLevel level)
 	return nullptr;
 }
 
-void logSetPatternFormat(LvnLogger* logger, const char* patternfmt)
+LvnResult logSetPatternFormat(LvnLogger* logger, const char* patternfmt)
 {
-	if (!patternfmt || patternfmt[0] == '\0') return;
+	if (!logger) { return Lvn_Result_Failure; }
+	if (!patternfmt || patternfmt[0] == '\0') { return Lvn_Result_Failure; }
 
-	free(logger->pLogPatterns);
 	logger->logPatternFormat = patternfmt;
+	logger->logPatterns = lvn::logParseFormat(patternfmt);
 
-	logParseFormat(patternfmt, &logger->pLogPatterns, &logger->logPatternCount);
+	return Lvn_Result_Success;
+}
+
+LvnResult logAddPattern(LvnLogPattern* logPattern)
+{
+	if (!logPattern) { return Lvn_Result_Failure; }
+	if (logPattern->symbol == '\0') { return Lvn_Result_Failure; }
+
+	for (uint32_t i = 0; i < sizeof(s_LogPatterns) / sizeof(LvnLogPattern); i++)
+	{
+		if (s_LogPatterns[i].symbol == logPattern->symbol) { return Lvn_Result_Failure; }
+	}
+
+	s_LvnContext->userLogPatterns.push_back(*logPattern);
+
+	return Lvn_Result_Success;
 }
 
 // [Window]

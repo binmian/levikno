@@ -20,7 +20,7 @@
 	#ifndef LVN_PLATFORM_LINUX
 		#define LVN_PLATFORM_LINUX
 	#endif
-	#include <cassert> /* use assert() */
+	#include <cassert> /* assert() */
 
 #else
 	#error "Levikno does not support the current platform."
@@ -100,14 +100,16 @@
 #define LVN_STRINGIFY(x) LVN_STR(x)
 
 #define LVN_PI 3.14159265f
-#define LVN_PI_EXACT static_cast<double>(22.0/7.0) /* 3.1415... */
+#define LVN_PI_EXACT (static_cast<double>(22.0/7.0)) /* 3.1415... */
 
 #endif // !HG_LEVIKNO_DEFINE_CONFIG
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
+#include <stdlib.h> // malloc, free
+#include <stdint.h> // uint32_t, uint64_t
+#include <string.h> // strlen
 #include <math.h>
+
+#include <string>
 
 
 /* [Vectors & Matrices] */
@@ -194,13 +196,18 @@
 #define LVN_LOG_FILE                            LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
 
 
+// ---------------------------------------------
+// [SECTION]: Enums
+// ---------------------------------------------
+
 /* [Core Enums] */
 
 enum LvnResult
 {
-	Lvn_Result_Failure = 0,
-	Lvn_Result_Success = 1,
-	Lvn_Result_AlreadyCalled = 2
+	Lvn_Result_Failure              = 0,
+	Lvn_Result_Success              = 1,
+	Lvn_Result_AlreadyCalled        = 2,
+	Lvn_Result_MemAllocFailure      = 3,
 };
 
 enum LvnStructureType
@@ -304,22 +311,22 @@ enum LvnKeyCodes
 	Lvn_KeyCode_F7              = 296,
 	Lvn_KeyCode_F8              = 297,
 	Lvn_KeyCode_F9              = 298,
-	Lvn_KeyCode_F10	            = 299,
-	Lvn_KeyCode_F11	            = 300,
-	Lvn_KeyCode_F12	            = 301,
-	Lvn_KeyCode_F13	            = 302,
-	Lvn_KeyCode_F14	            = 303,
-	Lvn_KeyCode_F15	            = 304,
-	Lvn_KeyCode_F16	            = 305,
-	Lvn_KeyCode_F17	            = 306,
-	Lvn_KeyCode_F18	            = 307,
-	Lvn_KeyCode_F19	            = 308,
-	Lvn_KeyCode_F20	            = 309,
-	Lvn_KeyCode_F21	            = 310,
-	Lvn_KeyCode_F22	            = 311,
-	Lvn_KeyCode_F23	            = 312,
-	Lvn_KeyCode_F24	            = 313,
-	Lvn_KeyCode_F25	            = 314,
+	Lvn_KeyCode_F10             = 299,
+	Lvn_KeyCode_F11             = 300,
+	Lvn_KeyCode_F12             = 301,
+	Lvn_KeyCode_F13             = 302,
+	Lvn_KeyCode_F14             = 303,
+	Lvn_KeyCode_F15             = 304,
+	Lvn_KeyCode_F16             = 305,
+	Lvn_KeyCode_F17             = 306,
+	Lvn_KeyCode_F18             = 307,
+	Lvn_KeyCode_F19             = 308,
+	Lvn_KeyCode_F20             = 309,
+	Lvn_KeyCode_F21             = 310,
+	Lvn_KeyCode_F22             = 311,
+	Lvn_KeyCode_F23             = 312,
+	Lvn_KeyCode_F24             = 313,
+	Lvn_KeyCode_F25             = 314,
 	Lvn_KeyCode_KP_0            = 320,
 	Lvn_KeyCode_KP_1            = 321,
 	Lvn_KeyCode_KP_2            = 322,
@@ -728,8 +735,9 @@ struct LvnKeyHoldEvent;
 struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
 struct LvnKeyTypedEvent;
-struct LvnLogMessage;
 struct LvnLogger;
+struct LvnLogMessage;
+struct LvnLogPattern;
 struct LvnMemoryBlock;
 struct LvnMemoryPool;
 struct LvnMemoryPoolCreateInfo;
@@ -777,6 +785,9 @@ struct LvnWindowLostFocusEvent;
 struct LvnWindowMovedEvent;
 struct LvnWindowResizeEvent;
 
+
+template<typename T>
+struct LvnData;
 
 /* [Vectors] */
 template<typename T>
@@ -872,7 +883,12 @@ typedef LvnMat3x4_t<double>				LvnMat3x4d;
 typedef LvnMat4x2_t<double>				LvnMat4x2d;
 typedef LvnMat4x3_t<double>				LvnMat4x3d;
 
-/* Functions */
+
+// ---------------------------------------------
+// [SECTION]: Functions
+// ---------------------------------------------
+// - All functions are declared in the lvn namespace
+
 namespace lvn
 {
 	typedef LvnVec2_t<float>                vec2;
@@ -942,21 +958,45 @@ namespace lvn
 
 
 	/* [API] */
+	LvnContext*                     getContext();                                       // pointer to the Levikno Context created from the library
+
 	LVN_API LvnResult               createContext(LvnContextCreateInfo* createInfo);
 	LVN_API void                    terminateContext();
 
-	LVN_API int                     getDateYear();
-	LVN_API int                     getDateYear02d();
-	LVN_API int                     getDateMonth();
-	LVN_API int                     getDateDay();
-	LVN_API int                     getDateHour();
-	LVN_API int                     getDateHour12();
-	LVN_API int                     getDateMinute();
-	LVN_API int                     getDateSecond();
-	LVN_API long long               getSecondsSinceEpoch();
+	LVN_API int                     getDateYear();                                      // gets the year number (eg. 2025)
+	LVN_API int                     getDateYear02d();                                   // gets the last two digits of the year number (eg. 25)
+	LVN_API int                     getDateMonth();                                     // gets the month number (1...12)
+	LVN_API int                     getDateDay();                                       // gets the date number (1...31)
+	LVN_API int                     getDateHour();                                      // gets the hour of the current day in 24 hour format (0...24)
+	LVN_API int                     getDateHour12();                                    // gets the hour of the current day in 12 hour format (0...12)
+	LVN_API int                     getDateMinute();                                    // gets the minute of the current day (0...60)
+	LVN_API int                     getDateSecond();                                    // gets the second of the current dat (0...60)
+	LVN_API long long               getSecondsSinceEpoch();                             // gets the time in seconds since 00::00:00 UTC 1 January 1970
 
-	LVN_API void*                   memAlloc(size_t size);
-	LVN_API void                    memFree(void* ptr);
+	LVN_API const char*             getDateMonthName();                                 // get the current month name (eg. January, April)
+	LVN_API const char*             getDateMonthNameShort();                            // get the current month shortened name (eg. Jan, Apr)
+	LVN_API const char*             getDateWeekDayName();                               // get the current day name in the week (eg. Monday, Friday)
+	LVN_API const char*             getDateWeekDayNameShort();                          // get the current day shortened name in the week (eg. Mon, Fri)
+	LVN_API const char*             getDateTimeMeridiem();                              // get the time meridiem of the current day (eg. AM, PM)
+	LVN_API const char*             getDateTimeMeridiemLower();                         // get the time meridiem of the current day in lower case (eg. am, pm)
+
+	LVN_API std::string             getDateTimeHHMMSS();                                // get the time in HH:MM:SS format (eg. 14:34:54)
+	LVN_API std::string             getDateTime12HHMMSS();                              // get the time in HH:MM:SS 12 hour format (eg. 2:23:14)
+	LVN_API std::string             getDateYearStr();                                   // get the current year number as a string
+	LVN_API std::string             getDateYear02dStr();                                // get the last two digits of the current year number as a string
+	LVN_API std::string             getDateMonthNumStr();                               // get the current month number as a string
+	LVN_API std::string             getDateDayNumStr();                                 // get the current day number as a string
+	LVN_API std::string             getDateHourNumStr();                                // get the current hour number as a string
+	LVN_API std::string             getDateHour12NumStr();                              // get the current hour number in 12 hour format as a string
+	LVN_API std::string             getDateMinuteNumStr();                              // get the current minute as a string
+	LVN_API std::string             getDateSecondNumStr();                              // get the current second as a string
+
+
+	LvnData<uint8_t>                getFileSrcBin(const char* filepath);                // get the binary data contents (in unsigned char*) from a binary file, filepath must be a valid path to a binary file
+
+
+	LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
+	LVN_API void                    memFree(void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
 
 	/* [Logging] */
 
@@ -999,8 +1039,8 @@ namespace lvn
 	// Ex: The default log pattern is: "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 	//     Which could output: "[04-06-2025] [14:25:11] [\x1b[0;32minfo\x1b[0m] CORE: some informational message\n"
 
-	LVN_API LvnResult                   logInit(); /* Initiates logging */
-	LVN_API void                        logTerminate();
+	LVN_API LvnResult                   logInit();                                                          // initiates logging
+	LVN_API void                        logTerminate();                                                     // terminate logginh
 	LVN_API void                        logSetLevel(LvnLogger* logger, LvnLogLevel level);                  // sets the log level of logger, will only print messages with set log level and higher
 	LVN_API bool                        logCheckLevel(LvnLogger* logger, LvnLogLevel level);                // checks level with loger, returns true if level is the same or higher level than the level of the logger
 	LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);               // renames the name of the logger
@@ -1014,8 +1054,8 @@ namespace lvn
 	LVN_API LvnLogger*                  getCoreLogger();
 	LVN_API LvnLogger*                  getClientLogger();
 	LVN_API const char*                 getLogANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string
-	LVN_API void                        logSetPatternFormat(LvnLogger* logger, const char* patternfmt);     // set the log pattern of the logger; messages outputed from that logger will be in this format
-	LVN_API void                        logAddPattern();
+	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);     // set the log pattern of the logger; messages outputed from that logger will be in this format
+	LVN_API LvnResult                   logAddPattern(LvnLogPattern* logPattern);
 
 
 	/* [Events] */
@@ -1281,6 +1321,11 @@ struct LvnLogMessage
 	long long timeEpoch;
 };
 
+struct LvnLogPattern
+{
+	char symbol;
+	std::string (*func)(LvnLogMessage*);
+};
 
 /* [Events] */
 struct LvnAppRenderEvent
@@ -1470,11 +1515,41 @@ struct LvnWindowDimensions
 };
 
 
+// ---------------------------------------------
+// [SECTION]: Data Structures
+// ---------------------------------------------
+// - Basic data structures for use of allocating or handling data
 
-/* [Graphics Struct Implementation] */
+template<typename T>
+class LvnData
+{
+private:
+	T* m_Data;
+	size_t m_Size, m_Count;
 
+public:
+	LvnData(const T* data, size_t count)
+	{
+		void* buff = malloc(count * sizeof(T));
+		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); return; }
+		memcpy(buff, data, count * sizeof(T));
+		m_Data = (T*)buff;
+		m_Count = count;
+		m_Size = count * sizeof(T);
+	}
+	~LvnData()
+	{
+		free(m_Data);
+	}
 
-/* [Data Types] */
+	const T* const data() const { return m_Data; }
+	const size_t size() const { return m_Count; }
+	const size_t memsize() const { return m_Size; }
+};
+
+// ---------------------------------------------
+// [SECTION]: Vectors & Matrices
+// ---------------------------------------------
 
 template<typename T>
 struct LvnVec2_t
@@ -3684,6 +3759,10 @@ LvnVec4_t<T> operator*(const LvnVec3_t<T>& v, const LvnMat4x3_t<T>& m)
 		v.x * m.value[3].x + v.y * m.value[3].y + v.z * m.value[3].z);
 }
 
+
+// ---------------------------------------------
+// [SECTION]: Struct Implementaion
+// ---------------------------------------------
 
 struct LvnPhysicalDeviceInfo
 {

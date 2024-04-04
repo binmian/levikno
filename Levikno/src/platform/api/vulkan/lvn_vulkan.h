@@ -1,7 +1,6 @@
 #ifndef HG_LEVIKNO_VULKAN_H
 #define HG_LEVIKNO_VULKAN_H
 
-#include "levikno.h"
 #include "levikno_internal.h"
 
 namespace lvn

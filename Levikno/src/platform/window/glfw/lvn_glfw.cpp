@@ -138,7 +138,8 @@ namespace lvn
 
 		if (window->data.pIcons != nullptr)
 		{
-			LvnVector<GLFWimage> images(window->data.iconCount);
+			std::vector<GLFWimage> images(window->data.iconCount);
+
 			for (uint32_t i = 0; i < window->data.iconCount; i++)
 			{
 				GLFWimage image{};

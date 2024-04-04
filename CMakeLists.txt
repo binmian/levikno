@@ -72,6 +72,9 @@ set(LVN_SOURCES
 	Levikno/src/dependencies/stb/include/stb_image.cpp
 	Levikno/src/dependencies/stb/include/stb_image.h
 
+	# json
+	Levikno/src/dependencies/json/include/json.h
+
   ${LVN_GRAPHICS_SRC}
 )
 
@@ -88,6 +91,7 @@ target_include_directories(levikno
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vulkan/include
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vma/include
 		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/stb/include
+		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/json/include
 )
 
 

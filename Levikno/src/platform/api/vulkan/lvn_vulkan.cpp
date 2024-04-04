@@ -37,7 +37,7 @@ namespace vks
 	static LvnResult                            createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers);
 	static VKAPI_ATTR VkBool32 VKAPI_CALL       debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 	static bool                                 checkValidationLayerSupport();
-	static LvnVector<const char*>               getRequiredExtensions(VulkanBackends* vkBackends);
+	static std::vector<const char*>             getRequiredExtensions(VulkanBackends* vkBackends);
 	static VkResult                             createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 	static void                                 destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
@@ -89,7 +89,6 @@ namespace vks
 	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
 	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
-	static void                                 createGraphicsPipeline(VulkanBackends* vkBackends);
 	static LvnResult                            createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
 	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
 	static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage);
@@ -112,7 +111,7 @@ namespace vks
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		LvnVector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
+		std::vector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
 		createInfo.enabledExtensionCount = extensions.size();
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -179,7 +178,7 @@ namespace vks
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
-		LvnVector<VkLayerProperties> availableLayers(layerCount);
+		std::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
 		for (const char* layerName : s_ValidationLayers)
@@ -193,13 +192,13 @@ namespace vks
 		return false;
 	}
 
-	static LvnVector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
+	static std::vector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
 	{
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-		LvnVector<const char*> extensions(glfwExtensions, glfwExtensionCount);
+		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
 		if (vkBackends->enableValidationLayers)
 			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -278,7 +277,7 @@ namespace vks
 		uint32_t queueFamilyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
-		LvnVector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
 		int i = 0;
@@ -377,7 +376,7 @@ namespace vks
 		}
 
 		float queuePriority = 1.0f;
-		LvnVector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		VkDeviceQueueCreateInfo queuePresentCreateInfo{};
 		queuePresentCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queuePresentCreateInfo.queueFamilyIndex = queueIndices.presentIndex;
@@ -497,10 +496,10 @@ namespace vks
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
-		LvnVector<VkExtensionProperties> availableExtensions(extensionCount);
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		LvnVector<const char*> requiredExtensions(s_DeviceExtensions, ARRAY_LEN(s_DeviceExtensions));
+		std::vector<const char*> requiredExtensions(s_DeviceExtensions, s_DeviceExtensions + ARRAY_LEN(s_DeviceExtensions));
 
 		for (uint32_t i = 0; i < requiredExtensions.size(); i++)
 		{
@@ -755,7 +754,7 @@ namespace vks
 		VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 		frameBufferData->frameBufferImages.resize(frameBufferData->totalAttachmentCount);
 
-		LvnVector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
+		std::vector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
 
 		for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
 		{
@@ -1486,7 +1485,7 @@ namespace vks
 		scissor.extent.width = pipelineSpecification->scissor.extent.width;
 		scissor.extent.height = pipelineSpecification->scissor.extent.height;
 
-		LvnVector<VkDynamicState> dynamicStates;
+		std::vector<VkDynamicState> dynamicStates;
 		dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 		dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
@@ -1529,7 +1528,7 @@ namespace vks
 		multisampling.alphaToCoverageEnable = pipelineSpecification->multisampling.alphaToCoverageEnable; // Optional
 		multisampling.alphaToOneEnable = pipelineSpecification->multisampling.alphaToOneEnable; // Optional
 
-		LvnVector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+		std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
 		
 		if (pipelineSpecification->colorBlend.colorBlendAttachmentCount == 0 || pipelineSpecification->colorBlend.pColorBlendAttachments == nullptr)
 		{
@@ -1647,39 +1646,6 @@ namespace vks
 		return shaderModule;
 	}
 
-	static void createGraphicsPipeline(VulkanBackends* vkBackends)
-	{
-		LvnVector<uint8_t> vertbin = lvn::getFileSrcBin("/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkvert.spv");
-		LvnVector<uint8_t> fragbin = lvn::getFileSrcBin("/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkfrag.spv");
-
-		VkShaderModule vertShaderModule = createShaderModule(vkBackends, vertbin.data(), vertbin.size());
-		VkShaderModule fragShaderModule = createShaderModule(vkBackends, fragbin.data(), fragbin.size());
-
-		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = vertShaderModule;
-		vertShaderStageInfo.pName = "main";
-
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = fragShaderModule;
-		fragShaderStageInfo.pName = "main";
-
-		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-
-		vkDestroyShaderModule(vkBackends->device, fragShaderModule, nullptr);
-	    vkDestroyShaderModule(vkBackends->device, vertShaderModule, nullptr);
-	}
-
 	static LvnResult createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage)
 	{
 		VkBufferCreateInfo bufferInfo{};
@@ -1697,7 +1663,6 @@ namespace vks
 			return Lvn_Result_Failure;
 		}
 
-		LVN_CORE_TRACE("[vulkan] created buffer <VkBuffer> (%p), buffer memory: (%p), buffer size: %zu bytes", *buffer, *bufferMemory, size);
 		return Lvn_Result_Success;
 	}
 
@@ -1763,7 +1728,6 @@ namespace vks
 			return Lvn_Result_Failure;
 		}
 
-		LVN_CORE_TRACE("[vulkan] created image <VkImage> (%p), image memory: (%p), image size: (w:%u, h:%u)", *image, *imageMemory, width, height);
 		return Lvn_Result_Success;
 	}
 
@@ -2485,8 +2449,8 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo*
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnVector<uint8_t> vertbin = lvn::getFileSrcBin(createInfo->vertexSrc);
-	LvnVector<uint8_t> fragbin = lvn::getFileSrcBin(createInfo->fragmentSrc);
+	LvnData<uint8_t> vertbin = lvn::getFileSrcBin(createInfo->vertexSrc);
+	LvnData<uint8_t> fragbin = lvn::getFileSrcBin(createInfo->fragmentSrc);
 
 	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertbin.data(), vertbin.size());
 	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragbin.data(), fragbin.size());
@@ -2501,8 +2465,8 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnVector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
-	LvnVector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
+	std::vector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
 
 	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
 	{
@@ -2544,7 +2508,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 		return Lvn_Result_Failure;
 	}
 
-	LvnVector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
+	std::vector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
 
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2586,8 +2550,8 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
 	// vertex binding descriptions & attributes
-	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
-	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
+	std::vector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+	std::vector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
 
 	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
 	{
@@ -2629,7 +2593,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	}
 
 	// descriptor layouts
-	LvnVector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
+	std::vector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
 	for (uint32_t i = 0; i < createInfo->descriptorLayoutCount; i++)
 	{
 		VkDescriptorSetLayout descriptorLayout = static_cast<VkDescriptorSetLayout>(createInfo->pDescriptorLayouts[i]->descriptorLayout);
@@ -2667,7 +2631,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	frameBufferData->width = createInfo->width;
 	frameBufferData->height = createInfo->height;
 
-	frameBufferData->colorAttachments.copy_back(createInfo->pColorAttachments, createInfo->colorAttachmentCount);
+	frameBufferData->colorAttachments = std::vector<LvnFrameBufferColorAttachment>(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
 	frameBufferData->colorImages.resize(createInfo->colorAttachmentCount);
 	frameBufferData->colorImageMemory.resize(createInfo->colorAttachmentCount);
 	frameBufferData->colorImageViews.resize(createInfo->colorAttachmentCount);
@@ -2681,9 +2645,9 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	frameBufferData->totalAttachmentCount = createInfo->colorAttachmentCount + (frameBufferData->hasDepth ? 1 : 0);
 	frameBufferData->clearValues.resize(frameBufferData->totalAttachmentCount);
 
-	LvnVector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
+	std::vector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
 
-	LvnVector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
+	std::vector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
 	VkAttachmentReference depthReference;
 
 	// Color attachments
@@ -2728,7 +2692,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	}
 
 	// Multisample
-	LvnVector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
+	std::vector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
 
 	if (frameBufferData->multisampling)
 	{

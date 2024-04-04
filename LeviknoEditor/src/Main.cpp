@@ -64,21 +64,15 @@ void eventsCallbackFn(LvnEvent* e)
 float vertices[] =
 {
 	/*      pos        |       color     |   TexUV    */
-	-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-	 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-	 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-	-0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-
-	-0.5f, -0.5f,-0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-	 0.5f, -0.5f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-	 0.5f,  0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-	-0.5f,  0.5f,-0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+	 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+	 1.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
 uint32_t indices[] =
 {
 	0, 1, 2, 2, 3, 0,
-	4, 5, 6, 6, 7, 4,
 };
 
 struct UniformData
@@ -95,6 +89,7 @@ int main()
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
+
 
 	uint32_t deviceCount = 0;
 	std::vector<LvnPhysicalDevice*> devices;
@@ -351,8 +346,8 @@ int main()
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		lvn::mat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.1f, 100.0f);
-		lvn::mat4 view = lvn::lookAt(lvn::vec3(2.0f, 2.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 0.0f, -2.0f));
-		lvn::mat4 model = lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 0.0f, 1.0f));
+		lvn::mat4 view = lvn::lookAt(lvn::vec3(0.0f, 0.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(0.5f)) * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 0.0f, 1.0f));
 		lvn::mat4 camera = proj * view * model;
 		
 		uniformData.matrix = camera;

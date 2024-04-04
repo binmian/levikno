@@ -17,8 +17,8 @@ namespace lvn
 	struct VulkanSwapChainSupportDetails
 	{
 		VkSurfaceCapabilitiesKHR capabilities;
-		LvnVector<VkSurfaceFormatKHR> formats;
-		LvnVector<VkPresentModeKHR> presentModes;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
 	};
 
 	struct VulkanFrameBufferData
@@ -31,19 +31,19 @@ namespace lvn
 		VkRenderPass renderPass;
 		VkFramebuffer framebuffer;
 
-		LvnVector<LvnFrameBufferColorAttachment> colorAttachments;
+		std::vector<LvnFrameBufferColorAttachment> colorAttachments;
 		LvnFrameBufferDepthAttachment depthAttachment;
 
-		LvnVector<VkImage> colorImages;
-		LvnVector<VkImageView> colorImageViews;
-		LvnVector<VmaAllocation> colorImageMemory;
+		std::vector<VkImage> colorImages;
+		std::vector<VkImageView> colorImageViews;
+		std::vector<VmaAllocation> colorImageMemory;
 
-		LvnVector<VkImage> msaaColorImages;
-		LvnVector<VkImageView> msaaColorImageViews;
-		LvnVector<VmaAllocation> msaaColorImageMemory;
-		LvnVector<VkClearValue> clearValues;
+		std::vector<VkImage> msaaColorImages;
+		std::vector<VkImageView> msaaColorImageViews;
+		std::vector<VmaAllocation> msaaColorImageMemory;
+		std::vector<VkClearValue> clearValues;
 
-		LvnVector<LvnTexture> frameBufferImages;
+		std::vector<LvnTexture> frameBufferImages;
 		LvnRenderPass frameBufferRenderPass;
 
 		VkImage depthImage;
@@ -109,8 +109,8 @@ namespace lvn
 		bool                                enableValidationLayers;
 		VkInstance                          instance;
 		VkDebugUtilsMessengerEXT            debugMessenger;
-		LvnVector<VkPhysicalDevice>         physicalDevices;
-		LvnVector<LvnPhysicalDevice>        lvnPhysicalDevices;
+		std::vector<VkPhysicalDevice>       physicalDevices;
+		std::vector<LvnPhysicalDevice>      lvnPhysicalDevices;
 		
 		VkPhysicalDevice                    physicalDevice;
 		VkDevice                            device;
