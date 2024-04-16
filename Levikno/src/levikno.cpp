@@ -1586,6 +1586,27 @@ LvnResult createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo)
 	return Lvn_Result_Success;
 }
 
+void destroyMesh(LvnMesh* mesh)
+{
+	lvn::destroyBuffer(mesh->buffer);
+	delete mesh;
+}
+
+const LvnBuffer* getMeshBuffer(LvnMesh* mesh)
+{
+	return mesh->buffer;
+}
+
+LvnMat4 getMeshMatrix(LvnMesh* mesh)
+{
+	return mesh->matrix;
+}
+
+void setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix)
+{
+	mesh->matrix = matrix;
+}
+
 LvnImageData loadImageData(const char* filepath, int forceChannels)
 {
 	if (filepath == nullptr)

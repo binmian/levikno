@@ -1,7 +1,19 @@
 ﻿#include <levikno/levikno.h>
 
-#include <string>
+#include <chrono>
 #include <vector>
+
+class Timer
+{
+private:
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
+
+public:
+	void start() { m_Time = std::chrono::high_resolution_clock::now(); }
+	void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
+	float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
+	float elapsedms() { return elapsed() * 1000.0f; }
+};
 
 bool windowMoved(LvnWindowMovedEvent* e)
 {
@@ -336,7 +348,7 @@ int main()
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
-	LvnTimer timer;
+	Timer timer;
 	int fps;
 	timer.start();
 

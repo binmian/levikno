@@ -110,7 +110,6 @@
 #include <math.h>
 
 #include <string>
-#include <chrono>
 
 
 /* [Vectors & Matrices] */
@@ -1177,6 +1176,11 @@ namespace lvn
 	LVN_API void                        setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 
 	LVN_API LvnResult                   createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo);
+	LVN_API void                        destroyMesh(LvnMesh* mesh);
+	LVN_API const LvnBuffer*            getMeshBuffer(LvnMesh* mesh);
+	LVN_API LvnMat4                     getMeshMatrix(LvnMesh* mesh);
+	LVN_API void                        setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix);
+
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
 	LVN_API LvnModel                    loadModel(const char* filepath);
 
@@ -1626,18 +1630,6 @@ public:
 	const size_t memsize() const { return m_Size; }
 };
 
-
-class LvnTimer
-{
-private:
-	std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
-
-public:
-	void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-	void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-	float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
-	float elapsedms() { return elapsed() * 1000.0f; }
-};
 
 // ---------------------------------------------
 // [SECTION]: Vectors & Matrices
