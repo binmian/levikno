@@ -2,7 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <chrono>
 
 bool windowMoved(LvnWindowMovedEvent* e)
 {
@@ -52,6 +51,12 @@ bool mousePress(LvnMouseButtonPressedEvent* e)
 	return true;
 }
 
+bool mouseScroll(LvnMouseScrolledEvent* e)
+{
+	LVN_TRACE("%s: scroll: (x:%f, y:%f)", e->name, e->x, e->y);
+	return true;
+}
+
 void eventsCallbackFn(LvnEvent* e)
 {
 	lvn::dispatchKeyPressedEvent(e, keyPress);
@@ -60,6 +65,7 @@ void eventsCallbackFn(LvnEvent* e)
 	lvn::dispatchKeyTypedEvent(e, keyTyped);
 	lvn::dispatchMouseMovedEvent(e, mousePos);
 	lvn::dispatchMouseButtonPressedEvent(e, mousePress);
+	lvn::dispatchMouseScrolledEvent(e, mouseScroll);
 }
 
 float vertices[] =
@@ -330,6 +336,9 @@ int main()
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
+	LvnTimer timer;
+	int fps;
+	timer.start();
 
 	UniformData uniformData{};
 	int winWidth, winHeight;
@@ -377,7 +386,8 @@ int main()
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
 
-		lvn::setFrameBufferClearColor(frameBuffer, 0, 0.01f, 0.06f, 0.12f, 1.0f);
+		float intval = abs(sin(time) * 0.5f);
+		lvn::setFrameBufferClearColor(frameBuffer, 0, 0.01f, 0.06f, intval, 1.0f);
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 
 		lvn::renderCmdBindPipeline(window, fbPipeline);
@@ -412,6 +422,14 @@ int main()
 
 		winWidth = width;
 		winHeight = height;
+
+		fps++;
+		if (timer.elapsed() >= 1.0f)
+		{
+			LVN_TRACE("FPS: %d", fps);
+			timer.reset();
+			fps = 0;
+		}
 	}
 
 	lvn::destroyFrameBuffer(frameBuffer);

@@ -242,6 +242,12 @@ struct LvnFrameBuffer
 	void* frameBufferData;
 };
 
+struct LvnMesh
+{
+	LvnBuffer* buffer;    // single buffer that contains both vertex and index buffer
+	LvnMat4 matrix;       // model matrix of mesh
+};
+
 struct LvnContext
 {
 	LvnWindowApi                windowapi;

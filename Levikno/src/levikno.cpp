@@ -1548,29 +1548,61 @@ void setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIn
 	return s_LvnContext->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
-LvnResult loadImageData(LvnImageData* imageData, const char* filepath, int forceChannels)
+LvnResult createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo)
 {
-	if (imageData == nullptr)
-	{
-		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | imageData is nullptr, cannot load image data without a valid LvnImageData struct");
-		return Lvn_Result_Failure;
-	}
+	LvnVertexBindingDescription vertexBindingDescroption{};
+	vertexBindingDescroption.stride = sizeof(LvnVertex);
+	vertexBindingDescroption.binding = 0;
 
+	LvnVertexAttribute attributes[6] = 
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                     // pos
+		{ 0, 1, Lvn_VertexDataType_Vec4f, (3  * sizeof(float)) },  // color
+		{ 0, 2, Lvn_VertexDataType_Vec2f, (7  * sizeof(float)) },  // texUV
+		{ 0, 3, Lvn_VertexDataType_Vec3f, (9  * sizeof(float)) },  // normal
+		{ 0, 4, Lvn_VertexDataType_Vec3f, (12 * sizeof(float)) },  // tangent
+		{ 0, 5, Lvn_VertexDataType_Vec3f, (15 * sizeof(float)) },  // bitangent
+	};
+
+	LvnBufferCreateInfo bufferCreateInfo{};
+	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
+	bufferCreateInfo.vertexBindingDescriptionCount = 1;
+	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
+	bufferCreateInfo.vertexAttributeCount = 6;
+	bufferCreateInfo.pVertexAttributes = attributes;
+	bufferCreateInfo.pVertices = createInfo->vertices;
+	bufferCreateInfo.vertexBufferSize = createInfo->vertexCount * sizeof(LvnVertex);
+	bufferCreateInfo.pIndices = createInfo->indices;
+	bufferCreateInfo.indexBufferSize = createInfo->indexCount * sizeof(uint32_t);
+
+	LvnBuffer* buffer;
+	lvn::createBuffer(&buffer, &bufferCreateInfo);
+
+	*mesh = new LvnMesh();
+	LvnMesh* meshptr = *mesh;
+	meshptr->buffer = buffer;
+	meshptr->matrix = LvnMat4(1.0f);
+
+	return Lvn_Result_Success;
+}
+
+LvnImageData loadImageData(const char* filepath, int forceChannels)
+{
 	if (filepath == nullptr)
 	{
 		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | invalid filepath, filepath must not be nullptr");
-		return Lvn_Result_Failure;
+		return {};
 	}
 
 	if (forceChannels < 0)
 	{
 		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | forceChannels < 0, channels cannot be negative");
-		return Lvn_Result_Failure;
+		return {};
 	}
 	else if (forceChannels > 4)
 	{
 		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
-		return Lvn_Result_Failure;
+		return {};
 	}
 
 	int imageWidth, imageHeight, imageChannels;
@@ -1579,20 +1611,54 @@ LvnResult loadImageData(LvnImageData* imageData, const char* filepath, int force
 	if (!pixels)
 	{
 		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*) | failed to load image pixel data to (%p) from file: %s", pixels, filepath);
-		return Lvn_Result_Failure;
+		return {};
 	}
 
-	imageData->data = pixels;
-	imageData->width = imageWidth;
-	imageData->height = imageHeight;
-	imageData->channels = forceChannels ? forceChannels : imageChannels;
+	LvnImageData imageData{};
+	imageData.width = imageWidth;
+	imageData.height = imageHeight;
+	imageData.channels = forceChannels ? forceChannels : imageChannels;
+	imageData.pixels = LvnData<uint8_t>(pixels, imageData.width * imageData.height * imageData.channels);
 
-	return Lvn_Result_Success;
+	stbi_image_free(pixels);
+
+	return imageData;
 }
 
-void freeImageData(LvnImageData* imageData)
+LvnModel loadModel(const char* filepath)
 {
-	stbi_image_free(imageData->data);
+
+}
+
+uint32_t getVertexDataTypeSize(LvnVertexDataType type)
+{
+	switch (type)
+	{
+		case Lvn_VertexDataType_None:        { return 0; }
+		case Lvn_VertexDataType_Float:       { return sizeof(float); }
+		case Lvn_VertexDataType_Double:      { return sizeof(double); }
+		case Lvn_VertexDataType_Int:         { return sizeof(int); }
+		case Lvn_VertexDataType_UnsignedInt: { return sizeof(uint32_t); }
+		case Lvn_VertexDataType_Bool:        { return sizeof(bool); }
+		case Lvn_VertexDataType_Vec2:        { return sizeof(float) * 2; }
+		case Lvn_VertexDataType_Vec3:        { return sizeof(float) * 3; }
+		case Lvn_VertexDataType_Vec4:        { return sizeof(float) * 4; }
+		case Lvn_VertexDataType_Vec2i:       { return sizeof(int32_t) * 2; }
+		case Lvn_VertexDataType_Vec3i:       { return sizeof(int32_t) * 3; }
+		case Lvn_VertexDataType_Vec4i:       { return sizeof(int32_t) * 4; }
+		case Lvn_VertexDataType_Vec2ui:      { return sizeof(uint32_t) * 2; }
+		case Lvn_VertexDataType_Vec3ui:      { return sizeof(uint32_t) * 3; }
+		case Lvn_VertexDataType_Vec4ui:      { return sizeof(uint32_t) * 4; }
+		case Lvn_VertexDataType_Vec2d:       { return sizeof(double) * 2; }
+		case Lvn_VertexDataType_Vec3d:       { return sizeof(double) * 3; }
+		case Lvn_VertexDataType_Vec4d:       { return sizeof(double) * 4; }
+
+		default:
+		{
+			LVN_CORE_WARN("unknown vertex data type enum: (%u)", type);
+			return 0;
+		}
+	}
 }
 
 // [Section]: Math

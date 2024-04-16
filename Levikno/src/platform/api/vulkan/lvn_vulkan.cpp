@@ -2870,21 +2870,19 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	// load image pixel data
-	LvnImageData imageData{};
-	lvn::loadImageData(&imageData, createInfo->filepath, 4);
+	LvnImageData imageData = lvn::loadImageData(createInfo->filepath, 4);
 
 	VkBuffer stagingBuffer;
 	VmaAllocation stagingBufferMemory;
-	VkDeviceSize imageSize = imageData.width * imageData.height * imageData.channels;
+	VkDeviceSize imageSize = imageData.pixels.memsize();
 
 	vks::createBuffer(vkBackends, &stagingBuffer, &stagingBufferMemory, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	void* data;
 	vmaMapMemory(vkBackends->vmaAllocator, stagingBufferMemory, &data);
-	memcpy(data, imageData.data, imageSize);
+	memcpy(data, imageData.pixels.data(), imageSize);
 	vmaUnmapMemory(vkBackends->vmaAllocator, stagingBufferMemory);
 
-	lvn::freeImageData(&imageData);
 
 	// create texture image
 	VkImage textureImage;
