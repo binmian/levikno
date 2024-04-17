@@ -24,7 +24,7 @@ namespace lvn
 {
 
 static void                         enableLogANSIcodeColors();
-static LvnVector<LvnLogPattern>   logParseFormat(const char* fmt);
+static LvnVector<LvnLogPattern>     logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
 static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
