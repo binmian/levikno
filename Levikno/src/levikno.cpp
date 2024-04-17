@@ -24,7 +24,7 @@ namespace lvn
 {
 
 static void                         enableLogANSIcodeColors();
-static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
+static LvnVector<LvnLogPattern>   logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
 static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
@@ -317,7 +317,7 @@ std::string getFileSrc(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 	
-	std::vector<char> src(size);
+	LvnVector<char> src(size);
 	fread(src.data(), sizeof(char), size, fileptr);
 	fclose(fileptr);
 
@@ -333,7 +333,7 @@ LvnData<uint8_t> getFileSrcBin(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 
-	std::vector<uint8_t> bin(size);
+	LvnVector<uint8_t> bin(size);
 	fread(bin.data(), sizeof(uint8_t), size, fileptr);
 	fclose(fileptr);
 
@@ -368,11 +368,11 @@ const static LvnLogPattern s_LogPatterns[] =
 	{ 'p', [](LvnLogMessage* msg) -> std::string { return getDateTimeMeridiemLower(); }},
 };
 
-static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
+static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
 {
 	if (!fmt || fmt[0] == '\0') { return {}; }
 
-	std::vector<LvnLogPattern> patterns;
+	LvnVector<LvnLogPattern> patterns;
 
 	for (uint32_t i = 0; i < strlen(fmt) - 1; i++)
 	{

@@ -3,8 +3,6 @@
 
 #include "levikno.h"
 
-#include <vector>
-
 
 struct LvnMemoryBlockPointers
 {
@@ -17,6 +15,92 @@ struct LvnMemoryBlockPointers
 	LvnMemoryBlock* memBlockBuffers;
 };
 
+
+// ------------------------------------------------------------
+// [SECTION]: Data Type Structures
+// ------------------------------------------------------------
+template <typename T>
+struct LvnVector
+{
+	T* m_Data;            // pointer array to data
+	uint32_t m_Size;      // number of elements that are in this vector; size of vector
+	uint32_t m_Capacity;  // max number of elements allocated/reserved for this vector; note that m_Size can be less than or equal to the capacity
+
+	LvnVector()
+		: m_Data((T*)lvn::memAlloc(0)), m_Size(0), m_Capacity(0) {}
+
+	~LvnVector() { lvn::memFree(m_Data); }
+
+	LvnVector(uint32_t size)
+	{
+		m_Size = size;
+		m_Capacity = size;
+		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
+	}
+	LvnVector(T* data, uint32_t size)
+	{
+		m_Size = size;
+		m_Capacity = size;
+		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
+		memcpy(m_Data, data, size * sizeof(T));
+	}
+	LvnVector(uint32_t size, const T& data)
+	{
+		m_Size = size;
+		m_Capacity = size;
+		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
+		for (uint32_t i = 0; i < size; i++)
+			memcpy(&m_Data[i], &data, sizeof(T));
+	}
+	LvnVector(const LvnVector<T>& lvnvec)
+	{
+		m_Size = lvnvec.m_Size;
+		m_Capacity = lvnvec.m_Size;
+		m_Data = (T*)lvn::memAlloc(m_Size * sizeof(T));
+		memcpy(m_Data, lvnvec.m_Data, m_Size * sizeof(T));
+	}
+	LvnVector<T>& operator=(const LvnVector<T>& lvnvec)
+	{
+		resize(lvnvec.m_Size);
+		memcpy(m_Data, lvnvec.m_Data, m_Size * sizeof(T));
+		return *this;
+	}
+	T& operator[](uint32_t i)
+	{
+		LVN_CORE_ASSERT(i < m_Size, "index out of vector size range");
+		return m_Data[i];
+	}
+	const T& operator[](uint32_t i) const
+	{
+		LVN_CORE_ASSERT(i < m_Size, "index out of vector size range");
+		return m_Data[i];
+	}
+
+	T*          begin() { return m_Data; }
+	const T*    begin() const { return m_Data; }
+	T*          end() { return m_Data + m_Size; }
+	const T*    end() const { return m_Data + m_Size; }
+	T&          front() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
+	const T&    front() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
+	T&          back() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
+	const T&    back() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
+
+
+	bool        empty() { return m_Size == 0; }
+	void        clear() { if (m_Data) { memset(m_Data, 0, m_Size * sizeof(T)); } m_Size = 0; }
+	void        clear_free() { if (m_Data) { lvn::memFree(m_Data); m_Size = 0; m_Capacity = 0; m_Data = nullptr; } }
+	void        erase(const T* it) { LVN_CORE_ASSERT(it >= m_Data && it < m_Data + m_Size, "element not within vector index!"); size_t off = it - m_Data; memmove(m_Data + off, m_Data + off + 1, (m_Size - off - 1) * sizeof(T)); m_Size--; }
+	T*          data() { return m_Data; }
+	uint32_t    size() { return m_Size; }
+	uint32_t    memsize() { return m_Size * sizeof(T); }
+	void        resize(uint32_t size) { if (size > m_Capacity) { reserve(size); } m_Size = size; }
+	void        reserve(uint32_t size) { if (size <= m_Size) return; T* newsize = (T*)lvn::memAlloc(size * sizeof(T)); memcpy(newsize, m_Data, m_Size * sizeof(T)); lvn::memFree(m_Data); m_Data = newsize; m_Capacity = size; }
+
+	void        push_back(const T& e) { resize(m_Size + 1); memcpy(&m_Data[m_Size - 1], &e, sizeof(T)); }
+	void        copy_back(T* data, uint32_t size) { resize(m_Size + size); memcpy(&m_Data[m_Size - size], data, size * sizeof(T)); }
+	T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
+};
+
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
 // ------------------------------------------------------------
@@ -26,7 +110,7 @@ struct LvnLogger
 	const char* loggerName;
 	LvnLogLevel logLevel;
 	const char* logPatternFormat;
-	std::vector<LvnLogPattern> logPatterns;
+	LvnVector<LvnLogPattern> logPatterns;
 };
 
 struct LvnMemoryPool
@@ -258,7 +342,7 @@ struct LvnContext
 	bool                        logging;
 	LvnLogger                   coreLogger;
 	LvnLogger                   clientLogger;
-	std::vector<LvnLogPattern>  userLogPatterns;
+	LvnVector<LvnLogPattern>  userLogPatterns;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	LvnMemoryPool               memoryPool;

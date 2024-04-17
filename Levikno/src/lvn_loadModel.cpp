@@ -13,14 +13,15 @@ namespace gltfs
 		nlm::json JSON;
 		std::string filepath;
 		LvnData<uint8_t> binData;
+		LvnVector<LvnMesh> meshes;
 	};
 
 	static void                  traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
 	static LvnMesh               loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
 	static LvnData<uint8_t>      getData(nlm::json JSON, const char* filepath);
-	static std::vector<float>    getFloats(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnVector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
 	static lvn::vec3             getColors(nlm::json material);
-	static std::vector<uint32_t> getIndices(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnVector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
 
 	static void traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix)
 	{
@@ -95,22 +96,22 @@ namespace gltfs
 			int meshMaterialIndex = JSON["meshes"][meshIndex]["primitives"][i]["material"];
 
 			// Get Pos mesh data
-			std::vector<lvn::vec3> position;
-			std::vector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
+			LvnVector<lvn::vec3> position;
+			LvnVector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
 			for (uint32_t j = 0; j < posRaw.size() / 3; j++)
 				position.push_back(lvn::vec3(posRaw[(j * 3)], posRaw[(j * 3) + 1], posRaw[(j * 3) + 2]));
 			
 			// Get Color mesh data
-			std::vector<lvn::vec3> colors;
+			LvnVector<lvn::vec3> colors;
 			lvn::vec3 colorRaw = getColors(JSON["materials"][meshMaterialIndex]);
 			for (uint32_t j = 0; j < position.size(); j++)
 				colors.push_back(colorRaw);
 
 			// Get Normal mesh data
-			std::vector<lvn::vec3> normals;
+			LvnVector<lvn::vec3> normals;
 			if (meshNormalIndex >= 0)
 			{
-				std::vector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
+				LvnVector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
 				for (uint32_t j = 0; j < normalsRaw.size() / 3; j++)
 					normals.push_back(lvn::vec3(normalsRaw[(j * 3)], normalsRaw[(j * 3) + 1], normalsRaw[(j * 3) + 2]));
 			}
@@ -121,10 +122,10 @@ namespace gltfs
 			}
 
 			// Get texUV mesh data
-			std::vector<lvn::vec2> texCoord;
+			LvnVector<lvn::vec2> texCoord;
 			if (meshTexIndex >= 0)
 			{
-				std::vector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
+				LvnVector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
 				for (int j = 0; j < texCoordRaw.size() / 2; j++)
 					texCoord.push_back(lvn::vec2(texCoordRaw[(j * 2)], texCoordRaw[(j * 2) + 1]));
 			}
@@ -135,15 +136,13 @@ namespace gltfs
 			}
 
 			// Get Mesh Indices
-			std::vector<uint32_t> indices;
-			std::vector<uint32_t> indicesRaw = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
-			indices.insert(indices.end(), indicesRaw.begin(), indicesRaw.end());
+			LvnVector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
 
 			// Combine all mesh data and Get Model data
-			std::vector<LvnVertex> vertices;
+			LvnVector<LvnVertex> vertices;
 			for (int j = 0; j < position.size(); j++)
 			{
-				vertices.emplace_back(
+				vertices.push_back(
 					vertex
 					{
 						position[j],
@@ -155,12 +154,12 @@ namespace gltfs
 			}
 
 			// Get Textures
-			// std::vector<Texture*> textures = getTextures(JSON["materials"][meshMaterialIndex]);
+			// LvnVector<Texture*> textures = getTextures(JSON["materials"][meshMaterialIndex]);
 
 			// Create Mesh
-			LvnMesh mesh = Mesh(vertices, indices);
-			mesh.modelMatrix = matrix;
-			m_Meshes.emplace_back(std::move(mesh));
+			// LvnMesh mesh = Mesh(vertices, indices);
+			// mesh.modelMatrix = matrix;
+			// m_Meshes.emplace_back(std::move(mesh));
 		}
 	}
 
@@ -175,7 +174,7 @@ namespace gltfs
 		return lvn::getFileSrcBin(pathbin.c_str());
 	}
 
-	static std::vector<float> getFloats(gltfLoadData* gltfData, nlm::json accessor)
+	static LvnVector<float> getFloats(gltfLoadData* gltfData, nlm::json accessor)
 	{
 		nlm::json JSON = gltfData->JSON;
 
@@ -195,9 +194,11 @@ namespace gltfs
 		else { LVN_CORE_ERROR("unkown float type, type (%s) does not match with one of the following: VEC2, VEC3, VEC4, SCALER", type.c_str()); return {}; }
 
 		uint32_t beginningOfData = accByteOffset + BVbyteOffset;
-		uint32_t lengthOfData = count * sizeof(float) * typeNum;
+		uint32_t lengthOfData = count * typeNum; // number of floats, count * number of components in vec type
 
-		return std::vector<float>(&gltfData->binData[beginningOfData], &gltfData->binData[beginningOfData] + lengthOfData);
+		LvnVector<float> floatValues(lengthOfData);
+		memcpy(floatValues.data(), &gltfData->binData[beginningOfData], lengthOfData * sizeof(float)); // HACK: convert bin data to float values by copy and implicit casting, Note: 1 float = 4 bytes
+		return floatValues;
 	}
 
 	static lvn::vec3 getColors(nlm::json material)
@@ -213,7 +214,7 @@ namespace gltfs
 		return colors;
 	}
 
-	static std::vector<uint32_t> getIndices(gltfLoadData* gltfData, nlm::json accessor)
+	static LvnVector<uint32_t> getIndices(gltfLoadData* gltfData, nlm::json accessor)
 	{
 		nlm::json JSON = gltfData->JSON;
 
@@ -231,15 +232,23 @@ namespace gltfs
 		uint32_t bufferViewByteOffset = bufferView.value("byteOffset", 0);
 
 		uint32_t beginningOfData = bufferViewByteOffset + accByteOffset;
-		uint32_t lengthOfData = bufferViewByteOffset + accByteOffset + count * sizeof(uint32_t);
 
-		return std::vector<uint32_t>(&gltfData->binData[beginningOfData], &gltfData->binData[beginningOfData] + lengthOfData);
+		LvnVector<uint32_t> indicesValues(count);
+		memcpy(indicesValues.data(), &gltfData->binData[beginningOfData], count * sizeof(uint32_t)); // HACK: convert bin data to unsigned int values by copy and implicit casteing
+		return indicesValues;
 	}
 }
 
 LvnModel loadGltfModel(const char* filepath)
 {
 	gltfs::gltfLoadData gltfData{};
+	// TODO: add function to add meshes
+
+	LvnModel model{};
+	model.meshes = LvnData(gltfData.meshes.data(), gltfData.meshes.size());
+	model.modelMatrix = LvnMat4(1.0f);
+
+	return model;
 }
 
 } /* namespace lvn */
