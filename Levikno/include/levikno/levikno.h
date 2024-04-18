@@ -1177,7 +1177,7 @@ namespace lvn
 
 	LVN_API LvnResult                   createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo);
 	LVN_API void                        destroyMesh(LvnMesh* mesh);
-	LVN_API const LvnBuffer*            getMeshBuffer(LvnMesh* mesh);
+	LVN_API LvnBuffer*                  getMeshBuffer(LvnMesh* mesh);
 	LVN_API LvnMat4                     getMeshMatrix(LvnMesh* mesh);
 	LVN_API void                        setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix);
 
@@ -4126,10 +4126,7 @@ struct LvnVertex
 
 struct LvnMeshCreateInfo
 {
-	LvnVertex* vertices;
-	uint32_t vertexCount;
-	uint32_t* indices;
-	uint32_t indexCount;
+	LvnBufferCreateInfo bufferInfo;
 };
 
 struct LvnModel

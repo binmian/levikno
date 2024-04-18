@@ -1550,37 +1550,10 @@ void setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIn
 
 LvnResult createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo)
 {
-	LvnVertexBindingDescription vertexBindingDescroption{};
-	vertexBindingDescroption.stride = sizeof(LvnVertex);
-	vertexBindingDescroption.binding = 0;
-
-	LvnVertexAttribute attributes[6] = 
-	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                     // pos
-		{ 0, 1, Lvn_VertexDataType_Vec4f, (3  * sizeof(float)) },  // color
-		{ 0, 2, Lvn_VertexDataType_Vec2f, (7  * sizeof(float)) },  // texUV
-		{ 0, 3, Lvn_VertexDataType_Vec3f, (9  * sizeof(float)) },  // normal
-		{ 0, 4, Lvn_VertexDataType_Vec3f, (12 * sizeof(float)) },  // tangent
-		{ 0, 5, Lvn_VertexDataType_Vec3f, (15 * sizeof(float)) },  // bitangent
-	};
-
-	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
-	bufferCreateInfo.vertexAttributeCount = 6;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.pVertices = createInfo->vertices;
-	bufferCreateInfo.vertexBufferSize = createInfo->vertexCount * sizeof(LvnVertex);
-	bufferCreateInfo.pIndices = createInfo->indices;
-	bufferCreateInfo.indexBufferSize = createInfo->indexCount * sizeof(uint32_t);
-
-	LvnBuffer* buffer;
-	lvn::createBuffer(&buffer, &bufferCreateInfo);
-
 	*mesh = new LvnMesh();
 	LvnMesh* meshptr = *mesh;
-	meshptr->buffer = buffer;
+
+	lvn::createBuffer(&meshptr->buffer, &createInfo->bufferInfo);
 	meshptr->matrix = LvnMat4(1.0f);
 
 	return Lvn_Result_Success;
@@ -1592,7 +1565,7 @@ void destroyMesh(LvnMesh* mesh)
 	delete mesh;
 }
 
-const LvnBuffer* getMeshBuffer(LvnMesh* mesh)
+LvnBuffer* getMeshBuffer(LvnMesh* mesh)
 {
 	return mesh->buffer;
 }
@@ -1706,9 +1679,9 @@ float inverseSqrt(float num)
 	const float threehalfs = 1.5f;
 
 	x2 = num * 0.5f;
-	conv.f  = num;
-	conv.i  = 0x5f3759df - (conv.i >> 1);
-	conv.f  = conv.f * (threehalfs - (x2 * conv.f * conv.f));
+	conv.f = num;
+	conv.i = 0x5f3759df - (conv.i >> 1);
+	conv.f = conv.f * (threehalfs - (x2 * conv.f * conv.f));
 	return conv.f;
 }
 

@@ -1,6 +1,7 @@
 ﻿#include <levikno/levikno.h>
 
 #include <chrono>
+#include <string>
 #include <vector>
 
 class Timer
@@ -89,6 +90,14 @@ float vertices[] =
 	-1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
+std::vector<LvnVertex> lvnVertices = 
+{
+	{ {-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
+	{ { 1.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
+	{ { 1.0f,  1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
+	{ {-1.0f,  1.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
+};
+
 uint32_t indices[] =
 {
 	0, 1, 2, 2, 3, 0,
@@ -173,6 +182,10 @@ int main()
 	vertexBindingDescroption.stride = 8 * sizeof(float);
 	vertexBindingDescroption.binding = 0;
 
+	LvnVertexBindingDescription lvnVertexBindingDescroption{};
+	lvnVertexBindingDescroption.stride = sizeof(LvnVertex);
+	lvnVertexBindingDescroption.binding = 0;
+
 	LvnVertexAttribute attributes[3] = 
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
@@ -180,6 +193,15 @@ int main()
 		{ 0, 2, Lvn_VertexDataType_Vec2f, (6 * sizeof(float)) },
 	};
 
+	LvnVertexAttribute lvnAttributes[6] = 
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
+		{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
+		{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
+		{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
+		{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
+		{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
+	};
 
 	LvnDescriptorBinding uniformDescriptorBinding{};
 	uniformDescriptorBinding.binding = 0;
@@ -254,6 +276,10 @@ int main()
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
 
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
+	pipelineCreateInfo.pVertexBindingDescriptions = &lvnVertexBindingDescroption;
+	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
+	pipelineCreateInfo.pVertexAttributes = lvnAttributes;
+	pipelineCreateInfo.vertexAttributeCount = 6;
 	pipelineCreateInfo.shader = fbShader;
 	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
@@ -345,12 +371,26 @@ int main()
 
 	lvn::updateDescriptorLayoutData(fbDescriptorLayout, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
 
+	LvnMeshCreateInfo meshCreateInfo{};
+	meshCreateInfo.bufferInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
+	meshCreateInfo.bufferInfo.pVertexBindingDescriptions = &lvnVertexBindingDescroption;
+	meshCreateInfo.bufferInfo.vertexBindingDescriptionCount = 1;
+	meshCreateInfo.bufferInfo.pVertexAttributes = lvnAttributes;
+	meshCreateInfo.bufferInfo.vertexAttributeCount = 6;
+	meshCreateInfo.bufferInfo.pVertices = lvnVertices.data();
+	meshCreateInfo.bufferInfo.vertexBufferSize = lvnVertices.size() * sizeof(LvnVertex);
+	meshCreateInfo.bufferInfo.pIndices = indices;
+	meshCreateInfo.bufferInfo.indexBufferSize = sizeof(indices);
+
+	LvnMesh* mesh;
+	lvn::createMesh(&mesh, &meshCreateInfo);
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
 	Timer timer;
 	int fps;
 	timer.start();
+
 
 	UniformData uniformData{};
 	int winWidth, winHeight;
@@ -406,8 +446,8 @@ int main()
 
 		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
 
-		lvn::renderCmdBindVertexBuffer(window, buffer);
-		lvn::renderCmdBindIndexBuffer(window, buffer);
+		lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(mesh));
+		lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(mesh));
 
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
@@ -444,6 +484,7 @@ int main()
 		}
 	}
 
+	lvn::destroyMesh(mesh);
 	lvn::destroyFrameBuffer(frameBuffer);
 	lvn::destroyTexture(texture);
 	lvn::destroyUniformBuffer(uniformBuffer);

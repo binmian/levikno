@@ -17,7 +17,7 @@ namespace gltfs
 	};
 
 	static void                  traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
-	static LvnMesh               loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
+	static void                  loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
 	static LvnData<uint8_t>      getData(nlm::json JSON, const char* filepath);
 	static LvnVector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
 	static lvn::vec3             getColors(nlm::json material);
@@ -83,7 +83,7 @@ namespace gltfs
 		}
 	}
 
-	static LvnMesh loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix)
+	static void loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix)
 	{
 		nlm::json JSON = gltfData->JSON;
 
@@ -157,9 +157,18 @@ namespace gltfs
 			// LvnVector<Texture*> textures = getTextures(JSON["materials"][meshMaterialIndex]);
 
 			// Create Mesh
-			// LvnMesh mesh = Mesh(vertices, indices);
-			// mesh.modelMatrix = matrix;
-			// m_Meshes.emplace_back(std::move(mesh));
+			LvnMeshCreateInfo meshCreateInfo{};
+			meshCreateInfo.vertices = vertices.data();
+			meshCreateInfo.vertexCount = vertices.size();
+			meshCreateInfo.indices = indices.data();
+			meshCreateInfo.indexCount = indices.size();
+
+			LvnMesh* mesh;
+			lvn::createMesh(&mesh, &meshCreateInfo);
+			lvn::setMeshMatrix(mesh, matrix);
+
+			gltfData->meshes.push_back(*mesh);
+			lvn::destroyMesh(mesh);
 		}
 	}
 
