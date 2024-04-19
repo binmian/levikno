@@ -20,7 +20,7 @@ namespace gltfs
 	static void                  loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
 	static LvnData<uint8_t>      getData(nlm::json JSON, const char* filepath);
 	static LvnVector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
-	static lvn::vec3             getColors(nlm::json material);
+	static LvnVec4               getColors(nlm::json material);
 	static LvnVector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
 
 	static void traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix)
@@ -28,7 +28,7 @@ namespace gltfs
 		nlm::json JSON = gltfData->JSON;
 		nlm::json node = JSON["nodes"][nextNode];
 
-		lvn::vec3 nodeTranslation = lvn::vec3(0.0f, 0.0f, 0.0f);
+		LvnVec3 nodeTranslation = LvnVec3(0.0f, 0.0f, 0.0f);
 		if (node.find("translation") != node.end())
 		{
 			for (uint32_t i = 0; i < node["translation"].size(); i++)
@@ -44,7 +44,7 @@ namespace gltfs
 			nodeRotation[3] = node["rotation"][2]; // z
 		}
 
-		lvn::vec3 nodeScale = lvn::vec3(1.0f, 1.0f, 1.0f);
+		LvnVec3 nodeScale = LvnVec3(1.0f, 1.0f, 1.0f);
 		if (node.find("scale") != node.end())
 		{
 			for (uint32_t i = 0; i < node["scale"].size(); i++)
@@ -95,60 +95,60 @@ namespace gltfs
 			int meshIndicesIndex = JSON["meshes"][meshIndex]["primitives"][i]["indices"];
 			int meshMaterialIndex = JSON["meshes"][meshIndex]["primitives"][i]["material"];
 
-			// Get Pos mesh data
-			LvnVector<lvn::vec3> position;
+			// get Pos mesh data
+			LvnVector<LvnVec3> position;
 			LvnVector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
 			for (uint32_t j = 0; j < posRaw.size() / 3; j++)
-				position.push_back(lvn::vec3(posRaw[(j * 3)], posRaw[(j * 3) + 1], posRaw[(j * 3) + 2]));
+				position.push_back(LvnVec3(posRaw[(j * 3)], posRaw[(j * 3) + 1], posRaw[(j * 3) + 2]));
 			
-			// Get Color mesh data
-			LvnVector<lvn::vec3> colors;
-			lvn::vec3 colorRaw = getColors(JSON["materials"][meshMaterialIndex]);
-			for (uint32_t j = 0; j < position.size(); j++)
-				colors.push_back(colorRaw);
+			// get color data, assuming each vertex of the mesh primitive has the same color
+			LvnVec4 colors = getColors(JSON["materials"][meshMaterialIndex]);
 
-			// Get Normal mesh data
-			LvnVector<lvn::vec3> normals;
+			// get normal mesh data
+			LvnVector<LvnVec3> normals;
 			if (meshNormalIndex >= 0)
 			{
 				LvnVector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
 				for (uint32_t j = 0; j < normalsRaw.size() / 3; j++)
-					normals.push_back(lvn::vec3(normalsRaw[(j * 3)], normalsRaw[(j * 3) + 1], normalsRaw[(j * 3) + 2]));
+					normals.push_back(LvnVec3(normalsRaw[(j * 3)], normalsRaw[(j * 3) + 1], normalsRaw[(j * 3) + 2]));
 			}
-			else // Mesh has no normals
+			else // mesh has no normals
 			{
 				for (uint32_t j = 0; j < position.size(); j++)
-					normals.push_back(lvn::vec3(0.0f));
+					normals.push_back(LvnVec3(0.0f));
 			}
 
-			// Get texUV mesh data
-			LvnVector<lvn::vec2> texCoord;
+			// get texUV mesh data
+			LvnVector<LvnVec2> texCoord;
 			if (meshTexIndex >= 0)
 			{
 				LvnVector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
 				for (int j = 0; j < texCoordRaw.size() / 2; j++)
-					texCoord.push_back(lvn::vec2(texCoordRaw[(j * 2)], texCoordRaw[(j * 2) + 1]));
+					texCoord.push_back(LvnVec2(texCoordRaw[(j * 2)], texCoordRaw[(j * 2) + 1]));
 			}
 			else
 			{
 				for (uint32_t j = 0; j < position.size(); j++)
-					texCoord.push_back(lvn::vec2(0.0f, 0.0f));
+					texCoord.push_back(LvnVec2(0.0f, 0.0f));
 			}
 
-			// Get Mesh Indices
+			// get Mesh Indices
 			LvnVector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
 
-			// Combine all mesh data and Get Model data
+			// combine all mesh data and Get Model data
 			LvnVector<LvnVertex> vertices;
-			for (int j = 0; j < position.size(); j++)
+			for (uint32_t j = 0; j < position.size(); j++)
 			{
 				vertices.push_back(
-					vertex
+					LvnVertex
 					{
-						position[j],
-						LvnVec4(colors[j], 1.0f),
-						texCoord[j],
-						normals[j],
+						position[j],    // pos
+						colors,         // color
+						texCoord[j],    // texUV
+						normals[j],     // normal
+
+						LvnVec3(0.0f),  // tangent
+						LvnVec3(0.0f),  // bitangent
 					}
 				);
 			}
@@ -158,17 +158,14 @@ namespace gltfs
 
 			// Create Mesh
 			LvnMeshCreateInfo meshCreateInfo{};
-			meshCreateInfo.vertices = vertices.data();
-			meshCreateInfo.vertexCount = vertices.size();
-			meshCreateInfo.indices = indices.data();
-			meshCreateInfo.indexCount = indices.size();
+			meshCreateInfo.bufferInfo = lvn::createMeshDefaultVertexBufferCreateInfo(vertices.data(), vertices.size(), indices.data(), indices.size());
 
-			LvnMesh* mesh;
-			lvn::createMesh(&mesh, &meshCreateInfo);
-			lvn::setMeshMatrix(mesh, matrix);
+			LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
+			lvn::setMeshMatrix(&mesh, matrix);
+			mesh.vertexCount = vertices.size();
+			mesh.indexCount = indices.size();
 
-			gltfData->meshes.push_back(*mesh);
-			lvn::destroyMesh(mesh);
+			gltfData->meshes.push_back(mesh);
 		}
 	}
 
@@ -210,17 +207,18 @@ namespace gltfs
 		return floatValues;
 	}
 
-	static lvn::vec3 getColors(nlm::json material)
+	static LvnVec4 getColors(nlm::json material)
 	{
-		lvn::vec3 colors = lvn::vec3(1.0f);
-
 		if (material["pbrMetallicRoughness"].find("baseColorFactor") != material["pbrMetallicRoughness"].end())
 		{
-			colors = lvn::vec3(material["pbrMetallicRoughness"]["baseColorFactor"][0], material["pbrMetallicRoughness"]["baseColorFactor"][1], material["pbrMetallicRoughness"]["baseColorFactor"][2]);
-			return colors;
+			return LvnVec4(
+				material["pbrMetallicRoughness"]["baseColorFactor"][0],    // r
+				material["pbrMetallicRoughness"]["baseColorFactor"][1],    // g
+				material["pbrMetallicRoughness"]["baseColorFactor"][2],    // b
+				material["pbrMetallicRoughness"]["baseColorFactor"][3]);   // a
 		}
 
-		return colors;
+		return LvnVec4(1.0f, 1.0f, 1.0f, 1.0f); // if no color factor found, return white color
 	}
 
 	static LvnVector<uint32_t> getIndices(gltfLoadData* gltfData, nlm::json accessor)
@@ -231,27 +229,69 @@ namespace gltfs
 		uint32_t count = accessor["count"];
 		uint32_t accByteOffset = accessor.value("byteOffset", 0);
 		uint32_t componentType = accessor["componentType"];
-		if (componentType == 5125) // UNSIGNED_INT = 5125
-		{
-			LVN_CORE_ERROR("indices component type not supported (%u), only unsigned int types are supported: '5125' (UNSIGNED_INT)", componentType);
-			return {};
-		}
 
 		nlm::json bufferView = JSON["bufferViews"][bufferViewIndex];
 		uint32_t bufferViewByteOffset = bufferView.value("byteOffset", 0);
 
 		uint32_t beginningOfData = bufferViewByteOffset + accByteOffset;
 
-		LvnVector<uint32_t> indicesValues(count);
-		memcpy(indicesValues.data(), &gltfData->binData[beginningOfData], count * sizeof(uint32_t)); // HACK: convert bin data to unsigned int values by copy and implicit casteing
-		return indicesValues;
+		LvnVector<uint32_t> indices;
+
+		if (componentType == 5125) // UNSIGNED_INT = 5125
+		{
+			for (uint32_t i = beginningOfData; i < bufferViewByteOffset + accByteOffset + count * sizeof(unsigned int); i += 4)
+			{
+				const uint8_t* data = gltfData->binData.data();
+				uint8_t bytes[] = { data[i], data[i + 1], data[i + 2], data[i + 3] };
+				uint32_t value;
+				std::memcpy(&value, bytes, sizeof(uint8_t));
+				indices.push_back(value);
+			}
+		}
+		else if (componentType == 5123) // UNSIGNED_SHORT = 5123
+		{
+			for (unsigned int i = beginningOfData; i < bufferViewByteOffset + accByteOffset + count * sizeof(unsigned short); i += 2)
+			{
+				const uint8_t* data = gltfData->binData.data();
+				uint8_t bytes[] = { data[i], data[i + 1] };
+				uint16_t value;
+				std::memcpy(&value, bytes, sizeof(uint16_t));
+				indices.push_back((uint32_t)value);
+			}
+		}
+		else if (componentType == 5122) // SHORT = 5122
+		{
+			for (unsigned int i = beginningOfData; i < bufferViewByteOffset + accByteOffset + count * sizeof(short); i += 2)
+			{
+				const uint8_t* data = gltfData->binData.data();
+				uint8_t bytes[] = { data[i], data[i + 1] };
+				int16_t value;
+				std::memcpy(&value, bytes, sizeof(int16_t));
+				indices.push_back((uint32_t)value);
+			}
+		}
+		else // no type found
+		{
+			LVN_CORE_ERROR("indices component type not supported (%u), only unsigned int types are supported: '5125' (UNSIGNED_INT)", componentType);
+			return {};
+		}
+
+		return indices;
 	}
 }
 
 LvnModel loadGltfModel(const char* filepath)
 {
 	gltfs::gltfLoadData gltfData{};
-	// TODO: add function to add meshes
+	std::string jsonText = lvn::getFileSrc(filepath);
+	gltfData.JSON = nlm::json::parse(jsonText);
+	gltfData.binData = gltfs::getData(gltfData.JSON, filepath);
+	gltfData.filepath = filepath;
+
+	nlm::json JSON = gltfData.JSON;
+
+	for (uint32_t i = 0; i < JSON["scenes"][0]["nodes"].size(); i++) // curent impl only supports loading first scene
+		gltfs::traverseNode(&gltfData, JSON["scenes"][0]["nodes"][i], LvnMat4(1.0f));
 
 	LvnModel model{};
 	model.meshes = LvnData(gltfData.meshes.data(), gltfData.meshes.size());

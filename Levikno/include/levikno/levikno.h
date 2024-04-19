@@ -710,6 +710,8 @@ struct LvnBatchCreateInfo;
 struct LvnBatchRenderer;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
+struct LvnCamera;
+struct LvnCameraCreateInfo;
 struct LvnCharset;
 struct LvnContext;
 struct LvnContextCreateInfo;
@@ -748,7 +750,6 @@ struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
 struct LvnMouseMovedEvent;
 struct LvnMouseScrolledEvent;
-struct LvnOrthographicCamera;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
 struct LvnPipeline;
@@ -780,7 +781,6 @@ struct LvnWindowCloseEvent;
 struct LvnWindowContext;
 struct LvnWindowCreateInfo;
 struct LvnWindowData;
-struct LvnWindowDimensions;
 struct LvnWindowEvent;
 struct LvnWindowFocusEvent;
 struct LvnWindowFramebufferResizeEvent;
@@ -794,6 +794,9 @@ class LvnTimer;
 
 template<typename T>
 class LvnData;
+
+template<typename T>
+struct LvnPair;
 
 /* [Vectors] */
 template<typename T>
@@ -1108,7 +1111,7 @@ namespace lvn
 
 	LVN_API void                        updateWindow(LvnWindow* window);
 	LVN_API bool                        windowOpen(LvnWindow* window);
-	LVN_API LvnWindowDimensions         getWindowDimensions(LvnWindow* window);
+	LVN_API LvnPair<int>                getWindowDimensions(LvnWindow* window);
 	LVN_API int                         getWindowWidth(LvnWindow* window);
 	LVN_API int                         getWindowHeight(LvnWindow* window);
 	LVN_API void                        setWindowEventCallback(LvnWindow* window, void (*callback)(LvnEvent*));
@@ -1117,7 +1120,27 @@ namespace lvn
 	LVN_API void*                       getNativeWindow(LvnWindow* window);
 	LVN_API void                        setWindowContextCurrent(LvnWindow* window);
 
+	/* [Input] */
+	LVN_API bool                        keyPressed(LvnWindow* window, int keycode);
+	LVN_API bool                        keyReleased(LvnWindow* window, int keycode);
+	LVN_API bool                        mouseButtonPressed(LvnWindow* window, int button);
+	LVN_API bool                        mouseButtonReleased(LvnWindow* window, int button);
 
+	LVN_API void                        setMousePos(LvnWindow* window, float x, float y);
+
+	LVN_API LvnPair<float>              getMousePos(LvnWindow* window);
+	LVN_API void                        getMousePos(LvnWindow* window, float* xpos, float* ypos);
+	LVN_API float                       getMouseX(LvnWindow* window);
+	LVN_API float                       getMouseY(LvnWindow* window);
+
+	LVN_API LvnPair<int>                getWindowPos(LvnWindow* window);
+	LVN_API void                        getWindowPos(LvnWindow* window, int* xpos, int* ypos);
+	LVN_API LvnPair<int>                getWindowSize(LvnWindow* window);
+	LVN_API void                        getWindowSize(LvnWindow* window, int* width, int* height);
+
+	// Timestep Functions
+	float getTimeSeconds();
+	float getTimeMilliseconds();
 
 	/* [Graphics API] */
 	LVN_API LvnGraphicsApi              getGraphicsApi();
@@ -1175,14 +1198,30 @@ namespace lvn
 	LVN_API void                        updateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
 	LVN_API void                        setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 
-	LVN_API LvnResult                   createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo);
+	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);
 	LVN_API void                        destroyMesh(LvnMesh* mesh);
 	LVN_API LvnBuffer*                  getMeshBuffer(LvnMesh* mesh);
 	LVN_API LvnMat4                     getMeshMatrix(LvnMesh* mesh);
 	LVN_API void                        setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix);
+	LVN_API LvnBufferCreateInfo         createMeshDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
-	LVN_API LvnModel                    loadModel(const char* filepath);
+	LVN_API LvnModel                    createModel(const char* filepath);
+	LVN_API void                        destroyModel(LvnModel* model);
+
+	LVN_API LvnCamera                   createCamera(LvnCameraCreateInfo* createInfo);
+	LVN_API void                        updateCameraMatrix(LvnCamera* camera);
+	LVN_API void                        setCameraFov(LvnCamera* camera, float fovDeg);
+	LVN_API void                        setCameraPlane(LvnCamera* camera, float nearPlane, float farPlane);
+	LVN_API void                        setCameraPos(LvnCamera* camera, const LvnVec3& position);
+	LVN_API void                        setCameraOrient(LvnCamera* camera, const LvnVec3& orientation);
+	LVN_API void                        setCameraUpVec(LvnCamera* camera, const LvnVec3& upVector);
+	LVN_API float                       getCameraFov(LvnCamera* camera);
+	LVN_API float                       getCameraNearPlane(LvnCamera* camera);
+	LVN_API float                       getCameraFarPlane(LvnCamera* camera);
+	LVN_API LvnVec3                     getCameraPos(LvnCamera* camera, const LvnVec3& position);
+	LVN_API LvnVec3                     getCameraOrient(LvnCamera* camera, const LvnVec3& orientation);
+	LVN_API LvnVec3                     getCameraUpVec(LvnCamera* camera, const LvnVec3& upVector);
 
 
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
@@ -1228,6 +1267,12 @@ namespace lvn
 	T dot(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
+	}
+
+	template <typename T>
+	T angle(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+	{
+		return acos(lvn::clamp(lvn::dot(v1, v2), T(-1), T(1)));
 	}
 
 	template <typename T>
@@ -1561,11 +1606,6 @@ struct LvnWindowCreateInfo
 	}
 };
 
-struct LvnWindowDimensions
-{
-	int width, height;
-};
-
 
 // ---------------------------------------------
 // [SECTION]: Data Structures
@@ -1577,44 +1617,44 @@ class LvnData
 {
 private:
 	T* m_Data;
-	size_t m_Size, m_Count;
+	size_t m_Size, m_MemSize;
 
 public:
 	LvnData()
-		: m_Data(0), m_Size(0), m_Count(0) {}
+		: m_Data(0), m_Size(0), m_MemSize(0) {}
 
 	~LvnData()
 	{
 		free(m_Data);
 	}
 
-	LvnData(const T* data, size_t count)
+	LvnData(const T* data, size_t size)
 	{
-		void* buff = malloc(count * sizeof(T));
+		void* buff = malloc(size * sizeof(T));
 		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); LVN_ASSERT_BREAK; }
-		memcpy(buff, data, count * sizeof(T));
+		memcpy(buff, data, size * sizeof(T));
 		m_Data = (T*)buff;
-		m_Count = count;
-		m_Size = count * sizeof(T);
+		m_Size = size;
+		m_MemSize = size * sizeof(T);
 	}
 	LvnData(const LvnData<T>& data)
 	{
-		void* buff = malloc(data.m_Size);
+		void* buff = malloc(data.m_MemSize);
 		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); LVN_ASSERT_BREAK; }
-		memcpy(buff, data.m_Data, data.m_Size);
+		memcpy(buff, data.m_Data, data.m_MemSize);
 		this->m_Data = (T*)buff;
-		this->m_Count = data.m_Count;
 		this->m_Size = data.m_Size;
+		this->m_MemSize = data.m_MemSize;
 	}
 	LvnData<T>& operator=(const LvnData<T>& data)
 	{
 		free(m_Data);
-		void* buff = malloc(data.m_Size);
+		void* buff = malloc(data.m_MemSize);
 		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); LVN_ASSERT_BREAK; }
-		memcpy(buff, data.m_Data, data.m_Size);
+		memcpy(buff, data.m_Data, data.m_MemSize);
 		this->m_Data = (T*)buff;
-		this->m_Count = data.m_Count;
 		this->m_Size = data.m_Size;
+		this->m_MemSize = data.m_MemSize;
 
 		return *this;
 	}
@@ -1626,10 +1666,16 @@ public:
 	}
 
 	const T* const data() const { return m_Data; }
-	const size_t size() const { return m_Count; }
-	const size_t memsize() const { return m_Size; }
+	const size_t size() const { return m_Size; }
+	const size_t memsize() const { return m_MemSize; }
 };
 
+template<typename T>
+struct LvnPair
+{
+	union { T p1, x, width; };
+	union { T p2, y, height; };
+};
 
 // ---------------------------------------------
 // [SECTION]: Vectors & Matrices
@@ -1751,6 +1797,8 @@ struct LvnVec3_t
 		: x(n_x), y(n_yz.y), z(n_yz.z) {}
 	LvnVec3_t(const LvnVec2_t<T>& n_xy, const T& n_z)
 		: x(n_xy.x), y(n_xy.y), z(n_z) {}
+	LvnVec3_t(const LvnVec2_t<T>& n_xy)
+		: x(n_xy.x), y(n_xy.y), z(T(0)) {}
 	LvnVec3_t(const LvnVec4_t<T>& v)
 	{
 		this->x = v.x;
@@ -1865,6 +1913,10 @@ struct LvnVec4_t
 		: x(n_xyz.x), y(n_xyz.y), z(n_xyz.z), w(n_w) {}
 	LvnVec4_t(const T& n_x, const LvnVec3_t<T>& n_yzw)
 		: x(n_x), y(n_yzw.y), z(n_yzw.z), w(n_yzw.w) {}
+	LvnVec4_t(const LvnVec2_t<T>& n_xy)
+		: x(n_xy.x), y(n_xy.y), z(0.0f), w(T(0)) {}
+	LvnVec4_t(const LvnVec3_t<T>& n_xyz)
+		: x(n_xyz.x), y(n_xyz.y), z(n_xyz.z), w(T(0)) {}
 
 	LvnVec4_t<T> operator+()
 	{
@@ -4124,6 +4176,15 @@ struct LvnVertex
 	LvnVec3 bitangent;
 };
 
+struct LvnMesh
+{
+	LvnBuffer* buffer;    // single buffer that contains both vertex and index buffer
+	LvnMat4 matrix;       // model matrix of mesh
+
+	uint32_t vertexCount; // number of vertices in this mesh
+	uint32_t indexCount;  // number of indices in this mesh
+};
+
 struct LvnMeshCreateInfo
 {
 	LvnBufferCreateInfo bufferInfo;
@@ -4133,6 +4194,36 @@ struct LvnModel
 {
 	LvnData<LvnMesh> meshes;
 	LvnMat4 modelMatrix;
+};
+
+struct LvnCamera
+{
+	LvnMat4 projectionMatrix;    // projection matrix
+	LvnMat4 viewMatrix;          // view matrix
+	LvnMat4 matrix;              // combined projection view matrix
+
+	LvnVec3 position;            // position of camera in space
+	LvnVec3 orientation;         // orientation/direction camera is looking
+	LvnVec3 upVector;            // up vector to differentiate direction in space
+
+	float fov;                   // field of view
+	float near;                  // near plane
+	float far;                   // far plane
+
+	uint32_t width, height;      // dimensions of camera
+};
+
+struct LvnCameraCreateInfo
+{
+	uint32_t width, height;
+
+	LvnVec3 position;
+	LvnVec3 orientation;
+	LvnVec3 upVector;
+
+	float fovDeg;
+	float nearPlane;
+	float farPlane;
 };
 
 #endif

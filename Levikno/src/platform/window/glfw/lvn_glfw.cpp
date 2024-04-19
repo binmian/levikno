@@ -81,6 +81,22 @@ namespace lvn
 		windowContext->setWindowVSync = glfwImplSetWindowVSync;
 		windowContext->getWindowVSync = glfwImplGetWindowVSync;
 		windowContext->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
+		windowContext->keyPressed = glfwImplKeyPressed;
+		windowContext->keyReleased = glfwImplKeyReleased;
+		windowContext->mouseButtonPressed = glfwImplMouseButtonPressed;
+		windowContext->mouseButtonReleased = glfwImplMouseButtonReleased;
+
+		windowContext->setMousePos = glfwImplSetMousePos;
+
+		windowContext->getMousePos = glfwImplGetMousePos;
+		windowContext->getMousePosPtr = glfwImplGetMousePosPtr;
+		windowContext->getMouseX = glfwImplGetMouseX;
+		windowContext->getMouseY = glfwImplGetMouseY;
+
+		windowContext->getWindowPos = glfwImplGetWindowPos;
+		windowContext->getWindowPosPtr = glfwImplGetWindowPosPtr;
+		windowContext->getWindowSize = glfwImplGetWindowSize;
+		windowContext->getWindowPosPtr = glfwImplGetWindowSizePtr;
 
 
 		LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
@@ -385,7 +401,7 @@ namespace lvn
 		return (!glfwWindowShouldClose(static_cast<GLFWwindow*>(window->nativeWindow)));
 	}
 
-	LvnWindowDimensions glfwImplGetDimensions(LvnWindow* window)
+	LvnPair<int> glfwImplGetDimensions(LvnWindow* window)
 	{
 		int width, height;
 		glfwGetWindowSize(static_cast<GLFWwindow*>(window->nativeWindow), &width, &height);
@@ -429,8 +445,103 @@ namespace lvn
 		glfwDestroyWindow(static_cast<GLFWwindow*>(window->nativeWindow));
 	}
 
-	void glfwImplEventCallBackFn(LvnEvent* e)
+	void glfwImplEventCallBackFn(LvnEvent* e) // default function for event call backs if no function is set
 	{
 		return;
+	}
+
+	bool glfwImplKeyPressed(LvnWindow* window, int keycode)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		int state = glfwGetKey(glfwWin, keycode);
+		return state == GLFW_PRESS || state == GLFW_REPEAT;
+	}
+
+	bool glfwImplKeyReleased(LvnWindow* window, int keycode)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		int state = glfwGetKey(glfwWin, keycode);
+		return state == GLFW_RELEASE;
+	}
+
+	bool glfwImplMouseButtonPressed(LvnWindow* window, int button)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		int state = glfwGetMouseButton(glfwWin, button);
+		return state == GLFW_PRESS;
+	}
+
+	bool glfwImplMouseButtonReleased(LvnWindow* window, int button)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		int state = glfwGetMouseButton(glfwWin, button);
+		return state == GLFW_RELEASE;
+	}
+
+	void glfwImplSetMousePos(LvnWindow* window, float x, float y)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		glfwSetCursorPos(glfwWin, (double)x, (double)y);
+	}
+
+	LvnPair<float> glfwImplGetMousePos(LvnWindow* window)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		double xpos, ypos;
+		glfwGetCursorPos(glfwWin, &xpos, &ypos);
+		return { (float)xpos, (float)ypos };
+	}
+
+	void glfwImplGetMousePosPtr(LvnWindow* window, float* xpos, float* ypos)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		double xPos, yPos;
+		glfwGetCursorPos(glfwWin, &xPos, &yPos);
+		*xpos = (float)xPos;
+		*ypos = (float)yPos;
+	}
+
+	float glfwImplGetMouseX(LvnWindow* window)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		double xPos, yPos;
+		glfwGetCursorPos(glfwWin, &xPos, &yPos);
+		return (float)xPos;
+	}
+
+	float glfwImplGetMouseY(LvnWindow* window)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		double xPos, yPos;
+		glfwGetCursorPos(glfwWin, &xPos, &yPos);
+		return (float)yPos;
+	}
+
+	LvnPair<int> glfwImplGetWindowPos(LvnWindow* window)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		int xpos, ypos;
+		glfwGetWindowPos(glfwWin, &xpos, &ypos);
+		return { xpos, ypos };
+	}
+
+	void glfwImplGetWindowPosPtr(LvnWindow* window, int* xpos, int* ypos)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		glfwGetWindowPos(glfwWin, &(*xpos), &(*ypos));
+	}
+
+	LvnPair<int> glfwImplGetWindowSize(LvnWindow* window)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		int width, height;
+		glfwGetWindowSize(glfwWin, &width, &height);
+		return { width, height };
+	}
+
+	void glfwImplGetWindowSizePtr(LvnWindow* window, int* width, int* height)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		glfwGetWindowSize(glfwWin, &(*width), &(*height));
 	}
 }

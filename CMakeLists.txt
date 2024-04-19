@@ -59,6 +59,8 @@ set(LVN_SOURCES
 	Levikno/include/levikno/levikno.h
 	Levikno/src/levikno.cpp
 	Levikno/src/levikno_internal.h
+	Levikno/src/lvn_loadModel.cpp
+	Levikno/src/lvn_loadModel.h
 
 	# glfw
 	Levikno/src/platform/window/glfw/lvn_glfw.cpp

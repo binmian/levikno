@@ -194,12 +194,29 @@ struct LvnWindowContext
 	void                (*destroyWindow)(LvnWindow*);
 	void                (*updateWindow)(LvnWindow*);
 	bool                (*windowOpen)(LvnWindow*);
-	LvnWindowDimensions (*getDimensions)(LvnWindow*);
+	LvnPair<int>        (*getDimensions)(LvnWindow*);
 	unsigned int        (*getWindowWidth)(LvnWindow*);
 	unsigned int        (*getWindowHeight)(LvnWindow*);
 	void                (*setWindowVSync)(LvnWindow*, bool);
 	bool                (*getWindowVSync)(LvnWindow*);
 	void                (*setWindowContextCurrent)(LvnWindow*);
+
+	bool                (*keyPressed)(LvnWindow*, int);
+	bool                (*keyReleased)(LvnWindow*, int);
+	bool                (*mouseButtonPressed)(LvnWindow*, int);
+	bool                (*mouseButtonReleased)(LvnWindow*, int);
+
+	void                (*setMousePos)(LvnWindow*, float, float);
+
+	LvnPair<float>      (*getMousePos)(LvnWindow*);
+	void                (*getMousePosPtr)(LvnWindow*, float*, float*);
+	float               (*getMouseX)(LvnWindow*);
+	float               (*getMouseY)(LvnWindow*);
+
+	LvnPair<int>        (*getWindowPos)(LvnWindow*);
+	void                (*getWindowPosPtr)(LvnWindow*, int*, int*);
+	LvnPair<int>        (*getWindowSize)(LvnWindow*);
+	void                (*getWindowSizePtr)(LvnWindow*, int*, int*);
 };
 
 
@@ -326,11 +343,6 @@ struct LvnFrameBuffer
 	void* frameBufferData;
 };
 
-struct LvnMesh
-{
-	LvnBuffer* buffer;    // single buffer that contains both vertex and index buffer
-	LvnMat4 matrix;       // model matrix of mesh
-};
 
 struct LvnContext
 {

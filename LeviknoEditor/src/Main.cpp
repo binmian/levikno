@@ -108,6 +108,52 @@ struct UniformData
 	lvn::mat4 matrix;
 };
 
+const float s_CameraSpeed = 1.0f;
+float s_AngleX = LVN_PI * 1.5f;
+
+// clanky and poorly made camera movement function, used for testing and looking around
+void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
+{
+	if (lvn::keyPressed(window, Lvn_KeyCode_W))
+		camera->position += (camera->orientation * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_A))
+		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_S))
+		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_D))
+		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_Space))
+		camera->position += (-camera->upVector * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_LeftControl))
+		camera->position += (camera->upVector * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_Left))
+	{
+		s_AngleX += dt;
+		camera->orientation.x = cos(s_AngleX);
+		camera->orientation.z = sin(s_AngleX);
+	}
+	if (lvn::keyPressed(window, Lvn_KeyCode_Right))
+	{
+		s_AngleX -= dt;
+		camera->orientation.x = cos(s_AngleX);
+		camera->orientation.z = sin(s_AngleX);
+	}
+	if (lvn::keyPressed(window, Lvn_KeyCode_Up))
+	{
+		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
+	}
+	if (lvn::keyPressed(window, Lvn_KeyCode_Down))
+	{
+		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
+	}
+}
+
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
@@ -382,8 +428,21 @@ int main()
 	meshCreateInfo.bufferInfo.pIndices = indices;
 	meshCreateInfo.bufferInfo.indexBufferSize = sizeof(indices);
 
-	LvnMesh* mesh;
-	lvn::createMesh(&mesh, &meshCreateInfo);
+	LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
+
+	LvnCameraCreateInfo cameraCreateInfo{};
+	cameraCreateInfo.width = lvn::getWindowSize(window).p1;
+	cameraCreateInfo.height = lvn::getWindowSize(window).p2;
+	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, 2.0f);
+	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, -1.0f);
+	cameraCreateInfo.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
+	cameraCreateInfo.fovDeg = 60.0f;
+	cameraCreateInfo.nearPlane = 0.1f;
+	cameraCreateInfo.farPlane = 100.0f;
+
+	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/blender/models/key/key.gltf");
+
+	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -391,6 +450,9 @@ int main()
 	int fps;
 	timer.start();
 
+	float oldTime = 0.0f;
+	Timer deltaTime;
+	deltaTime.start();
 
 	UniformData uniformData{};
 	int winWidth, winHeight;
@@ -401,17 +463,25 @@ int main()
 
 		// auto [x, y] = lvn::getWindowDimensions(window);
 		// LVN_TRACE("(x:%d,y:%d)", x, y);
-		auto [width, height] = lvn::getWindowDimensions(window);
+		auto windowSize = lvn::getWindowDimensions(window);
+		int width = windowSize.width, height = windowSize.height;
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		lvn::mat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.1f, 100.0f);
-		lvn::mat4 view = lvn::lookAt(lvn::vec3(0.0f, 0.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(0.5f)) * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 0.0f, 1.0f));
-		lvn::mat4 camera = proj * view * model;
+
+		camera.width = width;
+		camera.height = height;
+
+		float timeNow = deltaTime.elapsed();
+		float dt = timeNow - oldTime;
+		oldTime = timeNow;
+		cameraMovment(window, &camera, dt);
+
+		lvn::updateCameraMatrix(&camera);
 		
-		uniformData.matrix = camera;
+		uniformData.matrix = camera.matrix * model;
 
 		if (winWidth != width || winHeight != height)
 		{
@@ -445,12 +515,20 @@ int main()
 		lvn::renderCmdBindPipeline(window, fbPipeline);
 
 		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
-
-		lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(mesh));
-		lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(mesh));
-
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
-		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
+
+		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
+		{
+			lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
+			lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
+
+			lvn::renderCmdDrawIndexed(window, lvnmodel.meshes[i].indexCount);
+		}
+
+		// lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&mesh));
+		// lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
+		//
+		// lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
 		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
 
@@ -484,7 +562,8 @@ int main()
 		}
 	}
 
-	lvn::destroyMesh(mesh);
+	lvn::destroyModel(&lvnmodel);
+	lvn::destroyMesh(&mesh);
 	lvn::destroyFrameBuffer(frameBuffer);
 	lvn::destroyTexture(texture);
 	lvn::destroyUniformBuffer(uniformBuffer);

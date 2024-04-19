@@ -18,6 +18,8 @@
 #include "lvn_glfw.h"
 #include "lvn_vulkan.h"
 
+#include "lvn_loadModel.h"
+
 static LvnContext* s_LvnContext = nullptr;
 
 namespace lvn
@@ -1014,9 +1016,9 @@ bool windowOpen(LvnWindow* window)
 	return s_LvnContext->windowContext.windowOpen(window);
 }
 
-LvnWindowDimensions getWindowDimensions(LvnWindow* window)
+LvnPair<int> getWindowDimensions(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getDimensions(window);
+	return s_LvnContext->windowContext.getWindowSize(window);
 }
 
 int getWindowWidth(LvnWindow* window)
@@ -1054,6 +1056,71 @@ void setWindowContextCurrent(LvnWindow* window)
 	s_LvnContext->windowContext.setWindowContextCurrent(window);
 }
 
+// [Input]
+bool keyPressed(LvnWindow* window, int keycode)
+{
+	return s_LvnContext->windowContext.keyPressed(window, keycode);
+}
+
+bool keyReleased(LvnWindow* window, int keycode)
+{
+	return s_LvnContext->windowContext.keyReleased(window, keycode);
+}
+
+bool mouseButtonPressed(LvnWindow* window, int button)
+{
+	return s_LvnContext->windowContext.mouseButtonPressed(window, button);
+}
+
+bool mouseButtonReleased(LvnWindow* window, int button)
+{
+	return s_LvnContext->windowContext.mouseButtonReleased(window, button);
+}
+
+void setMousePos(LvnWindow* window, float x, float y)
+{
+	s_LvnContext->windowContext.setMousePos(window, x, y);
+}
+
+LvnPair<float> getMousePos(LvnWindow* window)
+{
+	return s_LvnContext->windowContext.getMousePos(window);
+}
+
+void getMousePos(LvnWindow* window, float* xpos, float* ypos)
+{
+	s_LvnContext->windowContext.getMousePosPtr(window, xpos, ypos);
+}
+
+float getMouseX(LvnWindow* window)
+{
+	return s_LvnContext->windowContext.getMouseX(window);
+}
+
+float getMouseY(LvnWindow* window)
+{
+	return s_LvnContext->windowContext.getMouseY(window);
+}
+
+LvnPair<int> getWindowPos(LvnWindow* window)
+{
+	return s_LvnContext->windowContext.getWindowPos(window);
+}
+
+void getWindowPos(LvnWindow* window, int* xpos, int* ypos)
+{
+	s_LvnContext->windowContext.getWindowPosPtr(window, xpos, ypos);
+}
+
+LvnPair<int> getWindowSize(LvnWindow* window)
+{
+	return s_LvnContext->windowContext.getWindowSize(window);
+}
+
+void getWindowSize(LvnWindow* window, int* width, int* height)
+{
+	s_LvnContext->windowContext.getWindowSizePtr(window, width, height);
+}
 
 // [Graphics]
 
@@ -1548,21 +1615,19 @@ void setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIn
 	return s_LvnContext->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
-LvnResult createMesh(LvnMesh** mesh, LvnMeshCreateInfo* createInfo)
+LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
 {
-	*mesh = new LvnMesh();
-	LvnMesh* meshptr = *mesh;
+	LvnMesh mesh{};
 
-	lvn::createBuffer(&meshptr->buffer, &createInfo->bufferInfo);
-	meshptr->matrix = LvnMat4(1.0f);
+	lvn::createBuffer(&mesh.buffer, &createInfo->bufferInfo);
+	mesh.matrix = LvnMat4(1.0f);
 
-	return Lvn_Result_Success;
+	return mesh;
 }
 
 void destroyMesh(LvnMesh* mesh)
 {
 	lvn::destroyBuffer(mesh->buffer);
-	delete mesh;
 }
 
 LvnBuffer* getMeshBuffer(LvnMesh* mesh)
@@ -1578,6 +1643,36 @@ LvnMat4 getMeshMatrix(LvnMesh* mesh)
 void setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix)
 {
 	mesh->matrix = matrix;
+}
+
+LvnBufferCreateInfo createMeshDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
+{
+	LvnVertexBindingDescription meshVertexBindingDescroption{};
+	meshVertexBindingDescroption.stride = sizeof(LvnVertex);
+	meshVertexBindingDescroption.binding = 0;
+
+	LvnVertexAttribute meshVertexAttributes[] = 
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
+		{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
+		{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
+		{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
+		{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
+		{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
+	};
+
+	LvnBufferCreateInfo bufferCreateInfo{};
+	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
+	bufferCreateInfo.pVertexBindingDescriptions = &meshVertexBindingDescroption;
+	bufferCreateInfo.vertexBindingDescriptionCount = 1;
+	bufferCreateInfo.pVertexAttributes = meshVertexAttributes;
+	bufferCreateInfo.vertexAttributeCount = sizeof(meshVertexAttributes) / sizeof(LvnVertexAttribute);
+	bufferCreateInfo.pVertices = pVertices;
+	bufferCreateInfo.vertexBufferSize = vertexCount * sizeof(LvnVertex);
+	bufferCreateInfo.pIndices = pIndices;
+	bufferCreateInfo.indexBufferSize = indexCount * sizeof(uint32_t);
+
+	return bufferCreateInfo;
 }
 
 LvnImageData loadImageData(const char* filepath, int forceChannels)
@@ -1619,9 +1714,113 @@ LvnImageData loadImageData(const char* filepath, int forceChannels)
 	return imageData;
 }
 
-LvnModel loadModel(const char* filepath)
+LvnModel createModel(const char* filepath)
 {
+	std::string filepathstr(filepath);
+	std::string extensionType = filepathstr.substr(filepathstr.find_last_of(".") + 1);
 
+	if (extensionType == "gltf")
+	{
+		return lvn::loadGltfModel(filepath);
+	}
+
+	LVN_WARN("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
+	return {};
+}
+
+void destroyModel(LvnModel* model)
+{
+	for (uint32_t i = 0; i < model->meshes.size(); i++)
+	{
+		lvn::destroyMesh(&model->meshes[i]);
+	}
+}
+
+LvnCamera createCamera(LvnCameraCreateInfo* createInfo)
+{
+	LvnCamera camera{};
+	camera.width = createInfo->width;
+	camera.height = createInfo->height;
+	camera.position = createInfo->position;
+	camera.orientation = createInfo->orientation;
+	camera.upVector = createInfo->upVector;
+	camera.fov = createInfo->fovDeg;
+	camera.near = createInfo->nearPlane;
+	camera.far = createInfo->farPlane;
+
+	camera.viewMatrix = lvn::lookAt(camera.position, camera.position + camera.orientation, camera.upVector);
+	camera.projectionMatrix = lvn::perspective(lvn::radians(camera.fov), static_cast<float>(camera.width) / static_cast<float>(camera.height), camera.near, camera.far);
+	camera.matrix = camera.projectionMatrix * camera.viewMatrix;
+
+	return camera;
+}
+
+void updateCameraMatrix(LvnCamera* camera)
+{
+	camera->projectionMatrix = lvn::perspective(lvn::radians(camera->fov), static_cast<float>(camera->width) / static_cast<float>(camera->height), camera->near, camera->far);
+	camera->viewMatrix = lvn::lookAt(camera->position, camera->position + camera->orientation, camera->upVector);
+	camera->matrix = camera->projectionMatrix * camera->viewMatrix;
+}
+
+void setCameraFov(LvnCamera* camera, float fovDeg)
+{
+	camera->fov = fovDeg;
+	lvn::updateCameraMatrix(camera);
+}
+
+void setCameraPlane(LvnCamera* camera, float nearPlane, float farPlane)
+{
+	camera->near = nearPlane;
+	camera->far = farPlane;
+	lvn::updateCameraMatrix(camera);
+}
+
+void setCameraPos(LvnCamera* camera, const LvnVec3& position)
+{
+	camera->position = position;
+	lvn::updateCameraMatrix(camera);
+}
+
+void setCameraOrient(LvnCamera* camera, const LvnVec3& orientation)
+{
+	camera->orientation = orientation;
+	lvn::updateCameraMatrix(camera);
+}
+
+void setCameraUpVec(LvnCamera* camera, const LvnVec3& upVector)
+{
+	camera->upVector = camera->upVector;
+	lvn::updateCameraMatrix(camera);
+}
+
+float getCameraFov(LvnCamera* camera)
+{
+	return camera->fov;
+}
+
+float getCameraNearPlane(LvnCamera* camera)
+{
+	return camera->near;
+}
+
+float getCameraFarPlane(LvnCamera* camera)
+{
+	return camera->far;
+}
+
+LvnVec3 getCameraPos(LvnCamera* camera, const LvnVec3& position)
+{
+	return camera->position;
+}
+
+LvnVec3 getCameraOrient(LvnCamera* camera, const LvnVec3& orientation)
+{
+	return camera->orientation;
+}
+
+LvnVec3 getCameraUpVec(LvnCamera* camera, const LvnVec3& upVector)
+{
+	return camera->upVector;
 }
 
 uint32_t getVertexDataTypeSize(LvnVertexDataType type)
