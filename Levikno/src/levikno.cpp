@@ -1052,6 +1052,11 @@ void* getNativeWindow(LvnWindow* window)
 	return window->nativeWindow;
 }
 
+LvnRenderPass* getWindowRenderPass(LvnWindow* window)
+{
+	return &window->renderPass;
+}
+
 void setWindowContextCurrent(LvnWindow* window)
 {
 	s_LvnContext->windowContext.setWindowContextCurrent(window);

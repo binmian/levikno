@@ -171,6 +171,11 @@ struct LvnWindowData
 	void (*eventCallBackFn)(LvnEvent*);  // function ptr used as a callback to get events from this window
 };
 
+struct LvnRenderPass
+{
+	void* nativeRenderPass;
+};
+
 /*
   LvnWindow struct is used to create a window on the system
   - Stores window data (eg. width, height, title)
@@ -181,9 +186,10 @@ struct LvnWindowData
 */
 struct LvnWindow
 {
-	LvnWindowData data;    /* holds data of window (eg. width, height) */
-	void* nativeWindow;    /* pointer to window api handle (eg. GLFWwindow) */
-	void* apiData;         /* used for graphics api related uses */
+	LvnWindowData data;          // holds data of window (eg. width, height)
+	void* nativeWindow;          // pointer to window api handle (eg. GLFWwindow)
+	LvnRenderPass renderPass;    // pointer to native render pass for this window
+	void* apiData;               // used for graphics api related uses
 };
 
 struct LvnWindowContext
@@ -287,11 +293,6 @@ struct LvnPhysicalDevice
 
 	LvnPhysicalDeviceInfo info;
 	LvnPhysicalDeviceHandle device;
-};
-
-struct LvnRenderPass
-{
-	void* nativeRenderPass;
 };
 
 struct LvnShader

@@ -322,8 +322,7 @@ int main()
 	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
-	pipelineCreateInfo.renderPass = nullptr;
-	pipelineCreateInfo.window = window;
+	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
 
 	LvnPipeline* pipeline;
 	lvn::createPipeline(&pipeline, &pipelineCreateInfo);
@@ -567,18 +566,18 @@ int main()
 	LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
 
 	LvnCameraCreateInfo cameraCreateInfo{};
-	cameraCreateInfo.width = lvn::getWindowSize(window).p1;
-	cameraCreateInfo.height = lvn::getWindowSize(window).p2;
+	cameraCreateInfo.width = lvn::getWindowSize(window).width;
+	cameraCreateInfo.height = lvn::getWindowSize(window).height;
 	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, 2.0f);
 	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, -1.0f);
 	cameraCreateInfo.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
 	cameraCreateInfo.fovDeg = 60.0f;
 	cameraCreateInfo.nearPlane = 0.1f;
 	cameraCreateInfo.farPlane = 100.0f;
+	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
+
 
 	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/blender/models/key/key.gltf");
-
-	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -679,6 +678,8 @@ int main()
 
 		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
 
+
+		// begin main render pass
 		lvn::renderClearColor(window, abs(sin(time)) * 0.1f, 0.0f, abs(cos(time)) * 0.1f, 1.0f);
 		lvn::renderCmdBeginRenderPass(window);
 

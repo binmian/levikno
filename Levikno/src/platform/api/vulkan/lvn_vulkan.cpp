@@ -1899,6 +1899,8 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 
 	window->apiData = lvn::memAlloc(sizeof(VulkanWindowSurfaceData));
 	memcpy(window->apiData, &surfaceData, sizeof(VulkanWindowSurfaceData));
+
+	window->renderPass.nativeRenderPass = static_cast<VulkanWindowSurfaceData*>(window->apiData)->renderPass;
 }
 
 void destroyVulkanWindowSurfaceData(LvnWindow* window)
@@ -2603,7 +2605,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	}
 
 	// render pass
-	VkRenderPass renderPass = createInfo->renderPass != nullptr ? static_cast<VkRenderPass>(createInfo->renderPass->nativeRenderPass) : static_cast<VulkanWindowSurfaceData*>(createInfo->window->apiData)->renderPass;
+	VkRenderPass renderPass = static_cast<VkRenderPass>(createInfo->renderPass->nativeRenderPass);
 
 	// prepare pipeline create info
 	VulkanPipelineCreateData pipelineCreateData{};

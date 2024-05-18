@@ -1118,6 +1118,7 @@ namespace lvn
 	LVN_API void                        setWindowVSync(LvnWindow* window, bool enable);
 	LVN_API bool                        getWindowVSync(LvnWindow* window);
 	LVN_API void*                       getNativeWindow(LvnWindow* window);
+	LVN_API LvnRenderPass*              getWindowRenderPass(LvnWindow* window);
 	LVN_API void                        setWindowContextCurrent(LvnWindow* window);
 
 	/* [Input] */
@@ -4096,7 +4097,6 @@ struct LvnPipelineCreateInfo
 {
 	LvnPipelineSpecification* pipelineSpecification;
 	LvnShader* shader;
-	LvnWindow* window;
 	LvnRenderPass* renderPass;
 	LvnVertexBindingDescription* pVertexBindingDescriptions;
 	uint32_t vertexBindingDescriptionCount;
