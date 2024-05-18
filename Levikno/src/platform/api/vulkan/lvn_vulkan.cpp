@@ -92,8 +92,8 @@ namespace vks
 	static LvnResult                            createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
 	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
 	static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage);
-	static void                                 transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	static void                                 copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	static void                                 transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
+	static void                                 copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
 
 	static LvnResult createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers)
 	{
@@ -687,7 +687,7 @@ namespace vks
 		vks::createImage(vkBackends, &surfaceData->depthImage, &surfaceData->depthImageMemory, surfaceData->swapChainExtent.width, surfaceData->swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_SAMPLE_COUNT_1_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 		surfaceData->depthImageView = vks::createImageView(vkBackends->device, surfaceData->depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-		vks::transitionImageLayout(vkBackends, surfaceData->depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+		vks::transitionImageLayout(vkBackends, surfaceData->depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
 	}
 
 	static void createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
@@ -1731,7 +1731,7 @@ namespace vks
 		return Lvn_Result_Success;
 	}
 
-	static void transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+	static void transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1759,7 +1759,7 @@ namespace vks
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = 1;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layerCount;
 
 		if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		{
@@ -1818,7 +1818,7 @@ namespace vks
 		vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
 	}
 
-	static void copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+	static void copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount)
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1844,7 +1844,7 @@ namespace vks
 		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0;
 		region.imageSubresource.baseArrayLayer = 0;
-		region.imageSubresource.layerCount = 1;
+		region.imageSubresource.layerCount = layerCount;
 
 		region.imageOffset = { 0, 0, 0 };
 		region.imageExtent = { width, height, 1 };
@@ -1984,6 +1984,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->createBuffer = vksImplCreateBuffer;
 	graphicsContext->createUniformBuffer = vksImplCreateUniformBuffer;
 	graphicsContext->createTexture = vksImplCreateTexture;
+	graphicsContext->createCubemap = vksImplCreateCubemap;
 	
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
@@ -1992,6 +1993,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
 	graphicsContext->destroyUniformBuffer = vksImplDestroyUniformBuffer;
 	graphicsContext->destroyTexture = vksImplDestroyTexture;
+	graphicsContext->destroyCubemap = vksImplDestroyCubemap;
 
 	graphicsContext->renderClearColor = vksImplRenderClearColor;
 	graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
@@ -2903,9 +2905,9 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	}
 
 	// transition buffer to image
-	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, imageData.width, imageData.height);
-	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+	vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, imageData.width, imageData.height, 1);
+	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 
 	// texture image view
@@ -2975,6 +2977,132 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 
 	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+
+	return Lvn_Result_Success;
+}
+
+LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo)
+{
+	VulkanBackends* vkBackends = getVulkanBackends();
+	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
+
+	uint32_t imageWidth = createInfo->posx.width; // Note that all images should have the same width
+	uint32_t imageHeight = createInfo->posx.height; // Note that all images should have the same height
+
+	VkDeviceSize layerSize = createInfo->posx.size; // size of image of one side of cubemap, Note that all images should have the same size
+	VkDeviceSize imageSize = layerSize * 6; // size of total combinded 6 images of cubemap
+
+	const uint8_t* texImages[6] = { createInfo->posx.pixels.data(), createInfo->negx.pixels.data(), createInfo->posy.pixels.data(), createInfo->negy.pixels.data(), createInfo->posz.pixels.data(), createInfo->negz.pixels.data() };
+	LvnVector<uint8_t> texData(imageSize);
+
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		memcpy(texData.data() + layerSize * i, texImages[i], layerSize);
+	}
+
+	VkBuffer stagingBuffer;
+	VmaAllocation stagingBufferMemory;
+
+	vks::createBuffer(vkBackends, &stagingBuffer, &stagingBufferMemory, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	void* bufferData;
+	vmaMapMemory(vmaAllocator, stagingBufferMemory, &bufferData);
+	memcpy(bufferData, texData.data(), imageSize);
+	vmaUnmapMemory(vmaAllocator, stagingBufferMemory);
+
+	VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width = imageWidth;
+	imageInfo.extent.height = imageHeight;
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 6; // cubemap has 6 sides
+	imageInfo.format = format;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+	VkImage cubemapImage;
+	VmaAllocation cubemapImageMemory;
+
+	VmaAllocationCreateInfo allocInfo{};
+	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	if (vmaCreateImage(vmaAllocator, &imageInfo, &allocInfo, &cubemapImage, &cubemapImageMemory, nullptr) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create image <VkImage> when creating cubemap at (%p)", cubemap);
+		return Lvn_Result_Failure;
+	}
+
+	vks::transitionImageLayout(vkBackends, cubemapImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6);
+	vks::copyBufferToImage(vkBackends, stagingBuffer, cubemapImage, imageWidth, imageHeight, 6);
+
+	vks::transitionImageLayout(vkBackends, cubemapImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 6);
+
+	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+	vmaFreeMemory(vmaAllocator, stagingBufferMemory);
+
+	// image view
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = cubemapImage;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+	viewInfo.format = format;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 6;
+
+	VkImageView cubemapImageView;
+	if (vkCreateImageView(vkBackends->device, &viewInfo, nullptr, &cubemapImageView) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create texture image view <VkImageView> when creating cubemap at (%p)", cubemap);
+		return Lvn_Result_Failure;
+	}
+
+	// sampler
+	VkSamplerCreateInfo sampler{};
+	sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler.magFilter = VK_FILTER_LINEAR;
+	sampler.minFilter = VK_FILTER_LINEAR;
+	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.compareOp = VK_COMPARE_OP_ALWAYS;
+	sampler.mipLodBias = 0.0f;
+	sampler.minLod = 0.0f;
+	sampler.maxLod = 0.0f;
+	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	sampler.maxAnisotropy = 1.0f;
+	if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
+	{
+		sampler.maxAnisotropy = vkBackends->deviceProperties.limits.maxSamplerAnisotropy;
+		sampler.anisotropyEnable = VK_TRUE;
+	}
+
+	VkSampler cubemapSampler;
+	if (vkCreateSampler(vkBackends->device, &sampler, nullptr, &cubemapSampler) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create image sampler when creating cubemap at (%p)", cubemap);
+		return Lvn_Result_Failure;
+	}
+
+	LvnTexture cubemapTexture{};
+	cubemapTexture.image = cubemapImage;
+	cubemapTexture.imageView = cubemapImageView;
+	cubemapTexture.imageMemory = cubemapImageMemory;
+	cubemapTexture.sampler = cubemapSampler;
+
+	cubemap->textureData = cubemapTexture;
 
 	return Lvn_Result_Success;
 }
@@ -3095,6 +3223,11 @@ void vksImplDestroyTexture(LvnTexture* texture)
 	vmaFreeMemory(vkBackends->vmaAllocator, imageMemory);;
 	vkDestroyImageView(vkBackends->device, imageView, nullptr);
 	vkDestroySampler(vkBackends->device, textureSampler, nullptr);
+}
+
+void vksImplDestroyCubemap(LvnCubemap* cubemap)
+{
+
 }
 
 void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)

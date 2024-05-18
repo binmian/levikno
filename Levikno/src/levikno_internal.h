@@ -240,6 +240,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
 	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
 	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
+	LvnResult                   (*createCubemap)(LvnCubemap*, LvnCubemapCreateInfo*);
 
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
@@ -248,6 +249,7 @@ struct LvnGraphicsContext
 	void                        (*destroyBuffer)(LvnBuffer*);
 	void                        (*destroyUniformBuffer)(LvnUniformBuffer*);
 	void                        (*destroyTexture)(LvnTexture*);
+	void                        (*destroyCubemap)(LvnCubemap*);
 
 	void                        (*renderClearColor)(LvnWindow* window, float r, float g, float b, float a);
 	void                        (*renderBeginNextFrame)(LvnWindow*);
@@ -343,6 +345,10 @@ struct LvnFrameBuffer
 	void* frameBufferData;
 };
 
+struct LvnCubemap
+{
+	LvnTexture textureData;
+};
 
 struct LvnContext
 {
@@ -354,7 +360,7 @@ struct LvnContext
 	bool                        logging;
 	LvnLogger                   coreLogger;
 	LvnLogger                   clientLogger;
-	LvnVector<LvnLogPattern>  userLogPatterns;
+	LvnVector<LvnLogPattern>    userLogPatterns;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	LvnMemoryPool               memoryPool;

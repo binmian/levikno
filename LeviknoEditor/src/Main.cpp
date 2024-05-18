@@ -525,10 +525,10 @@ int main()
 			lvn::renderCmdDrawIndexed(window, lvnmodel.meshes[i].indexCount);
 		}
 
-		// lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&mesh));
-		// lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
-		//
-		// lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
+		lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&mesh));
+		lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
+
+		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
 		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
 

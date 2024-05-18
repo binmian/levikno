@@ -1178,6 +1178,7 @@ namespace lvn
 	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                            // create a single buffer object that can hold both the vertex and index buffers
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                // create a uniform buffer object to send changing data to the shader pipeline
 	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                        // create a texture object to hold image pixel data and sampler
+	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo);                                         // create a cubemap texture object that holds the textures of the cubemap
 
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                             // destroy shader module object
 	LVN_API void                        destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);                                               // destroy descriptor layout
@@ -1186,9 +1187,13 @@ namespace lvn
 	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                             // destory buffers object
 	LVN_API void                        destroyUniformBuffer(LvnUniformBuffer* uniformBuffer);                                                        // destroy uniform buffer object
 	LVN_API void                        destroyTexture(LvnTexture* texture);                                                                          // destroy texture object
+	LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                          // destroy cubemap object
 
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
+
+	LVN_API const float*                getDefaultCubemapVertices();
+	LVN_API const uint32_t*             getDefaultCubemapIndices();
 
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 	LVN_API void                        updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
@@ -1206,6 +1211,7 @@ namespace lvn
 	LVN_API LvnBufferCreateInfo         createMeshDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
+
 	LVN_API LvnModel                    createModel(const char* filepath);
 	LVN_API void                        destroyModel(LvnModel* model);
 
@@ -4163,6 +4169,7 @@ struct LvnImageData
 {
 	LvnData<uint8_t> pixels;
 	uint32_t width, height, channels;
+	uint64_t size;
 };
 
 struct LvnVertex
@@ -4224,6 +4231,11 @@ struct LvnCameraCreateInfo
 	float fovDeg;
 	float nearPlane;
 	float farPlane;
+};
+
+struct LvnCubemapCreateInfo
+{
+	LvnImageData posx, negx, posy, negy, posz, negz;
 };
 
 #endif
