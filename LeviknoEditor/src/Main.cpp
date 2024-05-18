@@ -4,6 +4,41 @@
 #include <string>
 #include <vector>
 
+const static float s_CubemapVertices[] =
+{
+	//   Coordinates
+	-1.0f, -1.0f,  1.0f, // 0       7--------6
+	 1.0f, -1.0f,  1.0f, // 1      /|       /|
+	 1.0f, -1.0f, -1.0f, // 2     4--------5 |
+	-1.0f, -1.0f, -1.0f, // 3     | |      | |
+	-1.0f,  1.0f,  1.0f, // 4     | 3------|-2
+	 1.0f,  1.0f,  1.0f, // 5     |/       |/
+	 1.0f,  1.0f, -1.0f, // 6     0--------1
+	-1.0f,  1.0f, -1.0f  // 7
+};
+
+const static uint32_t s_CubemapIndices[] =
+{
+	// Right
+	6, 2, 1,
+	6, 1, 5,
+	// Left
+	4, 0, 3,
+	4, 3, 7,
+	// Top
+	5, 4, 7,
+	5, 7, 6,
+	// Bottom
+	3, 0, 1,
+	3, 1, 2,
+	// Front
+	5, 1, 0,
+	5, 0, 4,
+	// Back
+	7, 3, 2,
+	7, 2, 6
+};
+
 class Timer
 {
 private:
@@ -228,9 +263,9 @@ int main()
 	vertexBindingDescroption.stride = 8 * sizeof(float);
 	vertexBindingDescroption.binding = 0;
 
-	LvnVertexBindingDescription lvnVertexBindingDescroption{};
-	lvnVertexBindingDescroption.stride = sizeof(LvnVertex);
-	lvnVertexBindingDescroption.binding = 0;
+	LvnVertexBindingDescription lvnVertexBindingDescription{};
+	lvnVertexBindingDescription.stride = sizeof(LvnVertex);
+	lvnVertexBindingDescription.binding = 0;
 
 	LvnVertexAttribute attributes[3] = 
 	{
@@ -255,21 +290,15 @@ int main()
 	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	uniformDescriptorBinding.descriptorCount = 1;
 
-	LvnDescriptorBinding textureDescriptorBinding{};
-	textureDescriptorBinding.binding = 1;
-	textureDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	textureDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
-	textureDescriptorBinding.descriptorCount = 1;
-
-	LvnDescriptorBinding framebufferDescriptorBinding{};
-	framebufferDescriptorBinding.binding = 1;
-	framebufferDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	framebufferDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
-	framebufferDescriptorBinding.descriptorCount = 1;
+	LvnDescriptorBinding combinedImageDescriptorBinding{};
+	combinedImageDescriptorBinding.binding = 1;
+	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	combinedImageDescriptorBinding.descriptorCount = 1;
 
 	std::vector<LvnDescriptorBinding> descriptorBindings = 
 	{
-		uniformDescriptorBinding, textureDescriptorBinding,
+		uniformDescriptorBinding, combinedImageDescriptorBinding,
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -302,6 +331,7 @@ int main()
 	lvn::destroyShader(shader);
 
 
+	// framebuffer pipeline
 	LvnShaderCreateInfo fbShaderCreateInfo{};
 	fbShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFBvert.spv";
 	fbShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFBfrag.spv";
@@ -311,7 +341,7 @@ int main()
 
 	std::vector<LvnDescriptorBinding> fbDescriptorBinding =
 	{
-		uniformDescriptorBinding, framebufferDescriptorBinding,
+		uniformDescriptorBinding, combinedImageDescriptorBinding,
 	};
 
 	LvnDescriptorLayoutCreateInfo fbDescriptorLayoutCreateInfo{};
@@ -322,7 +352,7 @@ int main()
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
 
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
-	pipelineCreateInfo.pVertexBindingDescriptions = &lvnVertexBindingDescroption;
+	pipelineCreateInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.pVertexAttributes = lvnAttributes;
 	pipelineCreateInfo.vertexAttributeCount = 6;
@@ -335,6 +365,51 @@ int main()
 
 	lvn::destroyShader(fbShader);
 
+
+	// cubemap pipeline
+	LvnVertexBindingDescription cubemapBindingDescription{};
+	cubemapBindingDescription.stride = 3 * sizeof(float);
+	cubemapBindingDescription.binding = 0;
+	
+	LvnVertexAttribute cubemapAttributes[1] = 
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
+	};
+	
+	LvnShaderCreateInfo cubemapShaderCreateInfo{};
+	cubemapShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkCubeVert.spv";
+	cubemapShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkCubeFrag.spv";
+	
+	LvnShader* cubemapShader;
+	lvn::createShaderFromFileBin(&cubemapShader, &cubemapShaderCreateInfo);
+	
+	std::vector<LvnDescriptorBinding> cubemapDescriptorBinding =
+	{
+		uniformDescriptorBinding, combinedImageDescriptorBinding,
+	};
+	
+	LvnDescriptorLayoutCreateInfo cubemapDescriptorLayoutCreateInfo{};
+	cubemapDescriptorLayoutCreateInfo.pDescriptorBindings = cubemapDescriptorBinding.data();
+	cubemapDescriptorLayoutCreateInfo.descriptorBindingCount = cubemapDescriptorBinding.size();
+	
+	LvnDescriptorLayout* cubemapDescriptorLayout;
+	lvn::createDescriptorLayout(&cubemapDescriptorLayout, &cubemapDescriptorLayoutCreateInfo);
+	pipelineCreateInfo.pDescriptorLayouts = &cubemapDescriptorLayout;
+	pipelineCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
+	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
+	pipelineCreateInfo.pVertexAttributes = cubemapAttributes;
+	pipelineCreateInfo.vertexAttributeCount = 1;
+	pipelineCreateInfo.shader = cubemapShader;
+	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
+	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	
+	LvnPipeline* cubemapPipeline;
+	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
+
+	lvn::destroyShader(cubemapShader);
+
+
+	// vertex/index buffer
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
@@ -351,7 +426,24 @@ int main()
 	LvnBuffer* buffer;
 	lvn::createBuffer(&buffer, &bufferCreateInfo);
 
+	LvnBufferCreateInfo cubemapBufferCreateInfo{};
+	cubemapBufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
+	cubemapBufferCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
+	cubemapBufferCreateInfo.vertexBindingDescriptionCount = 1;
+	cubemapBufferCreateInfo.pVertexAttributes = cubemapAttributes;
+	cubemapBufferCreateInfo.vertexAttributeCount = 1;
 
+	cubemapBufferCreateInfo.pVertices = s_CubemapVertices;
+	cubemapBufferCreateInfo.vertexBufferSize = sizeof(s_CubemapVertices);
+
+	cubemapBufferCreateInfo.pIndices = s_CubemapIndices;
+	cubemapBufferCreateInfo.indexBufferSize = sizeof(s_CubemapIndices);
+
+	LvnBuffer* cubemapBuffer;
+	lvn::createBuffer(&cubemapBuffer, &cubemapBufferCreateInfo);
+
+
+	// uniform buffer
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
 	uniformBufferInfo.binding = 0;
 	uniformBufferInfo.type = Lvn_BufferType_Uniform;
@@ -359,6 +451,7 @@ int main()
 
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
+
 
 	LvnUniformBufferCreateInfo fbUniformBufferInfo{};
 	fbUniformBufferInfo.binding = 0;
@@ -368,6 +461,16 @@ int main()
 	LvnUniformBuffer* fbUniformBuffer;
 	lvn::createUniformBuffer(&fbUniformBuffer, &fbUniformBufferInfo);
 
+
+	LvnUniformBufferCreateInfo cubemapUniformBufferInfo{};
+	cubemapUniformBufferInfo.binding = 0;
+	cubemapUniformBufferInfo.type = Lvn_BufferType_Uniform;
+	cubemapUniformBufferInfo.size = sizeof(UniformData);
+
+	LvnUniformBuffer* cubemapUniformBuffer;
+	lvn::createUniformBuffer(&cubemapUniformBuffer, &cubemapUniformBufferInfo);
+
+	// texture
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/grass.png";
 	textureCreateInfo.binding = 1;
@@ -378,7 +481,19 @@ int main()
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);
 
+	// cubemap
+	LvnCubemapCreateInfo cubemapCreateInfo{};
+	cubemapCreateInfo.posx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/right.png", 4);
+	cubemapCreateInfo.negx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/left.png", 4);
+	cubemapCreateInfo.posy = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/top.png", 4);
+	cubemapCreateInfo.negy = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/bottom.png", 4);
+	cubemapCreateInfo.posz = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/front.png", 4);
+	cubemapCreateInfo.negz = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/back.png", 4);
 
+	LvnCubemap* cubemap;
+	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
+
+	// update descriptor sets
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
@@ -417,9 +532,30 @@ int main()
 
 	lvn::updateDescriptorLayoutData(fbDescriptorLayout, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
 
+	LvnDescriptorUpdateInfo cubemapDescriptorUniformUpdateInfo{};
+	cubemapDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	cubemapDescriptorUniformUpdateInfo.binding = 0;
+	cubemapDescriptorUniformUpdateInfo.descriptorCount = 1;
+	cubemapDescriptorUniformUpdateInfo.bufferInfo = cubemapUniformBuffer;
+
+	LvnDescriptorUpdateInfo cubemapDescriptorTextureUpdateInfo{};
+	cubemapDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	cubemapDescriptorTextureUpdateInfo.binding = 1;
+	cubemapDescriptorTextureUpdateInfo.descriptorCount = 1;
+	cubemapDescriptorTextureUpdateInfo.textureInfo = lvn::getCubemapTextureData(cubemap);
+
+	std::vector<LvnDescriptorUpdateInfo> cubemapDescriptorUpdateInfo =
+	{
+		cubemapDescriptorUniformUpdateInfo, cubemapDescriptorTextureUpdateInfo,
+	};
+
+	lvn::updateDescriptorLayoutData(cubemapDescriptorLayout, cubemapDescriptorUpdateInfo.data(), cubemapDescriptorUpdateInfo.size());
+
+
+	// mesh
 	LvnMeshCreateInfo meshCreateInfo{};
 	meshCreateInfo.bufferInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	meshCreateInfo.bufferInfo.pVertexBindingDescriptions = &lvnVertexBindingDescroption;
+	meshCreateInfo.bufferInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
 	meshCreateInfo.bufferInfo.vertexBindingDescriptionCount = 1;
 	meshCreateInfo.bufferInfo.pVertexAttributes = lvnAttributes;
 	meshCreateInfo.bufferInfo.vertexAttributeCount = 6;
@@ -507,13 +643,10 @@ int main()
 
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
-
-		float intval = abs(sin(time) * 0.5f);
-		lvn::setFrameBufferClearColor(frameBuffer, 0, 0.01f, 0.06f, intval, 1.0f);
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 
-		lvn::renderCmdBindPipeline(window, fbPipeline);
 
+		lvn::renderCmdBindPipeline(window, fbPipeline);
 		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 
@@ -529,6 +662,20 @@ int main()
 		lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
 
 		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
+
+		// draw cubemap
+		LvnMat4 projection = camera.projectionMatrix;
+		LvnMat4 view = LvnMat4(LvnMat3(camera.viewMatrix));
+		uniformData.matrix = projection * view;
+
+		lvn::renderCmdBindPipeline(window, cubemapPipeline);
+		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData));
+		lvn::renderCmdBindDescriptorLayout(window, cubemapPipeline, cubemapDescriptorLayout);
+
+		lvn::renderCmdBindVertexBuffer(window, cubemapBuffer);
+		lvn::renderCmdBindIndexBuffer(window, cubemapBuffer);
+
+		lvn::renderCmdDrawIndexed(window, 36);
 
 		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
 
@@ -564,16 +711,23 @@ int main()
 
 	lvn::destroyModel(&lvnmodel);
 	lvn::destroyMesh(&mesh);
+	lvn::destroyCubemap(cubemap);
 	lvn::destroyFrameBuffer(frameBuffer);
 	lvn::destroyTexture(texture);
-	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyBuffer(buffer);
-	lvn::destroyDescriptorLayout(descriptorLayout);
-	lvn::destroyPipeline(pipeline);
+	lvn::destroyBuffer(cubemapBuffer);
 
+	lvn::destroyUniformBuffer(cubemapUniformBuffer);
 	lvn::destroyUniformBuffer(fbUniformBuffer);
+	lvn::destroyUniformBuffer(uniformBuffer);
+
+	lvn::destroyDescriptorLayout(cubemapDescriptorLayout);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);
+	lvn::destroyDescriptorLayout(descriptorLayout);
+
+	lvn::destroyPipeline(cubemapPipeline);
 	lvn::destroyPipeline(fbPipeline);
+	lvn::destroyPipeline(pipeline);
 
 	lvn::destroyWindow(window);
 	lvn::terminateContext();

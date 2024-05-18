@@ -23,41 +23,6 @@
 static LvnContext* s_LvnContext = nullptr;
 
 
-const static float s_CubemapVertices[] =
-{
-	//   Coordinates
-	-1.0f, -1.0f,  1.0f, // 0       7--------6
-	 1.0f, -1.0f,  1.0f, // 1      /|       /|
-	 1.0f, -1.0f, -1.0f, // 2     4--------5 |
-	-1.0f, -1.0f, -1.0f, // 3     | |      | |
-	-1.0f,  1.0f,  1.0f, // 4     | 3------|-2
-	 1.0f,  1.0f,  1.0f, // 5     |/       |/
-	 1.0f,  1.0f, -1.0f, // 6     0--------1
-	-1.0f,  1.0f, -1.0f  // 7
-};
-
-const static uint32_t s_CubemapIndices[] =
-{
-	// Right
-	6, 2, 1,
-	6, 1, 5,
-	// Left
-	4, 0, 3,
-	4, 3, 7,
-	// Top
-	5, 4, 7,
-	5, 7, 6,
-	// Bottom
-	3, 0, 1,
-	3, 1, 2,
-	// Front
-	5, 1, 0,
-	5, 0, 4,
-	// Back
-	7, 3, 2,
-	7, 2, 6
-};
-
 namespace lvn
 {
 
@@ -1602,16 +1567,16 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 		return Lvn_Result_Failure;
 	}
 
-	if(!(createInfo->posx.width * createInfo->posx.height ==
-		createInfo->negx.width * createInfo->negx.height ==
-		createInfo->posy.width * createInfo->posy.height ==
-		createInfo->negy.width * createInfo->negy.height ==
-		createInfo->posz.width * createInfo->posz.height ==
-		createInfo->negz.width * createInfo->negz.height))
-	{
-		LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | not all images have the same dimensions, all cubemap images must have the same width and height");
-		return Lvn_Result_Failure;
-	}
+	// if(!(createInfo->posx.width * createInfo->posx.height ==
+	// 	createInfo->negx.width * createInfo->negx.height ==
+	// 	createInfo->posy.width * createInfo->posy.height ==
+	// 	createInfo->negy.width * createInfo->negy.height ==
+	// 	createInfo->posz.width * createInfo->posz.height ==
+	// 	createInfo->negz.width * createInfo->negz.height))
+	// {
+	// 	LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | not all images have the same dimensions, all cubemap images must have the same width and height");
+	// 	return Lvn_Result_Failure;
+	// }
 
 	*cubemap = new LvnCubemap();
 	return s_LvnContext->graphicsContext.createCubemap(*cubemap, createInfo);
@@ -1675,14 +1640,9 @@ LvnPipelineSpecification getDefaultPipelineSpecification()
 	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
 }
 
-const float* getDefaultCubemapVertices()
+const LvnTexture* getCubemapTextureData(LvnCubemap* cubemap)
 {
-	return s_CubemapVertices;
-}
-
-const uint32_t* getDefaultCubemapIndices()
-{
-	return  s_CubemapIndices;
+	return &cubemap->textureData;
 }
 
 void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)

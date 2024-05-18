@@ -1192,8 +1192,7 @@ namespace lvn
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
 
-	LVN_API const float*                getDefaultCubemapVertices();
-	LVN_API const uint32_t*             getDefaultCubemapIndices();
+	LVN_API const LvnTexture*           getCubemapTextureData(LvnCubemap* cubemap);
 
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 	LVN_API void                        updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
@@ -4089,8 +4088,8 @@ struct LvnDescriptorUpdateInfo
 	uint32_t binding;
 	LvnDescriptorType descriptorType;
 	uint32_t descriptorCount;
-	LvnUniformBuffer* bufferInfo;
-	LvnTexture* textureInfo;
+	const LvnUniformBuffer* bufferInfo;
+	const LvnTexture* textureInfo;
 };
 
 struct LvnPipelineCreateInfo
@@ -4143,9 +4142,9 @@ struct LvnBufferCreateInfo
 	uint32_t vertexBindingDescriptionCount;
 	LvnVertexAttribute* pVertexAttributes;
 	uint32_t vertexAttributeCount;
-	void* pVertices;
+	const void* pVertices;
 	uint64_t vertexBufferSize;
-	uint32_t* pIndices;
+	const uint32_t* pIndices;
 	uint64_t indexBufferSize;
 };
 

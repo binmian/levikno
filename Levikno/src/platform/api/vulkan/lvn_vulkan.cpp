@@ -3227,7 +3227,20 @@ void vksImplDestroyTexture(LvnTexture* texture)
 
 void vksImplDestroyCubemap(LvnCubemap* cubemap)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
 
+	LvnTexture* texture = &cubemap->textureData;
+
+	VkImage image = static_cast<VkImage>(texture->image);
+	VmaAllocation imageMemory = static_cast<VmaAllocation>(texture->imageMemory);
+	VkImageView imageView = static_cast<VkImageView>(texture->imageView);
+	VkSampler textureSampler = static_cast<VkSampler>(texture->sampler);
+
+	vkDestroyImage(vkBackends->device, image, nullptr);
+	vmaFreeMemory(vkBackends->vmaAllocator, imageMemory);;
+	vkDestroyImageView(vkBackends->device, imageView, nullptr);
+	vkDestroySampler(vkBackends->device, textureSampler, nullptr);
 }
 
 void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
