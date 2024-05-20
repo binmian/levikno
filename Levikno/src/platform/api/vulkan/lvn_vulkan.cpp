@@ -1102,52 +1102,7 @@ namespace vks
 			case Lvn_ColorBlendOperation_ReverseSubtract: { return VK_BLEND_OP_REVERSE_SUBTRACT; }
 			case Lvn_ColorBlendOperation_Min: { return VK_BLEND_OP_MIN; }
 			case Lvn_ColorBlendOperation_Max: { return VK_BLEND_OP_MAX; }
-			case Lvn_ColorBlendOperation_ZeroExt: { return VK_BLEND_OP_ZERO_EXT; }
-			case Lvn_ColorBlendOperation_SrcExt: { return VK_BLEND_OP_SRC_EXT; }
-			case Lvn_ColorBlendOperation_DstExt: { return VK_BLEND_OP_DST_EXT; }
-			case Lvn_ColorBlendOperation_SrcOverExt: { return VK_BLEND_OP_SRC_OVER_EXT; }
-			case Lvn_ColorBlendOperation_DstOverExt: { return VK_BLEND_OP_DST_OVER_EXT; }
-			case Lvn_ColorBlendOperation_SrcInExt: { return VK_BLEND_OP_SRC_IN_EXT; }
-			case Lvn_ColorBlendOperation_DstInExt: { return VK_BLEND_OP_DST_IN_EXT; }
-			case Lvn_ColorBlendOperation_SrcOutExt: { return VK_BLEND_OP_SRC_OUT_EXT; }
-			case Lvn_ColorBlendOperation_DstOutExt: { return VK_BLEND_OP_DST_OUT_EXT; }
-			case Lvn_ColorBlendOperation_SrcAtopExt: { return VK_BLEND_OP_SRC_ATOP_EXT; }
-			case Lvn_ColorBlendOperation_DstAtopExt: { return VK_BLEND_OP_DST_ATOP_EXT; }
-			case Lvn_ColorBlendOperation_XorExt: { return VK_BLEND_OP_XOR_EXT; }
-			case Lvn_ColorBlendOperation_MultiplyExt: { return VK_BLEND_OP_MULTIPLY_EXT; }
-			case Lvn_ColorBlendOperation_ScreenExt: { return VK_BLEND_OP_SCREEN_EXT; }
-			case Lvn_ColorBlendOperation_OverlayExt: { return VK_BLEND_OP_OVERLAY_EXT; }
-			case Lvn_ColorBlendOperation_DarkenExt: { return VK_BLEND_OP_DARKEN_EXT; }
-			case Lvn_ColorBlendOperation_LightenExt: { return VK_BLEND_OP_LIGHTEN_EXT; }
-			case Lvn_ColorBlendOperation_ColorDodgeExt: { return VK_BLEND_OP_COLORDODGE_EXT; }
-			case Lvn_ColorBlendOperation_ColorBurnExt: { return VK_BLEND_OP_COLORBURN_EXT; }
-			case Lvn_ColorBlendOperation_HardLightExt: { return VK_BLEND_OP_HARDLIGHT_EXT; }
-			case Lvn_ColorBlendOperation_SoftLightExt: { return VK_BLEND_OP_SOFTLIGHT_EXT; }
-			case Lvn_ColorBlendOperation_DifferenceExt: { return VK_BLEND_OP_DIFFERENCE_EXT; }
-			case Lvn_ColorBlendOperation_ExclusionExt: { return VK_BLEND_OP_EXCLUSION_EXT; }
-			case Lvn_ColorBlendOperation_InvertExt: { return VK_BLEND_OP_INVERT_EXT; }
-			case Lvn_ColorBlendOperation_InvertRGBExt: { return VK_BLEND_OP_INVERT_RGB_EXT; }
-			case Lvn_ColorBlendOperation_LinearDodgeExt: { return VK_BLEND_OP_LINEARDODGE_EXT; }
-			case Lvn_ColorBlendOperation_LinearBurnExt: { return VK_BLEND_OP_LINEARBURN_EXT; }
-			case Lvn_ColorBlendOperation_VividLightExt: { return VK_BLEND_OP_VIVIDLIGHT_EXT; }
-			case Lvn_ColorBlendOperation_LinearLightExt: { return VK_BLEND_OP_LINEARLIGHT_EXT; }
-			case Lvn_ColorBlendOperation_PinLightExt: { return VK_BLEND_OP_PINLIGHT_EXT; }
-			case Lvn_ColorBlendOperation_HardMixExt: { return VK_BLEND_OP_HARDMIX_EXT; }
-			case Lvn_ColorBlendOperation_HSLHueExt: { return VK_BLEND_OP_HSL_HUE_EXT; }
-			case Lvn_ColorBlendOperation_HSLSaturationExt: { return VK_BLEND_OP_HSL_SATURATION_EXT; }
-			case Lvn_ColorBlendOperation_HSLColorExt: { return VK_BLEND_OP_HSL_COLOR_EXT; }
-			case Lvn_ColorBlendOperation_HSLLuminosityExt: { return VK_BLEND_OP_HSL_LUMINOSITY_EXT; }
-			case Lvn_ColorBlendOperation_PlusExt: { return VK_BLEND_OP_PLUS_EXT; }
-			case Lvn_ColorBlendOperation_PlusClampedExt: { return VK_BLEND_OP_PLUS_CLAMPED_EXT; }
-			case Lvn_ColorBlendOperation_PlusClampedAlphaExt: { return VK_BLEND_OP_PLUS_CLAMPED_ALPHA_EXT; }
-			case Lvn_ColorBlendOperation_PlusDarkerExt: { return VK_BLEND_OP_PLUS_DARKER_EXT; }
-			case Lvn_ColorBlendOperation_MinusExt: { return VK_BLEND_OP_MINUS_EXT; }
-			case Lvn_ColorBlendOperation_MinusClampedExt: { return VK_BLEND_OP_MINUS_CLAMPED_EXT; }
-			case Lvn_ColorBlendOperation_ContrastExt: { return VK_BLEND_OP_CONTRAST_EXT; }
-			case Lvn_ColorBlendOperation_InvertOVGExt: { return VK_BLEND_OP_INVERT_OVG_EXT; }
-			case Lvn_ColorBlendOperation_RedExt: { return VK_BLEND_OP_RED_EXT; }
-			case Lvn_ColorBlendOperation_GreenExt: { return VK_BLEND_OP_GREEN_EXT; }
-			case Lvn_ColorBlendOperation_BlueExt: { return VK_BLEND_OP_BLUE_EXT; }
+
 			default:
 			{
 				LVN_CORE_WARN("unknown blend operation enum (%d), setting to blend operation enum add (default)", blendOp);
