@@ -274,6 +274,7 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, LvnBuffer*);
 	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*);
 	void                        (*renderCmdBindDescriptorLayout)(LvnWindow*, LvnPipeline*, LvnDescriptorLayout*);
+	void                        (*renderCmdBindDescriptorLayouts)(LvnWindow*, LvnPipeline*, uint32_t, uint32_t, LvnDescriptorLayout**);
 	void                        (*renderCmdBeginFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 	void                        (*renderCmdEndFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 
@@ -284,7 +285,7 @@ struct LvnGraphicsContext
 	LvnTexture*                 (*getFrameBufferImage)(LvnFrameBuffer*, uint32_t);
 	LvnRenderPass*              (*getFrameBufferRenderPass)(LvnFrameBuffer*);
 	void                        (*updateFrameBuffer)(LvnFrameBuffer*, uint32_t, uint32_t);
-	void                        (*setFrameBufferClearColor)(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
+	void                        (*setFrameBufferClearColor)(LvnFrameBuffer*, uint32_t, float r, float g, float b, float a);
 };
 
 struct LvnPhysicalDevice

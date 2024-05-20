@@ -1121,6 +1121,7 @@ namespace lvn
 	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	LVN_API void                        renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
+	LVN_API void                        renderCmdBindDescriptorLayouts(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorLayoutCount, LvnDescriptorLayout** pDescriptorLayout);
 	LVN_API void                        renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	LVN_API void                        renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 

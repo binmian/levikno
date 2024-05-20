@@ -660,7 +660,7 @@ int main()
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 		lvn::updateUniformBufferData(window, uniformBuffer, objectData, sizeof(UniformData) * 3);
-		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
+		lvn::renderCmdBindDescriptorLayouts(window, pipeline, 0, 1, &descriptorLayout);
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{

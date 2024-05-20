@@ -1,5 +1,6 @@
 #include "lvn_vulkan.h"
 #include "levikno.h"
+#include "vulkan/vulkan_core.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -1970,6 +1971,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->renderCmdBindVertexBuffer = vksImplRenderCmdBindVertexBuffer;
 	graphicsContext->renderCmdBindIndexBuffer = vksImplRenderCmdBindIndexBuffer;
 	graphicsContext->renderCmdBindDescriptorLayout = vksImplRenderCmdBindDescriptorLayout;
+	graphicsContext->renderCmdBindDescriptorLayouts = vksImplRenderCmdBindDescriptorLayouts;
 	graphicsContext->renderCmdBeginFrameBuffer = vksImplRenderCmdBeginFrameBuffer;
 	graphicsContext->renderCmdEndFrameBuffer = vksImplRenderCmdEndFrameBuffer;
 
@@ -2354,6 +2356,20 @@ void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeli
 	VkDescriptorSet descriptorSet = static_cast<VkDescriptorSet>(descriptorLayout->descriptorSets[surfaceData->currentFrame]);
 
 	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+}
+
+void vksImplRenderCmdBindDescriptorLayouts(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorLayoutCount, LvnDescriptorLayout** pDescriptorLayout)
+{
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
+
+	LvnVector<VkDescriptorSet> descriptorSets(descriptorLayoutCount);
+	for (uint32_t i = 0; i < descriptorLayoutCount; i++)
+	{
+		descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorLayout[i]->descriptorSets[surfaceData->currentFrame]);
+	}
+
+	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, firstSetIndex, descriptorLayoutCount, descriptorSets.data(), 0, nullptr);
 }
 
 void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)

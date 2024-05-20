@@ -47,6 +47,7 @@ namespace lvn
 	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout);
+	void vksImplRenderCmdBindDescriptorLayouts(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorLayoutCount, LvnDescriptorLayout** pDescriptorLayout);
 	void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 

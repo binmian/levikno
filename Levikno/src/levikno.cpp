@@ -1331,6 +1331,11 @@ void renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, Lvn
 	s_LvnContext->graphicsContext.renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 }
 
+void renderCmdBindDescriptorLayouts(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorLayoutCount, LvnDescriptorLayout** pDescriptorLayout)
+{
+	s_LvnContext->graphicsContext.renderCmdBindDescriptorLayouts(window, pipeline, firstSetIndex, descriptorLayoutCount, pDescriptorLayout);
+}
+
 void renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
 	s_LvnContext->graphicsContext.renderCmdBeginFrameBuffer(window, frameBuffer);
