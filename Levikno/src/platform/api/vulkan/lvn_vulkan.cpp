@@ -22,7 +22,8 @@ static const char* s_ValidationLayers[] =
 
 static const char* s_DeviceExtensions[] =
 {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
 };
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
@@ -82,7 +83,7 @@ namespace vks
 	static uint32_t                             getSampleCountValue(VkSampleCountFlagBits samples);
 	static VkSampleCountFlagBits                getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
 	static VkDescriptorType                     getDescriptorTypeEnum(LvnDescriptorType type);
-	static VkDescriptorType                     getUniformBufferTypeEnum(LvnBufferType type);
+	static VkBufferUsageFlags                   getUniformBufferTypeEnum(LvnBufferType type);
 	static VkShaderStageFlags                   getShaderStageFlagEnum(LvnShaderStage stage);
 	static VkFilter                             getTextureFilterEnum(LvnTextureFilter filter);
 	static VkSamplerAddressMode                 getTextureWrapModeEnum(LvnTextureMode mode);
@@ -104,7 +105,7 @@ namespace vks
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "levikno";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.apiVersion = VK_API_VERSION_1_1;
 
 
 		VkInstanceCreateInfo createInfo{};
@@ -1330,17 +1331,17 @@ namespace vks
 		}
 	}
 
-	static VkDescriptorType getUniformBufferTypeEnum(LvnBufferType type)
+	static VkBufferUsageFlags getUniformBufferTypeEnum(LvnBufferType type)
 	{
 		switch (type)
 		{
-			case Lvn_BufferType_Uniform: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
-			case Lvn_BufferType_Storage: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
+			case Lvn_BufferType_Uniform: { return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; }
+			case Lvn_BufferType_Storage: { return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; }
 
 			default:
 			{
 				LVN_CORE_WARN("unknown buffer enum type (%u), setting to buffer type uniform buffer (defualt)", type);
-				return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 			}
 		}
 	}
@@ -2201,12 +2202,14 @@ void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 
 void vksImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	vkCmdDraw(surfaceData->commandBuffers[surfaceData->currentFrame], vertexCount, instanceCount, 0, firstInstance);
 }
 
 void vksImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	vkCmdDrawIndexed(surfaceData->commandBuffers[surfaceData->currentFrame], indexCount, instanceCount, 0, 0, firstInstance);
 }
 
 void vksImplRenderCmdSetStencilReference(uint32_t reference)
@@ -2854,7 +2857,9 @@ LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniform
 
 	VkBuffer vkUniformBuffer;
 	VmaAllocation uniformBufferMemory;
-	vks::createBuffer(vkBackends, &vkUniformBuffer, &uniformBufferMemory, createInfo->size * vkBackends->maxFramesInFlight, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	VkBufferUsageFlags bufferUsageType = vks::getUniformBufferTypeEnum(createInfo->type);
+	vks::createBuffer(vkBackends, &vkUniformBuffer, &uniformBufferMemory, createInfo->size * vkBackends->maxFramesInFlight, bufferUsageType, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	uniformBuffer->uniformBuffer = vkUniformBuffer;
 	uniformBuffer->uniformBufferMemory = uniformBufferMemory;

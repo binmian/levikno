@@ -1263,12 +1263,12 @@ void renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 
 void renderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-
+	s_LvnContext->graphicsContext.renderCmdDrawInstanced(window, vertexCount, instanceCount, firstInstance);
 }
 
 void renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-
+	s_LvnContext->graphicsContext.renderCmdDrawIndexedInstanced(window, indexCount, instanceCount, firstInstance);
 }
 
 void renderCmdSetStencilReference(uint32_t reference)

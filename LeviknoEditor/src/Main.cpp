@@ -1,4 +1,5 @@
-﻿#include <levikno/levikno.h>
+﻿#include <cstdint>
+#include <levikno/levikno.h>
 
 #include <chrono>
 #include <string>
@@ -290,6 +291,12 @@ int main()
 	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	uniformDescriptorBinding.descriptorCount = 1;
 
+	LvnDescriptorBinding storageDescriptorBinding{};
+	storageDescriptorBinding.binding = 0;
+	storageDescriptorBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
+	storageDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
+	storageDescriptorBinding.descriptorCount = 1;
+
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = 1;
 	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
@@ -298,7 +305,7 @@ int main()
 
 	std::vector<LvnDescriptorBinding> descriptorBindings = 
 	{
-		uniformDescriptorBinding, combinedImageDescriptorBinding,
+		storageDescriptorBinding, combinedImageDescriptorBinding,
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -315,14 +322,15 @@ int main()
 
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
-	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
+	pipelineCreateInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-	pipelineCreateInfo.pVertexAttributes = attributes;
-	pipelineCreateInfo.vertexAttributeCount = 3;
+	pipelineCreateInfo.pVertexAttributes = lvnAttributes;
+	pipelineCreateInfo.vertexAttributeCount = 6;
 	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
-	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
+	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
+	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
 
 	LvnPipeline* pipeline;
 	lvn::createPipeline(&pipeline, &pipelineCreateInfo);
@@ -351,13 +359,13 @@ int main()
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
 
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
-	pipelineCreateInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
+	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-	pipelineCreateInfo.pVertexAttributes = lvnAttributes;
-	pipelineCreateInfo.vertexAttributeCount = 6;
+	pipelineCreateInfo.pVertexAttributes = attributes;
+	pipelineCreateInfo.vertexAttributeCount = 3;
 	pipelineCreateInfo.shader = fbShader;
-	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
-	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
+	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
+	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
 
 	LvnPipeline* fbPipeline;
 	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
@@ -401,6 +409,7 @@ int main()
 	pipelineCreateInfo.shader = cubemapShader;
 	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -445,8 +454,8 @@ int main()
 	// uniform buffer
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
 	uniformBufferInfo.binding = 0;
-	uniformBufferInfo.type = Lvn_BufferType_Uniform;
-	uniformBufferInfo.size = sizeof(UniformData);
+	uniformBufferInfo.type = Lvn_BufferType_Storage;
+	uniformBufferInfo.size = sizeof(UniformData) * 3;
 
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
@@ -494,7 +503,7 @@ int main()
 
 	// update descriptor sets
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
-	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
 	descriptorUniformUpdateInfo.descriptorCount = 1;
 	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
@@ -577,7 +586,7 @@ int main()
 	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
 
 
-	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/blender/models/key/key.gltf");
+	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/dev/levikno/LeviknoEditor/res/models/shapes.gltf");
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -590,6 +599,7 @@ int main()
 	deltaTime.start();
 
 	UniformData uniformData{};
+	UniformData objectData[3] = {};
 	int winWidth, winHeight;
 
 	while (lvn::windowOpen(window))
@@ -616,8 +626,6 @@ int main()
 
 		lvn::updateCameraMatrix(&camera);
 		
-		uniformData.matrix = camera.matrix * model;
-
 		if (winWidth != width || winHeight != height)
 		{
 			lvn::updateFrameBuffer(frameBuffer, width, height);
@@ -645,8 +653,13 @@ int main()
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 
 
-		lvn::renderCmdBindPipeline(window, fbPipeline);
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
+		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
+		{
+			objectData[i].matrix = camera.matrix * model * lvnmodel.meshes[i].matrix;
+		}
+
+		lvn::renderCmdBindPipeline(window, pipeline);
+		lvn::updateUniformBufferData(window, uniformBuffer, objectData, sizeof(UniformData) * 3);
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
@@ -654,17 +667,18 @@ int main()
 			lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
 			lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
 
-			lvn::renderCmdDrawIndexed(window, lvnmodel.meshes[i].indexCount);
+			lvn::renderCmdDrawIndexedInstanced(window, lvnmodel.meshes[i].indexCount, 1, i);
+
 		}
 
-		lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&mesh));
-		lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
-
-		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
+		// lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&mesh));
+		// lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
+		//
+		// lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
 		// draw cubemap
-		LvnMat4 projection = camera.projectionMatrix;
-		LvnMat4 view = LvnMat4(LvnMat3(camera.viewMatrix));
+		lvn::mat4 projection = camera.projectionMatrix;
+		lvn::mat4 view = lvn::mat4(lvn::mat3(camera.viewMatrix));
 		uniformData.matrix = projection * view;
 
 		lvn::renderCmdBindPipeline(window, cubemapPipeline);
@@ -685,7 +699,7 @@ int main()
 
 		uniformData.matrix = lvn::mat4(1.0f);
 
-		lvn::renderCmdBindPipeline(window, pipeline);
+		lvn::renderCmdBindPipeline(window, fbPipeline);
 		lvn::updateUniformBufferData(window, fbUniformBuffer, &uniformData, sizeof(UniformData));
 
 		lvn::renderCmdBindVertexBuffer(window, buffer);
