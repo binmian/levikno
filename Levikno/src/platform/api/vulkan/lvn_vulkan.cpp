@@ -106,7 +106,7 @@ namespace vks
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "levikno";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_1;
+		appInfo.apiVersion = VK_API_VERSION_1_2;
 
 
 		VkInstanceCreateInfo createInfo{};
@@ -2079,7 +2079,7 @@ LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
 
 	VkPhysicalDeviceProperties physicalDeviceProperties{};
 	vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
-	LVN_CORE_TRACE("[vulkan] the physical device (GPU) will be used: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
+	LVN_CORE_TRACE("[vulkan] physical device (GPU) will be used: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
 	vkBackends->deviceProperties = physicalDeviceProperties;
 
 	VkPhysicalDeviceFeatures supportedFeatures;

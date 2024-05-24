@@ -1,6 +1,7 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
+#include <cstdint>
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
@@ -995,9 +996,8 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 	}
 
 	*window = new LvnWindow();
+	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title, createInfo->width, createInfo->height);
 	return s_LvnContext->windowContext.createWindow(*window, createInfo);
-
-	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d, h%d)", *window, createInfo->title, createInfo->width, createInfo->height);
 }
 
 void destroyWindow(LvnWindow* window)
@@ -1541,6 +1541,7 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 {
 	*texture = new LvnTexture();
+	LVN_CORE_TRACE("created texture: (%p), binding: %u", *texture, createInfo->binding);
 	return s_LvnContext->graphicsContext.createTexture(*texture, createInfo);
 }
 
@@ -1589,6 +1590,7 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	// }
 
 	*cubemap = new LvnCubemap();
+	LVN_CORE_TRACE("created cubemap: (%p)", *cubemap);
 	return s_LvnContext->graphicsContext.createCubemap(*cubemap, createInfo);
 }
 
@@ -1779,6 +1781,8 @@ LvnImageData loadImageData(const char* filepath, int forceChannels)
 	imageData.channels = forceChannels ? forceChannels : imageChannels;
 	imageData.size = imageData.width * imageData.height * imageData.channels;
 	imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+
+	LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath);
 
 	stbi_image_free(pixels);
 

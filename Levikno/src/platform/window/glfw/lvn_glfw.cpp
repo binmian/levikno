@@ -144,7 +144,7 @@ namespace lvn
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		GLFWwindow* nativeWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title, fullScreen, nullptr);
-		LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d, h:%d)", nativeWindow, window->data.title, window->data.width, window->data.height);
+		LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", nativeWindow, window->data.title, window->data.width, window->data.height);
 
 		if (!nativeWindow)
 		{

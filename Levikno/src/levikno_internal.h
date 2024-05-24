@@ -4,18 +4,6 @@
 #include "levikno.h"
 
 
-struct LvnMemoryBlockPointers
-{
-	LvnMemoryBlock* memBlockWindows;
-	LvnMemoryBlock* memBlockLoggers;
-	LvnMemoryBlock* memBlockRenderPasses;
-	LvnMemoryBlock* memBlockFrameBuffers;
-	LvnMemoryBlock* memBlockShaders;
-	LvnMemoryBlock* memBlockPipelines;
-	LvnMemoryBlock* memBlockBuffers;
-};
-
-
 // ------------------------------------------------------------
 // [SECTION]: Data Type Structures
 // ------------------------------------------------------------
@@ -93,12 +81,16 @@ struct LvnVector
 	T*          data() { return m_Data; }
 	uint32_t    size() { return m_Size; }
 	uint32_t    memsize() { return m_Size * sizeof(T); }
+	uint32_t    memcap() { return m_Capacity * sizeof(T); }
 	void        resize(uint32_t size) { if (size > m_Capacity) { reserve(size); } m_Size = size; }
 	void        reserve(uint32_t size) { if (size <= m_Size) return; T* newsize = (T*)lvn::memAlloc(size * sizeof(T)); memcpy(newsize, m_Data, m_Size * sizeof(T)); lvn::memFree(m_Data); m_Data = newsize; m_Capacity = size; }
 
 	void        push_back(const T& e) { resize(m_Size + 1); memcpy(&m_Data[m_Size - 1], &e, sizeof(T)); }
 	void        copy_back(T* data, uint32_t size) { resize(m_Size + size); memcpy(&m_Data[m_Size - size], data, size * sizeof(T)); }
+	void        remove(uint32_t index) { LVN_CORE_ASSERT(index < m_Size, "index out of vector size range"); uint32_t aftIndex = m_Size - index - 1; if (aftIndex != 0) { memcpy(&m_Data[index], &m_Data[index + 1], aftIndex * sizeof(T)); } resize(--m_Size); }
+
 	T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
+	uint32_t    find_index(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; uint32_t i = 0; while (begin < end) { if (*begin == e) break; begin++; i++; } return i; } // NOTE: find_index acts similar to find function; if no value was found, returns the index one greater than the last index in the vector (m_Size)
 };
 
 // ------------------------------------------------------------
@@ -111,12 +103,6 @@ struct LvnLogger
 	LvnLogLevel logLevel;
 	const char* logPatternFormat;
 	LvnVector<LvnLogPattern> logPatterns;
-};
-
-struct LvnMemoryPool
-{
-	LvnMemoryBlock* pMemoryBlocks;
-	uint32_t memoryBlockCount;
 };
 
 
@@ -352,6 +338,7 @@ struct LvnCubemap
 	LvnTexture textureData;
 };
 
+
 struct LvnContext
 {
 	LvnWindowApi                windowapi;
@@ -365,8 +352,6 @@ struct LvnContext
 	LvnVector<LvnLogPattern>    userLogPatterns;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
-	LvnMemoryPool               memoryPool;
-	LvnMemoryBlockPointers      memBlockPtrs;
 	size_t                      numMemoryAllocations;
 };
 

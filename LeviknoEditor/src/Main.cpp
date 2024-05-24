@@ -190,6 +190,17 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 	}
 }
 
+LvnDescriptorBinding textureBinding(uint32_t binding)
+{
+	LvnDescriptorBinding combinedImageDescriptorBinding{};
+	combinedImageDescriptorBinding.binding = binding;
+	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	combinedImageDescriptorBinding.descriptorCount = 1;
+
+	return combinedImageDescriptorBinding;
+}
+
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
@@ -303,9 +314,11 @@ int main()
 	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	combinedImageDescriptorBinding.descriptorCount = 1;
 
-	std::vector<LvnDescriptorBinding> descriptorBindings = 
+	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
-		storageDescriptorBinding, combinedImageDescriptorBinding,
+		storageDescriptorBinding,
+		textureBinding(1),
+		textureBinding(2),
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -455,7 +468,7 @@ int main()
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
 	uniformBufferInfo.binding = 0;
 	uniformBufferInfo.type = Lvn_BufferType_Storage;
-	uniformBufferInfo.size = sizeof(UniformData) * 3;
+	uniformBufferInfo.size = sizeof(UniformData) * 64;
 
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
@@ -489,6 +502,16 @@ int main()
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);
 
+	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png";
+	textureCreateInfo.binding = 2;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+	LvnTexture* texture2;
+	lvn::createTexture(&texture2, &textureCreateInfo);
+
+
 	// cubemap
 	LvnCubemapCreateInfo cubemapCreateInfo{};
 	cubemapCreateInfo.posx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/right.png", 4);
@@ -514,9 +537,15 @@ int main()
 	descriptorTextureUpdateInfo.descriptorCount = 1;
 	descriptorTextureUpdateInfo.textureInfo = texture;
 
+	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo2{};
+	descriptorTextureUpdateInfo2.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo2.binding = 2;
+	descriptorTextureUpdateInfo2.descriptorCount = 1;
+	descriptorTextureUpdateInfo2.textureInfo = texture2;
+
 	std::vector<LvnDescriptorUpdateInfo> descriptorUpdateInfo =
 	{
-		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
+		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo, descriptorTextureUpdateInfo2,
 	};
 
 	lvn::updateDescriptorLayoutData(descriptorLayout, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
@@ -599,7 +628,7 @@ int main()
 	deltaTime.start();
 
 	UniformData uniformData{};
-	UniformData objectData[3] = {};
+	std::vector<UniformData> objectData = {};
 	int winWidth, winHeight;
 
 	while (lvn::windowOpen(window))
@@ -652,15 +681,15 @@ int main()
 		lvn::renderBeginCommandRecording(window);
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 
-
+		objectData.resize(lvnmodel.meshes.size());
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
 			objectData[i].matrix = camera.matrix * model * lvnmodel.meshes[i].matrix;
 		}
 
 		lvn::renderCmdBindPipeline(window, pipeline);
-		lvn::updateUniformBufferData(window, uniformBuffer, objectData, sizeof(UniformData) * 3);
-		lvn::renderCmdBindDescriptorLayouts(window, pipeline, 0, 1, &descriptorLayout);
+		lvn::updateUniformBufferData(window, uniformBuffer, objectData.data(), sizeof(UniformData) * lvnmodel.meshes.size());
+		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
@@ -728,7 +757,10 @@ int main()
 	lvn::destroyMesh(&mesh);
 	lvn::destroyCubemap(cubemap);
 	lvn::destroyFrameBuffer(frameBuffer);
+
 	lvn::destroyTexture(texture);
+	lvn::destroyTexture(texture2);
+
 	lvn::destroyBuffer(buffer);
 	lvn::destroyBuffer(cubemapBuffer);
 
