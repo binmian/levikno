@@ -1,6 +1,7 @@
 #include "lvn_loadModel.h"
 
 #include "json.h"
+#include "levikno.h"
 namespace nlm = nlohmann;
 
 namespace lvn
@@ -157,6 +158,8 @@ namespace gltfs
 			// LvnVector<Texture*> textures = getTextures(JSON["materials"][meshMaterialIndex]);
 
 			// Create Mesh
+			lvn::computeTangents(vertices.data(), vertices.size(), indices.data(), indices.size());
+
 			LvnMeshCreateInfo meshCreateInfo{};
 			meshCreateInfo.bufferInfo = lvn::createMeshDefaultVertexBufferCreateInfo(vertices.data(), vertices.size(), indices.data(), indices.size());
 

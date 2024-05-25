@@ -691,6 +691,7 @@ struct LvnKeyTypedEvent;
 struct LvnLogger;
 struct LvnLogMessage;
 struct LvnLogPattern;
+struct LvnMaterial;
 struct LvnMesh;
 struct LvnMeshCreateInfo;
 struct LvnModel;
@@ -1174,9 +1175,9 @@ namespace lvn
 	LVN_API float                       getCameraFov(LvnCamera* camera);
 	LVN_API float                       getCameraNearPlane(LvnCamera* camera);
 	LVN_API float                       getCameraFarPlane(LvnCamera* camera);
-	LVN_API LvnVec3                     getCameraPos(LvnCamera* camera, const LvnVec3& position);
-	LVN_API LvnVec3                     getCameraOrient(LvnCamera* camera, const LvnVec3& orientation);
-	LVN_API LvnVec3                     getCameraUpVec(LvnCamera* camera, const LvnVec3& upVector);
+	LVN_API LvnVec3                     getCameraPos(LvnCamera* camera);
+	LVN_API LvnVec3                     getCameraOrient(LvnCamera* camera);
+	LVN_API LvnVec3                     getCameraUpVec(LvnCamera* camera);
 
 
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
@@ -1336,6 +1337,8 @@ namespace lvn
 
 		return matrix;
 	}
+
+	LVN_API void computeTangents(LvnVertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount);
 
 }
 
@@ -4170,6 +4173,14 @@ struct LvnCameraCreateInfo
 struct LvnCubemapCreateInfo
 {
 	LvnImageData posx, negx, posy, negy, posz, negz;
+};
+
+struct LvnMaterial
+{
+	LvnVec3 albedo;
+	float metallic;
+	float roughness;
+	float ambientOcclusion;
 };
 
 #endif

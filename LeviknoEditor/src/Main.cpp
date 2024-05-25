@@ -2,7 +2,6 @@
 #include <levikno/levikno.h>
 
 #include <chrono>
-#include <string>
 #include <vector>
 
 const static float s_CubemapVertices[] =
@@ -144,6 +143,15 @@ struct UniformData
 	lvn::mat4 matrix;
 };
 
+struct PbrUniformData
+{
+	lvn::vec3 campPos;
+	alignas(16) lvn::vec3 lightPos;
+	alignas(16) float metalic;
+	float roughness;
+	float ambientOcclusion;
+};
+
 const float s_CameraSpeed = 1.0f;
 float s_AngleX = LVN_PI * 1.5f;
 
@@ -264,8 +272,8 @@ int main()
 	lvn::createFrameBuffer(&frameBuffer, &frameBufferCreateInfo);
 
 	LvnShaderCreateInfo shaderCreateInfo{};
-	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkvert.spv";
-	shaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkfrag.spv";
+	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/pbrVert.spv";
+	shaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/pbrFrag.spv";
 
 	LvnShader* shader;
 	lvn::createShaderFromFileBin(&shader, &shaderCreateInfo);
@@ -302,6 +310,12 @@ int main()
 	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	uniformDescriptorBinding.descriptorCount = 1;
 
+	LvnDescriptorBinding pbrUniformDescriptorBinding{};
+	pbrUniformDescriptorBinding.binding = 1;
+	pbrUniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	pbrUniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	pbrUniformDescriptorBinding.descriptorCount = 1;
+
 	LvnDescriptorBinding storageDescriptorBinding{};
 	storageDescriptorBinding.binding = 0;
 	storageDescriptorBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
@@ -316,9 +330,7 @@ int main()
 
 	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
-		storageDescriptorBinding,
-		textureBinding(1),
-		textureBinding(2),
+		storageDescriptorBinding, pbrUniformDescriptorBinding
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -473,6 +485,13 @@ int main()
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
 
+	LvnUniformBufferCreateInfo pbrUniformBufferInfo{};
+	pbrUniformBufferInfo.binding = 1;
+	pbrUniformBufferInfo.type = Lvn_BufferType_Uniform;
+	pbrUniformBufferInfo.size = sizeof(PbrUniformData);
+
+	LvnUniformBuffer* pbrUniformBuffer;
+	lvn::createUniformBuffer(&pbrUniformBuffer, &pbrUniformBufferInfo);
 
 	LvnUniformBufferCreateInfo fbUniformBufferInfo{};
 	fbUniformBufferInfo.binding = 0;
@@ -531,21 +550,15 @@ int main()
 	descriptorUniformUpdateInfo.descriptorCount = 1;
 	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
-	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	descriptorTextureUpdateInfo.binding = 1;
-	descriptorTextureUpdateInfo.descriptorCount = 1;
-	descriptorTextureUpdateInfo.textureInfo = texture;
-
-	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo2{};
-	descriptorTextureUpdateInfo2.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	descriptorTextureUpdateInfo2.binding = 2;
-	descriptorTextureUpdateInfo2.descriptorCount = 1;
-	descriptorTextureUpdateInfo2.textureInfo = texture2;
+	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
+	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorPbrUniformUpdateInfo.binding = 1;
+	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
+	descriptorPbrUniformUpdateInfo.bufferInfo = pbrUniformBuffer;
 
 	std::vector<LvnDescriptorUpdateInfo> descriptorUpdateInfo =
 	{
-		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo, descriptorTextureUpdateInfo2,
+		descriptorUniformUpdateInfo, descriptorPbrUniformUpdateInfo,
 	};
 
 	lvn::updateDescriptorLayoutData(descriptorLayout, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
@@ -684,8 +697,17 @@ int main()
 		objectData.resize(lvnmodel.meshes.size());
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
-			objectData[i].matrix = camera.matrix * model * lvnmodel.meshes[i].matrix;
+			objectData[i].matrix = camera.matrix * lvnmodel.meshes[i].matrix;
 		}
+
+		PbrUniformData pbrData{};
+		pbrData.campPos = lvn::getCameraPos(&camera);
+		pbrData.lightPos = lvn::vec3(0.0f, 5.0f, 0.0f);
+		pbrData.metalic = 0.1f;
+		pbrData.roughness = 0.1f;
+		pbrData.ambientOcclusion = 1.0f;
+
+		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData));
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 		lvn::updateUniformBufferData(window, uniformBuffer, objectData.data(), sizeof(UniformData) * lvnmodel.meshes.size());
@@ -767,6 +789,7 @@ int main()
 	lvn::destroyUniformBuffer(cubemapUniformBuffer);
 	lvn::destroyUniformBuffer(fbUniformBuffer);
 	lvn::destroyUniformBuffer(uniformBuffer);
+	lvn::destroyUniformBuffer(pbrUniformBuffer);
 
 	lvn::destroyDescriptorLayout(cubemapDescriptorLayout);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);

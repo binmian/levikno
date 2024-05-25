@@ -1883,17 +1883,17 @@ float getCameraFarPlane(LvnCamera* camera)
 	return camera->far;
 }
 
-LvnVec3 getCameraPos(LvnCamera* camera, const LvnVec3& position)
+LvnVec3 getCameraPos(LvnCamera* camera)
 {
 	return camera->position;
 }
 
-LvnVec3 getCameraOrient(LvnCamera* camera, const LvnVec3& orientation)
+LvnVec3 getCameraOrient(LvnCamera* camera)
 {
 	return camera->orientation;
 }
 
-LvnVec3 getCameraUpVec(LvnCamera* camera, const LvnVec3& upVector)
+LvnVec3 getCameraUpVec(LvnCamera* camera)
 {
 	return camera->upVector;
 }
@@ -2009,6 +2009,42 @@ LvnVec3d cross(LvnVec3d v1, LvnVec3d v2)
 	double cy = v1.z * v2.x - v1.x * v2.z;
 	double cz = v1.x * v2.y - v1.y * v2.x;
 	return { cx, cy, cz };
+}
+
+void computeTangents(LvnVertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount)
+{
+	for (int i = 0; i < indexCount; i += 3)
+	{
+		// taking vertex positions by reference
+		lvn::vec3& v0 = vertices[indices[i]].pos;
+		lvn::vec3& v1 = vertices[indices[i + 1]].pos;
+		lvn::vec3& v2 = vertices[indices[i + 2]].pos;
+
+		// taking vertex texture coords by reference
+		lvn::vec2& uv0 = vertices[indices[i]].texUV;
+		lvn::vec2& uv1 = vertices[indices[i + 1]].texUV;
+		lvn::vec2& uv2 = vertices[indices[i + 2]].texUV;
+
+		// Edges of the triangle : pos delta
+		lvn::vec3 deltaPos1 = v1 - v0;
+		lvn::vec3 deltaPos2 = v2 - v0;
+
+		// UV delta
+		lvn::vec2 deltaUV1 = uv1 - uv0;
+		lvn::vec2 deltaUV2 = uv2 - uv0;
+
+		float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+		lvn::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+		lvn::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
+
+		vertices[indices[i]].tangent = tangent;
+		vertices[indices[i + 1]].tangent = tangent;
+		vertices[indices[i + 2]].tangent = tangent;
+
+		vertices[indices[i]].bitangent = bitangent;
+		vertices[indices[i + 1]].bitangent = bitangent;
+		vertices[indices[i + 2]].bitangent = bitangent;
+	}
 }
 
 } /* namespace lvn */
