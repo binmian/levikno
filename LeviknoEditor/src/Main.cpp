@@ -143,11 +143,17 @@ struct UniformData
 	lvn::mat4 matrix;
 };
 
+struct PbrStorageData
+{
+	lvn::mat4 matrix;
+	lvn::mat4 model;
+};
+
 struct PbrUniformData
 {
 	lvn::vec3 campPos;
 	alignas(16) lvn::vec3 lightPos;
-	alignas(16) float metalic;
+	float metalic;
 	float roughness;
 	float ambientOcclusion;
 };
@@ -313,7 +319,7 @@ int main()
 	LvnDescriptorBinding pbrUniformDescriptorBinding{};
 	pbrUniformDescriptorBinding.binding = 1;
 	pbrUniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	pbrUniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	pbrUniformDescriptorBinding.shaderStage = Lvn_ShaderStage_All;
 	pbrUniformDescriptorBinding.descriptorCount = 1;
 
 	LvnDescriptorBinding storageDescriptorBinding{};
@@ -480,7 +486,7 @@ int main()
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
 	uniformBufferInfo.binding = 0;
 	uniformBufferInfo.type = Lvn_BufferType_Storage;
-	uniformBufferInfo.size = sizeof(UniformData) * 64;
+	uniformBufferInfo.size = sizeof(PbrStorageData) * 64;
 
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
@@ -641,7 +647,8 @@ int main()
 	deltaTime.start();
 
 	UniformData uniformData{};
-	std::vector<UniformData> objectData = {};
+	PbrUniformData pbrData{};
+	std::vector<PbrStorageData> objectData = {};
 	int winWidth, winHeight;
 
 	while (lvn::windowOpen(window))
@@ -656,7 +663,7 @@ int main()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(0.5f)) * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 0.0f, 1.0f));
+		lvn::mat4 model = lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 
 		camera.width = width;
 		camera.height = height;
@@ -697,20 +704,20 @@ int main()
 		objectData.resize(lvnmodel.meshes.size());
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
-			objectData[i].matrix = camera.matrix * lvnmodel.meshes[i].matrix;
+			objectData[i].matrix = camera.matrix;
+			objectData[i].model = lvnmodel.meshes[i].matrix * model;
 		}
 
-		PbrUniformData pbrData{};
 		pbrData.campPos = lvn::getCameraPos(&camera);
-		pbrData.lightPos = lvn::vec3(0.0f, 5.0f, 0.0f);
-		pbrData.metalic = 0.1f;
+		pbrData.lightPos = lvn::vec3(cos(time) * 3.0f, 0.0f, sin(time) * 3.0f);
+		pbrData.metalic = abs(sin(time));
 		pbrData.roughness = 0.1f;
 		pbrData.ambientOcclusion = 1.0f;
 
 		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData));
 
 		lvn::renderCmdBindPipeline(window, pipeline);
-		lvn::updateUniformBufferData(window, uniformBuffer, objectData.data(), sizeof(UniformData) * lvnmodel.meshes.size());
+		lvn::updateUniformBufferData(window, uniformBuffer, objectData.data(), sizeof(PbrStorageData) * lvnmodel.meshes.size());
 		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)

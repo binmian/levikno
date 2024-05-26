@@ -90,6 +90,7 @@ void main()
 
 	vec3 kS = F;
 	vec3 kD = vec3(1.0) - kS;
+	kD *= 1.0 - metalic;
 
 	vec3 numerator = NDF * G * F;
 	float denominator = max(4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0), 0.0001);
@@ -100,8 +101,6 @@ void main()
 
 	vec3 BRDF = kD * lambert + specular;
 	vec3 color = BRDF * max(dot(L, N), 0.0);
-
-	kD *= 1.0 - metalic;
 
 	outColor = vec4(color, 1.0f);
 }

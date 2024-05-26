@@ -12,7 +12,6 @@ layout(location = 1) out vec4 fragColor;
 layout(location = 2) out vec2 fragTexCoord;
 layout(location = 3) out vec3 fragNormal;
 
-
 struct ObjectData
 {
 	mat4 u_Camera;
@@ -24,18 +23,23 @@ layout(std140, binding = 0) readonly buffer UniformBufferObject
 	ObjectData objects[];
 } ubo;
 
+layout(binding = 1) uniform ObjectBuffer
+{
+	vec3 camPos;
+	vec3 lightPos;
+	float metalic;
+	float roughness;
+	float ambientOcclusion;
+} pbrUbo;
+
 void main()
 {
 	ObjectData obj = ubo.objects[gl_BaseInstance];
 
-	vec3 T = normalize(vec3(ubo.model * vec4(inTangent,   0.0)));
-	vec3 B = normalize(vec3(ubo.model * vec4(inBitangent, 0.0)));
-	vec3 N = normalize(vec3(ubo.model * vec4(inNormal,    0.0)));
-	mat3 TBN = mat3(T, B, N);
-
-	gl_Position = obj.u_Camera * vec4(inPos, 1.0);
-	fragPos = inPos;
+	fragPos = vec3(obj.model * vec4(inPos, 1.0));
 	fragColor = inColor;
 	fragTexCoord = inTexCoord;
-	fragNormal = inNormal;
+	fragNormal = mat3(transpose(inverse(obj.model))) * inNormal;
+
+	gl_Position = obj.u_Camera * vec4(fragPos, 1.0);
 }
