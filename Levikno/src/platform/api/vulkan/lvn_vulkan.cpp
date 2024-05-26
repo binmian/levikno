@@ -10,7 +10,7 @@
 #include "lvn_vulkanBackends.h"
 #include "vk_mem_alloc.h"
 
-#ifdef LVN_DEBUG
+#ifdef LVN_CONFIG_DEBUG
 	#define LVN_CORE_CALL_ASSERT(x, ...) LVN_CORE_ASSERT(x, __VA_ARGS__)
 #else
 	#define LVN_CORE_CALL_ASSERT(x, ...) (x)
