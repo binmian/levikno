@@ -1028,7 +1028,7 @@ namespace lvn
 	LVN_API void                        logMessageTrace(LvnLogger* logger, const char* fmt, ...);           // log message with level trace; ANSI code "\x1b[0;37m"
 	LVN_API void                        logMessageDebug(LvnLogger* logger, const char* fmt, ...);           // log message with level debug; ANSI code "\x1b[0;34m"
 	LVN_API void                        logMessageInfo(LvnLogger* logger, const char* fmt, ...);            // log message with level info;  ANSI code "\x1b[0;32m"
-	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);            // log message with level warn;  ANSI code "\x0b[1;33m"
+	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);            // log message with level warn;  ANSI code "\x1b[1;33m"
 	LVN_API void                        logMessageError(LvnLogger* logger, const char* fmt, ...);           // log message with level error; ANSI code "\x1b[1;31m"
 	LVN_API void                        logMessageFatal(LvnLogger* logger, const char* fmt, ...);           // log message with level fatal; ANSI code "\x1b[1;37;41m"
 	LVN_API LvnLogger*                  getCoreLogger();
