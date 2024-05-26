@@ -57,10 +57,11 @@ static const char* getLogLevelColor(LvnLogLevel level)
 	{
 		case Lvn_LogLevel_None:     { return LVN_LOG_COLOR_RESET; }
 		case Lvn_LogLevel_Trace:    { return LVN_LOG_COLOR_TRACE; }
+		case Lvn_LogLevel_Debug:    { return LVN_LOG_COLOR_DEBUG; }
 		case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
 		case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
 		case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
-		case Lvn_LogLevel_Critical: { return LVN_LOG_COLOR_CRITICAL; }
+		case Lvn_LogLevel_Fatal:    { return LVN_LOG_COLOR_FATAL; }
 	}
 
 	return nullptr;
@@ -72,10 +73,11 @@ static const char* getLogLevelName(LvnLogLevel level)
 	{
 		case Lvn_LogLevel_None:     { return "none"; }
 		case Lvn_LogLevel_Trace:    { return "trace"; }
+		case Lvn_LogLevel_Debug:    { return "debug"; }
 		case Lvn_LogLevel_Info:     { return "info"; }
 		case Lvn_LogLevel_Warn:     { return "warn"; }
 		case Lvn_LogLevel_Error:    { return "error"; }
-		case Lvn_LogLevel_Critical: { return "critical"; }
+		case Lvn_LogLevel_Fatal:    { return "fatal"; }
 	}
 
 	return nullptr;
@@ -503,14 +505,38 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
-	char buff[1024];
+	LvnVector<char> buff;
 
-	va_list argptr;
+	va_list argptr, argcopy;
 	va_start(argptr, fmt);
+	va_copy(argcopy, argptr);
 
-	vsnprintf(buff, 1024, fmt, argptr);
-	logMessage(logger, Lvn_LogLevel_Trace, buff);
+	int len = vsnprintf(nullptr, 0, fmt, argptr);
+	buff.resize(len + 1);
+	vsnprintf(&buff[0], len + 1, fmt, argcopy);
+	logMessage(logger, Lvn_LogLevel_Trace, buff.data());
 
+	va_end(argcopy);
+	va_end(argptr);
+}
+
+void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
+{
+	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
+
+	LvnVector<char> buff;
+
+	va_list argptr, argcopy;
+	va_start(argptr, fmt);
+	va_copy(argcopy, argptr);
+
+	int len = vsnprintf(nullptr, 0, fmt, argptr);
+	buff.resize(len + 1);
+	vsnprintf(&buff[0], len + 1, fmt, argcopy);
+	logMessage(logger, Lvn_LogLevel_Debug, buff.data());
+
+	va_end(argcopy);
 	va_end(argptr);
 }
 
@@ -519,14 +545,18 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
-	char buff[1024];
+	LvnVector<char> buff;
 
-	va_list argptr;
+	va_list argptr, argcopy;
 	va_start(argptr, fmt);
+	va_copy(argcopy, argptr);
 
-	vsnprintf(buff, 1024, fmt, argptr);
-	logMessage(logger, Lvn_LogLevel_Info, buff);
+	int len = vsnprintf(nullptr, 0, fmt, argptr);
+	buff.resize(len + 1);
+	vsnprintf(&buff[0], len + 1, fmt, argcopy);
+	logMessage(logger, Lvn_LogLevel_Info, buff.data());
 
+	va_end(argcopy);
 	va_end(argptr);
 }
 
@@ -535,14 +565,18 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
-	char buff[1024];
+	LvnVector<char> buff;
 
-	va_list argptr;
+	va_list argptr, argcopy;
 	va_start(argptr, fmt);
+	va_copy(argcopy, argptr);
 
-	vsnprintf(buff, 1024, fmt, argptr);
-	logMessage(logger, Lvn_LogLevel_Warn, buff);
+	int len = vsnprintf(nullptr, 0, fmt, argptr);
+	buff.resize(len + 1);
+	vsnprintf(&buff[0], len + 1, fmt, argcopy);
+	logMessage(logger, Lvn_LogLevel_Warn, buff.data());
 
+	va_end(argcopy);
 	va_end(argptr);
 }
 
@@ -551,30 +585,38 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
-	char buff[1024];
+	LvnVector<char> buff;
 
-	va_list argptr;
+	va_list argptr, argcopy;
 	va_start(argptr, fmt);
+	va_copy(argcopy, argptr);
 
-	vsnprintf(buff, 1024, fmt, argptr);
-	logMessage(logger, Lvn_LogLevel_Error, buff);
+	int len = vsnprintf(nullptr, 0, fmt, argptr);
+	buff.resize(len + 1);
+	vsnprintf(&buff[0], len + 1, fmt, argcopy);
+	logMessage(logger, Lvn_LogLevel_Error, buff.data());
 
+	va_end(argcopy);
 	va_end(argptr);
 }
 
-void logMessageCritical(LvnLogger* logger, const char* fmt, ...)
+void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Critical)) { return; }
+	if (!logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
 
-	char buff[1024];
+	LvnVector<char> buff;
 
-	va_list argptr;
+	va_list argptr, argcopy;
 	va_start(argptr, fmt);
+	va_copy(argcopy, argptr);
 
-	vsnprintf(buff, 1024, fmt, argptr);
-	logMessage(logger, Lvn_LogLevel_Critical, buff);
+	int len = vsnprintf(nullptr, 0, fmt, argptr);
+	buff.resize(len + 1);
+	vsnprintf(&buff[0], len + 1, fmt, argcopy);
+	logMessage(logger, Lvn_LogLevel_Fatal, buff.data());
 
+	va_end(argcopy);
 	va_end(argptr);
 }
 
@@ -597,7 +639,7 @@ const char* getLogANSIcodeColor(LvnLogLevel level)
 		case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
 		case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
 		case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
-		case Lvn_LogLevel_Critical: { return LVN_LOG_COLOR_CRITICAL; }
+		case Lvn_LogLevel_Fatal:    { return LVN_LOG_COLOR_FATAL; }
 	}
 
 	return nullptr;

@@ -225,6 +225,13 @@ int main()
 
 	lvn::createContext(&lvnCreateInfo);
 
+	LVN_TRACE("testing trace log");
+	LVN_DEBUG("testing debug log");
+	LVN_INFO("testing info log");
+	LVN_WARN("testing warn log");
+	LVN_ERROR("testing error log");
+	LVN_FATAL("testing fatal log");
+
 	uint32_t deviceCount = 0;
 	std::vector<LvnPhysicalDevice*> devices;
 	lvn::getPhysicalDevices(nullptr, &deviceCount);
@@ -710,7 +717,7 @@ int main()
 
 		pbrData.campPos = lvn::getCameraPos(&camera);
 		pbrData.lightPos = lvn::vec3(cos(time) * 3.0f, 0.0f, sin(time) * 3.0f);
-		pbrData.metalic = abs(sin(time));
+		pbrData.metalic = 0.4f;
 		pbrData.roughness = 0.1f;
 		pbrData.ambientOcclusion = 1.0f;
 

@@ -48,14 +48,14 @@
 	#pragma warning (disable : 26495)
 
 	#ifdef _DEBUG
-		#ifndef LVN_DEBUG
-			#define LVN_DEBUG
+		#ifndef LVN_CONFIG_DEBUG
+			#define LVN_CONFIG_DEBUG
 		#endif
 	#endif
 #else
 	#ifndef NDEBUG
-		#ifndef LVN_DEBUG
-			#define LVN_DEBUG
+		#ifndef LVN_CONFIG_DEBUG
+			#define LVN_CONFIG_DEBUG
 		#endif
 	#endif
 
@@ -63,7 +63,7 @@
 #endif
 
 // Debug
-#ifdef LVN_DEBUG
+#ifdef LVN_CONFIG_DEBUG
 	#define LVN_ENABLE_ASSERTS
 #endif
 
@@ -160,35 +160,39 @@
 *
 *
 *   Log Colors:
-*   TRACE           \x1b[1;37m
+*   TRACE           \x1b[0;37m
+*   DEBUG           \x1b[0;34m
 *   INFO            \x1b[0;32m
 *   WARN            \x1b[1;33m
 *   ERROR           \x1b[1;31m
-*   CRITICAL        \x1b[1;37;41m
-* 
+*   FATAL           \x1b[1;37;41m
+*
 */
 
 #define LVN_LOG_COLOR_TRACE                     "\x1b[0;37m"
+#define LVN_LOG_COLOR_DEBUG                     "\x1b[0;34m"
 #define LVN_LOG_COLOR_INFO                      "\x1b[0;32m"
 #define LVN_LOG_COLOR_WARN                      "\x1b[1;33m"
 #define LVN_LOG_COLOR_ERROR                     "\x1b[1;31m"
-#define LVN_LOG_COLOR_CRITICAL                  "\x1b[1;37;41m"
+#define LVN_LOG_COLOR_FATAL                     "\x1b[1;37;41m"
 #define LVN_LOG_COLOR_RESET                     "\x1b[0m"
 
 
 // Core Log macros
 #define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::getCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_WARN(...)                      ::lvn::logMessageWarn(lvn::getCoreLogger(), ##__VA_ARGS__)
 #define LVN_CORE_ERROR(...)                     ::lvn::logMessageError(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_CRITICAL(...)                  ::lvn::logMessageCritical(lvn::getCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_FATAL(...)                     ::lvn::logMessageFatal(lvn::getCoreLogger(), ##__VA_ARGS__)
 
 // Client Log macros
 #define LVN_TRACE(...)                          ::lvn::logMessageTrace(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_DEBUG(...)                          ::lvn::logMessageDebug(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_INFO(...)                           ::lvn::logMessageInfo(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_WARN(...)                           ::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
 #define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_CRITICAL(...)                       ::lvn::logMessageCritical(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::getClientLogger(), ##__VA_ARGS__)
 
 
 // Logging utils
@@ -393,10 +397,11 @@ enum LvnLogLevel
 {
 	Lvn_LogLevel_None       = 0,
 	Lvn_LogLevel_Trace      = 1,
-	Lvn_LogLevel_Info       = 2,
-	Lvn_LogLevel_Warn       = 3,
-	Lvn_LogLevel_Error      = 4,
-	Lvn_LogLevel_Critical   = 5,
+	Lvn_LogLevel_Debug      = 2,
+	Lvn_LogLevel_Info       = 3,
+	Lvn_LogLevel_Warn       = 4,
+	Lvn_LogLevel_Error      = 5,
+	Lvn_LogLevel_Fatal      = 6,
 };
 
 enum LvnEventType
@@ -1020,11 +1025,12 @@ namespace lvn
 	LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);               // renames the name of the logger
 	LVN_API void                        logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);            // prints the log message
 	LVN_API void                        logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);  // log message with given log level
-	LVN_API void                        logMessageTrace(LvnLogger* logger, const char* fmt, ...);           // log message with level trace; ANSI code "\x1b[1;37m"
-	LVN_API void                        logMessageInfo(LvnLogger* logger, const char* fmt, ...);            // log message with level info; ANSI code "\x1b[0;32m"
-	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);            // log message with level warn; ANSI code "\x1b[1;33m"
+	LVN_API void                        logMessageTrace(LvnLogger* logger, const char* fmt, ...);           // log message with level trace; ANSI code "\x1b[0;37m"
+	LVN_API void                        logMessageDebug(LvnLogger* logger, const char* fmt, ...);           // log message with level debug; ANSI code "\x1b[0;34m"
+	LVN_API void                        logMessageInfo(LvnLogger* logger, const char* fmt, ...);            // log message with level info;  ANSI code "\x1b[0;32m"
+	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);            // log message with level warn;  ANSI code "\x1b[1;33m"
 	LVN_API void                        logMessageError(LvnLogger* logger, const char* fmt, ...);           // log message with level error; ANSI code "\x1b[1;31m"
-	LVN_API void                        logMessageCritical(LvnLogger* logger, const char* fmt, ...);        // log message with level critical; ANSI code "\x1b[1;37;41m"
+	LVN_API void                        logMessageFatal(LvnLogger* logger, const char* fmt, ...);           // log message with level fatal; ANSI code "\x1b[1;37;41m"
 	LVN_API LvnLogger*                  getCoreLogger();
 	LVN_API LvnLogger*                  getClientLogger();
 	LVN_API const char*                 getLogANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string

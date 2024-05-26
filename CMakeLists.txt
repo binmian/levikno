@@ -99,8 +99,8 @@ target_include_directories(levikno
 
 # Build definitions
 target_compile_definitions(levikno PRIVATE
-	$<$<CONFIG:Debug>:LVN_DEBUG>
-	$<$<CONFIG:Release>:LVN_RELEASE>
+	$<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
+	$<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
 )
 
 # Find VulkanSDK
