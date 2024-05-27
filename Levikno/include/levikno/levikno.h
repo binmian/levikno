@@ -4157,8 +4157,8 @@ struct LvnCamera
 	LvnVec3 upVector;            // up vector to differentiate direction in space
 
 	float fov;                   // field of view
-	float near;                  // near plane
-	float far;                   // far plane
+	float nearPlane;             // near plane
+	float farPlane;              // far plane
 
 	uint32_t width, height;      // dimensions of camera
 };
@@ -4183,10 +4183,9 @@ struct LvnCubemapCreateInfo
 
 struct LvnMaterial
 {
-	LvnVec3 albedo;
-	float metallic;
-	float roughness;
-	float ambientOcclusion;
+	LvnTexture* albedo;
+	LvnTexture* metallicRoughness;
+	LvnTexture* ambientOcclusion;
 };
 
 #endif

@@ -63,12 +63,12 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 
 void main()
 {
-	vec3 camPos = ubo.camPos;
 	vec3 albedo = vec3(fragColor);
 	float metalic = ubo.metalic;
 	float roughness = ubo.roughness;
 	float ambientOcclusion = ubo.ambientOcclusion;
 
+	vec3 camPos = ubo.camPos;
 	vec3 lightPos = ubo.lightPos;
 
 	vec3 N = normalize(fragNormal); 
@@ -101,6 +101,9 @@ void main()
 
 	vec3 BRDF = kD * lambert + specular;
 	vec3 color = BRDF * max(dot(L, N), 0.0);
+
+	vec3 ambient = vec3(0.01) * albedo;
+	color = color + ambient;
 
 	outColor = vec4(color, 1.0f);
 }

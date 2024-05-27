@@ -1862,11 +1862,11 @@ LvnCamera createCamera(LvnCameraCreateInfo* createInfo)
 	camera.orientation = createInfo->orientation;
 	camera.upVector = createInfo->upVector;
 	camera.fov = createInfo->fovDeg;
-	camera.near = createInfo->nearPlane;
-	camera.far = createInfo->farPlane;
+	camera.nearPlane = createInfo->nearPlane;
+	camera.farPlane = createInfo->farPlane;
 
 	camera.viewMatrix = lvn::lookAt(camera.position, camera.position + camera.orientation, camera.upVector);
-	camera.projectionMatrix = lvn::perspective(lvn::radians(camera.fov), static_cast<float>(camera.width) / static_cast<float>(camera.height), camera.near, camera.far);
+	camera.projectionMatrix = lvn::perspective(lvn::radians(camera.fov), static_cast<float>(camera.width) / static_cast<float>(camera.height), camera.nearPlane, camera.farPlane);
 	camera.matrix = camera.projectionMatrix * camera.viewMatrix;
 
 	return camera;
@@ -1874,7 +1874,7 @@ LvnCamera createCamera(LvnCameraCreateInfo* createInfo)
 
 void updateCameraMatrix(LvnCamera* camera)
 {
-	camera->projectionMatrix = lvn::perspective(lvn::radians(camera->fov), static_cast<float>(camera->width) / static_cast<float>(camera->height), camera->near, camera->far);
+	camera->projectionMatrix = lvn::perspective(lvn::radians(camera->fov), static_cast<float>(camera->width) / static_cast<float>(camera->height), camera->nearPlane, camera->farPlane);
 	camera->viewMatrix = lvn::lookAt(camera->position, camera->position + camera->orientation, camera->upVector);
 	camera->matrix = camera->projectionMatrix * camera->viewMatrix;
 }
@@ -1887,8 +1887,8 @@ void setCameraFov(LvnCamera* camera, float fovDeg)
 
 void setCameraPlane(LvnCamera* camera, float nearPlane, float farPlane)
 {
-	camera->near = nearPlane;
-	camera->far = farPlane;
+	camera->nearPlane = nearPlane;
+	camera->farPlane = farPlane;
 	lvn::updateCameraMatrix(camera);
 }
 
@@ -1917,12 +1917,12 @@ float getCameraFov(LvnCamera* camera)
 
 float getCameraNearPlane(LvnCamera* camera)
 {
-	return camera->near;
+	return camera->nearPlane;
 }
 
 float getCameraFarPlane(LvnCamera* camera)
 {
-	return camera->far;
+	return camera->farPlane;
 }
 
 LvnVec3 getCameraPos(LvnCamera* camera)

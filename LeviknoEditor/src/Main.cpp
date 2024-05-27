@@ -177,10 +177,10 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Space))
-		camera->position += (-camera->upVector * s_CameraSpeed) * dt;
+		camera->position += (camera->upVector * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_LeftControl))
-		camera->position += (camera->upVector * s_CameraSpeed) * dt;
+		camera->position += (-camera->upVector * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Left))
 	{
@@ -196,11 +196,11 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Up))
 	{
-		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
+		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Down))
 	{
-		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
+		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
 	}
 }
 
@@ -357,6 +357,7 @@ int main()
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	pipelineSpec.depthstencil.enableDepth = true;
 	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_Less;
+	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Front;
 
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
@@ -404,6 +405,7 @@ int main()
 	pipelineCreateInfo.shader = fbShader;
 	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+	pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Back;
 
 	LvnPipeline* fbPipeline;
 	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
@@ -448,6 +450,7 @@ int main()
 	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
+	pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Front;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -546,12 +549,12 @@ int main()
 
 	// cubemap
 	LvnCubemapCreateInfo cubemapCreateInfo{};
-	cubemapCreateInfo.posx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/right.png", 4);
-	cubemapCreateInfo.negx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/left.png", 4);
-	cubemapCreateInfo.posy = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/top.png", 4);
-	cubemapCreateInfo.negy = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/bottom.png", 4);
-	cubemapCreateInfo.posz = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/front.png", 4);
-	cubemapCreateInfo.negz = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/space/back.png", 4);
+	cubemapCreateInfo.posx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/Chapel/posx.jpg", 4);
+	cubemapCreateInfo.negx = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/Chapel/negx.jpg", 4);
+	cubemapCreateInfo.posy = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/Chapel/posy.jpg", 4);
+	cubemapCreateInfo.negy = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/Chapel/negy.jpg", 4);
+	cubemapCreateInfo.posz = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/Chapel/posz.jpg", 4);
+	cubemapCreateInfo.negz = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/cubemaps/Chapel/negz.jpg", 4);
 
 	LvnCubemap* cubemap;
 	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
@@ -681,6 +684,8 @@ int main()
 		cameraMovment(window, &camera, dt);
 
 		lvn::updateCameraMatrix(&camera);
+		camera.projectionMatrix[1][1] *= -1.0f;
+		camera.matrix = camera.projectionMatrix * camera.viewMatrix;
 		
 		if (winWidth != width || winHeight != height)
 		{
@@ -717,8 +722,8 @@ int main()
 
 		pbrData.campPos = lvn::getCameraPos(&camera);
 		pbrData.lightPos = lvn::vec3(cos(time) * 3.0f, 0.0f, sin(time) * 3.0f);
-		pbrData.metalic = 0.4f;
-		pbrData.roughness = 0.1f;
+		pbrData.metalic = 0.5f;
+		pbrData.roughness = abs(sin(time));
 		pbrData.ambientOcclusion = 1.0f;
 
 		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData));
