@@ -135,6 +135,7 @@ LvnWindowCreateInfo windowInfo{};
 ```
 Then fill in all the necessary parameters:
 ```
+...
 LvnWindowCreateInfo windowInfo{};
 windowInfo.width = 800;
 windowInfo.height = 600;
@@ -157,4 +158,56 @@ Most of these parameters are self-explanatory
 
 Note: Whenever parameters have a prefix ```p``` in front of the type name, it indicates that an array of data can be taken in with a pointer to the first element in the array. This parameter is usually followed by another unsigned integer parameter that asks for the number of elements in the array with the suffix ```Count```. For example, ```pIcons``` and ```iconCount```
 
+Now declare a ```LvnWindow*``` pointer and pass both the pointer and the create info struct to its respective create function:
+```
+...
+
+LvnWindowCreateInfo windowInfo{};
+windowInfo.width = 800;
+windowInfo.height = 600;
+windowInfo.title = "leviknoTutorial";
+windowInfo.fullscreen = false;
+windowInfo.resizable = true;
+windowInfo.minWidth = 300;
+windowInfo.minHeight = 200;
+windowInfo.maxWidth = -1;
+windowInfo.maxHeight = -1;
+windowInfo.pIcons = nullptr;
+windowInfo.iconCount = 0;
+
+LvnWindow* window;
+lvn::createWindow(&window, &windowInfo);
+```
+
+If we want to also check if an object has been successfully created, we can check the ```LvnResult``` enum the function returns:
+```
+...
+
+LvnWindow* window;
+LvnResult result = lvn::createWindow(&window, &windowInfo);
+if (result == Lvn_Result_Failure)
+{
+	// do something for error
+	return -1;
+}
+```
+
+
+After successfully creating a window, we can then use our window in the main rendering loop:
+```
+...
+
+while (lvn::windowOpen(window))
+{
+	lvn::updateWindow(window);
+
+}
+
+lvn::destroyWindow(window);
+```
+In the example above, ```lvn::windowOpen(window)``` is a function that returns a boolean value if the window is open or not, the function returns false if the window has been closed.
+
+In the loop, ```lvn::updateWindow(window)``` updates window and poll events related to the api.
+
+Finally make sure to destroy the window using ```lvn::destroyWindow(window)``` at the end of the program after the window closes.
 
