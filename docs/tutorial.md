@@ -133,7 +133,7 @@ Like creating any other object, we first declare the create info struct:
 ```
 LvnWindowCreateInfo windowInfo{};
 ```
-Then fill in the necessary parameters, for this I will fill in all the parameters:
+Then fill in all the necessary parameters:
 ```
 LvnWindowCreateInfo windowInfo{};
 windowInfo.width = 800;
