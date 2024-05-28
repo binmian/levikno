@@ -222,6 +222,7 @@ int main()
 	lvnCreateInfo.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+	lvnCreateInfo.meshTextureBindings = { 0, 1, 2, 3 };
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -528,7 +529,7 @@ int main()
 
 	// texture
 	LvnTextureCreateInfo textureCreateInfo{};
-	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/grass.png";
+	textureCreateInfo.imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/grass.png", 4);
 	textureCreateInfo.binding = 1;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
@@ -537,7 +538,7 @@ int main()
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);
 
-	textureCreateInfo.filepath = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png";
+	textureCreateInfo.imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png", 4);
 	textureCreateInfo.binding = 2;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
@@ -619,16 +620,19 @@ int main()
 
 
 	// mesh
+	LvnBufferCreateInfo meshBufferInfo{};
+	meshBufferInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
+	meshBufferInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
+	meshBufferInfo.vertexBindingDescriptionCount = 1;
+	meshBufferInfo.pVertexAttributes = lvnAttributes;
+	meshBufferInfo.vertexAttributeCount = 6;
+	meshBufferInfo.pVertices = lvnVertices.data();
+	meshBufferInfo.vertexBufferSize = lvnVertices.size() * sizeof(LvnVertex);
+	meshBufferInfo.pIndices = indices;
+	meshBufferInfo.indexBufferSize = sizeof(indices);
+
 	LvnMeshCreateInfo meshCreateInfo{};
-	meshCreateInfo.bufferInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	meshCreateInfo.bufferInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
-	meshCreateInfo.bufferInfo.vertexBindingDescriptionCount = 1;
-	meshCreateInfo.bufferInfo.pVertexAttributes = lvnAttributes;
-	meshCreateInfo.bufferInfo.vertexAttributeCount = 6;
-	meshCreateInfo.bufferInfo.pVertices = lvnVertices.data();
-	meshCreateInfo.bufferInfo.vertexBufferSize = lvnVertices.size() * sizeof(LvnVertex);
-	meshCreateInfo.bufferInfo.pIndices = indices;
-	meshCreateInfo.bufferInfo.indexBufferSize = sizeof(indices);
+	meshCreateInfo.bufferInfo = &meshBufferInfo;
 
 	LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
 
@@ -644,7 +648,7 @@ int main()
 	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
 
 
-	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/dev/levikno/LeviknoEditor/res/models/shapes.gltf");
+	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/dev/levikno/LeviknoEditor/res/models/shapes/shapes.gltf");
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -717,7 +721,7 @@ int main()
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
 			objectData[i].matrix = camera.matrix;
-			objectData[i].model = lvnmodel.meshes[i].matrix * model;
+			objectData[i].model = lvnmodel.meshes[i].modelMatrix * model;
 		}
 
 		pbrData.campPos = lvn::getCameraPos(&camera);
@@ -738,13 +742,7 @@ int main()
 			lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
 
 			lvn::renderCmdDrawIndexedInstanced(window, lvnmodel.meshes[i].indexCount, 1, i);
-
 		}
-
-		// lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&mesh));
-		// lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&mesh));
-		//
-		// lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
 		// draw cubemap
 		lvn::mat4 projection = camera.projectionMatrix;

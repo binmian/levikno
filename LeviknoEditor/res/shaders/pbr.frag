@@ -64,6 +64,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 void main()
 {
 	vec3 albedo = vec3(fragColor);
+	vec3 lightColors = vec3(1.0);
 	float metalic = ubo.metalic;
 	float roughness = ubo.roughness;
 	float ambientOcclusion = ubo.ambientOcclusion;
@@ -77,9 +78,9 @@ void main()
 	vec3 L = normalize(lightPos - fragPos);
     vec3 H = normalize(V + L);
 
-	// float distance = length(lightPos - fragPos);
-	// float attenuation = 1.0 / (distance * distance);
-	// vec3 radiance = lightColors * attenuation;
+	float distance = length(lightPos - fragPos);
+	float attenuation = 1.0 / (distance * distance);
+	vec3 radiance = lightColors * attenuation;
 
 	vec3 F0 = vec3(0.04);
 	F0 = mix(F0, albedo, metalic);
@@ -97,13 +98,13 @@ void main()
 	vec3 specular = numerator / denominator;
 
 	float NdotL = max(dot(N, L), 0.0);
-	vec3 lambert = (kD * albedo / PI + specular) * NdotL;
-
-	vec3 BRDF = kD * lambert + specular;
-	vec3 color = BRDF * max(dot(L, N), 0.0);
+	vec3 BRDF = (kD * albedo / PI + specular) * radiance * NdotL;
 
 	vec3 ambient = vec3(0.01) * albedo;
-	color = color + ambient;
+	vec3 color = BRDF + ambient;
+
+	// color = color / (color + vec3(1.0));
+	// color = pow(color, vec3(1.0/2.2));
 
 	outColor = vec4(color, 1.0f);
 }

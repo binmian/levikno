@@ -353,6 +353,8 @@ struct LvnContext
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	size_t                      numMemoryAllocations;
+
+	LvnMeshTextureBindings      meshTextureBindings;
 };
 
 #endif

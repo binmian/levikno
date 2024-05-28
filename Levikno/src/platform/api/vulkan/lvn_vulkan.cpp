@@ -2849,20 +2849,24 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	// load image pixel data
-	LvnImageData imageData = lvn::loadImageData(createInfo->filepath, 4);
-
 	VkBuffer stagingBuffer;
 	VmaAllocation stagingBufferMemory;
-	VkDeviceSize imageSize = imageData.pixels.memsize();
+	VkDeviceSize imageSize = createInfo->imageData.pixels.memsize();
 
 	vks::createBuffer(vkBackends, &stagingBuffer, &stagingBufferMemory, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	void* data;
 	vmaMapMemory(vkBackends->vmaAllocator, stagingBufferMemory, &data);
-	memcpy(data, imageData.pixels.data(), imageSize);
+	memcpy(data, createInfo->imageData.pixels.data(), imageSize);
 	vmaUnmapMemory(vkBackends->vmaAllocator, stagingBufferMemory);
 
+	VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+	switch (createInfo->imageData.channels)
+	{
+		case 1: { format = VK_FORMAT_R8_SRGB; break; }
+		case 2: { format = VK_FORMAT_R8G8_SRGB; break; }
+		case 4: { format = VK_FORMAT_R8G8B8A8_SRGB; break; }
+	}
 
 	// create texture image
 	VkImage textureImage;
@@ -2871,21 +2875,22 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	if (vks::createImage(vkBackends, 
 		&textureImage,
 		&textureImageMemory,
-		imageData.width,
-		imageData.height,
-		VK_FORMAT_R8G8B8A8_SRGB,
+		createInfo->imageData.width,
+		createInfo->imageData.height,
+		format,
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_SAMPLE_COUNT_1_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
 	{
+		LVN_CORE_ERROR("[vulkan] failed to create texture image <VkImage> for texture (%p)", texture);
 		return Lvn_Result_Failure;
 	}
 
 	// transition buffer to image
-	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
-	vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, imageData.width, imageData.height, 1);
-	vks::transitionImageLayout(vkBackends, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+	vks::transitionImageLayout(vkBackends, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+	vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, createInfo->imageData.width, createInfo->imageData.height, 1);
+	vks::transitionImageLayout(vkBackends, textureImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 
 	// texture image view
@@ -2893,7 +2898,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = textureImage;
 	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	viewInfo.format = format;
 	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	viewInfo.subresourceRange.baseMipLevel = 0;
 	viewInfo.subresourceRange.levelCount = 1;
@@ -2903,7 +2908,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	VkImageView imageView;
 	if (vkCreateImageView(vkBackends->device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create texture image view <VkImageView> (%p)", imageView);
+		LVN_CORE_ERROR("[vulkan] failed to create texture image view <VkImageView> for texture (%p)", texture);
 		return Lvn_Result_Failure;
 	}
 
@@ -2943,7 +2948,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 
 	if (vkCreateSampler(vkBackends->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create texture sampler <VkSampler> (%p)", textureSampler);
+		LVN_CORE_ERROR("[vulkan] failed to create texture sampler <VkSampler> for texture (%p)", texture);
 		return Lvn_Result_Failure;
 	}
 

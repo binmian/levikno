@@ -2,6 +2,7 @@
 
 #include "json.h"
 #include "levikno.h"
+#include <cstdint>
 namespace nlm = nlohmann;
 
 namespace lvn
@@ -9,12 +10,20 @@ namespace lvn
 
 namespace gltfs
 {
+	struct LvnTextureIndexData
+	{
+		LvnTexture* texture;
+		uint32_t index;
+	};
+
 	struct gltfLoadData
 	{
 		nlm::json JSON;
 		std::string filepath;
 		LvnData<uint8_t> binData;
 		LvnVector<LvnMesh> meshes;
+		LvnVector<LvnTextureIndexData> textureData;
+		LvnVector<LvnTexture*> textures;
 	};
 
 	static void                  traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
@@ -23,6 +32,8 @@ namespace gltfs
 	static LvnVector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
 	static LvnVec4               getColors(nlm::json material);
 	static LvnVector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnMaterial           getMaterial(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnTextureFilter      getTexFilter(uint32_t filter);
 
 	static void traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix)
 	{
@@ -155,13 +166,16 @@ namespace gltfs
 			}
 
 			// Get Textures
-			// LvnVector<Texture*> textures = getTextures(JSON["materials"][meshMaterialIndex]);
+			LvnMaterial material = gltfs::getMaterial(gltfData, JSON["materials"][meshMaterialIndex]);
 
 			// Create Mesh
 			lvn::computeTangents(vertices.data(), vertices.size(), indices.data(), indices.size());
 
 			LvnMeshCreateInfo meshCreateInfo{};
-			meshCreateInfo.bufferInfo = lvn::createMeshDefaultVertexBufferCreateInfo(vertices.data(), vertices.size(), indices.data(), indices.size());
+
+			LvnBufferCreateInfo meshBufferInfo = lvn::createMeshDefaultVertexBufferCreateInfo(vertices.data(), vertices.size(), indices.data(), indices.size());
+			meshCreateInfo.bufferInfo = &meshBufferInfo;
+			meshCreateInfo.material = material;
 
 			LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
 			lvn::setMeshMatrix(&mesh, matrix);
@@ -281,6 +295,225 @@ namespace gltfs
 
 		return indices;
 	}
+
+	static LvnMaterial getMaterial(gltfLoadData* gltfData, nlm::json accessor)
+	{
+		nlm::json JSON = gltfData->JSON;
+
+		LvnContext* lvnctx = lvn::getContext();
+
+		LvnMaterial material{};
+
+		std::string fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1);
+
+		uint32_t texSource;
+		std::string texPath;
+
+		// base color
+		if (accessor["pbrMetallicRoughness"].find("baseColorTexture") != accessor["pbrMetallicRoughness"].end())
+		{
+			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["baseColorTexture"]["index"]];
+			texSource = texInd["source"];
+			texPath = JSON["images"][texSource]["uri"];
+
+			bool skip = false;
+			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
+			{
+				if (gltfData->textureData[i].index == texSource)
+				{
+					material.albedo = gltfData->textureData[i].texture;
+					skip = true;
+					break;
+				}
+			}
+			if (!skip)
+			{
+				unsigned int texSamplerIndex = texInd["sampler"];
+				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+
+				LvnTextureCreateInfo textureCreateInfo{};
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str());
+				textureCreateInfo.binding = lvnctx->meshTextureBindings.albedo;
+				textureCreateInfo.minFilter = getTexFilter(minFilter);
+				textureCreateInfo.magFilter = getTexFilter(magFilter);
+				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+				LvnTexture* texture;
+				lvn::createTexture(&texture, &textureCreateInfo);
+
+				LvnTextureIndexData textureIndexData = { texture, texInd };
+				gltfData->textureData.push_back(textureIndexData);
+				gltfData->textures.push_back(texture);
+				material.albedo = texture;
+			}
+		}
+		else // white texture if no texture was found
+		{
+			uint8_t whiteTextureData = 0xff;
+			LvnImageData imageData;
+			imageData.pixels = LvnData<uint8_t>(&whiteTextureData, sizeof(uint8_t));
+			imageData.width = 1;
+			imageData.height = 1;
+			imageData.channels = 1;
+			imageData.size = 1;
+
+			LvnTextureCreateInfo textureCreateInfo{};
+			textureCreateInfo.imageData = imageData;
+			textureCreateInfo.binding = lvnctx->meshTextureBindings.albedo;
+			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+			LvnTexture* texture;
+			lvn::createTexture(&texture, &textureCreateInfo);
+
+			material.albedo = texture;
+			gltfData->textures.push_back(texture);
+		}
+
+		// metalic roughness
+		if (accessor["pbrMetallicRoughness"].find("metallicRoughnessTexture") != accessor["pbrMetallicRoughness"].end())
+		{
+			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["pbrMetallicRoughness"]["index"]];
+			texSource = texInd["source"];
+			texPath = JSON["images"][texSource]["uri"];
+
+			bool skip = false;
+			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
+			{
+				if (gltfData->textureData[i].index == texSource)
+				{
+					material.metallicRoughnessOcclusion = gltfData->textureData[i].texture;
+					skip = true;
+					break;
+				}
+			}
+			if (!skip)
+			{
+				unsigned int texSamplerIndex = texInd["sampler"];
+				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+
+				LvnTextureCreateInfo textureCreateInfo{};
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str());
+				textureCreateInfo.binding = lvnctx->meshTextureBindings.metalicRoughnessOcclusion;
+				textureCreateInfo.minFilter = getTexFilter(minFilter);
+				textureCreateInfo.magFilter = getTexFilter(magFilter);
+				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+				LvnTexture* texture;
+				lvn::createTexture(&texture, &textureCreateInfo);
+
+				LvnTextureIndexData textureIndexData = { texture, texInd };
+				gltfData->textureData.push_back(textureIndexData);
+				gltfData->textures.push_back(texture);
+				material.metallicRoughnessOcclusion = texture;
+			}
+		}
+		else // create default texture if no texture was found; creates a 1x1 texture, 2 channels, metalic stored in red channel, roughness stored in green channel
+		{
+			uint8_t whiteTextureData[2] = { 0xff, 0xff };
+			LvnImageData imageData;
+			imageData.pixels = LvnData<uint8_t>(whiteTextureData, sizeof(whiteTextureData) / sizeof(uint8_t));
+			imageData.width = 1;
+			imageData.height = 1;
+			imageData.channels = 2;
+			imageData.size = 2;
+
+			LvnTextureCreateInfo textureCreateInfo{};
+			textureCreateInfo.imageData = imageData;
+			textureCreateInfo.binding = lvnctx->meshTextureBindings.metalicRoughnessOcclusion;
+			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+			LvnTexture* texture;
+			lvn::createTexture(&texture, &textureCreateInfo);
+
+			material.metallicRoughnessOcclusion = texture;
+			gltfData->textures.push_back(texture);
+		}
+
+		// normal
+		if (accessor.find("normalTexture") != accessor.end())
+		{
+			nlm::json texInd = JSON["textures"][(uint32_t)accessor["normalTexture"]["index"]];
+			texSource = texInd["source"];
+			texPath = JSON["images"][texSource]["uri"];
+
+			bool skip = false;
+			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
+			{
+				if (gltfData->textureData[i].index == texSource)
+				{
+					material.normal = gltfData->textureData[i].texture;
+					skip = true;
+					break;
+				}
+			}
+			if (!skip)
+			{
+				unsigned int texSamplerIndex = texInd["sampler"];
+				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+
+				LvnTextureCreateInfo textureCreateInfo{};
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str());
+				textureCreateInfo.binding = lvnctx->meshTextureBindings.normal;
+				textureCreateInfo.minFilter = getTexFilter(minFilter);
+				textureCreateInfo.magFilter = getTexFilter(magFilter);
+				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+				LvnTexture* texture;
+				lvn::createTexture(&texture, &textureCreateInfo);
+
+				LvnTextureIndexData textureIndexData = { texture, texInd };
+				gltfData->textureData.push_back(textureIndexData);
+				gltfData->textures.push_back(texture);
+				material.normal = texture;
+			}
+		}
+		else // default normal texture if no texture was found; creates a 1x1 texture, 4 channels (0x7f7fffff)
+		{
+			uint8_t normalTextureData[4] = { 0x7f, 0x7f, 0xff, 0xff };
+			LvnImageData imageData;
+			imageData.pixels = LvnData<uint8_t>(normalTextureData, sizeof(normalTextureData) / sizeof(uint8_t));
+			imageData.width = 1;
+			imageData.height = 1;
+			imageData.channels = 4;
+			imageData.size = 4;
+
+			LvnTextureCreateInfo textureCreateInfo{};
+			textureCreateInfo.imageData = imageData;
+			textureCreateInfo.binding = lvnctx->meshTextureBindings.normal;
+			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+			LvnTexture* texture;
+			lvn::createTexture(&texture, &textureCreateInfo);
+
+			material.normal = texture;
+			gltfData->textures.push_back(texture);
+		}
+
+		return material;
+	}
+
+	static LvnTextureFilter getTexFilter(uint32_t filter)
+	{
+		switch (filter)
+		{
+			case 9728: { return Lvn_TextureFilter_Nearest; }
+			case 9729: { return Lvn_TextureFilter_Linear; }
+
+			default:
+			{
+				return Lvn_TextureFilter_Nearest;
+			}
+		}
+	}
 }
 
 LvnModel loadGltfModel(const char* filepath)
@@ -298,6 +531,7 @@ LvnModel loadGltfModel(const char* filepath)
 
 	LvnModel model{};
 	model.meshes = LvnData(gltfData.meshes.data(), gltfData.meshes.size());
+	model.textures = LvnData(gltfData.textures.data(), gltfData.textures.size());
 	model.modelMatrix = LvnMat4(1.0f);
 
 	return model;

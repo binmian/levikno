@@ -439,12 +439,12 @@ enum LvnWindowApi
 {
 	Lvn_WindowApi_None = 0,
 	Lvn_WindowApi_Glfw,
-	Lvn_WindowApi_Win32,
+	// Lvn_WindowApi_Win32,
 
 	Lvn_WindowApi_glfw  = Lvn_WindowApi_Glfw,
-	Lvn_WindowApi_win32 = Lvn_WindowApi_Win32,
 	Lvn_WindowApi_GLFW  = Lvn_WindowApi_Glfw,
-	Lvn_WindowApi_WIN32 = Lvn_WindowApi_Win32,
+	// Lvn_WindowApi_win32 = Lvn_WindowApi_Win32,
+	// Lvn_WindowApi_WIN32 = Lvn_WindowApi_Win32,
 };
 
 /* [Graphics Enums] */
@@ -699,6 +699,7 @@ struct LvnLogPattern;
 struct LvnMaterial;
 struct LvnMesh;
 struct LvnMeshCreateInfo;
+struct LvnMeshTextureBindings;
 struct LvnModel;
 struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
@@ -1351,13 +1352,22 @@ namespace lvn
 
 /* [Core Struct Implementaion] */
 
+struct LvnMeshTextureBindings
+{
+	uint32_t albedo;
+	uint32_t metalicRoughnessOcclusion;
+	uint32_t normal;
+	uint32_t emissive;
+};
+
 struct LvnContextCreateInfo
 {
-	LvnWindowApi        windowapi;
-	LvnGraphicsApi      graphicsapi;
-	bool                enableLogging;
-	LvnLogLevel         coreLogLevel;
-	bool                enableVulkanValidationLayers;
+	LvnWindowApi              windowapi;
+	LvnGraphicsApi            graphicsapi;
+	bool                      enableLogging;
+	LvnLogLevel               coreLogLevel;
+	bool                      enableVulkanValidationLayers;
+	LvnMeshTextureBindings    meshTextureBindings;
 };
 
 /* [Logging] */
@@ -4099,20 +4109,20 @@ struct LvnUniformBufferCreateInfo
 	uint64_t size;
 };
 
-struct LvnTextureCreateInfo
-{
-	const char* filepath;
-	uint32_t binding;
-	LvnTextureFilter minFilter, magFilter;
-	LvnTextureMode wrapMode;
-
-};
-
 struct LvnImageData
 {
 	LvnData<uint8_t> pixels;
 	uint32_t width, height, channels;
 	uint64_t size;
+};
+
+struct LvnTextureCreateInfo
+{
+	LvnImageData imageData;
+	uint32_t binding;
+	LvnTextureFilter minFilter, magFilter;
+	LvnTextureMode wrapMode;
+
 };
 
 struct LvnVertex
@@ -4126,10 +4136,26 @@ struct LvnVertex
 	LvnVec3 bitangent;
 };
 
+struct LvnMaterial
+{
+	LvnVec3 vBaseColor;
+	float fMetallic;
+	float fRoughness;
+	float fNormal;
+	float fOcclusion;
+	float fEmissiveStrength;
+
+	LvnTexture* albedo;
+	LvnTexture* metallicRoughnessOcclusion;
+	LvnTexture* normal;
+	LvnTexture* emissive;
+};
+
 struct LvnMesh
 {
 	LvnBuffer* buffer;    // single buffer that contains both vertex and index buffer
-	LvnMat4 matrix;       // model matrix of mesh
+	LvnMaterial material; // material to hold shader and texture data
+	LvnMat4 modelMatrix;  // model matrix of mesh
 
 	uint32_t vertexCount; // number of vertices in this mesh
 	uint32_t indexCount;  // number of indices in this mesh
@@ -4137,12 +4163,14 @@ struct LvnMesh
 
 struct LvnMeshCreateInfo
 {
-	LvnBufferCreateInfo bufferInfo;
+	LvnBufferCreateInfo* bufferInfo;
+	LvnMaterial material;
 };
 
 struct LvnModel
 {
 	LvnData<LvnMesh> meshes;
+	LvnData<LvnTexture*> textures;
 	LvnMat4 modelMatrix;
 };
 
@@ -4179,13 +4207,6 @@ struct LvnCameraCreateInfo
 struct LvnCubemapCreateInfo
 {
 	LvnImageData posx, negx, posy, negy, posz, negz;
-};
-
-struct LvnMaterial
-{
-	LvnTexture* albedo;
-	LvnTexture* metallicRoughness;
-	LvnTexture* ambientOcclusion;
 };
 
 #endif

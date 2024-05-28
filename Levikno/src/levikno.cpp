@@ -1,8 +1,6 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
-#include <cstdint>
-#include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
 
@@ -92,6 +90,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
+	s_LvnContext->meshTextureBindings = createInfo->meshTextureBindings;
 
 	// logging
 	if (createInfo->enableLogging) { logInit(); }
@@ -942,7 +941,7 @@ static const char* getWindowApiNameEnum(LvnWindowApi api)
 	{
 		case Lvn_WindowApi_None:  { return "None";  }
 		case Lvn_WindowApi_glfw:  { return "glfw";  }
-		case Lvn_WindowApi_win32: { return "win32"; }
+		// case Lvn_WindowApi_win32: { return "win32"; }
 	}
 
 	return LVN_EMPTY_STR;
@@ -965,10 +964,10 @@ static LvnResult setWindowContext(LvnWindowApi windowapi)
 			result = glfwImplInitWindowContext(&lvnctx->windowContext);
 			break;
 		}
-		case Lvn_WindowApi_win32:
-		{
-			break;
-		}
+		// case Lvn_WindowApi_win32:
+		// {
+		// 	break;
+		// }
 	}
 
 	//windowInputInit();
@@ -997,10 +996,10 @@ static void terminateWindowContext()
 			glfwImplTerminateWindowContext();
 			break;
 		}
-		case Lvn_WindowApi_win32:
-		{
-			break;
-		}
+		// case Lvn_WindowApi_win32:
+		// {
+		// 	break;
+		// }
 		default:
 		{
 			LVN_CORE_ERROR("unknown Windows API selected! Cannot terminate window API!");
@@ -1022,7 +1021,7 @@ const char* getWindowApiName()
 	{
 		case Lvn_WindowApi_None:  { return "None";  }
 		case Lvn_WindowApi_glfw:  { return "glfw";  }
-		case Lvn_WindowApi_win32: { return "win32"; }
+		// case Lvn_WindowApi_win32: { return "win32"; }
 	}
 
 	LVN_CORE_ERROR("Unknown Windows API selected!");
@@ -1733,8 +1732,9 @@ LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
 {
 	LvnMesh mesh{};
 
-	lvn::createBuffer(&mesh.buffer, &createInfo->bufferInfo);
-	mesh.matrix = LvnMat4(1.0f);
+	lvn::createBuffer(&mesh.buffer, createInfo->bufferInfo);
+	mesh.material = createInfo->material;
+	mesh.modelMatrix = LvnMat4(1.0f);
 
 	return mesh;
 }
@@ -1751,12 +1751,12 @@ LvnBuffer* getMeshBuffer(LvnMesh* mesh)
 
 LvnMat4 getMeshMatrix(LvnMesh* mesh)
 {
-	return mesh->matrix;
+	return mesh->modelMatrix;
 }
 
 void setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix)
 {
-	mesh->matrix = matrix;
+	mesh->modelMatrix = matrix;
 }
 
 LvnBufferCreateInfo createMeshDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
@@ -1850,6 +1850,11 @@ void destroyModel(LvnModel* model)
 	for (uint32_t i = 0; i < model->meshes.size(); i++)
 	{
 		lvn::destroyMesh(&model->meshes[i]);
+	}
+	
+	for (uint32_t i = 0; i < model->textures.size(); i++)
+	{
+		lvn::destroyTexture(model->textures[i]);
 	}
 }
 
