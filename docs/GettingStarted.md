@@ -1,7 +1,16 @@
 
+# Levikno Guide
+The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document is a tutorial on how to use and integrate Levikno to your project. Before beginning this guide, it is advised that you have prior experience in understanding C++ and how graphics APIs work such as [Vulkan](https://vulkan-tutorial.com/Introduction) and [OpenGL](https://learnopengl.com/Introduction). I will not be going too in depth with how graphics APIs work so it is expected that you know the general terminology for the graphics APIs presented in this tutorial.
 
-# Levikno Documentation
-The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document will give a brief tutorial on how to use the library.
+## Index
+- [Design Architecture](#design-architecture)
+	- [Creating/Destroying Objects](#creating-and-destroying-objects)
+	- [Structure](#structure)
+- [Getting Started](#getting-started)
+	- [Initialization](#initialization)
+	- [Logging](#logging)
+	- [Initialize Rendering](#initialize-rendering)
+	- [Creating Window](#creating-window)
 
 
 ## Design Architecture
@@ -72,11 +81,11 @@ int main()
     LvnContextCreateInfo lvnCreateInfo{};
     lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-
+### Logging
 	lvn::createContext(&lvnCreateInfo);
 }
 ```
-The ```LvnContextCreateInfo``` struct is used for initializing and to choose what window and graphics API to use when creating windows and rendering to them. Pass the createInfo struct into ```lvn::createContext(&lvnCreateInfo)``` to create the levikno context.
+The ```LvnContextCreateInfo``` struct is used for initializing and to choose what window and graphics API to use when creating windows and rendering to them. Pass the createInfo st### Loggingruct into ```lvn::createContext(&lvnCreateInfo)``` to create the levikno context.
 
 Also keep in mind that we are initializing each struct by using **value initialization** (the double curly braces at the end of ```lvnCreateInfo```). Using value initialization fills the entire struct with its default values so we won't  have to fill every parameter ourselves everytime we create a new struct.
 
@@ -128,7 +137,7 @@ We first use ```lvn::getPhysicalDevices``` to get the number of physical devices
 Note that the driver and api version in the info struct directly corresponds to the information Vulkan provides in ```VkPhysicalDeviceProperties```.
 
 
-### Creating a Window
+### Creating Window
 Like creating any other object, we first declare the create info struct:
 ```
 LvnWindowCreateInfo windowInfo{};
@@ -210,4 +219,40 @@ In the example above, ```lvn::windowOpen(window)``` is a function that returns a
 In the loop, ```lvn::updateWindow(window)``` updates window and poll events related to the api.
 
 Finally make sure to destroy the window using ```lvn::destroyWindow(window)``` at the end of the program after the window closes.
+
+### Shaders and Pipelines
+The next step before we can draw anything onto our window is to create a rendering pipeline. A rendering or graphics pipeline outlines the necessary procedures for translating vertices and color onto the screen.
+
+In order to create the pipeline, let's first see what the ```LvnPipelineCreateInfo``` struct contains:
+```
+struct LvnPipelineCreateInfo
+{
+	LvnPipelineSpecification* pipelineSpecification;
+	LvnShader* shader;
+	LvnRenderPass* renderPass;
+	LvnVertexBindingDescription* pVertexBindingDescriptions;
+	uint32_t vertexBindingDescriptionCount;
+	LvnVertexAttribute* pVertexAttributes;
+	uint32_t vertexAttributeCount;
+	LvnDescriptorLayout** pDescriptorLayouts;
+	uint32_t descriptorLayoutCount;
+};
+```
+There is a lot to unpack here so let's go over each parameter one at a time.
+
+```pipelineSpecification``` is a pointer to a ```LvnPipelineSpecification``` struct which holds pipeline's state or "fixed functions" such as the cull mode, depth stencil operations, viewports, multisampling, draw topology, and rasterization.
+
+In most cases we don't need to change any of these parameters after the pipeline has been creates hence the name "fixed" functions. Levikno provides a few default parameter functions which returns a fully initialized create info struct with all of the default parameters set.
+
+Create a ```LvnPipelineSpecification``` struct and a ```LvnPipelineCreateInfo``` struct:
+```
+LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
+
+LvnPipelineCreateInfo pipelineCreateInfo{};
+pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
+```
+```lvn::getDefaultPipelineSpecification()``` returns a initialized ```LvnPipelineSpecification``` struct with all of its default parameters set for rendering.
+
+Next is the ```LvnShader* shader``` parameter, in most cases, the pipeline will use two shaders, the vertex and fragment shader used for transforming vertices and filling in the color between those vertices.
+
 
