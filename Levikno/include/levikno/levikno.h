@@ -4050,14 +4050,14 @@ struct LvnDescriptorUpdateInfo
 struct LvnPipelineCreateInfo
 {
 	LvnPipelineSpecification* pipelineSpecification;
-	LvnShader* shader;
-	LvnRenderPass* renderPass;
 	LvnVertexBindingDescription* pVertexBindingDescriptions;
 	uint32_t vertexBindingDescriptionCount;
 	LvnVertexAttribute* pVertexAttributes;
 	uint32_t vertexAttributeCount;
 	LvnDescriptorLayout** pDescriptorLayouts;
 	uint32_t descriptorLayoutCount;
+	LvnShader* shader;
+	LvnRenderPass* renderPass;
 };
 
 struct LvnShaderCreateInfo
