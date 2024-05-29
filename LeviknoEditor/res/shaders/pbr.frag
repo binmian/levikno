@@ -64,13 +64,14 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 void main()
 {
 	vec3 albedo = vec3(fragColor);
-	vec3 lightColors = vec3(1.0);
 	float metalic = ubo.metalic;
 	float roughness = ubo.roughness;
 	float ambientOcclusion = ubo.ambientOcclusion;
 
 	vec3 camPos = ubo.camPos;
 	vec3 lightPos = ubo.lightPos;
+	vec3 lightColors = vec3(1.0);
+	float lightStrength = 10.0;
 
 	vec3 N = normalize(fragNormal); 
 	vec3 V = normalize(camPos - fragPos);
@@ -79,7 +80,7 @@ void main()
     vec3 H = normalize(V + L);
 
 	float distance = length(lightPos - fragPos);
-	float attenuation = 1.0 / (distance * distance);
+	float attenuation = lightStrength / (distance * distance);
 	vec3 radiance = lightColors * attenuation;
 
 	vec3 F0 = vec3(0.04);

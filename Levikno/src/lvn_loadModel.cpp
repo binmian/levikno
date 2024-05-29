@@ -194,7 +194,7 @@ namespace gltfs
 		std::string fileDirectory = path.substr(0, path.find_last_of("/\\") + 1);
 		std::string pathbin = fileDirectory + uri;
 		
-		return lvn::getFileSrcBin(pathbin.c_str());
+		return lvn::loadFileSrcBin(pathbin.c_str());
 	}
 
 	static LvnVector<float> getFloats(gltfLoadData* gltfData, nlm::json accessor)
@@ -519,7 +519,7 @@ namespace gltfs
 LvnModel loadGltfModel(const char* filepath)
 {
 	gltfs::gltfLoadData gltfData{};
-	std::string jsonText = lvn::getFileSrc(filepath);
+	std::string jsonText = lvn::loadFileSrc(filepath);
 	gltfData.JSON = nlm::json::parse(jsonText);
 	gltfData.binData = gltfs::getData(gltfData.JSON, filepath);
 	gltfData.filepath = filepath;

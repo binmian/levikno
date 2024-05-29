@@ -105,7 +105,7 @@ target_compile_definitions(levikno PRIVATE
 
 # Find VulkanSDK
 set(MIN_VULKAN_VERSION 1.3)
-find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED)
+find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
 
 if(Vulkan_FOUND)
     message ("Vulkan found")
@@ -113,8 +113,15 @@ else()
     message (FATAL_ERROR "Cannot find Vulkan")
 endif()
 
+if(Vulkan_glslang_FOUND)
+    message ("glslang found")
+else()
+    message (FATAL_ERROR "Cannot find glslang")
+endif()
+
 set(VULKAN_LIB_DIR
 	Vulkan::Vulkan
+	Vulkan::glslang
 )
 
 target_link_libraries(levikno

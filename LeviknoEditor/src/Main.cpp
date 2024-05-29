@@ -286,11 +286,11 @@ int main()
 	lvn::createFrameBuffer(&frameBuffer, &frameBufferCreateInfo);
 
 	LvnShaderCreateInfo shaderCreateInfo{};
-	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/pbrVert.spv";
-	shaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/pbrFrag.spv";
+	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/pbr.vert";
+	shaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/pbr.frag";
 
 	LvnShader* shader;
-	lvn::createShaderFromFileBin(&shader, &shaderCreateInfo);
+	lvn::createShaderFromFileSrc(&shader, &shaderCreateInfo);
 
 
 	LvnVertexBindingDescription vertexBindingDescroption{};
@@ -380,11 +380,11 @@ int main()
 
 	// framebuffer pipeline
 	LvnShaderCreateInfo fbShaderCreateInfo{};
-	fbShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFBvert.spv";
-	fbShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFBfrag.spv";
+	fbShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFB.vert";
+	fbShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkFB.frag";
 
 	LvnShader* fbShader;
-	lvn::createShaderFromFileBin(&fbShader, &fbShaderCreateInfo);
+	lvn::createShaderFromFileSrc(&fbShader, &fbShaderCreateInfo);
 
 	std::vector<LvnDescriptorBinding> fbDescriptorBinding =
 	{
@@ -425,11 +425,11 @@ int main()
 	};
 	
 	LvnShaderCreateInfo cubemapShaderCreateInfo{};
-	cubemapShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkCubeVert.spv";
-	cubemapShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkCubeFrag.spv";
+	cubemapShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkcubemap.vert";
+	cubemapShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/LeviknoEditor/res/shaders/vkcubemap.frag";
 	
 	LvnShader* cubemapShader;
-	lvn::createShaderFromFileBin(&cubemapShader, &cubemapShaderCreateInfo);
+	lvn::createShaderFromFileSrc(&cubemapShader, &cubemapShaderCreateInfo);
 	
 	std::vector<LvnDescriptorBinding> cubemapDescriptorBinding =
 	{

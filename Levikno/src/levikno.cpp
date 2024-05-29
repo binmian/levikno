@@ -299,21 +299,7 @@ long long getSecondsSinceEpoch()
 	return time(NULL);
 }
 
-void* memAlloc(size_t size)
-{
-	void* allocmem = malloc(size);
-	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
-	if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
-	return allocmem;
-}
-
-void memFree(void* ptr)
-{
-	free(ptr);
-	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
-}
-
-std::string getFileSrc(const char* filepath)
+std::string loadFileSrc(const char* filepath)
 {
 	FILE* fileptr;
 	fileptr = fopen(filepath, "r");
@@ -329,7 +315,7 @@ std::string getFileSrc(const char* filepath)
 	return std::string(src.data(), src.data() + src.size());
 }
 
-LvnData<uint8_t> getFileSrcBin(const char* filepath)
+LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 {
 	FILE* fileptr;
 	fileptr = fopen(filepath, "rb");
@@ -343,6 +329,20 @@ LvnData<uint8_t> getFileSrcBin(const char* filepath)
 	fclose(fileptr);
 
 	return LvnData<uint8_t>(bin.data(), bin.size());
+}
+
+void* memAlloc(size_t size)
+{
+	void* allocmem = malloc(size);
+	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
+	if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
+	return allocmem;
+}
+
+void memFree(void* ptr)
+{
+	free(ptr);
+	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
 }
 
 /* [Logging] */
@@ -1402,7 +1402,7 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 	}
 
 	*shader = new LvnShader();
-	LVN_CORE_TRACE("created shader: (%p)", *shader);
+	LVN_CORE_TRACE("created shader (from source): (%p)", *shader);
 	return s_LvnContext->graphicsContext.createShaderFromSrc(*shader, createInfo);
 }
 
@@ -1421,7 +1421,7 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 	}
 
 	*shader = new LvnShader();
-	LVN_CORE_TRACE("created shader: (%p)", *shader);
+	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
 	return s_LvnContext->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
 }
 
@@ -1440,7 +1440,7 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 	}
 
 	*shader = new LvnShader();
-	LVN_CORE_TRACE("created shader: (%p)", *shader);
+	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
 	return s_LvnContext->graphicsContext.createShaderFromFileBin(*shader, createInfo);
 }
 
