@@ -227,6 +227,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createShaderFromFileBin)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, LvnDescriptorLayoutCreateInfo*);
+	LvnResult                   (*createDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
 	LvnResult                   (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
 	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
@@ -236,6 +237,7 @@ struct LvnGraphicsContext
 
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
+	void                        (*destroyDescriptorSet)(LvnDescriptorSet*);
 	void                        (*destroyPipeline)(LvnPipeline*);
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
@@ -259,19 +261,18 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
 	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, LvnBuffer*);
 	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*);
-	void                        (*renderCmdBindDescriptorLayout)(LvnWindow*, LvnPipeline*, LvnDescriptorLayout*);
-	void                        (*renderCmdBindDescriptorLayouts)(LvnWindow*, LvnPipeline*, uint32_t, uint32_t, LvnDescriptorLayout**);
+	void                        (*renderCmdBindDescriptorSets)(LvnWindow*, LvnPipeline*, uint32_t, uint32_t, LvnDescriptorSet**);
 	void                        (*renderCmdBeginFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 	void                        (*renderCmdEndFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 
 	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
 	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
-	void                        (*updateDescriptorLayoutData)(LvnDescriptorLayout*, LvnDescriptorUpdateInfo*, uint32_t);
+	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
 	LvnTexture*                 (*getFrameBufferImage)(LvnFrameBuffer*, uint32_t);
 	LvnRenderPass*              (*getFrameBufferRenderPass)(LvnFrameBuffer*);
 	void                        (*updateFrameBuffer)(LvnFrameBuffer*, uint32_t, uint32_t);
-	void                        (*setFrameBufferClearColor)(LvnFrameBuffer*, uint32_t, float r, float g, float b, float a);
+	void                        (*setFrameBufferClearColor)(LvnFrameBuffer*, uint32_t, float, float, float, float);
 };
 
 struct LvnPhysicalDevice
@@ -292,6 +293,10 @@ struct LvnDescriptorLayout
 {
 	void* descriptorLayout;
 	void* descriptorPool;
+};
+
+struct LvnDescriptorSet
+{
 	void** descriptorSets;
 	uint32_t descriptorCount;
 };

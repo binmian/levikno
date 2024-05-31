@@ -1367,14 +1367,9 @@ void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 	s_LvnContext->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
 }
 
-void renderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout)
+void renderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
-	s_LvnContext->graphicsContext.renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
-}
-
-void renderCmdBindDescriptorLayouts(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorLayoutCount, LvnDescriptorLayout** pDescriptorLayout)
-{
-	s_LvnContext->graphicsContext.renderCmdBindDescriptorLayouts(window, pipeline, firstSetIndex, descriptorLayoutCount, pDescriptorLayout);
+	s_LvnContext->graphicsContext.renderCmdBindDescriptorSets(window, pipeline, firstSetIndex, descriptorSetCount, pDescriptorSets);
 }
 
 void renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
@@ -1461,6 +1456,13 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 	*descriptorLayout = new LvnDescriptorLayout();
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
 	return s_LvnContext->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
+}
+
+LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout)
+{
+	*descriptorSet = new LvnDescriptorSet();
+	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
+	return s_LvnContext->graphicsContext.createDescriptorSet(*descriptorSet, descriptorLayout);
 }
 
 LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
@@ -1635,6 +1637,17 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	return s_LvnContext->graphicsContext.createCubemap(*cubemap, createInfo);
 }
 
+LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
+{
+	LvnMesh mesh{};
+
+	lvn::createBuffer(&mesh.buffer, createInfo->bufferInfo);
+	mesh.material = createInfo->material;
+	mesh.modelMatrix = LvnMat4(1.0f);
+
+	return mesh;
+}
+
 void destroyShader(LvnShader* shader)
 {
 	s_LvnContext->graphicsContext.destroyShader(shader);
@@ -1645,6 +1658,12 @@ void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
 	s_LvnContext->graphicsContext.destroyDescriptorLayout(descriptorLayout);
 	delete descriptorLayout;
+}
+
+void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
+{
+	s_LvnContext->graphicsContext.destroyDescriptorSet(descriptorSet);
+	delete descriptorSet;
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
@@ -1683,6 +1702,12 @@ void destroyCubemap(LvnCubemap* cubemap)
 	delete cubemap;
 }
 
+void destroyMesh(LvnMesh* mesh)
+{
+	lvn::destroyBuffer(mesh->buffer);
+}
+
+
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
 {
 	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
@@ -1703,9 +1728,9 @@ void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer,
 	s_LvnContext->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
 }
 
-void updateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
+void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
-	s_LvnContext->graphicsContext.updateDescriptorLayoutData(descriptorLayout, pUpdateInfo, count);
+	s_LvnContext->graphicsContext.updateDescriptorSetData(descriptorSet, pUpdateInfo, count);
 }
 
 LvnTexture* getFrameBufferImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
@@ -1726,22 +1751,6 @@ void updateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t hei
 void setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
 	return s_LvnContext->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
-}
-
-LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
-{
-	LvnMesh mesh{};
-
-	lvn::createBuffer(&mesh.buffer, createInfo->bufferInfo);
-	mesh.material = createInfo->material;
-	mesh.modelMatrix = LvnMat4(1.0f);
-
-	return mesh;
-}
-
-void destroyMesh(LvnMesh* mesh)
-{
-	lvn::destroyBuffer(mesh->buffer);
 }
 
 LvnBuffer* getMeshBuffer(LvnMesh* mesh)

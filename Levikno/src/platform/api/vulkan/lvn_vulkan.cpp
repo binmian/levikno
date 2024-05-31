@@ -2133,6 +2133,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
 	graphicsContext->createDescriptorLayout = vksImplCreateDescriptorLayout;
+	graphicsContext->createDescriptorSet = vksImplCreateDescriptorSet;
 	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
 	graphicsContext->createBuffer = vksImplCreateBuffer;
@@ -2142,6 +2143,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
+	graphicsContext->destroyDescriptorSet = vksImplDestroyDescriptorSet;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
@@ -2165,15 +2167,14 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->renderCmdBindPipeline = vksImplRenderCmdBindPipeline;
 	graphicsContext->renderCmdBindVertexBuffer = vksImplRenderCmdBindVertexBuffer;
 	graphicsContext->renderCmdBindIndexBuffer = vksImplRenderCmdBindIndexBuffer;
-	graphicsContext->renderCmdBindDescriptorLayout = vksImplRenderCmdBindDescriptorLayout;
-	graphicsContext->renderCmdBindDescriptorLayouts = vksImplRenderCmdBindDescriptorLayouts;
+	graphicsContext->renderCmdBindDescriptorSets = vksImplRenderCmdBindDescriptorSets;
 	graphicsContext->renderCmdBeginFrameBuffer = vksImplRenderCmdBeginFrameBuffer;
 	graphicsContext->renderCmdEndFrameBuffer = vksImplRenderCmdEndFrameBuffer;
 
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
-	graphicsContext->updateDescriptorLayoutData = vksImplUpdateDescriptorLayoutData;
+	graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
 	graphicsContext->getFrameBufferImage = vksImplGetFrameBufferImage;
 	graphicsContext->getFrameBufferRenderPass = vksImplGetFrameBufferRenderPass;
 	graphicsContext->updateFrameBuffer = vksImplUpdateFrameBuffer;
@@ -2544,27 +2545,18 @@ void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], vkBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
 }
 
-void vksImplRenderCmdBindDescriptorLayout(LvnWindow* window, LvnPipeline* pipeline, LvnDescriptorLayout* descriptorLayout)
-{
-	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
-	VkDescriptorSet descriptorSet = static_cast<VkDescriptorSet>(descriptorLayout->descriptorSets[surfaceData->currentFrame]);
-
-	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-}
-
-void vksImplRenderCmdBindDescriptorLayouts(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorLayoutCount, LvnDescriptorLayout** pDescriptorLayout)
+void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 	VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
 
-	LvnVector<VkDescriptorSet> descriptorSets(descriptorLayoutCount);
-	for (uint32_t i = 0; i < descriptorLayoutCount; i++)
+	LvnVector<VkDescriptorSet> descriptorSets(descriptorSetCount);
+	for (uint32_t i = 0; i < descriptorSetCount; i++)
 	{
-		descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorLayout[i]->descriptorSets[surfaceData->currentFrame]);
+		descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorSets[i]->descriptorSets[surfaceData->currentFrame]);
 	}
 
-	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, firstSetIndex, descriptorLayoutCount, descriptorSets.data(), 0, nullptr);
+	vkCmdBindDescriptorSets(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, firstSetIndex, descriptorSetCount, descriptorSets.data(), 0, nullptr);
 }
 
 void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
@@ -2730,6 +2722,19 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 		return Lvn_Result_Failure;
 	}
 
+	descriptorLayout->descriptorLayout = vkDescriptorLayout;
+	descriptorLayout->descriptorPool = descriptorPool;
+
+	return Lvn_Result_Success;
+}
+
+LvnResult vksImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	VkDescriptorSetLayout vkDescriptorLayout = static_cast<VkDescriptorSetLayout>(descriptorLayout->descriptorLayout);
+	VkDescriptorPool descriptorPool = static_cast<VkDescriptorPool>(descriptorLayout->descriptorPool);
+
 	LvnVector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
 
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -2738,16 +2743,13 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 	allocInfo.descriptorSetCount = vkBackends->maxFramesInFlight;
 	allocInfo.pSetLayouts = layouts.data();
 
-	descriptorLayout->descriptorSets = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkDescriptorSet));
+	descriptorSet->descriptorSets = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkDescriptorSet));
 
-	if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorLayout->descriptorSets) != VK_SUCCESS)
+	if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorSet->descriptorSets) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet*> at (%p)", descriptorLayout->descriptorSets);
+		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet*> at (%p)", descriptorSet->descriptorSets);
 		return Lvn_Result_Failure;
 	}
-
-	descriptorLayout->descriptorLayout = vkDescriptorLayout;
-	descriptorLayout->descriptorPool = descriptorPool;
 
 	return Lvn_Result_Success;
 }
@@ -3353,9 +3355,11 @@ void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 
 	vkDestroyDescriptorPool(vkBackends->device, descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
+}
 
-	if (descriptorLayout->descriptorSets)
-		lvn::memFree(descriptorLayout->descriptorSets);
+void vksImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
+{
+	if (descriptorSet->descriptorSets) { lvn::memFree(descriptorSet->descriptorSets); }
 }
 
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
@@ -3486,10 +3490,10 @@ void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniform
 	memcpy(uniformBuffer->uniformBufferMapped[surfaceData->currentFrame], data, size);
 }
 
-void vksImplUpdateDescriptorLayoutData(LvnDescriptorLayout* descriptorLayout, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
+void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
-	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorLayout->descriptorSets;
+	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorSet->descriptorSets;
 	vkDeviceWaitIdle(vkBackends->device);
 
 	for (uint32_t i = 0; i < count; i++)

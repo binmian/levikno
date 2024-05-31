@@ -354,6 +354,8 @@ int main()
 	LvnDescriptorLayout* descriptorLayout;
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
 
+	LvnDescriptorSet* descriptorSet;
+	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
 
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	pipelineSpec.depthstencil.enableDepth = true;
@@ -397,6 +399,9 @@ int main()
 
 	LvnDescriptorLayout* fbDescriptorLayout;
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
+
+	LvnDescriptorSet* fbDescriptorSet;
+	lvn::createDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
 
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
 	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
@@ -442,6 +447,10 @@ int main()
 	
 	LvnDescriptorLayout* cubemapDescriptorLayout;
 	lvn::createDescriptorLayout(&cubemapDescriptorLayout, &cubemapDescriptorLayoutCreateInfo);
+
+	LvnDescriptorSet* cubemapDescriptorSet;
+	lvn::createDescriptorSet(&cubemapDescriptorSet, cubemapDescriptorLayout);
+
 	pipelineCreateInfo.pDescriptorLayouts = &cubemapDescriptorLayout;
 	pipelineCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
@@ -578,7 +587,7 @@ int main()
 		descriptorUniformUpdateInfo, descriptorPbrUniformUpdateInfo,
 	};
 
-	lvn::updateDescriptorLayoutData(descriptorLayout, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
+	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
 
 	LvnDescriptorUpdateInfo fbDescriptorUniformUpdateInfo{};
 	fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
@@ -597,7 +606,7 @@ int main()
 		fbDescriptorUniformUpdateInfo, fbDescriptorTextureUpdateInfo,
 	};
 
-	lvn::updateDescriptorLayoutData(fbDescriptorLayout, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
+	lvn::updateDescriptorSetData(fbDescriptorSet, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
 
 	LvnDescriptorUpdateInfo cubemapDescriptorUniformUpdateInfo{};
 	cubemapDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
@@ -616,7 +625,7 @@ int main()
 		cubemapDescriptorUniformUpdateInfo, cubemapDescriptorTextureUpdateInfo,
 	};
 
-	lvn::updateDescriptorLayoutData(cubemapDescriptorLayout, cubemapDescriptorUpdateInfo.data(), cubemapDescriptorUpdateInfo.size());
+	lvn::updateDescriptorSetData(cubemapDescriptorSet, cubemapDescriptorUpdateInfo.data(), cubemapDescriptorUpdateInfo.size());
 
 
 	// mesh
@@ -710,7 +719,7 @@ int main()
 				fbDescriptorUniformUpdateInfo, fbDescriptorTextureUpdateInfo,
 			};
 
-			lvn::updateDescriptorLayoutData(fbDescriptorLayout, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
+			lvn::updateDescriptorSetData(fbDescriptorSet, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
 		}
 
 		lvn::renderBeginNextFrame(window);
@@ -734,7 +743,7 @@ int main()
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 		lvn::updateUniformBufferData(window, uniformBuffer, objectData.data(), sizeof(PbrStorageData) * lvnmodel.meshes.size());
-		lvn::renderCmdBindDescriptorLayout(window, pipeline, descriptorLayout);
+		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
@@ -751,7 +760,7 @@ int main()
 
 		lvn::renderCmdBindPipeline(window, cubemapPipeline);
 		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData));
-		lvn::renderCmdBindDescriptorLayout(window, cubemapPipeline, cubemapDescriptorLayout);
+		lvn::renderCmdBindDescriptorSets(window, cubemapPipeline, 0, 1, &cubemapDescriptorSet);
 
 		lvn::renderCmdBindVertexBuffer(window, cubemapBuffer);
 		lvn::renderCmdBindIndexBuffer(window, cubemapBuffer);
@@ -773,7 +782,7 @@ int main()
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
-		lvn::renderCmdBindDescriptorLayout(window, fbPipeline, fbDescriptorLayout);
+		lvn::renderCmdBindDescriptorSets(window, fbPipeline, 0, 1, &fbDescriptorSet);
 		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
 
 		lvn::renderCmdEndRenderPass(window);
@@ -807,6 +816,10 @@ int main()
 	lvn::destroyUniformBuffer(fbUniformBuffer);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyUniformBuffer(pbrUniformBuffer);
+
+	lvn::destroyDescriptorSet(descriptorSet);
+	lvn::destroyDescriptorSet(fbDescriptorSet);
+	lvn::destroyDescriptorSet(cubemapDescriptorSet);
 
 	lvn::destroyDescriptorLayout(cubemapDescriptorLayout);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);

@@ -592,5 +592,4 @@ lvn::terminateContext();
 return 0;
 ```
 
-Now run build and run the program and you should see a triangle appear.
-
+Now build and run the program, you should see your triangle appear.
