@@ -4031,6 +4031,7 @@ struct LvnDescriptorBinding
 	uint32_t binding;
 	LvnDescriptorType descriptorType;
 	uint32_t descriptorCount;
+	uint32_t maxAllocations;
 	LvnShaderStage shaderStage;
 };
 
@@ -4038,6 +4039,7 @@ struct LvnDescriptorLayoutCreateInfo
 {
 	LvnDescriptorBinding* pDescriptorBindings;
 	uint32_t descriptorBindingCount;
+	uint32_t maxSets;
 };
 
 struct LvnDescriptorUpdateInfo

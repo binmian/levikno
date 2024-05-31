@@ -1724,7 +1724,7 @@ namespace vks
 				.non_inductive_for_loops = 1,
 				.while_loops = 1,
 				.do_while_loops = 1,
-				.general_uniform_indexing = 1,
+				.general_uniform_indexing = 0,
 				.general_attribute_matrix_vector_indexing = 1,
 				.general_varying_indexing = 1,
 				.general_sampler_indexing = 1,
@@ -1755,14 +1755,14 @@ namespace vks
 
 		if (!glslang_shader_preprocess(shader, &input))
 		{
-			LVN_ERROR("[vulkan-glslang] GLSL preprocessing failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader));
+			LVN_CORE_ERROR("[vulkan-glslang] GLSL preprocessing failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader));
 			glslang_shader_delete(shader);
 			return Lvn_Result_Failure;
 		}
 
 		if (!glslang_shader_parse(shader, &input))
 		{
-			LVN_ERROR("[vulkan-glslang] GLSL parsing failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s\npreprocessed code: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader), glslang_shader_get_preprocessed_code(shader));
+			LVN_CORE_ERROR("[vulkan-glslang] GLSL parsing failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s\npreprocessed code: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader), glslang_shader_get_preprocessed_code(shader));
 			glslang_shader_delete(shader);
 			return Lvn_Result_Failure;
 		}
@@ -1772,7 +1772,7 @@ namespace vks
 
 		if (!glslang_program_link(program, GLSLANG_MSG_SPV_RULES_BIT | GLSLANG_MSG_VULKAN_RULES_BIT))
 		{
-			LVN_ERROR("[vulkan-glslang] GLSL linking failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader));
+			LVN_CORE_ERROR("[vulkan-glslang] GLSL linking failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader));
 			glslang_program_delete(program);
 			glslang_shader_delete(shader);
 			return Lvn_Result_Failure;
@@ -1787,7 +1787,7 @@ namespace vks
 		const char* spirv_messages = glslang_program_SPIRV_get_messages(program);
 		if (spirv_messages)
 		{
-			LVN_TRACE("[vulkan-glslang] %s", spirv_messages);
+			LVN_CORE_TRACE("[vulkan-glslang] %s", spirv_messages);
 		}
 
 		glslang_program_delete(program);
@@ -2693,7 +2693,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 		layoutBindings[i].stageFlags = vks::getShaderStageFlagEnum(createInfo->pDescriptorBindings[i].shaderStage);
 
 		poolSizes[i].type = descriptorType;
-		poolSizes[i].descriptorCount = vkBackends->maxFramesInFlight;
+		poolSizes[i].descriptorCount = createInfo->pDescriptorBindings[i].maxAllocations * vkBackends->maxFramesInFlight;
 	}
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -2712,7 +2712,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = poolSizes.size();
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = vkBackends->maxFramesInFlight;
+	poolInfo.maxSets = createInfo->maxSets * vkBackends->maxFramesInFlight;
 
 	VkDescriptorPool descriptorPool;
 
@@ -2747,7 +2747,7 @@ LvnResult vksImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescrip
 
 	if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorSet->descriptorSets) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet*> at (%p)", descriptorSet->descriptorSets);
+		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet> at (%p)", descriptorSet->descriptorSets);
 		return Lvn_Result_Failure;
 	}
 

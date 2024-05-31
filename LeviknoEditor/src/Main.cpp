@@ -323,24 +323,28 @@ int main()
 	uniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	uniformDescriptorBinding.descriptorCount = 1;
+	uniformDescriptorBinding.maxAllocations = 1;
 
 	LvnDescriptorBinding pbrUniformDescriptorBinding{};
 	pbrUniformDescriptorBinding.binding = 1;
 	pbrUniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	pbrUniformDescriptorBinding.shaderStage = Lvn_ShaderStage_All;
 	pbrUniformDescriptorBinding.descriptorCount = 1;
+	pbrUniformDescriptorBinding.maxAllocations = 1;
 
 	LvnDescriptorBinding storageDescriptorBinding{};
 	storageDescriptorBinding.binding = 0;
 	storageDescriptorBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
 	storageDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	storageDescriptorBinding.descriptorCount = 1;
+	storageDescriptorBinding.maxAllocations = 1;
 
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = 1;
 	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	combinedImageDescriptorBinding.descriptorCount = 1;
+	combinedImageDescriptorBinding.maxAllocations = 1;
 
 	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
@@ -350,6 +354,7 @@ int main()
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
 	descriptorLayoutCreateInfo.pDescriptorBindings = descriptorBindings.data();
 	descriptorLayoutCreateInfo.descriptorBindingCount = descriptorBindings.size();
+	descriptorLayoutCreateInfo.maxSets = 1;
 
 	LvnDescriptorLayout* descriptorLayout;
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
@@ -396,6 +401,7 @@ int main()
 	LvnDescriptorLayoutCreateInfo fbDescriptorLayoutCreateInfo{};
 	fbDescriptorLayoutCreateInfo.pDescriptorBindings = fbDescriptorBinding.data();
 	fbDescriptorLayoutCreateInfo.descriptorBindingCount = fbDescriptorBinding.size();
+	fbDescriptorLayoutCreateInfo.maxSets = 1;
 
 	LvnDescriptorLayout* fbDescriptorLayout;
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
@@ -444,6 +450,7 @@ int main()
 	LvnDescriptorLayoutCreateInfo cubemapDescriptorLayoutCreateInfo{};
 	cubemapDescriptorLayoutCreateInfo.pDescriptorBindings = cubemapDescriptorBinding.data();
 	cubemapDescriptorLayoutCreateInfo.descriptorBindingCount = cubemapDescriptorBinding.size();
+	cubemapDescriptorLayoutCreateInfo.maxSets = 1;
 	
 	LvnDescriptorLayout* cubemapDescriptorLayout;
 	lvn::createDescriptorLayout(&cubemapDescriptorLayout, &cubemapDescriptorLayoutCreateInfo);
