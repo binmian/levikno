@@ -2,6 +2,7 @@
 
 #include "json.h"
 #include "levikno.h"
+#include "levikno_internal.h"
 #include <cstdint>
 namespace nlm = nlohmann;
 
@@ -34,6 +35,7 @@ namespace gltfs
 	static LvnVector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
 	static LvnMaterial           getMaterial(gltfLoadData* gltfData, nlm::json accessor);
 	static LvnTextureFilter      getTexFilter(uint32_t filter);
+	static LvnVector<LvnVec3>    calculateBitangents(const LvnVector<LvnVec3>& normals, const LvnVector<LvnVec4>& tangents);
 
 	static void traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix)
 	{
@@ -102,46 +104,71 @@ namespace gltfs
 		for (uint32_t i = 0; i < JSON["meshes"][meshIndex]["primitives"].size(); i++)
 		{
 			int meshPosIndex = JSON["meshes"][meshIndex]["primitives"][i]["attributes"]["POSITION"];
-			int meshNormalIndex = JSON["meshes"][meshIndex]["primitives"][i]["attributes"].value("NORMAL", -1);
 			int meshTexIndex = JSON["meshes"][meshIndex]["primitives"][i]["attributes"].value("TEXCOORD_0", -1);
+			int meshNormalIndex = JSON["meshes"][meshIndex]["primitives"][i]["attributes"].value("NORMAL", -1);
+			int meshTangentIndex = JSON["meshes"][meshIndex]["primitives"][i]["attributes"].value("TANGENT", -1);
 			int meshIndicesIndex = JSON["meshes"][meshIndex]["primitives"][i]["indices"];
 			int meshMaterialIndex = JSON["meshes"][meshIndex]["primitives"][i]["material"];
 
 			// get Pos mesh data
-			LvnVector<LvnVec3> position;
 			LvnVector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
-			for (uint32_t j = 0; j < posRaw.size() / 3; j++)
-				position.push_back(LvnVec3(posRaw[(j * 3)], posRaw[(j * 3) + 1], posRaw[(j * 3) + 2]));
+			LvnVector<LvnVec3> position(posRaw.size() / 3);
+			memcpy(&position[0], &posRaw[0], position.memsize());
 			
 			// get color data, assuming each vertex of the mesh primitive has the same color
 			LvnVec4 colors = getColors(JSON["materials"][meshMaterialIndex]);
-
-			// get normal mesh data
-			LvnVector<LvnVec3> normals;
-			if (meshNormalIndex >= 0)
-			{
-				LvnVector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
-				for (uint32_t j = 0; j < normalsRaw.size() / 3; j++)
-					normals.push_back(LvnVec3(normalsRaw[(j * 3)], normalsRaw[(j * 3) + 1], normalsRaw[(j * 3) + 2]));
-			}
-			else // mesh has no normals
-			{
-				for (uint32_t j = 0; j < position.size(); j++)
-					normals.push_back(LvnVec3(0.0f));
-			}
 
 			// get texUV mesh data
 			LvnVector<LvnVec2> texCoord;
 			if (meshTexIndex >= 0)
 			{
 				LvnVector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
-				for (int j = 0; j < texCoordRaw.size() / 2; j++)
-					texCoord.push_back(LvnVec2(texCoordRaw[(j * 2)], texCoordRaw[(j * 2) + 1]));
+				texCoord.resize(texCoordRaw.size() / 2);
+				memcpy(&texCoord[0], &texCoordRaw[0], texCoord.memsize());
 			}
 			else
 			{
-				for (uint32_t j = 0; j < position.size(); j++)
-					texCoord.push_back(LvnVec2(0.0f, 0.0f));
+				texCoord.resize(position.size());
+				memset(&texCoord[0], 0, texCoord.memsize());
+			}
+
+			// get normal mesh data
+			LvnVector<LvnVec3> normals;
+			if (meshNormalIndex >= 0)
+			{
+				LvnVector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
+				normals.resize(normalsRaw.size() / 3);
+				memcpy(&normals[0], &normalsRaw[0], normals.memsize());
+			}
+			else // mesh has no normals
+			{
+				normals.resize(position.size());
+				memset(&normals[0], 0, normals.memsize());
+			}
+
+			LvnVector<LvnVec4> tangents;
+			if (meshTangentIndex >= 0)
+			{
+				LvnVector<float> tangentsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTangentIndex]);
+				tangents.resize(tangentsRaw.size() / 4);
+				memcpy(&tangents[0], &tangentsRaw[0], tangents.memsize());
+			}
+			else // mesh has no tangents
+			{
+				tangents.resize(position.size());
+				memset(&tangents[0], 0, tangents.memsize());
+			}
+
+			// bitangents
+			LvnVector<LvnVec3> bitangents;
+			if (meshNormalIndex >= 0 && meshTangentIndex >= 0)
+			{
+				bitangents = gltfs::calculateBitangents(normals, tangents);
+			}
+			else
+			{
+				bitangents.resize(position.size());
+				memset(&bitangents[0], 0, bitangents.size());
 			}
 
 			// get Mesh Indices
@@ -149,6 +176,8 @@ namespace gltfs
 
 			// combine all mesh data and Get Model data
 			LvnVector<LvnVertex> vertices;
+			vertices.reserve(position.size());
+
 			for (uint32_t j = 0; j < position.size(); j++)
 			{
 				vertices.push_back(
@@ -159,8 +188,8 @@ namespace gltfs
 						texCoord[j],    // texUV
 						normals[j],     // normal
 
-						LvnVec3(0.0f),  // tangent
-						LvnVec3(0.0f),  // bitangent
+						LvnVec3(tangents[j]),  // tangent
+						bitangents[i],         // bitangent
 					}
 				);
 			}
@@ -169,7 +198,7 @@ namespace gltfs
 			LvnMaterial material = gltfs::getMaterial(gltfData, JSON["materials"][meshMaterialIndex]);
 
 			// Create Mesh
-			lvn::computeTangents(vertices.data(), vertices.size(), indices.data(), indices.size());
+			// lvn::computeTangents(vertices.data(), vertices.size(), indices.data(), indices.size());
 
 			LvnMeshCreateInfo meshCreateInfo{};
 
@@ -253,23 +282,26 @@ namespace gltfs
 		uint32_t beginningOfData = bufferViewByteOffset + accByteOffset;
 
 		LvnVector<uint32_t> indices;
+		indices.reserve(count);
 
 		if (componentType == 5125) // UNSIGNED_INT = 5125
 		{
+			const uint8_t* data = gltfData->binData.data();
+
 			for (uint32_t i = beginningOfData; i < bufferViewByteOffset + accByteOffset + count * sizeof(unsigned int); i += 4)
 			{
-				const uint8_t* data = gltfData->binData.data();
 				uint8_t bytes[] = { data[i], data[i + 1], data[i + 2], data[i + 3] };
 				uint32_t value;
-				std::memcpy(&value, bytes, sizeof(uint8_t));
+				std::memcpy(&value, bytes, sizeof(uint32_t));
 				indices.push_back(value);
 			}
 		}
 		else if (componentType == 5123) // UNSIGNED_SHORT = 5123
 		{
+			const uint8_t* data = gltfData->binData.data();
+
 			for (unsigned int i = beginningOfData; i < bufferViewByteOffset + accByteOffset + count * sizeof(unsigned short); i += 2)
 			{
-				const uint8_t* data = gltfData->binData.data();
 				uint8_t bytes[] = { data[i], data[i + 1] };
 				uint16_t value;
 				std::memcpy(&value, bytes, sizeof(uint16_t));
@@ -278,9 +310,10 @@ namespace gltfs
 		}
 		else if (componentType == 5122) // SHORT = 5122
 		{
+			const uint8_t* data = gltfData->binData.data();
+
 			for (unsigned int i = beginningOfData; i < bufferViewByteOffset + accByteOffset + count * sizeof(short); i += 2)
 			{
-				const uint8_t* data = gltfData->binData.data();
 				uint8_t bytes[] = { data[i], data[i + 1] };
 				int16_t value;
 				std::memcpy(&value, bytes, sizeof(int16_t));
@@ -328,21 +361,31 @@ namespace gltfs
 			}
 			if (!skip)
 			{
-				unsigned int texSamplerIndex = texInd["sampler"];
-				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+				int texSamplerIndex = texInd.value("sampler", -1);
 
 				LvnTextureCreateInfo textureCreateInfo{};
-				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str());
-				textureCreateInfo.binding = lvnctx->meshTextureBindings.albedo;
-				textureCreateInfo.minFilter = getTexFilter(minFilter);
-				textureCreateInfo.magFilter = getTexFilter(magFilter);
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+
+				// model has samplers
+				if (texSamplerIndex >= 0)
+				{
+					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+					textureCreateInfo.minFilter = getTexFilter(minFilter);
+					textureCreateInfo.magFilter = getTexFilter(magFilter);
+				}
+				else // default to nearest if no sampler found
+				{
+					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+				}
+
 				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 
 				LvnTexture* texture;
 				lvn::createTexture(&texture, &textureCreateInfo);
 
-				LvnTextureIndexData textureIndexData = { texture, texInd };
+				LvnTextureIndexData textureIndexData = { texture, texSource };
 				gltfData->textureData.push_back(textureIndexData);
 				gltfData->textures.push_back(texture);
 				material.albedo = texture;
@@ -360,7 +403,6 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.binding = lvnctx->meshTextureBindings.albedo;
 			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
@@ -375,7 +417,7 @@ namespace gltfs
 		// metalic roughness
 		if (accessor["pbrMetallicRoughness"].find("metallicRoughnessTexture") != accessor["pbrMetallicRoughness"].end())
 		{
-			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["pbrMetallicRoughness"]["index"]];
+			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"]];
 			texSource = texInd["source"];
 			texPath = JSON["images"][texSource]["uri"];
 
@@ -391,21 +433,31 @@ namespace gltfs
 			}
 			if (!skip)
 			{
-				unsigned int texSamplerIndex = texInd["sampler"];
-				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+				int texSamplerIndex = texInd.value("sampler", -1);
 
 				LvnTextureCreateInfo textureCreateInfo{};
-				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str());
-				textureCreateInfo.binding = lvnctx->meshTextureBindings.metalicRoughnessOcclusion;
-				textureCreateInfo.minFilter = getTexFilter(minFilter);
-				textureCreateInfo.magFilter = getTexFilter(magFilter);
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+
+				// model has samplers
+				if (texSamplerIndex >= 0)
+				{
+					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+					textureCreateInfo.minFilter = getTexFilter(minFilter);
+					textureCreateInfo.magFilter = getTexFilter(magFilter);
+				}
+				else // default to nearest if no sampler found
+				{
+					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+				}
+
 				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 
 				LvnTexture* texture;
 				lvn::createTexture(&texture, &textureCreateInfo);
 
-				LvnTextureIndexData textureIndexData = { texture, texInd };
+				LvnTextureIndexData textureIndexData = { texture, texSource };
 				gltfData->textureData.push_back(textureIndexData);
 				gltfData->textures.push_back(texture);
 				material.metallicRoughnessOcclusion = texture;
@@ -423,7 +475,6 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.binding = lvnctx->meshTextureBindings.metalicRoughnessOcclusion;
 			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
@@ -454,21 +505,31 @@ namespace gltfs
 			}
 			if (!skip)
 			{
-				unsigned int texSamplerIndex = texInd["sampler"];
-				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+				int texSamplerIndex = texInd.value("sampler", -1);
 
 				LvnTextureCreateInfo textureCreateInfo{};
-				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str());
-				textureCreateInfo.binding = lvnctx->meshTextureBindings.normal;
-				textureCreateInfo.minFilter = getTexFilter(minFilter);
-				textureCreateInfo.magFilter = getTexFilter(magFilter);
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+
+				// model has samplers
+				if (texSamplerIndex >= 0)
+				{
+					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+					textureCreateInfo.minFilter = getTexFilter(minFilter);
+					textureCreateInfo.magFilter = getTexFilter(magFilter);
+				}
+				else // default to nearest if no sampler found
+				{
+					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+				}
+
 				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 
 				LvnTexture* texture;
 				lvn::createTexture(&texture, &textureCreateInfo);
 
-				LvnTextureIndexData textureIndexData = { texture, texInd };
+				LvnTextureIndexData textureIndexData = { texture, texSource };
 				gltfData->textureData.push_back(textureIndexData);
 				gltfData->textures.push_back(texture);
 				material.normal = texture;
@@ -486,7 +547,6 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.binding = lvnctx->meshTextureBindings.normal;
 			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
@@ -513,6 +573,17 @@ namespace gltfs
 				return Lvn_TextureFilter_Nearest;
 			}
 		}
+	}
+
+	static LvnVector<LvnVec3> calculateBitangents(const LvnVector<LvnVec3>& normals, const LvnVector<LvnVec4>& tangents)
+	{
+		LvnVector<LvnVec3> bitangents(normals.size());
+		for (uint32_t i = 0; i < normals.size(); i++)
+		{
+			bitangents[i] = lvn::cross(normals[i], tangents[i]) * tangents[i].w;
+		}
+
+		return bitangents;
 	}
 }
 

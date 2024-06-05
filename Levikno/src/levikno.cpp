@@ -90,7 +90,6 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
-	s_LvnContext->meshTextureBindings = createInfo->meshTextureBindings;
 
 	// logging
 	if (createInfo->enableLogging) { logInit(); }
@@ -1584,7 +1583,7 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 {
 	*texture = new LvnTexture();
-	LVN_CORE_TRACE("created texture: (%p), binding: %u", *texture, createInfo->binding);
+	LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize());
 	return s_LvnContext->graphicsContext.createTexture(*texture, createInfo);
 }
 
@@ -1840,7 +1839,7 @@ LvnImageData loadImageData(const char* filepath, int forceChannels)
 	return imageData;
 }
 
-LvnModel createModel(const char* filepath)
+LvnModel loadModel(const char* filepath)
 {
 	std::string filepathstr(filepath);
 	std::string extensionType = filepathstr.substr(filepathstr.find_last_of(".") + 1);
@@ -1850,11 +1849,11 @@ LvnModel createModel(const char* filepath)
 		return lvn::loadGltfModel(filepath);
 	}
 
-	LVN_WARN("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
+	LVN_CORE_WARN("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
 	return {};
 }
 
-void destroyModel(LvnModel* model)
+void freeModel(LvnModel* model)
 {
 	for (uint32_t i = 0; i < model->meshes.size(); i++)
 	{
@@ -2065,42 +2064,6 @@ LvnVec3d cross(LvnVec3d v1, LvnVec3d v2)
 	double cy = v1.z * v2.x - v1.x * v2.z;
 	double cz = v1.x * v2.y - v1.y * v2.x;
 	return { cx, cy, cz };
-}
-
-void computeTangents(LvnVertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount)
-{
-	for (int i = 0; i < indexCount; i += 3)
-	{
-		// taking vertex positions by reference
-		lvn::vec3& v0 = vertices[indices[i]].pos;
-		lvn::vec3& v1 = vertices[indices[i + 1]].pos;
-		lvn::vec3& v2 = vertices[indices[i + 2]].pos;
-
-		// taking vertex texture coords by reference
-		lvn::vec2& uv0 = vertices[indices[i]].texUV;
-		lvn::vec2& uv1 = vertices[indices[i + 1]].texUV;
-		lvn::vec2& uv2 = vertices[indices[i + 2]].texUV;
-
-		// Edges of the triangle : pos delta
-		lvn::vec3 deltaPos1 = v1 - v0;
-		lvn::vec3 deltaPos2 = v2 - v0;
-
-		// UV delta
-		lvn::vec2 deltaUV1 = uv1 - uv0;
-		lvn::vec2 deltaUV2 = uv2 - uv0;
-
-		float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
-		lvn::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
-		lvn::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
-
-		vertices[indices[i]].tangent = tangent;
-		vertices[indices[i + 1]].tangent = tangent;
-		vertices[indices[i + 2]].tangent = tangent;
-
-		vertices[indices[i]].bitangent = bitangent;
-		vertices[indices[i + 1]].bitangent = bitangent;
-		vertices[indices[i + 2]].bitangent = bitangent;
-	}
 }
 
 } /* namespace lvn */

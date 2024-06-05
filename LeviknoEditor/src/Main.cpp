@@ -204,13 +204,14 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 	}
 }
 
-LvnDescriptorBinding textureBinding(uint32_t binding)
+LvnDescriptorBinding textureBinding(uint32_t binding, uint32_t maxAllocations)
 {
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = binding;
 	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	combinedImageDescriptorBinding.descriptorCount = 1;
+	combinedImageDescriptorBinding.maxAllocations = maxAllocations;
 
 	return combinedImageDescriptorBinding;
 }
@@ -222,7 +223,6 @@ int main()
 	lvnCreateInfo.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-	lvnCreateInfo.meshTextureBindings = { 0, 1, 2, 3 };
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -301,14 +301,14 @@ int main()
 	lvnVertexBindingDescription.stride = sizeof(LvnVertex);
 	lvnVertexBindingDescription.binding = 0;
 
-	LvnVertexAttribute attributes[3] = 
+	LvnVertexAttribute attributes[3] =
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
 		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
 		{ 0, 2, Lvn_VertexDataType_Vec2f, (6 * sizeof(float)) },
 	};
 
-	LvnVertexAttribute lvnAttributes[6] = 
+	LvnVertexAttribute lvnAttributes[6] =
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
 		{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
@@ -330,31 +330,35 @@ int main()
 	pbrUniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	pbrUniformDescriptorBinding.shaderStage = Lvn_ShaderStage_All;
 	pbrUniformDescriptorBinding.descriptorCount = 1;
-	pbrUniformDescriptorBinding.maxAllocations = 1;
+	pbrUniformDescriptorBinding.maxAllocations = 256;
 
 	LvnDescriptorBinding storageDescriptorBinding{};
 	storageDescriptorBinding.binding = 0;
 	storageDescriptorBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
 	storageDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	storageDescriptorBinding.descriptorCount = 1;
-	storageDescriptorBinding.maxAllocations = 1;
+	storageDescriptorBinding.maxAllocations = 256;
 
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = 1;
 	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	combinedImageDescriptorBinding.descriptorCount = 1;
-	combinedImageDescriptorBinding.maxAllocations = 1;
+	combinedImageDescriptorBinding.maxAllocations = 256;
 
 	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
-		storageDescriptorBinding, pbrUniformDescriptorBinding
+		storageDescriptorBinding, pbrUniformDescriptorBinding,
+		textureBinding(2, 256),
+		textureBinding(3, 256),
+		textureBinding(4, 256),
+		// textureBinding(5, 256),
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
 	descriptorLayoutCreateInfo.pDescriptorBindings = descriptorBindings.data();
 	descriptorLayoutCreateInfo.descriptorBindingCount = descriptorBindings.size();
-	descriptorLayoutCreateInfo.maxSets = 1;
+	descriptorLayoutCreateInfo.maxSets = 256;
 
 	LvnDescriptorLayout* descriptorLayout;
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
@@ -365,7 +369,6 @@ int main()
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	pipelineSpec.depthstencil.enableDepth = true;
 	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_Less;
-	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Front;
 
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
@@ -417,7 +420,6 @@ int main()
 	pipelineCreateInfo.shader = fbShader;
 	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
-	pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Back;
 
 	LvnPipeline* fbPipeline;
 	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
@@ -467,7 +469,6 @@ int main()
 	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
-	pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Front;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -546,7 +547,6 @@ int main()
 	// texture
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/grass.png", 4);
-	textureCreateInfo.binding = 1;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
@@ -555,7 +555,6 @@ int main()
 	lvn::createTexture(&texture, &textureCreateInfo);
 
 	textureCreateInfo.imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/LeviknoEditor/res/images/debug.png", 4);
-	textureCreateInfo.binding = 2;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
@@ -577,24 +576,6 @@ int main()
 	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
 
 	// update descriptor sets
-	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
-	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
-	descriptorUniformUpdateInfo.binding = 0;
-	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
-
-	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
-	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorPbrUniformUpdateInfo.binding = 1;
-	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
-	descriptorPbrUniformUpdateInfo.bufferInfo = pbrUniformBuffer;
-
-	std::vector<LvnDescriptorUpdateInfo> descriptorUpdateInfo =
-	{
-		descriptorUniformUpdateInfo, descriptorPbrUniformUpdateInfo,
-	};
-
-	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfo.data(), descriptorUpdateInfo.size());
 
 	LvnDescriptorUpdateInfo fbDescriptorUniformUpdateInfo{};
 	fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
@@ -664,7 +645,31 @@ int main()
 	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
 
 
-	LvnModel lvnmodel = lvn::createModel("/home/bma/Documents/dev/levikno/LeviknoEditor/res/models/shapes/shapes.gltf");
+	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/dev/levikno/LeviknoEditor/res/models/eightBall/scene.gltf");
+
+	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
+	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
+	descriptorUniformUpdateInfo.binding = 0;
+	descriptorUniformUpdateInfo.descriptorCount = 1;
+	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
+
+	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
+	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorPbrUniformUpdateInfo.binding = 1;
+	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
+	descriptorPbrUniformUpdateInfo.bufferInfo = pbrUniformBuffer;
+
+	std::vector<LvnDescriptorUpdateInfo> pbrDescriptorUpdateInfo = 
+	{
+		descriptorUniformUpdateInfo,
+		descriptorPbrUniformUpdateInfo,
+		{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[0].material.albedo },
+		{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[0].material.metallicRoughnessOcclusion },
+		{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[0].material.normal },
+	};
+
+	lvn::updateDescriptorSetData(descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
+
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -693,7 +698,7 @@ int main()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		lvn::mat4 model = lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(0.5f)); // * lvn::rotate(lvn::mat4(1.0f), lvn::radians(180.0f), lvn::vec3(1, 0, 0)); // lvn::rotate(lvn::mat3(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 
 		camera.width = width;
 		camera.height = height;
@@ -704,8 +709,6 @@ int main()
 		cameraMovment(window, &camera, dt);
 
 		lvn::updateCameraMatrix(&camera);
-		camera.projectionMatrix[1][1] *= -1.0f;
-		camera.matrix = camera.projectionMatrix * camera.viewMatrix;
 		
 		if (winWidth != width || winHeight != height)
 		{

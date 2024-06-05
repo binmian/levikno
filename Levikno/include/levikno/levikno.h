@@ -1171,8 +1171,8 @@ namespace lvn
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
 
-	LVN_API LvnModel                    createModel(const char* filepath);
-	LVN_API void                        destroyModel(LvnModel* model);
+	LVN_API LvnModel                    loadModel(const char* filepath);
+	LVN_API void                        freeModel(LvnModel* model);
 
 	LVN_API LvnCamera                   createCamera(LvnCameraCreateInfo* createInfo);
 	LVN_API void                        updateCameraMatrix(LvnCamera* camera);
@@ -1346,21 +1346,10 @@ namespace lvn
 
 		return matrix;
 	}
-
-	LVN_API void computeTangents(LvnVertex* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount);
-
 }
 
 
 /* [Core Struct Implementaion] */
-
-struct LvnMeshTextureBindings
-{
-	uint32_t albedo;
-	uint32_t metalicRoughnessOcclusion;
-	uint32_t normal;
-	uint32_t emissive;
-};
 
 struct LvnContextCreateInfo
 {
@@ -1369,7 +1358,6 @@ struct LvnContextCreateInfo
 	bool                      enableLogging;
 	LvnLogLevel               coreLogLevel;
 	bool                      enableVulkanValidationLayers;
-	LvnMeshTextureBindings    meshTextureBindings;
 };
 
 /* [Logging] */
@@ -4123,7 +4111,6 @@ struct LvnImageData
 struct LvnTextureCreateInfo
 {
 	LvnImageData imageData;
-	uint32_t binding;
 	LvnTextureFilter minFilter, magFilter;
 	LvnTextureMode wrapMode;
 

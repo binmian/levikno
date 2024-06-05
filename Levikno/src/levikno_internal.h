@@ -79,7 +79,7 @@ struct LvnVector
 	void        clear_free() { if (m_Data) { lvn::memFree(m_Data); m_Size = 0; m_Capacity = 0; m_Data = nullptr; } }
 	void        erase(const T* it) { LVN_CORE_ASSERT(it >= m_Data && it < m_Data + m_Size, "element not within vector index!"); size_t off = it - m_Data; memmove(m_Data + off, m_Data + off + 1, (m_Size - off - 1) * sizeof(T)); m_Size--; }
 	T*          data() { return m_Data; }
-	uint32_t    size() { return m_Size; }
+	uint32_t    size() const { return m_Size; }
 	uint32_t    memsize() { return m_Size * sizeof(T); }
 	uint32_t    memcap() { return m_Capacity * sizeof(T); }
 	void        resize(uint32_t size) { if (size > m_Capacity) { reserve(size); } m_Size = size; }
@@ -358,8 +358,6 @@ struct LvnContext
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	size_t                      numMemoryAllocations;
-
-	LvnMeshTextureBindings      meshTextureBindings;
 };
 
 #endif

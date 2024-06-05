@@ -11,6 +11,7 @@ layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec4 fragColor;
 layout(location = 2) out vec2 fragTexCoord;
 layout(location = 3) out vec3 fragNormal;
+layout(location = 4) out mat3 fragTBN;
 
 struct ObjectData
 {
@@ -35,6 +36,8 @@ layout(binding = 1) uniform ObjectBuffer
 void main()
 {
 	ObjectData obj = ubo.objects[gl_BaseInstance];
+
+	fragTBN = mat3(obj.model) * mat3(inTangent, inBitangent, inNormal);
 
 	fragPos = vec3(obj.model * vec4(inPos, 1.0));
 	fragColor = inColor;
