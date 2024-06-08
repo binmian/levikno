@@ -159,6 +159,9 @@ namespace gltfs
 				memset(&tangents[0], 0, tangents.memsize());
 			}
 
+			// get Mesh Indices
+			LvnVector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
+
 			// bitangents
 			LvnVector<LvnVec3> bitangents;
 			if (meshNormalIndex >= 0 && meshTangentIndex >= 0)
@@ -170,9 +173,6 @@ namespace gltfs
 				bitangents.resize(position.size());
 				memset(&bitangents[0], 0, bitangents.size());
 			}
-
-			// get Mesh Indices
-			LvnVector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
 
 			// combine all mesh data and Get Model data
 			LvnVector<LvnVertex> vertices;
@@ -189,7 +189,7 @@ namespace gltfs
 						normals[j],     // normal
 
 						LvnVec3(tangents[j]),  // tangent
-						bitangents[i],         // bitangent
+						bitangents[j],         // bitangent
 					}
 				);
 			}
@@ -381,6 +381,7 @@ namespace gltfs
 				}
 
 				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+				textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 
 				LvnTexture* texture;
 				lvn::createTexture(&texture, &textureCreateInfo);
@@ -406,6 +407,7 @@ namespace gltfs
 			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
@@ -453,6 +455,7 @@ namespace gltfs
 				}
 
 				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+				textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 
 				LvnTexture* texture;
 				lvn::createTexture(&texture, &textureCreateInfo);
@@ -478,6 +481,7 @@ namespace gltfs
 			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
@@ -525,6 +529,7 @@ namespace gltfs
 				}
 
 				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+				textureCreateInfo.format = Lvn_TextureFormat_Unorm;
 
 				LvnTexture* texture;
 				lvn::createTexture(&texture, &textureCreateInfo);
@@ -550,6 +555,7 @@ namespace gltfs
 			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+			textureCreateInfo.format = Lvn_TextureFormat_Unorm;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
@@ -580,7 +586,7 @@ namespace gltfs
 		LvnVector<LvnVec3> bitangents(normals.size());
 		for (uint32_t i = 0; i < normals.size(); i++)
 		{
-			bitangents[i] = lvn::cross(normals[i], tangents[i]) * tangents[i].w;
+			bitangents[i] = lvn::normalize(lvn::cross(normals[i], tangents[i]) * tangents[i].w);
 		}
 
 		return bitangents;

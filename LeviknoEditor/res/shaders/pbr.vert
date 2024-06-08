@@ -10,8 +10,8 @@ layout(location = 5) in vec3 inBitangent;
 layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec4 fragColor;
 layout(location = 2) out vec2 fragTexCoord;
-layout(location = 3) out vec3 fragNormal;
-layout(location = 4) out mat3 fragTBN;
+layout(location = 3) out vec3 fragLightPos;
+layout(location = 4) out vec3 fragViewPos;
 
 struct ObjectData
 {
@@ -37,12 +37,19 @@ void main()
 {
 	ObjectData obj = ubo.objects[gl_BaseInstance];
 
-	fragTBN = mat3(obj.model) * mat3(inTangent, inBitangent, inNormal);
+	mat3 normalMatrix = transpose(inverse(mat3(obj.model)));
+	vec3 T = normalize(normalMatrix * inTangent);
+	vec3 N = normalize(normalMatrix * inNormal);
+	T = normalize(T - dot(T, N) * N);
+	vec3 B = cross(N, T);
 
-	fragPos = vec3(obj.model * vec4(inPos, 1.0));
+	mat3 TBN = transpose(mat3(T, B, N));
+
+	fragPos = TBN * vec3(obj.model * vec4(inPos, 1.0));
 	fragColor = inColor;
 	fragTexCoord = inTexCoord;
-	fragNormal = mat3(transpose(inverse(obj.model))) * inNormal;
+	fragLightPos = TBN * pbrUbo.lightPos;
+	fragViewPos = TBN * pbrUbo.camPos;
 
-	gl_Position = obj.u_Camera * vec4(fragPos, 1.0);
+	gl_Position = obj.u_Camera * obj.model * vec4(inPos, 1.0);
 }

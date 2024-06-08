@@ -617,6 +617,12 @@ enum LvnTextureFilter
 	Lvn_TextureFilter_Linear,
 };
 
+enum LvnTextureFormat
+{
+	Lvn_TextureFormat_Unorm = 0,
+	Lvn_TextureFormat_Srgb  = 1,
+};
+
 enum LvnTextureMode
 {
 	Lvn_TextureMode_Repeat,
@@ -4113,6 +4119,7 @@ struct LvnTextureCreateInfo
 	LvnImageData imageData;
 	LvnTextureFilter minFilter, magFilter;
 	LvnTextureMode wrapMode;
+	LvnTextureFormat format;
 
 };
 

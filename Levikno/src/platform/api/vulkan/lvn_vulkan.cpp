@@ -3106,12 +3106,12 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	memcpy(data, createInfo->imageData.pixels.data(), imageSize);
 	vmaUnmapMemory(vkBackends->vmaAllocator, stagingBufferMemory);
 
-	VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+	VkFormat format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 	switch (createInfo->imageData.channels)
 	{
-		case 1: { format = VK_FORMAT_R8_SRGB; break; }
-		case 2: { format = VK_FORMAT_R8G8_SRGB; break; }
-		case 4: { format = VK_FORMAT_R8G8B8A8_SRGB; break; }
+		case 1: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB; break; }
+		case 2: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB; break; }
+		case 4: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB; break; }
 	}
 
 	// create texture image

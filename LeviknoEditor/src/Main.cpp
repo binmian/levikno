@@ -698,7 +698,7 @@ int main()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(0.5f)); // * lvn::rotate(lvn::mat4(1.0f), lvn::radians(180.0f), lvn::vec3(1, 0, 0)); // lvn::rotate(lvn::mat3(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(1.5f)) * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 
 		camera.width = width;
 		camera.height = height;
@@ -811,7 +811,7 @@ int main()
 		}
 	}
 
-	lvn::destroyModel(&lvnmodel);
+	lvn::freeModel(&lvnmodel);
 	lvn::destroyMesh(&mesh);
 	lvn::destroyCubemap(cubemap);
 	lvn::destroyFrameBuffer(frameBuffer);

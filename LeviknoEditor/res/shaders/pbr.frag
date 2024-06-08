@@ -5,8 +5,8 @@ layout(location = 0) out vec4 outColor;
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec4 fragColor;
 layout(location = 2) in vec2 fragTexCoord;
-layout(location = 3) in vec3 fragNormal;
-layout(location = 4) in mat3 fragTBN;
+layout(location = 3) in vec3 fragLightPos;
+layout(location = 4) in vec3 fragViewPos;
 
 
 layout(binding = 1) uniform ObjectBuffer
@@ -68,24 +68,21 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 
 void main()
 {
-	vec3 albedo = vec3(texture(albedoTex, fragTexCoord)); // vec3(fragColor);
+	vec3 albedo = vec3(texture(albedoTex, fragTexCoord)) * vec3(fragColor);
 	// albedo = pow(albedo, vec3(2.2));
 	float metalic = texture(metalicRoughnessOcclusionTex, fragTexCoord).b;
 	float roughness = texture(metalicRoughnessOcclusionTex, fragTexCoord).g;
-	// float metalic = ubo.metalic;
-	// float roughness = ubo.roughness;
 	float ambientOcclusion = ubo.ambientOcclusion;
 
 	vec3 normal = texture(normalTex, fragTexCoord).rgb;
-    normal = normalize(normal * 2.0 - 1.0);
-	normal = normalize(fragTBN * normal);
+	normal = normalize(normal * 2.0 - 1.0);
 
-	vec3 camPos = ubo.camPos;
-	vec3 lightPos = ubo.lightPos;
+	vec3 camPos = fragViewPos;
+	vec3 lightPos = fragLightPos;
 	vec3 lightColors = vec3(1.0);
 	float lightStrength = 10.0;
 
-	vec3 N = normalize(normal); 
+	vec3 N = normalize(normal);
 	vec3 V = normalize(camPos - fragPos);
 
 	vec3 L = normalize(lightPos - fragPos);
@@ -119,5 +116,5 @@ void main()
 	// color = color / (color + vec3(1.0));
 	// color = pow(color, vec3(1.0/2.2));
 
-	outColor = vec4(normal, 1.0f);
+	outColor = vec4(color, 1.0f);
 }
