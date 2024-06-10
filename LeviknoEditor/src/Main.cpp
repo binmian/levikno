@@ -119,10 +119,10 @@ void eventsCallbackFn(LvnEvent* e)
 float vertices[] =
 {
 	/*      pos        |       color     |   TexUV    */
-	-1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-	 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-	 1.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-	-1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+	 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+	 1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
 };
 
 std::vector<LvnVertex> lvnVertices = 
@@ -135,7 +135,7 @@ std::vector<LvnVertex> lvnVertices =
 
 uint32_t indices[] =
 {
-	0, 1, 2, 2, 3, 0,
+	0, 1, 2, 0, 2, 3,
 };
 
 struct UniformData
@@ -168,13 +168,13 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 		camera->position += (camera->orientation * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_A))
-		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_S))
 		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_D))
-		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Space))
 		camera->position += (camera->upVector * s_CameraSpeed) * dt;
@@ -184,13 +184,13 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Left))
 	{
-		s_AngleX += dt;
+		s_AngleX -= dt;
 		camera->orientation.x = cos(s_AngleX);
 		camera->orientation.z = sin(s_AngleX);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Right))
 	{
-		s_AngleX -= dt;
+		s_AngleX += dt;
 		camera->orientation.x = cos(s_AngleX);
 		camera->orientation.z = sin(s_AngleX);
 	}
@@ -369,6 +369,8 @@ int main()
 	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
 	pipelineSpec.depthstencil.enableDepth = true;
 	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_Less;
+	// pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;
+	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CCW;
 
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
@@ -420,6 +422,8 @@ int main()
 	pipelineCreateInfo.shader = fbShader;
 	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+	// pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Back;
+	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CW;
 
 	LvnPipeline* fbPipeline;
 	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
@@ -469,6 +473,8 @@ int main()
 	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
+	// pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Front;
+	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CW;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -645,7 +651,7 @@ int main()
 	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
 
 
-	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/dev/levikno/LeviknoEditor/res/models/eightBall/scene.gltf");
+	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/WaterBottle/WaterBottle.gltf");
 
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
@@ -698,7 +704,7 @@ int main()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(1.5f)) * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(2.1f)); // * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 
 		camera.width = width;
 		camera.height = height;

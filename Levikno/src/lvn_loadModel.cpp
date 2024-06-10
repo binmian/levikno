@@ -394,13 +394,13 @@ namespace gltfs
 		}
 		else // white texture if no texture was found
 		{
-			uint8_t whiteTextureData = 0xff;
+			uint8_t whiteTextureData[] = { 0xff, 0xff, 0xff, 0xff };
 			LvnImageData imageData;
-			imageData.pixels = LvnData<uint8_t>(&whiteTextureData, sizeof(uint8_t));
+			imageData.pixels = LvnData<uint8_t>(whiteTextureData, sizeof(whiteTextureData) / sizeof(uint8_t));
 			imageData.width = 1;
 			imageData.height = 1;
-			imageData.channels = 1;
-			imageData.size = 1;
+			imageData.channels = 4;
+			imageData.size = 4;
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
