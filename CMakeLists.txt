@@ -38,7 +38,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PLATFORM_TYPE}-${AR
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_SOURCE_DIR}/Levikno/src/dependencies/glfw)
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
 
 
 # Source build files
@@ -46,36 +46,36 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/Levikno/src/dependencies/glfw)
 # Graphics
 set(LVN_GRAPHICS_SRC
 	# glad
-	Levikno/src/dependencies/glad/include/glad/glad.h
-	Levikno/src/dependencies/glad/src/glad.c
+	src/external/glad/include/glad/glad.h
+	src/external/glad/src/glad.c
 
 	# vulkan
-	Levikno/src/platform/api/vulkan/lvn_vulkan.cpp
-	Levikno/src/platform/api/vulkan/lvn_vulkan.h
-	Levikno/src/platform/api/vulkan/lvn_vulkanBackends.h
+	src/api/graphics/vulkan/lvn_vulkan.cpp
+	src/api/graphics/vulkan/lvn_vulkan.h
+	src/api/graphics/vulkan/lvn_vulkanBackends.h
 )
 
 set(LVN_SOURCES
-	Levikno/include/levikno/levikno.h
-	Levikno/src/levikno.cpp
-	Levikno/src/levikno_internal.h
-	Levikno/src/lvn_loadModel.cpp
-	Levikno/src/lvn_loadModel.h
+	include/levikno/levikno.h
+	src/levikno.cpp
+	src/levikno_internal.h
+	src/lvn_loadModel.cpp
+	src/lvn_loadModel.h
 
 	# glfw
-	Levikno/src/platform/window/glfw/lvn_glfw.cpp
-	Levikno/src/platform/window/glfw/lvn_glfw.h
+	src/api/window/glfw/lvn_glfw.cpp
+	src/api/window/glfw/lvn_glfw.h
 
 	# vma
-	Levikno/src/dependencies/vma/include/vk_mem_alloc.cpp
-	Levikno/src/dependencies/vma/include/vk_mem_alloc.h
+	src/external/vma/include/vk_mem_alloc.cpp
+	src/external/vma/include/vk_mem_alloc.h
 
 	# stb
-	Levikno/src/dependencies/stb/include/stb_image.cpp
-	Levikno/src/dependencies/stb/include/stb_image.h
+	src/external/stb/include/stb_image.cpp
+	src/external/stb/include/stb_image.h
 
 	# json
-	Levikno/src/dependencies/json/include/json.h
+	src/external/json/include/json.h
 
   ${LVN_GRAPHICS_SRC}
 )
@@ -84,16 +84,16 @@ add_library(levikno STATIC ${LVN_SOURCES})
 
 target_include_directories(levikno
 	PRIVATE
-		${PROJECT_SOURCE_DIR}/Levikno/src
-		${PROJECT_SOURCE_DIR}/Levikno/include/levikno
-		${PROJECT_SOURCE_DIR}/Levikno/src/platform/api/vulkan
-		${PROJECT_SOURCE_DIR}/Levikno/src/platform/window/glfw
-		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/glfw/include
-		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/glad/include
-		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vulkan/include
-		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/vma/include
-		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/stb/include
-		${PROJECT_SOURCE_DIR}/Levikno/src/dependencies/json/include
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include/levikno
+		${PROJECT_SOURCE_DIR}/src/api/graphics/vulkan
+		${PROJECT_SOURCE_DIR}/src/api/window/glfw
+		${PROJECT_SOURCE_DIR}/src/external/glfw/include
+		${PROJECT_SOURCE_DIR}/src/external/glad/include
+		${PROJECT_SOURCE_DIR}/src/external/vulkan/include
+		${PROJECT_SOURCE_DIR}/src/external/vma/include
+		${PROJECT_SOURCE_DIR}/src/external/stb/include
+		${PROJECT_SOURCE_DIR}/src/external/json/include
 )
 
 
@@ -132,23 +132,22 @@ target_link_libraries(levikno
 
 # LeviknoEditor
 set(LVN_EDITOR_SOURCES
-	LeviknoEditor/src/Main.cpp
+	examples/basicScene/src/Main.cpp
 )
 
-add_executable(leviknoEditor ${LVN_EDITOR_SOURCES})
+add_executable(basicScene ${LVN_EDITOR_SOURCES})
 
-target_include_directories(leviknoEditor 
+target_include_directories(basicScene 
 		PRIVATE
-		${PROJECT_SOURCE_DIR}/LeviknoEditor
-		${PROJECT_SOURCE_DIR}/LeviknoEditor/src
-		${PROJECT_SOURCE_DIR}/Levikno/include
+		${PROJECT_SOURCE_DIR}/examples/basicScene
+		${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(leviknoEditor
+target_link_libraries(basicScene
 	PRIVATE
 		levikno
 )
 
 if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT leviknoEditor)	
+	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT basicScene)
 endif()
