@@ -3,7 +3,7 @@
 The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document is a tutorial on how to use and integrate Levikno to your project. Before beginning this guide, it is advised that you have prior experience in understanding C++ and how graphics APIs work such as [Vulkan](https://vulkan-tutorial.com/Introduction) and [OpenGL](https://learnopengl.com/Introduction). I will not be going too in depth with how graphics APIs work so it is expected that you know the general terminology for the graphics APIs presented in this tutorial.
 
 ## Index
-- [Design Architecture](#design-architecture)
+- [Api Structure](#api-structure)
 	- [Creating/Destroying Objects](#creating-and-destroying-objects)
 	- [Structure](#structure)
 - [Getting Started](#getting-started)
@@ -16,7 +16,7 @@ The Levikno library is a graphics framework built in C++ for creating windows an
 	- [Drawing](#drawing)
 
 
-## Design Architecture
+## Api Structure
 ### Creating and Destroying Objects
 Levikno's API structure is built directly on top of Vulkan which requires a low level and explicit interface, this also requires objects to be created and destroyed when used for rendering (eg. vertex buffers, shaders, framebuffers, pipelines, etc)
 In Levikno, objects are usually created through this function format:
