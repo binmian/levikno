@@ -218,7 +218,7 @@ After successfully creating a window, we can then use our window in the main ren
 
 while (lvn::windowOpen(window))
 {
-	lvn::updateWindow(window);
+	lvn::windowUpdate(window);
 
 }
 
@@ -226,7 +226,7 @@ lvn::destroyWindow(window);
 ```
 In the example above, ```lvn::windowOpen(window)``` is a function that returns a boolean value if the window is open or not, the function returns false if the window has been closed.
 
-In the loop, ```lvn::updateWindow(window)``` updates window and poll events related to the api.
+In the loop, ```lvn::windowUpdate(window)``` updates window and poll events related to the api.
 
 Finally make sure to destroy the window using ```lvn::destroyWindow(window)``` at the end of the program after the window closes.
 
@@ -542,7 +542,7 @@ With all of our resources created, we can now draw to the window using our pipel
 
 while (lvn::windowOpen(window))
 {
-	lvn::updateWindow(window);
+	lvn::windowUpdate(window);
 
 	lvn::renderBeginNextFrame(window);
 	lvn::renderBeginCommandRecording(window);
