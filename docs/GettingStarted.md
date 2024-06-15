@@ -509,7 +509,7 @@ pipelineCreateInfo.shader = shader;
 #### Render Pass
 The last parameter is the ```renderPass``` parameter which takes in a ```LvnRenderPass``` object. A render pass is used to handle different color and depth attachments used for drawing our scene. Levikno does most of the background work for us when using render passes so we only care about where our render pass will be used to render, such as to a window or to an off screen framebuffer. Fortunately, when we creates a window from the [Creating Window](#creating-window) section, Levikno automatically creates a render pass along with it. The render pass can now be retrieved by calling this function:
 ```
-LvnRenderPass* renderPass = lvn::getWindowRenderPass(window);
+LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
 pipelineCreateInfo.renderPass = renderPass;
 ```
 

@@ -349,9 +349,16 @@ struct LvnCubemap
 // [SECTION]: Audio Internal structs
 // ------------------------------------------------------------
 
-struct LvnAudioContext
+struct LvnSound
 {
-	
+	float volume;
+	float pan;
+	float pitch;
+	bool looping;
+
+	LvnVec3 pos;
+
+	void* soundPtr;
 };
 
 
@@ -361,6 +368,7 @@ struct LvnContext
 	LvnWindowContext            windowContext;
 	LvnGraphicsApi              graphicsapi;
 	LvnGraphicsContext          graphicsContext;
+	void*                       audioEngineContextPtr;
 
 	bool                        logging;
 	LvnLogger                   coreLogger;

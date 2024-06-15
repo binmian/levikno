@@ -178,20 +178,20 @@
 
 
 // Core Log macros
-#define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_WARN(...)                      ::lvn::logMessageWarn(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_ERROR(...)                     ::lvn::logMessageError(lvn::getCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_FATAL(...)                     ::lvn::logMessageFatal(lvn::getCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_WARN(...)                      ::lvn::logMessageWarn(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_ERROR(...)                     ::lvn::logMessageError(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+#define LVN_CORE_FATAL(...)                     ::lvn::logMessageFatal(lvn::logGetCoreLogger(), ##__VA_ARGS__)
 
 // Client Log macros
-#define LVN_TRACE(...)                          ::lvn::logMessageTrace(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_DEBUG(...)                          ::lvn::logMessageDebug(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_INFO(...)                           ::lvn::logMessageInfo(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_WARN(...)                           ::lvn::logMessageWarn(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::getClientLogger(), ##__VA_ARGS__)
-#define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::getClientLogger(), ##__VA_ARGS__)
+#define LVN_TRACE(...)                          ::lvn::logMessageTrace(lvn::logGetClientLogger(), ##__VA_ARGS__)
+#define LVN_DEBUG(...)                          ::lvn::logMessageDebug(lvn::logGetClientLogger(), ##__VA_ARGS__)
+#define LVN_INFO(...)                           ::lvn::logMessageInfo(lvn::logGetClientLogger(), ##__VA_ARGS__)
+#define LVN_WARN(...)                           ::lvn::logMessageWarn(lvn::logGetClientLogger(), ##__VA_ARGS__)
+#define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::logGetClientLogger(), ##__VA_ARGS__)
+#define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::logGetClientLogger(), ##__VA_ARGS__)
 
 
 // Logging utils
@@ -731,6 +731,7 @@ struct LvnRenderPass;
 struct LvnShader;
 struct LvnShaderCreateInfo;
 struct LvnSound;
+struct LvnSoundCreateInfo;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
 struct LvnUniformBuffer;
@@ -949,33 +950,33 @@ namespace lvn
 	LVN_API LvnResult               createContext(LvnContextCreateInfo* createInfo);
 	LVN_API void                    terminateContext();
 
-	LVN_API int                     getDateYear();                                      // gets the year number (eg. 2025)
-	LVN_API int                     getDateYear02d();                                   // gets the last two digits of the year number (eg. 25)
-	LVN_API int                     getDateMonth();                                     // gets the month number (1...12)
-	LVN_API int                     getDateDay();                                       // gets the date number (1...31)
-	LVN_API int                     getDateHour();                                      // gets the hour of the current day in 24 hour format (0...24)
-	LVN_API int                     getDateHour12();                                    // gets the hour of the current day in 12 hour format (0...12)
-	LVN_API int                     getDateMinute();                                    // gets the minute of the current day (0...60)
-	LVN_API int                     getDateSecond();                                    // gets the second of the current dat (0...60)
-	LVN_API long long               getSecondsSinceEpoch();                             // gets the time in seconds since 00::00:00 UTC 1 January 1970
+	LVN_API int                     dateGetYear();                                      // gets the year number (eg. 2025)
+	LVN_API int                     dateGetYear02d();                                   // gets the last two digits of the year number (eg. 25)
+	LVN_API int                     dateGetMonth();                                     // gets the month number (1...12)
+	LVN_API int                     dateGetDay();                                       // gets the date number (1...31)
+	LVN_API int                     dateGetHour();                                      // gets the hour of the current day in 24 hour format (0...24)
+	LVN_API int                     dateGetHour12();                                    // gets the hour of the current day in 12 hour format (0...12)
+	LVN_API int                     dateGetMinute();                                    // gets the minute of the current day (0...60)
+	LVN_API int                     dateGetSecond();                                    // gets the second of the current dat (0...60)
+	LVN_API long long               dateGetSecondsSinceEpoch();                         // gets the time in seconds since 00::00:00 UTC 1 January 1970
 
-	LVN_API const char*             getDateMonthName();                                 // get the current month name (eg. January, April)
-	LVN_API const char*             getDateMonthNameShort();                            // get the current month shortened name (eg. Jan, Apr)
-	LVN_API const char*             getDateWeekDayName();                               // get the current day name in the week (eg. Monday, Friday)
-	LVN_API const char*             getDateWeekDayNameShort();                          // get the current day shortened name in the week (eg. Mon, Fri)
-	LVN_API const char*             getDateTimeMeridiem();                              // get the time meridiem of the current day (eg. AM, PM)
-	LVN_API const char*             getDateTimeMeridiemLower();                         // get the time meridiem of the current day in lower case (eg. am, pm)
+	LVN_API const char*             dateGetMonthName();                                 // get the current month name (eg. January, April)
+	LVN_API const char*             dateGetMonthNameShort();                            // get the current month shortened name (eg. Jan, Apr)
+	LVN_API const char*             dateGetWeekDayName();                               // get the current day name in the week (eg. Monday, Friday)
+	LVN_API const char*             dateGetWeekDayNameShort();                          // get the current day shortened name in the week (eg. Mon, Fri)
+	LVN_API const char*             dateGetTimeMeridiem();                              // get the time meridiem of the current day (eg. AM, PM)
+	LVN_API const char*             dateGetTimeMeridiemLower();                         // get the time meridiem of the current day in lower case (eg. am, pm)
 
-	LVN_API std::string             getDateTimeHHMMSS();                                // get the time in HH:MM:SS format (eg. 14:34:54)
-	LVN_API std::string             getDateTime12HHMMSS();                              // get the time in HH:MM:SS 12 hour format (eg. 2:23:14)
-	LVN_API std::string             getDateYearStr();                                   // get the current year number as a string
-	LVN_API std::string             getDateYear02dStr();                                // get the last two digits of the current year number as a string
-	LVN_API std::string             getDateMonthNumStr();                               // get the current month number as a string
-	LVN_API std::string             getDateDayNumStr();                                 // get the current day number as a string
-	LVN_API std::string             getDateHourNumStr();                                // get the current hour number as a string
-	LVN_API std::string             getDateHour12NumStr();                              // get the current hour number in 12 hour format as a string
-	LVN_API std::string             getDateMinuteNumStr();                              // get the current minute as a string
-	LVN_API std::string             getDateSecondNumStr();                              // get the current second as a string
+	LVN_API std::string             dateGetTimeHHMMSS();                                // get the time in HH:MM:SS format (eg. 14:34:54)
+	LVN_API std::string             dateGetTime12HHMMSS();                              // get the time in HH:MM:SS 12 hour format (eg. 2:23:14)
+	LVN_API std::string             dateGetYearStr();                                   // get the current year number as a string
+	LVN_API std::string             dateGetYear02dStr();                                // get the last two digits of the current year number as a string
+	LVN_API std::string             dateGetMonthNumStr();                               // get the current month number as a string
+	LVN_API std::string             dateGetDayNumStr();                                 // get the current day number as a string
+	LVN_API std::string             dateGetHourNumStr();                                // get the current hour number as a string
+	LVN_API std::string             dateGetHour12NumStr();                              // get the current hour number in 12 hour format as a string
+	LVN_API std::string             dateGetMinuteNumStr();                              // get the current minute as a string
+	LVN_API std::string             dateGetSecondNumStr();                              // get the current second as a string
 
 
 	LVN_API std::string             loadFileSrc(const char* filepath);                  // get the src contents from a text file format, filepath must be a valid path to a text file
@@ -1039,9 +1040,9 @@ namespace lvn
 	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);            // log message with level warn;  ANSI code "\x1b[1;33m"
 	LVN_API void                        logMessageError(LvnLogger* logger, const char* fmt, ...);           // log message with level error; ANSI code "\x1b[1;31m"
 	LVN_API void                        logMessageFatal(LvnLogger* logger, const char* fmt, ...);           // log message with level fatal; ANSI code "\x1b[1;37;41m"
-	LVN_API LvnLogger*                  getCoreLogger();
-	LVN_API LvnLogger*                  getClientLogger();
-	LVN_API const char*                 getLogANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string
+	LVN_API LvnLogger*                  logGetCoreLogger();
+	LVN_API LvnLogger*                  logGetClientLogger();
+	LVN_API const char*                 logGetANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string
 	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);     // set the log pattern of the logger; messages outputed from that logger will be in this format
 	LVN_API LvnResult                   logAddPattern(LvnLogPattern* logPattern);
 
@@ -1072,17 +1073,17 @@ namespace lvn
 	LVN_API LvnResult                   createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo);
 	LVN_API void                        destroyWindow(LvnWindow* window);
 
-	LVN_API void                        updateWindow(LvnWindow* window);
+	LVN_API void                        windowUpdate(LvnWindow* window);
 	LVN_API bool                        windowOpen(LvnWindow* window);
-	LVN_API LvnPair<int>                getWindowDimensions(LvnWindow* window);
-	LVN_API int                         getWindowWidth(LvnWindow* window);
-	LVN_API int                         getWindowHeight(LvnWindow* window);
-	LVN_API void                        setWindowEventCallback(LvnWindow* window, void (*callback)(LvnEvent*));
-	LVN_API void                        setWindowVSync(LvnWindow* window, bool enable);
-	LVN_API bool                        getWindowVSync(LvnWindow* window);
-	LVN_API void*                       getNativeWindow(LvnWindow* window);
-	LVN_API LvnRenderPass*              getWindowRenderPass(LvnWindow* window);
-	LVN_API void                        setWindowContextCurrent(LvnWindow* window);
+	LVN_API LvnPair<int>                windowGetDimensions(LvnWindow* window);
+	LVN_API int                         windowGetWidth(LvnWindow* window);
+	LVN_API int                         windowGetHeight(LvnWindow* window);
+	LVN_API void                        windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*));
+	LVN_API void                        windowSetVSync(LvnWindow* window, bool enable);
+	LVN_API bool                        windowGetVSync(LvnWindow* window);
+	LVN_API void*                       windowGetNativeWindow(LvnWindow* window);
+	LVN_API LvnRenderPass*              windowGetRenderPass(LvnWindow* window);
+	LVN_API void                        windowSetContextCurrent(LvnWindow* window);
 
 	/* [Input] */
 	LVN_API bool                        keyPressed(LvnWindow* window, int keycode);
@@ -1090,21 +1091,18 @@ namespace lvn
 	LVN_API bool                        mouseButtonPressed(LvnWindow* window, int button);
 	LVN_API bool                        mouseButtonReleased(LvnWindow* window, int button);
 
-	LVN_API void                        setMousePos(LvnWindow* window, float x, float y);
+	LVN_API void                        mouseSetPos(LvnWindow* window, float x, float y);
 
-	LVN_API LvnPair<float>              getMousePos(LvnWindow* window);
-	LVN_API void                        getMousePos(LvnWindow* window, float* xpos, float* ypos);
-	LVN_API float                       getMouseX(LvnWindow* window);
-	LVN_API float                       getMouseY(LvnWindow* window);
+	LVN_API LvnPair<float>              mouseGetPos(LvnWindow* window);
+	LVN_API void                        mouseGetPos(LvnWindow* window, float* xpos, float* ypos);
+	LVN_API float                       mouseGetX(LvnWindow* window);
+	LVN_API float                       mouseGetY(LvnWindow* window);
 
-	LVN_API LvnPair<int>                getWindowPos(LvnWindow* window);
-	LVN_API void                        getWindowPos(LvnWindow* window, int* xpos, int* ypos);
-	LVN_API LvnPair<int>                getWindowSize(LvnWindow* window);
-	LVN_API void                        getWindowSize(LvnWindow* window, int* width, int* height);
+	LVN_API LvnPair<int>                windowGetPos(LvnWindow* window);
+	LVN_API void                        windowGetPos(LvnWindow* window, int* xpos, int* ypos);
+	LVN_API LvnPair<int>                windowGetSize(LvnWindow* window);
+	LVN_API void                        windowGetSize(LvnWindow* window, int* width, int* height);
 
-	// Timestep Functions
-	float getTimeSeconds();
-	float getTimeMilliseconds();
 
 	/* [Graphics API] */
 	LVN_API LvnGraphicsApi              getGraphicsApi();
@@ -1144,7 +1142,7 @@ namespace lvn
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                    // create a uniform buffer object to send changing data to the shader pipeline
 	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                            // create a texture object to hold image pixel data and sampler
 	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo);                                            // create a cubemap texture object that holds the textures of the cubemap
-	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
+
 
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                                 // destroy shader module object
 	LVN_API void                        destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);                                                   // destroy descriptor layout
@@ -1155,47 +1153,62 @@ namespace lvn
 	LVN_API void                        destroyUniformBuffer(LvnUniformBuffer* uniformBuffer);                                                            // destroy uniform buffer object
 	LVN_API void                        destroyTexture(LvnTexture* texture);                                                                              // destroy texture object
 	LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                              // destroy cubemap object
-	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                                                       // destroy mesh object
 
 	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
 
-	LVN_API const LvnTexture*           getCubemapTextureData(LvnCubemap* cubemap);                                                                       // get the cubemap texture from the cubemap
+	LVN_API const LvnTexture*           cubemapGetTextureData(LvnCubemap* cubemap);                                                                       // get the cubemap texture from the cubemap
 
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);                   // update the data stored in a uniform or storage buffer
 	LVN_API void                        updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);           // update the descriptor content within a descroptor set
 
-	LVN_API LvnTexture*                 getFrameBufferImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);                                               // get the texture image data (render pass attachment) from the framebuffer via the attachment index
-	LVN_API LvnRenderPass*              getFrameBufferRenderPass(LvnFrameBuffer* frameBuffer);                                                                    // get the render pass from the framebuffer
-	LVN_API void                        updateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);                                          // update the width and height of the new framebuffer (updates the image data dimensions), Note: call only when the image dimensions need to be changed
-	LVN_API void                        setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);      // set the background color for the framebuffer for offscreen rendering
+	LVN_API LvnTexture*                 frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);                                               // get the texture image data (render pass attachment) from the framebuffer via the attachment index
+	LVN_API LvnRenderPass*              frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);                                                                    // get the render pass from the framebuffer
+	LVN_API void                        frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);                                          // update the width and height of the new framebuffer (updates the image data dimensions), Note: call only when the image dimensions need to be changed
+	LVN_API void                        frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);      // set the background color for the framebuffer for offscreen rendering
 
-	LVN_API LvnBuffer*                  getMeshBuffer(LvnMesh* mesh);
-	LVN_API LvnMat4                     getMeshMatrix(LvnMesh* mesh);
-	LVN_API void                        setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix);
-	LVN_API LvnBufferCreateInfo         createMeshDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
+	LVN_API LvnBuffer*                  meshGetBuffer(LvnMesh* mesh);
+	LVN_API LvnMat4                     meshGetMatrix(LvnMesh* mesh);
+	LVN_API void                        meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix);
+	LVN_API LvnBufferCreateInfo         meshCreateDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
+
+	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
+	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                                                       // destroy mesh object
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        freeModel(LvnModel* model);
 
 	LVN_API LvnCamera                   createCamera(LvnCameraCreateInfo* createInfo);
-	LVN_API void                        updateCameraMatrix(LvnCamera* camera);
-	LVN_API void                        setCameraFov(LvnCamera* camera, float fovDeg);
-	LVN_API void                        setCameraPlane(LvnCamera* camera, float nearPlane, float farPlane);
-	LVN_API void                        setCameraPos(LvnCamera* camera, const LvnVec3& position);
-	LVN_API void                        setCameraOrient(LvnCamera* camera, const LvnVec3& orientation);
-	LVN_API void                        setCameraUpVec(LvnCamera* camera, const LvnVec3& upVector);
-	LVN_API float                       getCameraFov(LvnCamera* camera);
-	LVN_API float                       getCameraNearPlane(LvnCamera* camera);
-	LVN_API float                       getCameraFarPlane(LvnCamera* camera);
-	LVN_API LvnVec3                     getCameraPos(LvnCamera* camera);
-	LVN_API LvnVec3                     getCameraOrient(LvnCamera* camera);
-	LVN_API LvnVec3                     getCameraUpVec(LvnCamera* camera);
-
+	LVN_API void                        cameraUpdateMatrix(LvnCamera* camera);
+	LVN_API void                        cameraSetFov(LvnCamera* camera, float fovDeg);
+	LVN_API void                        cameraSetPlane(LvnCamera* camera, float nearPlane, float farPlane);
+	LVN_API void                        cameraSetPos(LvnCamera* camera, const LvnVec3& position);
+	LVN_API void                        cameraSetOrient(LvnCamera* camera, const LvnVec3& orientation);
+	LVN_API void                        cameraSetUpVec(LvnCamera* camera, const LvnVec3& upVector);
+	LVN_API float                       cameraGetFov(LvnCamera* camera);
+	LVN_API float                       cameraGetNearPlane(LvnCamera* camera);
+	LVN_API float                       cameraGetFarPlane(LvnCamera* camera);
+	LVN_API LvnVec3                     cameraGetPos(LvnCamera* camera);
+	LVN_API LvnVec3                     cameraGetOrient(LvnCamera* camera);
+	LVN_API LvnVec3                     cameraGetUpVec(LvnCamera* camera);
 
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
+
+
+	/* [Audio] */
+	LVN_API LvnResult                   createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo);
+	LVN_API void                        destroySound(LvnSound* sound);
+
+	LVN_API void                        soundSetVolume(LvnSound* sound, float volume);
+	LVN_API void                        soundSetPan(LvnSound* sound, float pan);
+	LVN_API void                        soundSetPitch(LvnSound* sound, float pitch);
+	LVN_API void                        soundSetLooping(LvnSound* sound, bool looping);
+	LVN_API void                        soundSetPlayStart(LvnSound* sound);
+	LVN_API void                        soundSetPlayStop(LvnSound* sound);
+	LVN_API void                        soundSetPlayPause(LvnSound* sound);
+
 
 	/* [Math] */
 	template <typename T>
@@ -4208,8 +4221,15 @@ struct LvnCubemapCreateInfo
 };
 
 
-struct LvnSound
+struct LvnSoundCreateInfo
 {
+	const char* filepath;      // the filepath to the sound file (.wav .mp3)
+
+	float volume;              // volume of sound source, (default: 1.0, min/mute: 0.0), 1.0 is the upper limit however volume can be set higher than 1.0 at your own risk
+	float pan;                 // pan of the sound source if using 2 channel sterio output (center: 0.0, left: -1.0, right 1.0)
+	float pitch;               // pitch of the sound source, (default: 1.0, min: 0.0, no upper limit)
+	bool looping;              // sound source loops when reaches end of track
+
 	LvnVec3 pos;
 };
 

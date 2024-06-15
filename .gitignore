@@ -46,3 +46,4 @@ release/
 
 # other
 compile_commands.json
+.cache

@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "stb_image.h"
+#include "miniaudio.h"
 
 #ifdef LVN_PLATFORM_WINDOWS
 	#include <windows.h>
@@ -38,6 +39,8 @@ static LvnResult                    setWindowContext(LvnWindowApi windowapi);
 static void                         terminateWindowContext();
 static LvnResult                    setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation);
 static void                         terminateGraphicsContext();
+static LvnResult                    initAudioContext();
+static void                         terminateAudioContext();
 
 
 static void enableLogANSIcodeColors()
@@ -107,6 +110,9 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	result = setGraphicsContext(createInfo->graphicsapi, createInfo->enableVulkanValidationLayers);
 	if (result != Lvn_Result_Success) { return result; }
 
+	result = initAudioContext();
+	if (result != Lvn_Result_Success) { return result; }
+
 	return Lvn_Result_Success;
 }
 
@@ -116,6 +122,7 @@ void terminateContext()
 
 	terminateWindowContext();
 	terminateGraphicsContext();
+	terminateAudioContext();
 
 	if (s_LvnContext->numMemoryAllocations)
 	{
@@ -139,31 +146,31 @@ static const char* const s_WeekDayName[7] = { "Sunday", "Monday", "Tuesday", "We
 static const char* const s_WeekDayNameShort[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
 /* Date Time Functions */
-const char* getDateMonthName()
+const char* dateGetMonthName()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return s_MonthName[tm.tm_mon];
 }
-const char* getDateMonthNameShort()
+const char* dateGetMonthNameShort()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return s_MonthNameShort[tm.tm_mon];
 }
-const char* getDateWeekDayName()
+const char* dateGetWeekDayName()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return s_WeekDayName[tm.tm_wday];
 }
-const char* getDateWeekDayNameShort()
+const char* dateGetWeekDayNameShort()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return s_WeekDayNameShort[tm.tm_wday];
 }
-std::string getDateTimeHHMMSS()
+std::string dateGetTimeHHMMSS()
 {
 	char buff[9];
 	time_t t = time(NULL);
@@ -171,7 +178,7 @@ std::string getDateTimeHHMMSS()
 	snprintf(buff, 9, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
 	return std::string(buff);
 }
-std::string getDateTime12HHMMSS()
+std::string dateGetTime12HHMMSS()
 {
 	char buff[9];
 	time_t t = time(NULL);
@@ -179,7 +186,7 @@ std::string getDateTime12HHMMSS()
 	snprintf(buff, 9, "%02d:%02d:%02d", ((tm.tm_hour + 11) % 12) + 1, tm.tm_min, tm.tm_sec);
 	return std::string(buff);
 }
-const char* getDateTimeMeridiem()
+const char* dateGetTimeMeridiem()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
@@ -188,7 +195,7 @@ const char* getDateTimeMeridiem()
 	else
 		return "PM";
 }
-const char* getDateTimeMeridiemLower()
+const char* dateGetTimeMeridiemLower()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
@@ -198,105 +205,105 @@ const char* getDateTimeMeridiemLower()
 		return "pm";
 }
 
-std::string getDateYearStr()
+std::string dateGetYearStr()
 {
 	char buff[5];
-	snprintf(buff, 5, "%d", getDateYear());
+	snprintf(buff, 5, "%d", dateGetYear());
 	return std::string(buff);
 }
-std::string getDateYear02dStr()
+std::string dateGetYear02dStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%d", getDateYear02d());
+	snprintf(buff, 3, "%d", dateGetYear02d());
 	return std::string(buff);
 }
-std::string getDateMonthNumStr()
+std::string dateGetMonthNumStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%02d", getDateMonth());
+	snprintf(buff, 3, "%02d", dateGetMonth());
 	return std::string(buff);
 }
-std::string getDateDayNumStr()
+std::string dateGetDayNumStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%02d", getDateDay());
+	snprintf(buff, 3, "%02d", dateGetDay());
 	return std::string(buff);
 }
-std::string getDateHourNumStr()
+std::string dateGetHourNumStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%02d", getDateHour());
+	snprintf(buff, 3, "%02d", dateGetHour());
 	return std::string(buff);
 }
-std::string getDateHour12NumStr()
+std::string dateGetHour12NumStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%02d", getDateHour12());
+	snprintf(buff, 3, "%02d", dateGetHour12());
 	return std::string(buff);
 }
-std::string getDateMinuteNumStr()
+std::string dateGetMinuteNumStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%02d", getDateMinute());
+	snprintf(buff, 3, "%02d", dateGetMinute());
 	return std::string(buff);
 }
-std::string getDateSecondNumStr()
+std::string dateGetSecondNumStr()
 {
 	char buff[3];
-	snprintf(buff, 3, "%02d", getDateSecond());
+	snprintf(buff, 3, "%02d", dateGetSecond());
 	return std::string(buff);
 }
 
-int getDateYear()
+int dateGetYear()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return tm.tm_year + 1900;
 }
-int getDateYear02d()
+int dateGetYear02d()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return (tm.tm_year + 1900) % 100;
 }
-int getDateMonth()
+int dateGetMonth()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return tm.tm_mon + 1;
 }
-int getDateDay()
+int dateGetDay()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return tm.tm_mday;
 }
-int getDateHour()
+int dateGetHour()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return tm.tm_hour;
 }
-int getDateHour12()
+int dateGetHour12()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return ((tm.tm_hour + 11) % 12) + 1;
 }
-int getDateMinute()
+int dateGetMinute()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return tm.tm_min;
 }
-int getDateSecond()
+int dateGetSecond()
 {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	return tm.tm_sec;
 }
 
-long long getSecondsSinceEpoch()
+long long dateGetSecondsSinceEpoch()
 {
 	return time(NULL);
 }
@@ -357,22 +364,22 @@ const static LvnLogPattern s_LogPatterns[] =
 	{ '^', [](LvnLogMessage* msg) -> std::string { return LVN_LOG_COLOR_RESET; }},
 	{ 'v', [](LvnLogMessage* msg) -> std::string { return msg->msg; }},
 	{ '%', [](LvnLogMessage* msg) -> std::string { return "%"; } },
-	{ 'T', [](LvnLogMessage* msg) -> std::string { return getDateTimeHHMMSS(); } },
-	{ 't', [](LvnLogMessage* msg) -> std::string { return getDateTime12HHMMSS(); } },
-	{ 'Y', [](LvnLogMessage* msg) -> std::string { return getDateYearStr(); }},
-	{ 'y', [](LvnLogMessage* msg) -> std::string { return getDateYear02dStr(); } },
-	{ 'm', [](LvnLogMessage* msg) -> std::string { return getDateMonthNumStr(); } },
-	{ 'B', [](LvnLogMessage* msg) -> std::string { return getDateMonthName(); } },
-	{ 'b', [](LvnLogMessage* msg) -> std::string { return getDateMonthNameShort(); } },
-	{ 'd', [](LvnLogMessage* msg) -> std::string { return getDateDayNumStr(); } },
-	{ 'A', [](LvnLogMessage* msg) -> std::string { return getDateWeekDayName(); } },
-	{ 'a', [](LvnLogMessage* msg) -> std::string { return getDateWeekDayNameShort(); } },
-	{ 'H', [](LvnLogMessage* msg) -> std::string { return getDateHourNumStr(); } },
-	{ 'h', [](LvnLogMessage* msg) -> std::string { return getDateHour12NumStr(); } },
-	{ 'M', [](LvnLogMessage* msg) -> std::string { return getDateMinuteNumStr(); } },
-	{ 'S', [](LvnLogMessage* msg) -> std::string { return getDateSecondNumStr(); } },
-	{ 'P', [](LvnLogMessage* msg) -> std::string { return getDateTimeMeridiem(); } },
-	{ 'p', [](LvnLogMessage* msg) -> std::string { return getDateTimeMeridiemLower(); }},
+	{ 'T', [](LvnLogMessage* msg) -> std::string { return dateGetTimeHHMMSS(); } },
+	{ 't', [](LvnLogMessage* msg) -> std::string { return dateGetTime12HHMMSS(); } },
+	{ 'Y', [](LvnLogMessage* msg) -> std::string { return dateGetYearStr(); }},
+	{ 'y', [](LvnLogMessage* msg) -> std::string { return dateGetYear02dStr(); } },
+	{ 'm', [](LvnLogMessage* msg) -> std::string { return dateGetMonthNumStr(); } },
+	{ 'B', [](LvnLogMessage* msg) -> std::string { return dateGetMonthName(); } },
+	{ 'b', [](LvnLogMessage* msg) -> std::string { return dateGetMonthNameShort(); } },
+	{ 'd', [](LvnLogMessage* msg) -> std::string { return dateGetDayNumStr(); } },
+	{ 'A', [](LvnLogMessage* msg) -> std::string { return dateGetWeekDayName(); } },
+	{ 'a', [](LvnLogMessage* msg) -> std::string { return dateGetWeekDayNameShort(); } },
+	{ 'H', [](LvnLogMessage* msg) -> std::string { return dateGetHourNumStr(); } },
+	{ 'h', [](LvnLogMessage* msg) -> std::string { return dateGetHour12NumStr(); } },
+	{ 'M', [](LvnLogMessage* msg) -> std::string { return dateGetMinuteNumStr(); } },
+	{ 'S', [](LvnLogMessage* msg) -> std::string { return dateGetSecondNumStr(); } },
+	{ 'P', [](LvnLogMessage* msg) -> std::string { return dateGetTimeMeridiem(); } },
+	{ 'p', [](LvnLogMessage* msg) -> std::string { return dateGetTimeMeridiemLower(); }},
 };
 
 static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
@@ -496,7 +503,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 		.msg = msg,
 		.loggerName = logger->loggerName,
 		.level = level,
-		.timeEpoch = getSecondsSinceEpoch()
+		.timeEpoch = dateGetSecondsSinceEpoch()
 	};
 	logOutputMessage(logger, &logMsg);
 }
@@ -621,17 +628,17 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 	va_end(argptr);
 }
 
-LvnLogger* getCoreLogger()
+LvnLogger* logGetCoreLogger()
 {
 	return &s_LvnContext->coreLogger;
 }
 
-LvnLogger* getClientLogger()
+LvnLogger* logGetClientLogger()
 {
 	return &s_LvnContext->clientLogger;
 }
 
-const char* getLogANSIcodeColor(LvnLogLevel level)
+const char* logGetANSIcodeColor(LvnLogLevel level)
 {
 	switch (level)
 	{
@@ -1050,7 +1057,7 @@ void destroyWindow(LvnWindow* window)
 	window = nullptr;
 }
 
-void updateWindow(LvnWindow* window)
+void windowUpdate(LvnWindow* window)
 {
 	s_LvnContext->windowContext.updateWindow(window);
 }
@@ -1060,47 +1067,47 @@ bool windowOpen(LvnWindow* window)
 	return s_LvnContext->windowContext.windowOpen(window);
 }
 
-LvnPair<int> getWindowDimensions(LvnWindow* window)
+LvnPair<int> windowGetDimensions(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getWindowSize(window);
 }
 
-int getWindowWidth(LvnWindow* window)
+int windowGetWidth(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getWindowWidth(window);
 }
 
-int getWindowHeight(LvnWindow* window)
+int windowGetHeight(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getWindowHeight(window);
 }
 
-void setWindowEventCallback(LvnWindow* window, void (*callback)(LvnEvent*))
+void windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*))
 {
 	window->data.eventCallBackFn = callback;
 }
 
-void setWindowVSync(LvnWindow* window, bool enable)
+void windowSetVSync(LvnWindow* window, bool enable)
 {
 	s_LvnContext->windowContext.setWindowVSync(window, enable);
 }
 
-bool getWindowVSync(LvnWindow* window)
+bool windowGetVSync(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getWindowVSync(window);
 }
 
-void* getNativeWindow(LvnWindow* window)
+void* windowGetNativeWindow(LvnWindow* window)
 {
 	return window->nativeWindow;
 }
 
-LvnRenderPass* getWindowRenderPass(LvnWindow* window)
+LvnRenderPass* windowGetRenderPass(LvnWindow* window)
 {
 	return &window->renderPass;
 }
 
-void setWindowContextCurrent(LvnWindow* window)
+void windowSetContextCurrent(LvnWindow* window)
 {
 	s_LvnContext->windowContext.setWindowContextCurrent(window);
 }
@@ -1126,47 +1133,47 @@ bool mouseButtonReleased(LvnWindow* window, int button)
 	return s_LvnContext->windowContext.mouseButtonReleased(window, button);
 }
 
-void setMousePos(LvnWindow* window, float x, float y)
+void mouseSetPos(LvnWindow* window, float x, float y)
 {
 	s_LvnContext->windowContext.setMousePos(window, x, y);
 }
 
-LvnPair<float> getMousePos(LvnWindow* window)
+LvnPair<float> mouseGetPos(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getMousePos(window);
 }
 
-void getMousePos(LvnWindow* window, float* xpos, float* ypos)
+void mouseGetPos(LvnWindow* window, float* xpos, float* ypos)
 {
 	s_LvnContext->windowContext.getMousePosPtr(window, xpos, ypos);
 }
 
-float getMouseX(LvnWindow* window)
+float mouseGetX(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getMouseX(window);
 }
 
-float getMouseY(LvnWindow* window)
+float mouseGetY(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getMouseY(window);
 }
 
-LvnPair<int> getWindowPos(LvnWindow* window)
+LvnPair<int> windowGetPos(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getWindowPos(window);
 }
 
-void getWindowPos(LvnWindow* window, int* xpos, int* ypos)
+void windowGetPos(LvnWindow* window, int* xpos, int* ypos)
 {
 	s_LvnContext->windowContext.getWindowPosPtr(window, xpos, ypos);
 }
 
-LvnPair<int> getWindowSize(LvnWindow* window)
+LvnPair<int> windowGetSize(LvnWindow* window)
 {
 	return s_LvnContext->windowContext.getWindowSize(window);
 }
 
-void getWindowSize(LvnWindow* window, int* width, int* height)
+void windowGetSize(LvnWindow* window, int* width, int* height)
 {
 	s_LvnContext->windowContext.getWindowSizePtr(window, width, height);
 }
@@ -1247,6 +1254,30 @@ static void terminateGraphicsContext()
 	}
 
 	LVN_CORE_TRACE("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
+}
+
+static LvnResult initAudioContext()
+{
+	ma_engine* pEngine = (ma_engine*)lvn::memAlloc(sizeof(ma_engine));
+
+	if (ma_engine_init(nullptr, pEngine) != MA_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to initialize audio engine context");
+		return Lvn_Result_Failure;
+	}
+
+	s_LvnContext->audioEngineContextPtr = pEngine;
+
+	return Lvn_Result_Success;
+}
+
+static void terminateAudioContext()
+{
+	if (s_LvnContext->audioEngineContextPtr != nullptr)
+	{
+		ma_engine_uninit(static_cast<ma_engine*>(s_LvnContext->audioEngineContextPtr));
+		lvn::memFree(s_LvnContext->audioEngineContextPtr);
+	}
 }
 
 LvnGraphicsApi getGraphicsApi()
@@ -1713,7 +1744,6 @@ void destroyMesh(LvnMesh* mesh)
 	lvn::destroyBuffer(mesh->buffer);
 }
 
-
 void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
 {
 	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
@@ -1724,7 +1754,7 @@ LvnPipelineSpecification getDefaultPipelineSpecification()
 	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
 }
 
-const LvnTexture* getCubemapTextureData(LvnCubemap* cubemap)
+const LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 {
 	return &cubemap->textureData;
 }
@@ -1739,42 +1769,42 @@ void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdat
 	s_LvnContext->graphicsContext.updateDescriptorSetData(descriptorSet, pUpdateInfo, count);
 }
 
-LvnTexture* getFrameBufferImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
+LvnTexture* frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
 {
 	return s_LvnContext->graphicsContext.getFrameBufferImage(frameBuffer, attachmentIndex);
 }
 
-LvnRenderPass* getFrameBufferRenderPass(LvnFrameBuffer* frameBuffer)
+LvnRenderPass* frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
 {
 	return s_LvnContext->graphicsContext.getFrameBufferRenderPass(frameBuffer);
 }
 
-void updateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
+void frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
 {
 	return s_LvnContext->graphicsContext.updateFrameBuffer(frameBuffer, width, height);
 }
 
-void setFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
+void frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
 	return s_LvnContext->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
-LvnBuffer* getMeshBuffer(LvnMesh* mesh)
+LvnBuffer* meshGetBuffer(LvnMesh* mesh)
 {
 	return mesh->buffer;
 }
 
-LvnMat4 getMeshMatrix(LvnMesh* mesh)
+LvnMat4 meshGetMatrix(LvnMesh* mesh)
 {
 	return mesh->modelMatrix;
 }
 
-void setMeshMatrix(LvnMesh* mesh, const LvnMat4& matrix)
+void meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix)
 {
 	mesh->modelMatrix = matrix;
 }
 
-LvnBufferCreateInfo createMeshDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
+LvnBufferCreateInfo meshCreateDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
 {
 	LvnVertexBindingDescription meshVertexBindingDescroption{};
 	meshVertexBindingDescroption.stride = sizeof(LvnVertex);
@@ -1892,73 +1922,74 @@ LvnCamera createCamera(LvnCameraCreateInfo* createInfo)
 	return camera;
 }
 
-void updateCameraMatrix(LvnCamera* camera)
+void cameraUpdateMatrix(LvnCamera* camera)
 {
 	camera->projectionMatrix = lvn::perspective(lvn::radians(camera->fov), static_cast<float>(camera->width) / static_cast<float>(camera->height), camera->nearPlane, camera->farPlane);
 	camera->viewMatrix = lvn::lookAt(camera->position, camera->position + camera->orientation, camera->upVector);
 	camera->matrix = camera->projectionMatrix * camera->viewMatrix;
 }
 
-void setCameraFov(LvnCamera* camera, float fovDeg)
+void cameraSetFov(LvnCamera* camera, float fovDeg)
 {
 	camera->fov = fovDeg;
-	lvn::updateCameraMatrix(camera);
+	lvn::cameraUpdateMatrix(camera);
 }
 
-void setCameraPlane(LvnCamera* camera, float nearPlane, float farPlane)
+void cameraSetPlane(LvnCamera* camera, float nearPlane, float farPlane)
 {
 	camera->nearPlane = nearPlane;
 	camera->farPlane = farPlane;
-	lvn::updateCameraMatrix(camera);
+	lvn::cameraUpdateMatrix(camera);
 }
 
-void setCameraPos(LvnCamera* camera, const LvnVec3& position)
+void cameraSetPos(LvnCamera* camera, const LvnVec3& position)
 {
 	camera->position = position;
-	lvn::updateCameraMatrix(camera);
+	lvn::cameraUpdateMatrix(camera);
 }
 
-void setCameraOrient(LvnCamera* camera, const LvnVec3& orientation)
+void cameraSetOrient(LvnCamera* camera, const LvnVec3& orientation)
 {
 	camera->orientation = orientation;
-	lvn::updateCameraMatrix(camera);
+	lvn::cameraUpdateMatrix(camera);
 }
 
 void setCameraUpVec(LvnCamera* camera, const LvnVec3& upVector)
 {
 	camera->upVector = camera->upVector;
-	lvn::updateCameraMatrix(camera);
+	lvn::cameraUpdateMatrix(camera);
 }
 
-float getCameraFov(LvnCamera* camera)
+float cameraGetFov(LvnCamera* camera)
 {
 	return camera->fov;
 }
 
-float getCameraNearPlane(LvnCamera* camera)
+float cameraGetNearPlane(LvnCamera* camera)
 {
 	return camera->nearPlane;
 }
 
-float getCameraFarPlane(LvnCamera* camera)
+float cameraGetFarPlane(LvnCamera* camera)
 {
 	return camera->farPlane;
 }
 
-LvnVec3 getCameraPos(LvnCamera* camera)
+LvnVec3 cameraGetPos(LvnCamera* camera)
 {
 	return camera->position;
 }
 
-LvnVec3 getCameraOrient(LvnCamera* camera)
+LvnVec3 cameraGetOrient(LvnCamera* camera)
 {
 	return camera->orientation;
 }
 
-LvnVec3 getCameraUpVec(LvnCamera* camera)
+LvnVec3 cameraGetUpVec(LvnCamera* camera)
 {
 	return camera->upVector;
 }
+
 
 uint32_t getVertexDataTypeSize(LvnVertexDataType type)
 {
@@ -1991,7 +2022,98 @@ uint32_t getVertexDataTypeSize(LvnVertexDataType type)
 	}
 }
 
-// [Section]: Math
+
+// [SECTION]: Audio
+
+LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
+{
+	if (createInfo->filepath == nullptr)
+	{
+		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | createInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file");
+		return Lvn_Result_Failure;
+	}
+
+	ma_engine* pEngine = static_cast<ma_engine*>(s_LvnContext->audioEngineContextPtr);
+
+	ma_sound* pSound = (ma_sound*)lvn::memAlloc(sizeof(ma_sound));
+	if (ma_sound_init_from_file(pEngine, createInfo->filepath, 0, NULL, NULL, pSound) != MA_SUCCESS)
+	{
+		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
+		return Lvn_Result_Failure;
+	}
+
+	ma_sound_set_volume(pSound, createInfo->volume);
+	ma_sound_set_pan(pSound, createInfo->pan);
+	ma_sound_set_pitch(pSound, createInfo->pitch);
+	ma_sound_set_looping(pSound, createInfo->looping);
+
+	*sound = new LvnSound();
+	LvnSound* soundPtr = *sound;
+	soundPtr->volume = createInfo->volume;
+	soundPtr->pan = createInfo->pan;
+	soundPtr->pitch = createInfo->pitch;
+	soundPtr->pos = createInfo->pos;
+	soundPtr->looping = createInfo->looping;
+	soundPtr->soundPtr = pSound;
+
+	return Lvn_Result_Success;
+}
+
+void destroySound(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+
+	ma_sound_uninit(pSound);
+	lvn::memFree(pSound);
+
+	delete sound;
+}
+
+void soundSetVolume(LvnSound* sound, float volume)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	ma_sound_set_volume(pSound, volume);
+}
+
+void soundSetPan(LvnSound* sound, float pan)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	ma_sound_set_pan(pSound, pan);
+}
+
+void soundSetPitch(LvnSound* sound, float pitch)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	ma_sound_set_pitch(pSound, pitch);
+}
+
+void soundSetLooping(LvnSound* sound, bool looping)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	ma_sound_set_looping(pSound, looping);
+}
+
+void soundSetPlayStart(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	ma_sound_start(pSound);
+}
+
+void soundSetPlayStop(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	ma_sound_stop(pSound);
+}
+
+void soundSetPlayPause(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	if (ma_sound_is_playing(pSound)) { ma_sound_stop(pSound); }
+	else { ma_sound_start(pSound); }
+}
+
+
+// [SECTION]: Math
 
 float radians(float deg)
 {

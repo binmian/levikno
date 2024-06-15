@@ -67,15 +67,19 @@ set(LVN_SOURCES
 	src/api/window/glfw/lvn_glfw.h
 
 	# vma
-	src/external/vma/include/vk_mem_alloc.cpp
-	src/external/vma/include/vk_mem_alloc.h
+	src/external/vk_mem_alloc.cpp
+	src/external/vk_mem_alloc.h
 
 	# stb
-	src/external/stb/include/stb_image.cpp
-	src/external/stb/include/stb_image.h
+	src/external/stb_image.c
+	src/external/stb_image.h
 
 	# json
-	src/external/json/include/json.h
+	src/external/json.h
+
+	# miniaudio
+	src/external/miniaudio.c
+	src/external/miniaudio.h
 
   ${LVN_GRAPHICS_SRC}
 )
@@ -88,12 +92,10 @@ target_include_directories(levikno
 		${PROJECT_SOURCE_DIR}/include/levikno
 		${PROJECT_SOURCE_DIR}/src/api/graphics/vulkan
 		${PROJECT_SOURCE_DIR}/src/api/window/glfw
+		${PROJECT_SOURCE_DIR}/src/external
 		${PROJECT_SOURCE_DIR}/src/external/glfw/include
 		${PROJECT_SOURCE_DIR}/src/external/glad/include
 		${PROJECT_SOURCE_DIR}/src/external/vulkan/include
-		${PROJECT_SOURCE_DIR}/src/external/vma/include
-		${PROJECT_SOURCE_DIR}/src/external/stb/include
-		${PROJECT_SOURCE_DIR}/src/external/json/include
 )
 
 

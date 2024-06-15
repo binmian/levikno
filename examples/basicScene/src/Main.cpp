@@ -266,7 +266,7 @@ int main()
 
 	LvnWindow* window;
 	lvn::createWindow(&window, &windowInfo);
-	lvn::setWindowEventCallback(window, eventsCallbackFn);
+	lvn::windowSetEventCallback(window, eventsCallbackFn);
 
 
 	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ImageFormat_RGBA32F };
@@ -381,7 +381,7 @@ int main()
 	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
-	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
+	pipelineCreateInfo.renderPass = lvn::frameBufferGetRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
 
 	LvnPipeline* pipeline;
@@ -420,7 +420,7 @@ int main()
 	pipelineCreateInfo.pVertexAttributes = attributes;
 	pipelineCreateInfo.vertexAttributeCount = 3;
 	pipelineCreateInfo.shader = fbShader;
-	pipelineCreateInfo.renderPass = lvn::getWindowRenderPass(window);
+	pipelineCreateInfo.renderPass = lvn::windowGetRenderPass(window);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
 	// pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Back;
 	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CW;
@@ -470,7 +470,7 @@ int main()
 	pipelineCreateInfo.pVertexAttributes = cubemapAttributes;
 	pipelineCreateInfo.vertexAttributeCount = 1;
 	pipelineCreateInfo.shader = cubemapShader;
-	pipelineCreateInfo.renderPass = lvn::getFrameBufferRenderPass(frameBuffer);
+	pipelineCreateInfo.renderPass = lvn::frameBufferGetRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
 	// pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Front;
@@ -593,7 +593,7 @@ int main()
 	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	fbDescriptorTextureUpdateInfo.binding = 1;
 	fbDescriptorTextureUpdateInfo.descriptorCount = 1;
-	fbDescriptorTextureUpdateInfo.textureInfo = lvn::getFrameBufferImage(frameBuffer, 0);
+	fbDescriptorTextureUpdateInfo.textureInfo = lvn::frameBufferGetImage(frameBuffer, 0);
 
 	std::vector<LvnDescriptorUpdateInfo> fbDescriptorUpdateInfo =
 	{
@@ -612,7 +612,7 @@ int main()
 	cubemapDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	cubemapDescriptorTextureUpdateInfo.binding = 1;
 	cubemapDescriptorTextureUpdateInfo.descriptorCount = 1;
-	cubemapDescriptorTextureUpdateInfo.textureInfo = lvn::getCubemapTextureData(cubemap);
+	cubemapDescriptorTextureUpdateInfo.textureInfo = lvn::cubemapGetTextureData(cubemap);
 
 	std::vector<LvnDescriptorUpdateInfo> cubemapDescriptorUpdateInfo =
 	{
@@ -640,8 +640,8 @@ int main()
 	LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
 
 	LvnCameraCreateInfo cameraCreateInfo{};
-	cameraCreateInfo.width = lvn::getWindowSize(window).width;
-	cameraCreateInfo.height = lvn::getWindowSize(window).height;
+	cameraCreateInfo.width = lvn::windowGetSize(window).width;
+	cameraCreateInfo.height = lvn::windowGetSize(window).height;
 	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, 2.0f);
 	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, -1.0f);
 	cameraCreateInfo.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
@@ -677,6 +677,18 @@ int main()
 	lvn::updateDescriptorSetData(descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
 
 
+	LvnSoundCreateInfo soundCreateInfo{};
+	soundCreateInfo.filepath = "/home/bma/Downloads/Brodyquest.mp3"; // your audio filepath here
+	soundCreateInfo.volume = 1.0f;
+	soundCreateInfo.pitch = 1.0f;
+	soundCreateInfo.pan = 0.0f;
+	soundCreateInfo.looping = false;
+
+	LvnSound* sound;
+	lvn::createSoundFromFile(&sound, &soundCreateInfo);
+
+	lvn::soundSetPlayStart(sound);
+
 	auto startTime = std::chrono::high_resolution_clock::now();
 
 	Timer timer;
@@ -694,11 +706,11 @@ int main()
 
 	while (lvn::windowOpen(window))
 	{
-		lvn::updateWindow(window);
+		lvn::windowUpdate(window);
 
 		// auto [x, y] = lvn::getWindowDimensions(window);
 		// LVN_TRACE("(x:%d,y:%d)", x, y);
-		auto windowSize = lvn::getWindowDimensions(window);
+		auto windowSize = lvn::windowGetDimensions(window);
 		int width = windowSize.width, height = windowSize.height;
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
@@ -714,11 +726,11 @@ int main()
 		oldTime = timeNow;
 		cameraMovment(window, &camera, dt);
 
-		lvn::updateCameraMatrix(&camera);
+		lvn::cameraUpdateMatrix(&camera);
 		
 		if (winWidth != width || winHeight != height)
 		{
-			lvn::updateFrameBuffer(frameBuffer, width, height);
+			lvn::frameBufferResize(frameBuffer, width, height);
 
 			fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 			fbDescriptorUniformUpdateInfo.binding = 0;
@@ -728,7 +740,7 @@ int main()
 			fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 			fbDescriptorTextureUpdateInfo.binding = 1;
 			fbDescriptorTextureUpdateInfo.descriptorCount = 1;
-			fbDescriptorTextureUpdateInfo.textureInfo = lvn::getFrameBufferImage(frameBuffer, 0);
+			fbDescriptorTextureUpdateInfo.textureInfo = lvn::frameBufferGetImage(frameBuffer, 0);
 
 			fbDescriptorUpdateInfo =
 			{
@@ -749,7 +761,7 @@ int main()
 			objectData[i].model = lvnmodel.meshes[i].modelMatrix * model;
 		}
 
-		pbrData.campPos = lvn::getCameraPos(&camera);
+		pbrData.campPos = lvn::cameraGetPos(&camera);
 		pbrData.lightPos = lvn::vec3(cos(time) * 3.0f, 0.0f, sin(time) * 3.0f);
 		pbrData.metalic = 0.5f;
 		pbrData.roughness = abs(sin(time));
@@ -763,8 +775,8 @@ int main()
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
-			lvn::renderCmdBindVertexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
-			lvn::renderCmdBindIndexBuffer(window, lvn::getMeshBuffer(&lvnmodel.meshes[i]));
+			lvn::renderCmdBindVertexBuffer(window, lvn::meshGetBuffer(&lvnmodel.meshes[i]));
+			lvn::renderCmdBindIndexBuffer(window, lvn::meshGetBuffer(&lvnmodel.meshes[i]));
 
 			lvn::renderCmdDrawIndexedInstanced(window, lvnmodel.meshes[i].indexCount, 1, i);
 		}
@@ -817,6 +829,8 @@ int main()
 		}
 	}
 
+	lvn::destroySound(sound);
+
 	lvn::freeModel(&lvnmodel);
 	lvn::destroyMesh(&mesh);
 	lvn::destroyCubemap(cubemap);
@@ -848,5 +862,4 @@ int main()
 	lvn::destroyWindow(window);
 	lvn::terminateContext();
 
-	return 0;
 }
