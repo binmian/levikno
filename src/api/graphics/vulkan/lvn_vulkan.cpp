@@ -2129,7 +2129,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
 	graphicsContext->renderInit = vksImplRenderInit;
-	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromFileSrc;
+	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromSrc;
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
 	graphicsContext->createDescriptorLayout = vksImplCreateDescriptorLayout;

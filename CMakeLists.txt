@@ -1,12 +1,15 @@
 cmake_minimum_required(VERSION 3.24)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 # Levikno
 project(Levikno)
 
+option(LVN_BUILD_EXAMPLES "Build example programs" ON)
+
+
 # Architecture
-set(ARCHITECTURE_TYPE x64)
+set(LVN_ARCHITEXTURE_TYPE x64)
 
 # Platform
 if (WIN32)
@@ -26,9 +29,9 @@ else()
 endif()
 
 # Output dirs
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${PLATFORM_TYPE}-${ARCHITECTURE_TYPE})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${PLATFORM_TYPE}-${ARCHITECTURE_TYPE})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PLATFORM_TYPE}-${ARCHITECTURE_TYPE})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${PLATFORM_TYPE}-${LVN_ARCHITEXTURE_TYPE})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${PLATFORM_TYPE}-${LVN_ARCHITEXTURE_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${PLATFORM_TYPE}-${LVN_ARCHITEXTURE_TYPE})
 
 
 # Subdirectories ---------------------------------------- /
@@ -132,24 +135,7 @@ target_link_libraries(levikno
 		${VULKAN_LIB_DIR}
 )
 
-# LeviknoEditor
-set(LVN_EDITOR_SOURCES
-	examples/basicScene/src/Main.cpp
-)
-
-add_executable(basicScene ${LVN_EDITOR_SOURCES})
-
-target_include_directories(basicScene 
-		PRIVATE
-		${PROJECT_SOURCE_DIR}/examples/basicScene
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(basicScene
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT basicScene)
+# Build examples
+if(LVN_BUILD_EXAMPLES)
+	add_subdirectory(examples)
 endif()

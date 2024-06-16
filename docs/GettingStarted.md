@@ -246,12 +246,12 @@ float vertices[] =
 	 0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
 	 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
 	-0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
-}
+};
 
 uint32_t indices[] = 
 {
 	0, 1, 2
-}
+};
 ```
 Notice in out vertices data, each vertex contains six floats, the first three floats define the vertex position and the next three floats contain the color data. We need to tell our buffer how the vertex data is laid out by passing in the vertex attributes and binding descriptions. Let's first create the vertex attributes, the ```LvnVertexAttribute``` struct looks like this:
 ```
@@ -298,13 +298,13 @@ Add the new lines in the code below:
 ```
 ...
 
-LvnVertexBindingDescription vertexBindingDescroption{};
-vertexBindingDescroption.binding = 0;
-vertexBindingDescroption.stride = 6 * sizeof(float);
+LvnVertexBindingDescription vertexBindingDescription{};
+vertexBindingDescription.binding = 0;
+vertexBindingDescription.stride = 6 * sizeof(float);
 
 ...
 
-bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
+bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 bufferCreateInfo.vertexBindingDescriptionCount = 1;
 ```
 Our vertex has a stride of 6 floats (24 bytes), 3 floats for the position and 3 floats for the color data.
@@ -329,13 +329,13 @@ float vertices[] =
 	 0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
 	 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
 	-0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
-}
+};
 
 // index data
 uint32_t indices[] = 
 {
 	0, 1, 2
-}
+};
 
 // vertex attribute data
 LvnVertexAttribute attributes[2] = 

@@ -79,62 +79,6 @@ bool keyPress(LvnKeyPressedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
 
-	SoundData* sndData = (SoundData*)userData;
-
-	if (e->keyCode == Lvn_KeyCode_P)
-	{
-		lvn::soundSetPlayPause(sndData->sound);
-	}
-
-	if (e->keyCode == Lvn_KeyCode_J)
-	{
-		sndData->vol -= 0.05f;
-		if (sndData->vol < 0.0f) sndData->vol = 0.0f;
-		LVN_INFO("sound volume: %f", sndData->vol);
-
-		lvn::soundSetVolume(sndData->sound, sndData->vol);
-	}
-	if (e->keyCode == Lvn_KeyCode_K)
-	{
-		sndData->vol += 0.05f;
-		if (sndData->vol > 1.0f) sndData->vol = 1.0f;
-		LVN_INFO("sound volume: %f", sndData->vol);
-
-		lvn::soundSetVolume(sndData->sound, sndData->vol);
-
-	}
-	if (e->keyCode == Lvn_KeyCode_H)
-	{
-		sndData->pan -= 0.05f;
-		if (sndData->pan < -1.0f) sndData->pan = -1.0f;
-		LVN_INFO("sound pan: %f", sndData->pan);
-
-		lvn::soundSetPan(sndData->sound, sndData->pan);
-	}
-	if (e->keyCode == Lvn_KeyCode_L)
-	{
-		sndData->pan += 0.05f;
-		if (sndData->pan > 1.0f) sndData->pan = 1.0f;
-		LVN_INFO("sound pan: %f", sndData->pan);
-
-		lvn::soundSetPan(sndData->sound, sndData->pan);
-	}
-	if (e->keyCode == Lvn_KeyCode_U)
-	{
-		sndData->pitch -= 0.05f;
-		if (sndData->pitch < 0.0f) sndData->pitch = 0.0f;
-		LVN_INFO("sound pitch: %f", sndData->pitch);
-
-		lvn::soundSetPitch(sndData->sound, sndData->pitch);
-	}
-	if (e->keyCode == Lvn_KeyCode_I)
-	{
-		sndData->pitch += 0.05f;
-		LVN_INFO("sound pitch: %f", sndData->pitch);
-
-		lvn::soundSetPitch(sndData->sound, sndData->pitch);
-	}
-
 
 	return true;
 }
@@ -154,6 +98,63 @@ bool keyHold(LvnKeyHoldEvent* e, void* userData)
 bool keyTyped(LvnKeyTypedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: key: %c", e->name, e->key);
+
+	SoundData* sndData = (SoundData*)userData;
+
+	if (e->key == 'p')
+	{
+		lvn::soundSetPlayPause(sndData->sound);
+	}
+
+	if (e->key == 'j')
+	{
+		sndData->vol -= 0.05f;
+		if (sndData->vol < 0.0f) sndData->vol = 0.0f;
+		LVN_INFO("sound volume: %f", sndData->vol);
+
+		lvn::soundSetVolume(sndData->sound, sndData->vol);
+	}
+	if (e->key == 'k')
+	{
+		sndData->vol += 0.05f;
+		if (sndData->vol > 1.0f) sndData->vol = 1.0f;
+		LVN_INFO("sound volume: %f", sndData->vol);
+
+		lvn::soundSetVolume(sndData->sound, sndData->vol);
+
+	}
+	if (e->key == 'h')
+	{
+		sndData->pan -= 0.05f;
+		if (sndData->pan < -1.0f) sndData->pan = -1.0f;
+		LVN_INFO("sound pan: %f", sndData->pan);
+
+		lvn::soundSetPan(sndData->sound, sndData->pan);
+	}
+	if (e->key == 'l')
+	{
+		sndData->pan += 0.05f;
+		if (sndData->pan > 1.0f) sndData->pan = 1.0f;
+		LVN_INFO("sound pan: %f", sndData->pan);
+
+		lvn::soundSetPan(sndData->sound, sndData->pan);
+	}
+	if (e->key == 'u')
+	{
+		sndData->pitch -= 0.05f;
+		if (sndData->pitch < 0.0f) sndData->pitch = 0.0f;
+		LVN_INFO("sound pitch: %f", sndData->pitch);
+
+		lvn::soundSetPitch(sndData->sound, sndData->pitch);
+	}
+	if (e->key == 'i')
+	{
+		sndData->pitch += 0.05f;
+		LVN_INFO("sound pitch: %f", sndData->pitch);
+
+		lvn::soundSetPitch(sndData->sound, sndData->pitch);
+	}
+
 	return true;
 }
 
