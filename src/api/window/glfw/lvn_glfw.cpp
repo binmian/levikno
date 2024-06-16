@@ -132,7 +132,13 @@ namespace lvn
 		window->data.vSync = createInfo->vSync;
 		window->data.pIcons = createInfo->pIcons;
 		window->data.iconCount = createInfo->iconCount;
-		window->data.eventCallBackFn = glfwImplEventCallBackFn;
+
+		if (createInfo->eventCallBack == nullptr)
+			window->data.eventCallBackFn = glfwImplEventCallBackFn;
+		else
+			window->data.eventCallBackFn = createInfo->eventCallBack;
+
+		window->data.userData = createInfo->userData;
 
 		GLFWmonitor* fullScreen = nullptr;
 		if (window->data.fullscreen)
@@ -191,6 +197,7 @@ namespace lvn
 			event.handled = false;
 			event.data.x = width;
 			event.data.y = height;
+			event.userData = data->userData;
 
 			data->eventCallBackFn(&event);
 		});
@@ -208,6 +215,7 @@ namespace lvn
 			event.handled = false;
 			event.data.x = width;
 			event.data.y = height;
+			event.userData = data->userData;
 
 			data->eventCallBackFn(&event);
 
@@ -240,6 +248,7 @@ namespace lvn
 			event.handled = false;
 			event.data.x = x;
 			event.data.y = y;
+			event.userData = data->userData;
 
 			data->eventCallBackFn(&event);
 		});
@@ -253,6 +262,7 @@ namespace lvn
 				event.type = Lvn_EventType_WindowFocus;
 				event.category = Lvn_EventCategory_Window;
 				event.handled = false;
+				event.userData = data->userData;
 
 				data->eventCallBackFn(&event);
 			}
@@ -262,6 +272,7 @@ namespace lvn
 				event.type = Lvn_EventType_WindowLostFocus;
 				event.category = Lvn_EventCategory_Window;
 				event.handled = false;
+				event.userData = data->userData;
 
 				data->eventCallBackFn(&event);
 			}
@@ -274,6 +285,7 @@ namespace lvn
 			event.type = Lvn_EventType_WindowClose;
 			event.category = Lvn_EventCategory_Window;
 			event.handled = false;
+			event.userData = data->userData;
 
 			data->eventCallBackFn(&event);
 		});
@@ -292,6 +304,7 @@ namespace lvn
 					event.handled = false;
 					event.data.code = key;
 					event.data.repeat = false;
+					event.userData = data->userData;
 					data->eventCallBackFn(&event);
 					break;
 				}
@@ -303,6 +316,7 @@ namespace lvn
 					event.handled = false;
 					event.data.code = key;
 					event.data.repeat = false;
+					event.userData = data->userData;
 					data->eventCallBackFn(&event);
 					break;
 				}
@@ -314,6 +328,7 @@ namespace lvn
 					event.handled = false;
 					event.data.code = key;
 					event.data.repeat = true;
+					event.userData = data->userData;
 					data->eventCallBackFn(&event);
 					break;
 				}
@@ -328,6 +343,7 @@ namespace lvn
 			event.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
 			event.handled = false;
 			event.data.ucode = keycode;
+			event.userData = data->userData;
 			data->eventCallBackFn(&event);
 		});
 
@@ -344,6 +360,7 @@ namespace lvn
 					event.category = Lvn_EventCategory_Input | Lvn_EventCategory_Mouse | Lvn_EventCategory_MouseButton;
 					event.handled = false;
 					event.data.code = button;
+					event.userData = data->userData;
 					data->eventCallBackFn(&event);
 					break;
 				}
@@ -354,6 +371,7 @@ namespace lvn
 					event.category = Lvn_EventCategory_Input | Lvn_EventCategory_Mouse | Lvn_EventCategory_MouseButton;
 					event.handled = false;
 					event.data.code = button;
+					event.userData = data->userData;
 					data->eventCallBackFn(&event);
 					break;
 				}
@@ -370,6 +388,7 @@ namespace lvn
 			event.handled = false;
 			event.data.xd = xOffset;
 			event.data.yd = yOffset;
+			event.userData = data->userData;
 			data->eventCallBackFn(&event);
 		});
 
@@ -382,6 +401,7 @@ namespace lvn
 			event.handled = false;
 			event.data.xd = xPos;
 			event.data.yd = yPos;
+			event.userData = data->userData;
 			data->eventCallBackFn(&event);
 		});
 

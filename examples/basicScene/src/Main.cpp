@@ -51,55 +51,119 @@ public:
 	float elapsedms() { return elapsed() * 1000.0f; }
 };
 
-bool windowMoved(LvnWindowMovedEvent* e)
+struct SoundData
+{
+	LvnSound* sound;
+	float vol, pan, pitch;
+};
+
+bool windowMoved(LvnWindowMovedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
 	return true;
 }
 
-bool windowResize(LvnWindowResizeEvent* e)
+bool windowResize(LvnWindowResizeEvent* e, void* userData)
 {
 	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->width, e->height);
 	return true;
 }
 
-bool mousePos(LvnMouseMovedEvent* e)
+bool mousePos(LvnMouseMovedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
 	return true;
 }
 
-bool keyPress(LvnKeyPressedEvent* e)
+bool keyPress(LvnKeyPressedEvent* e, void* userData)
+{
+	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
+
+	SoundData* sndData = (SoundData*)userData;
+
+	if (e->keyCode == Lvn_KeyCode_P)
+	{
+		lvn::soundSetPlayPause(sndData->sound);
+	}
+
+	if (e->keyCode == Lvn_KeyCode_J)
+	{
+		sndData->vol -= 0.05f;
+		if (sndData->vol < 0.0f) sndData->vol = 0.0f;
+		LVN_INFO("sound volume: %f", sndData->vol);
+
+		lvn::soundSetVolume(sndData->sound, sndData->vol);
+	}
+	if (e->keyCode == Lvn_KeyCode_K)
+	{
+		sndData->vol += 0.05f;
+		if (sndData->vol > 1.0f) sndData->vol = 1.0f;
+		LVN_INFO("sound volume: %f", sndData->vol);
+
+		lvn::soundSetVolume(sndData->sound, sndData->vol);
+
+	}
+	if (e->keyCode == Lvn_KeyCode_H)
+	{
+		sndData->pan -= 0.05f;
+		if (sndData->pan < -1.0f) sndData->pan = -1.0f;
+		LVN_INFO("sound pan: %f", sndData->pan);
+
+		lvn::soundSetPan(sndData->sound, sndData->pan);
+	}
+	if (e->keyCode == Lvn_KeyCode_L)
+	{
+		sndData->pan += 0.05f;
+		if (sndData->pan > 1.0f) sndData->pan = 1.0f;
+		LVN_INFO("sound pan: %f", sndData->pan);
+
+		lvn::soundSetPan(sndData->sound, sndData->pan);
+	}
+	if (e->keyCode == Lvn_KeyCode_U)
+	{
+		sndData->pitch -= 0.05f;
+		if (sndData->pitch < 0.0f) sndData->pitch = 0.0f;
+		LVN_INFO("sound pitch: %f", sndData->pitch);
+
+		lvn::soundSetPitch(sndData->sound, sndData->pitch);
+	}
+	if (e->keyCode == Lvn_KeyCode_I)
+	{
+		sndData->pitch += 0.05f;
+		LVN_INFO("sound pitch: %f", sndData->pitch);
+
+		lvn::soundSetPitch(sndData->sound, sndData->pitch);
+	}
+
+
+	return true;
+}
+
+bool keyRelease(LvnKeyReleasedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
 	return true;
 }
 
-bool keyRelease(LvnKeyReleasedEvent* e)
-{
-	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
-	return true;
-}
-
-bool keyHold(LvnKeyHoldEvent* e)
+bool keyHold(LvnKeyHoldEvent* e, void* userData)
 {
 	LVN_TRACE("%s: code: %d (%d)", e->name, e->keyCode, e->repeat);
 	return true;
 }
 
-bool keyTyped(LvnKeyTypedEvent* e)
+bool keyTyped(LvnKeyTypedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: key: %c", e->name, e->key);
 	return true;
 }
 
-bool mousePress(LvnMouseButtonPressedEvent* e)
+bool mousePress(LvnMouseButtonPressedEvent* e, void* userData)
 {
 	LVN_TRACE("%s: button: %d", e->name, e->buttonCode);
 	return true;
 }
 
-bool mouseScroll(LvnMouseScrolledEvent* e)
+bool mouseScroll(LvnMouseScrolledEvent* e, void* userData)
 {
 	LVN_TRACE("%s: scroll: (x:%f, y:%f)", e->name, e->x, e->y);
 	return true;
@@ -216,6 +280,7 @@ LvnDescriptorBinding textureBinding(uint32_t binding, uint32_t maxAllocations)
 	return combinedImageDescriptorBinding;
 }
 
+
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
@@ -263,10 +328,11 @@ int main()
 	windowInfo.maxHeight = -1;
 	windowInfo.pIcons = nullptr;
 	windowInfo.iconCount = 0;
+	windowInfo.eventCallBack = eventsCallbackFn;
+	windowInfo.userData = nullptr;
 
 	LvnWindow* window;
 	lvn::createWindow(&window, &windowInfo);
-	lvn::windowSetEventCallback(window, eventsCallbackFn);
 
 
 	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ImageFormat_RGBA32F };
@@ -686,6 +752,10 @@ int main()
 
 	LvnSound* sound;
 	lvn::createSoundFromFile(&sound, &soundCreateInfo);
+
+	SoundData sndData = { .sound = sound, .vol = 1.0f, .pan = 0.0f, .pitch = 1.0f };
+	lvn::windowSetEventCallback(window, eventsCallbackFn, &sndData);
+
 
 	lvn::soundSetPlayStart(sound);
 

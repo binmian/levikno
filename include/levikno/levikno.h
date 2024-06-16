@@ -1049,22 +1049,22 @@ namespace lvn
 
 	/* [Events] */
 	// Use these function within the call back function of LvnWindow (if set)
-	LVN_API bool                        dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*));
-	LVN_API bool                        dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*));
-	LVN_API bool                        dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*));
-	LVN_API bool                        dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*));
-	LVN_API bool                        dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*));
-	LVN_API bool                        dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*));
-	LVN_API bool                        dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*));
-	LVN_API bool                        dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*));
-	LVN_API bool                        dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*));
-	LVN_API bool                        dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*));
-	LVN_API bool                        dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*));
-	LVN_API bool                        dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*));
-	LVN_API bool                        dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*));
-	LVN_API bool                        dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*));
-	LVN_API bool                        dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*));
-	LVN_API bool                        dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*));
+	LVN_API bool                        dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*, void*));
+	LVN_API bool                        dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*, void*));
+	LVN_API bool                        dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*, void*));
+	LVN_API bool                        dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*, void*));
+	LVN_API bool                        dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*, void*));
+	LVN_API bool                        dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*, void*));
+	LVN_API bool                        dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*, void*));
+	LVN_API bool                        dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*, void*));
+	LVN_API bool                        dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*, void*));
+	LVN_API bool                        dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*, void*));
+	LVN_API bool                        dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*, void*));
+	LVN_API bool                        dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*, void*));
+	LVN_API bool                        dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*, void*));
+	LVN_API bool                        dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*, void*));
+	LVN_API bool                        dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*, void*));
+	LVN_API bool                        dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*, void*));
 
 	/* [Window] */
 	LVN_API LvnWindowApi                getWindowApi();
@@ -1078,7 +1078,7 @@ namespace lvn
 	LVN_API LvnPair<int>                windowGetDimensions(LvnWindow* window);
 	LVN_API int                         windowGetWidth(LvnWindow* window);
 	LVN_API int                         windowGetHeight(LvnWindow* window);
-	LVN_API void                        windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*));
+	LVN_API void                        windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*), void* userData);
 	LVN_API void                        windowSetVSync(LvnWindow* window, bool enable);
 	LVN_API bool                        windowGetVSync(LvnWindow* window);
 	LVN_API void*                       windowGetNativeWindow(LvnWindow* window);
@@ -1562,6 +1562,9 @@ struct LvnWindowCreateInfo
 	LvnWindowIconData* pIcons;          // icon images used for window/app icon; pIcons can be stored in an array; pIcons will be ignored if set to null
 	uint32_t iconCount;                 // iconCount is the number of icons in pIcons; if using only one icon, set iconCount to 1; if using an array of icons, set to length of array
 
+	void (*eventCallBack)(LvnEvent*);   // set function ptr used as a callback to get events from this window
+	void* userData;                     // pass a ptr of a variable or struct to use and get data during window callbacks
+
 	LvnWindowCreateInfo()
 	{
 		width = 0;
@@ -1572,6 +1575,8 @@ struct LvnWindowCreateInfo
 		fullscreen = false, resizable = true, vSync = false;
 		pIcons = nullptr;
 		iconCount = 0;
+		eventCallBack = nullptr;
+		userData = nullptr;
 	}
 };
 

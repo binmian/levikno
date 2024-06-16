@@ -682,7 +682,7 @@ LvnResult logAddPattern(LvnLogPattern* logPattern)
 // [Window]
 
 /* [Events] */
-bool dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*))
+bool dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*, void*))
 {
 	if (event->type == Lvn_EventType_AppRender)
 	{
@@ -692,12 +692,12 @@ bool dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*))
 		eventType.name = "LvnAppRenderEvent";
 		eventType.handled = false;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*))
+bool dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*, void*))
 {
 	if (event->type == Lvn_EventType_AppTick)
 	{
@@ -707,12 +707,12 @@ bool dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*))
 		eventType.name = "LvnAppTickEvent";
 		eventType.handled = false;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*))
+bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*, void*))
 {
 	if (event->type == Lvn_EventType_KeyHold)
 	{
@@ -724,12 +724,12 @@ bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*))
 		eventType.keyCode = event->data.code;
 		eventType.repeat = event->data.repeat;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*))
+bool dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_KeyPressed)
 	{
@@ -740,12 +740,12 @@ bool dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*))
 		eventType.handled = false;
 		eventType.keyCode = event->data.code;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*))
+bool dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_KeyReleased)
 	{
@@ -756,12 +756,12 @@ bool dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*)
 		eventType.handled = false;
 		eventType.keyCode = event->data.code;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*))
+bool dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_KeyTyped)
 	{
@@ -772,12 +772,12 @@ bool dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*))
 		eventType.handled = false;
 		eventType.key = event->data.ucode;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*))
+bool dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_MouseButtonPressed)
 	{
@@ -788,12 +788,12 @@ bool dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButton
 		eventType.handled = false;
 		eventType.buttonCode = event->data.code;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*))
+bool dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_MouseButtonReleased)
 	{
@@ -804,12 +804,12 @@ bool dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButto
 		eventType.handled = false;
 		eventType.buttonCode = event->data.code;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*))
+bool dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_MouseMoved)
 	{
@@ -821,12 +821,12 @@ bool dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*))
 		eventType.x = event->data.xd;
 		eventType.y = event->data.yd;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*))
+bool dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*, void*))
 {
 	if (event->type == Lvn_EventType_MouseScrolled)
 	{
@@ -838,12 +838,12 @@ bool dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEve
 		eventType.x = static_cast<float>(event->data.xd);
 		eventType.y = static_cast<float>(event->data.yd);
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*))
+bool dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*, void*))
 {
 	if (event->type == Lvn_EventType_WindowClose)
 	{
@@ -853,12 +853,12 @@ bool dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*)
 		eventType.name = "LvnWindowCloseEvent";
 		eventType.handled = false;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*))
+bool dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*, void*))
 {
 	if (event->type == Lvn_EventType_WindowFocus)
 	{
@@ -868,12 +868,12 @@ bool dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*)
 		eventType.name = "LvnWindowFocusEvent";
 		eventType.handled = false;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*))
+bool dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*, void*))
 {
 	if (event->type == Lvn_EventType_WindowFramebufferResize)
 	{
@@ -885,12 +885,12 @@ bool dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindow
 		eventType.width = event->data.x;
 		eventType.height = event->data.y;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*))
+bool dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*, void*))
 {
 	if (event->type == Lvn_EventType_WindowLostFocus)
 	{
@@ -900,12 +900,12 @@ bool dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocu
 		eventType.name = "LvnWindowLostFocusEvent";
 		eventType.handled = false;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*))
+bool dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*, void*))
 {
 	if (event->type == Lvn_EventType_WindowMoved)
 	{
@@ -917,12 +917,12 @@ bool dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*)
 		eventType.x = event->data.x;
 		eventType.y = event->data.y;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
 }
-bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*))
+bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*, void*))
 {
 
 	if (event->type == Lvn_EventType_WindowResize)
@@ -935,7 +935,7 @@ bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent
 		eventType.width = event->data.x;
 		eventType.height = event->data.y;
 
-		return func(&eventType);
+		return func(&eventType, event->userData);
 	}
 
 	return false;
@@ -1082,9 +1082,10 @@ int windowGetHeight(LvnWindow* window)
 	return s_LvnContext->windowContext.getWindowHeight(window);
 }
 
-void windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*))
+void windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*), void* userData)
 {
 	window->data.eventCallBackFn = callback;
+	window->data.userData = userData;
 }
 
 void windowSetVSync(LvnWindow* window, bool enable)

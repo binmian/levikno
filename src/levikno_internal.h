@@ -117,6 +117,7 @@ struct LvnEvent
 	int category;
 	const char* name;
 	bool handled;
+	void* userData;
 
 	union data
 	{
@@ -155,6 +156,7 @@ struct LvnWindowData
 	LvnWindowIconData* pIcons;           // icon images used for window/app icon
 	uint32_t iconCount;                  // iconCount is the number of icons in pIcons
 	void (*eventCallBackFn)(LvnEvent*);  // function ptr used as a callback to get events from this window
+	void* userData;
 };
 
 struct LvnRenderPass
