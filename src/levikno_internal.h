@@ -223,6 +223,7 @@ struct LvnGraphicsContext
 	LvnGraphicsApi              graphicsapi;
 
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
+	LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
 	LvnResult                   (*renderInit)(LvnRenderInitInfo*);
 
 	LvnResult                   (*createShaderFromSrc)(LvnShader*, LvnShaderCreateInfo*);

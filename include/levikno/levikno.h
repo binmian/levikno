@@ -1110,6 +1110,7 @@ namespace lvn
 	LVN_API const char*                 getGraphicsApiName();
 	LVN_API void                        getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCount);
 	LVN_API LvnPhysicalDeviceInfo       getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
+	LVN_API LvnResult                   checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult                   renderInit(LvnRenderInitInfo* renderInfo);
 
 	LVN_API void                        renderClearColor(LvnWindow* window, float r, float g, float b, float a);

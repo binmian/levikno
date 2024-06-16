@@ -1330,6 +1330,11 @@ LvnPhysicalDeviceInfo getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice)
 	return physicalDevice->info;
 }
 
+LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
+{
+	return s_LvnContext->graphicsContext.checkPhysicalDeviceSupport(physicalDevice);
+}
+
 LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 {
 	return s_LvnContext->graphicsContext.renderInit(renderInfo);

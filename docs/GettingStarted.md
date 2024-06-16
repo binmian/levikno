@@ -1,4 +1,5 @@
 
+
 # Levikno Guide
 The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document is a tutorial on how to use and integrate Levikno to your project. Before beginning this guide, it is advised that you have prior experience in understanding C++ and how graphics APIs work such as [Vulkan](https://vulkan-tutorial.com/Introduction) and [OpenGL](https://learnopengl.com/Introduction). I will not be going too in depth with how graphics APIs work so it is expected that you know the general terminology for the graphics APIs presented in this tutorial.
 
@@ -141,11 +142,21 @@ Note that the driver and api version in the info struct directly corresponds to 
 
 After a suitable physical device has been found, attach it to the ```LvnRenderInitInfo``` struct and call the render init function to initialize rendering:
 ```
-LvnRenderInitInfo renderInfo{};
-renderInfo.physicalDevice = devices[0];
-lvn::renderInit(&renderInfo);
+	LvnRenderInitInfo renderInfo{};
+
+	// find and check if physical device is supported
+	for (uint32_t i = 0; i < deviceCount; i++)
+	{
+		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
+		{
+			renderInfo.physicalDevice = devices[i];
+			break;
+		}
+	}
+
+	lvn::renderInit(&renderInfo);
 ```
-I have just chosen the first physical device listed in the vector. Note that if a physical device is not suitable or a requirement is missing from the physical device such as an extension or feature, Levikno will return failure. 
+Levikno has the function ```checkPhysicalDeviceSupport``` to check if a physical device is supported by checking if the device has the required extensions. In the example above, we iterate through the list of physical devices until a physical device is found that is supported. Note that if a physical device is not suitable or a requirement is missing from the physical device such as an extension or feature, Levikno will return on failure. 
 
 ### Creating Window
 Like creating any other object, we first declare the create info struct:

@@ -2128,6 +2128,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	vkBackends->enableValidationLayers = enableValidation;
 
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
+	graphicsContext->checkPhysicalDeviceSupport = vksImplCheckPhysicalDeviceSupport;
 	graphicsContext->renderInit = vksImplRenderInit;
 	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromSrc;
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
@@ -2258,6 +2259,45 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
 
 	*pPhysicalDevices = vkBackends->lvnPhysicalDevices.data();
 
+}
+
+LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+	VkPhysicalDevice vkDevice = static_cast<VkPhysicalDevice>(physicalDevice->device);
+
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+	VkSurfaceKHR surface;
+	GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+
+	if (glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] check physical device support, failed to create temporary window surface at (%p) when checking physical device support", surface);
+		return Lvn_Result_Failure;
+	}
+
+
+	VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(vkDevice, surface);
+
+	// Check queue families
+	if (!queueIndices.has_graphics || !queueIndices.has_present)
+	{
+		LVN_CORE_ERROR("[vulkan] check physical device support, physical device does not support queue families needed");
+		return Lvn_Result_Failure;
+	}
+
+	// Check device extension support
+	if (!vks::checkDeviceExtensionSupport(vkDevice))
+	{
+		LVN_CORE_ERROR("[vulkan] check physical device support, physical device does not support required extensions");
+		return Lvn_Result_Failure;
+	}
+
+	vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
+	glfwDestroyWindow(glfwWindow);
+	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+
+	return Lvn_Result_Success;
 }
 
 LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)

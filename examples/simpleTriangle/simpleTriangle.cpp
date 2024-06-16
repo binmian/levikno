@@ -78,7 +78,16 @@ int main(int argc, char** argv)
 
 	// initialize rendering, pass the physical device in the init struct
 	LvnRenderInitInfo renderInfo{};
-	renderInfo.physicalDevice = devices[0];
+
+	// find and check if physical device is supported
+	for (uint32_t i = 0; i < deviceCount; i++)
+	{
+		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
+		{
+			renderInfo.physicalDevice = devices[i];
+			break;
+		}
+	}
 
 	lvn::renderInit(&renderInfo);
 

@@ -306,14 +306,26 @@ int main()
 	devices.resize(deviceCount);
 	lvn::getPhysicalDevices(devices.data(), &deviceCount);
 
+	LvnPhysicalDevice* selectedPhysicalDevice = nullptr;
+
 	for (uint32_t i = 0; i < deviceCount; i++)
 	{
 		LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
-		LVN_TRACE("name: %s, version: %d", deviceInfo.name, deviceInfo.driverVersion);
+		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
+		{
+			selectedPhysicalDevice = devices[i];
+			break;
+		}
+	}
+
+	if (selectedPhysicalDevice == nullptr)
+	{
+		LVN_TRACE("no physical device supported");
+		return -1;
 	}
 
 	LvnRenderInitInfo renderInfo{};
-	renderInfo.physicalDevice = devices[0];
+	renderInfo.physicalDevice = selectedPhysicalDevice;
 	lvn::renderInit(&renderInfo);
 
 
