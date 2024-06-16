@@ -433,7 +433,7 @@ int main()
 	LvnDescriptorSet* descriptorSet;
 	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
 
-	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
+	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 	pipelineSpec.depthstencil.enableDepth = true;
 	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_Less;
 	// pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;

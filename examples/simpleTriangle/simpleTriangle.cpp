@@ -85,9 +85,9 @@ int main(int argc, char** argv)
 
 	// window create info struct
 	LvnWindowCreateInfo windowInfo{};
+	windowInfo.title = "simpleTriangle";
 	windowInfo.width = 800;
 	windowInfo.height = 600;
-	windowInfo.title = "simpleTriangle";
 	windowInfo.minWidth = 300;
 	windowInfo.minHeight = 200;
 
@@ -142,7 +142,7 @@ int main(int argc, char** argv)
 	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
 
 	// create pipeline specification or fixed functions
-	LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
+	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};

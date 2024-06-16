@@ -1084,6 +1084,7 @@ namespace lvn
 	LVN_API void*                       windowGetNativeWindow(LvnWindow* window);
 	LVN_API LvnRenderPass*              windowGetRenderPass(LvnWindow* window);
 	LVN_API void                        windowSetContextCurrent(LvnWindow* window);
+	LVN_API LvnWindowCreateInfo         windowCreateInfoGetConfig(int width, int height, const char* title);
 
 	/* [Input] */
 	LVN_API bool                        keyPressed(LvnWindow* window, int keycode);
@@ -1154,8 +1155,8 @@ namespace lvn
 	LVN_API void                        destroyTexture(LvnTexture* texture);                                                                              // destroy texture object
 	LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                              // destroy cubemap object
 
-	LVN_API void                        setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
-	LVN_API LvnPipelineSpecification    getDefaultPipelineSpecification();
+	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
+	LVN_API LvnPipelineSpecification    pipelineSpecificationGetConfig();
 
 	LVN_API const LvnTexture*           cubemapGetTextureData(LvnCubemap* cubemap);                                                                       // get the cubemap texture from the cubemap
 
@@ -1170,7 +1171,7 @@ namespace lvn
 	LVN_API LvnBuffer*                  meshGetBuffer(LvnMesh* mesh);
 	LVN_API LvnMat4                     meshGetMatrix(LvnMesh* mesh);
 	LVN_API void                        meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix);
-	LVN_API LvnBufferCreateInfo         meshCreateDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
+	LVN_API LvnBufferCreateInfo         meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
 

@@ -392,12 +392,12 @@ In most cases we don't need to change any of these parameters after the pipeline
 
 Create a ```LvnPipelineSpecification``` struct and a ```LvnPipelineCreateInfo``` struct:
 ```
-LvnPipelineSpecification pipelineSpec = lvn::getDefaultPipelineSpecification();
+LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 
 LvnPipelineCreateInfo pipelineCreateInfo{};
 pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
 ```
-```lvn::getDefaultPipelineSpecification()``` returns a initialized ```LvnPipelineSpecification``` struct with all of its default parameters set for rendering.
+```lvn::pipelineSpecificationGetConfig()``` returns a initialized ```LvnPipelineSpecification``` struct with all of its default parameters set for rendering.
 
 #### Vertex Attributes and Binding Description
 Next are the ```pVertexBindingDescriptions``` and ```pVertexAttributes```, recall from the [Creating Buffers](#creating-buffers) section where the vertex attributes and binding descriptions are needed to create the buffer. The same parameters are needed for creating the pipeline in order for the pipeline to know how the vertex data is laid out when it is used for rendering. If you have defined the vertex attributes and binding descriptions from the previous section, simply assign them again to the pipeline create info struct:

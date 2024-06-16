@@ -1113,6 +1113,16 @@ void windowSetContextCurrent(LvnWindow* window)
 	s_LvnContext->windowContext.setWindowContextCurrent(window);
 }
 
+LvnWindowCreateInfo windowCreateInfoGetConfig(int width, int height, const char* title)
+{
+	LvnWindowCreateInfo windowCreateInfo{};
+	windowCreateInfo.width = width;
+	windowCreateInfo.height = height;
+	windowCreateInfo.title = title;
+
+	 return windowCreateInfo;
+}
+
 // [Input]
 bool keyPressed(LvnWindow* window, int keycode)
 {
@@ -1745,12 +1755,12 @@ void destroyMesh(LvnMesh* mesh)
 	lvn::destroyBuffer(mesh->buffer);
 }
 
-void setDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
+void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification)
 {
 	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
 }
 
-LvnPipelineSpecification getDefaultPipelineSpecification()
+LvnPipelineSpecification pipelineSpecificationGetConfig()
 {
 	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
 }
@@ -1805,7 +1815,7 @@ void meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix)
 	mesh->modelMatrix = matrix;
 }
 
-LvnBufferCreateInfo meshCreateDefaultVertexBufferCreateInfo(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
+LvnBufferCreateInfo meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
 {
 	LvnVertexBindingDescription meshVertexBindingDescroption{};
 	meshVertexBindingDescroption.stride = sizeof(LvnVertex);

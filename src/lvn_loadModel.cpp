@@ -202,7 +202,7 @@ namespace gltfs
 
 			LvnMeshCreateInfo meshCreateInfo{};
 
-			LvnBufferCreateInfo meshBufferInfo = lvn::meshCreateDefaultVertexBufferCreateInfo(vertices.data(), vertices.size(), indices.data(), indices.size());
+			LvnBufferCreateInfo meshBufferInfo = lvn::meshGetVertexBufferCreateInfoConfig(vertices.data(), vertices.size(), indices.data(), indices.size());
 			meshCreateInfo.bufferInfo = &meshBufferInfo;
 			meshCreateInfo.material = material;
 
