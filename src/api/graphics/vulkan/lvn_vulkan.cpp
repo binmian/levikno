@@ -1,8 +1,4 @@
 #include "lvn_vulkan.h"
-#include "glslang/Include/glslang_c_shader_types.h"
-#include "levikno.h"
-#include "vulkan/vulkan_core.h"
-#include <cstdint>
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -2174,6 +2170,10 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 
 	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
 	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
+	graphicsContext->bufferUpdateVertexData = vksImplBufferUpdateVertexData;
+	graphicsContext->bufferUpdateIndexData = vksImplBufferUpdateIndexData;
+	graphicsContext->bufferResizeVertexBuffer = vksImplBufferResizeVertexBuffer;
+	graphicsContext->bufferResizeIndexBuffer = vksImplBufferResizeIndexBuffer;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 	graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
 	graphicsContext->getFrameBufferImage = vksImplGetFrameBufferImage;
@@ -2571,18 +2571,18 @@ void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
+	VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
 	VkDeviceSize offsets[] = {0};
 
-	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &vkBuffer, offsets);
+	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &vertexBuffer, offsets);
 }
 
 void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
+	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
 
-	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], vkBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], indexBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
 }
 
 void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
@@ -3062,47 +3062,97 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo) // TODO: create buffers for static and dynamic data
+LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
+	buffer->type = createInfo->type;
+	buffer->vertexBufferSize = createInfo->vertexBufferSize;
+	buffer->indexBufferSize = createInfo->indexBufferSize;
 
-	VkBuffer stagingBuffer;
-	VmaAllocation stagingMemory;
+	bool dynamicVertex = false, dynamicIndex = false;
 
-	vks::createBuffer(vkBackends, &stagingBuffer, &stagingMemory, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+	if (createInfo->type & Lvn_BufferType_DynamicVertex)
+		dynamicVertex = true;
+	if (createInfo->type & Lvn_BufferType_DynamicIndex)
+		dynamicIndex = true;
 
-	void* data;
-	vmaMapMemory(vkBackends->vmaAllocator, stagingMemory, &data);
-
-	if (createInfo->pVertices)
+	if (dynamicVertex || dynamicIndex)
 	{
-		memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
+		VkBuffer vertexBuffer;
+		VmaAllocation vertexMemory;
+
+		VkBuffer indexBuffer;
+		VmaAllocation indexMemory;
+
+		// create the main buffer with cpu memory usage
+		vks::createBuffer(vkBackends, &vertexBuffer, &vertexMemory, createInfo->vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+		vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, createInfo->indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+		if (createInfo->pVertices)
+		{
+			void* data;
+			vmaMapMemory(vkBackends->vmaAllocator, vertexMemory, &data);
+			memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
+			vmaUnmapMemory(vkBackends->vmaAllocator, vertexMemory);
+		}
+		if (createInfo->pIndices)
+		{
+			void* data;
+			vmaMapMemory(vkBackends->vmaAllocator, indexMemory, &data);
+			memcpy(data, createInfo->pIndices, createInfo->indexBufferSize);
+			vmaUnmapMemory(vkBackends->vmaAllocator, indexMemory);
+		}
+
+		// copy data to buffer object
+		buffer->vertexBuffer = vertexBuffer;
+		buffer->vertexBufferMemory = vertexMemory;
+		buffer->indexBuffer = indexBuffer;
+		buffer->indexBufferMemory = indexMemory;
+		buffer->indexOffset = 0;
 	}
-	if (createInfo->pIndices)
+	else
 	{
-		memcpy((char*)data + createInfo->vertexBufferSize, createInfo->pIndices, createInfo->indexBufferSize);
+		VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
+
+		VkBuffer stagingBuffer;
+		VmaAllocation stagingMemory;
+
+		VkBuffer vkBuffer;
+		VmaAllocation bufferMemory;
+
+		// create staging buffer to pass vertex data into
+		vks::createBuffer(vkBackends, &stagingBuffer, &stagingMemory, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+		void* data;
+		vmaMapMemory(vkBackends->vmaAllocator, stagingMemory, &data);
+
+		if (createInfo->pVertices)
+		{
+			memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
+		}
+		if (createInfo->pIndices)
+		{
+			memcpy((char*)data + createInfo->vertexBufferSize, createInfo->pIndices, createInfo->indexBufferSize);
+		}
+
+		vmaUnmapMemory(vkBackends->vmaAllocator, stagingMemory);
+
+		// create the main buffer to be used
+		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, bufferUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+		vks::copyBuffer(vkBackends, stagingBuffer, vkBuffer, bufferSize, 0, 0);
+
+		vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, stagingMemory);
+
+		// copy data to buffer object
+		buffer->vertexBuffer = vkBuffer;
+		buffer->vertexBufferMemory = bufferMemory;
+		buffer->indexBuffer = vkBuffer;
+		buffer->indexBufferMemory = bufferMemory;
+		buffer->indexOffset = createInfo->vertexBufferSize;
 	}
-
-	vmaUnmapMemory(vkBackends->vmaAllocator, stagingMemory);
-
-	VkBuffer vkBuffer;
-	VmaAllocation bufferMemory;
-	VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-	vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, bufferUsage, VMA_MEMORY_USAGE_GPU_ONLY);
-
-	vks::copyBuffer(vkBackends, stagingBuffer, vkBuffer, bufferSize, 0, 0);
-
-	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
-	vmaFreeMemory(vkBackends->vmaAllocator, stagingMemory);
-
-	buffer->vertexBuffer = vkBuffer;
-	buffer->vertexBufferMemory = bufferMemory;
-	buffer->indexBuffer = vkBuffer;
-	buffer->indexBufferMemory = bufferMemory;
-	buffer->indexOffset = createInfo->vertexBufferSize;
 
 
 	return Lvn_Result_Success;
@@ -3457,12 +3507,28 @@ void vksImplDestroyBuffer(LvnBuffer* buffer)
 	VulkanBackends* vkBackends = s_VkBackends;
 	vkDeviceWaitIdle(vkBackends->device);
 
-	// TODO: delete logic for dynamic buffers
-	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
-	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+	bool dynamic = buffer->type & (Lvn_BufferType_DynamicVertex | Lvn_BufferType_DynamicIndex);
 
-	vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
-	vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
+	if (dynamic)
+	{
+		VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
+		VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+		VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
+		VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
+
+		vkDestroyBuffer(vkBackends->device, vertexBuffer, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, vertexMemory);
+		vkDestroyBuffer(vkBackends->device, indexBuffer, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, indexMemory);
+	}
+	else
+	{
+		VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
+		VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+
+		vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
+		vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
+	}
 }
 
 void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
@@ -3522,6 +3588,89 @@ void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSp
 LvnPipelineSpecification vksImplGetDefaultPipelineSpecification()
 {
 	return s_VkBackends->defaultPipelineSpecification;
+}
+
+void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
+{
+	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[vulkan] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
+
+	VulkanBackends* vkBackends = s_VkBackends;
+	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
+
+	VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
+	VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+
+	void* data;
+	vmaMapMemory(vmaAllocator, vertexMemory, &data);
+	memcpy((char*)data + offset, vertices, size);
+	vmaUnmapMemory(vmaAllocator, vertexMemory);
+}
+
+void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
+{
+	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[vulkan] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
+
+	VulkanBackends* vkBackends = s_VkBackends;
+	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
+
+	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
+	VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
+
+	void* data = nullptr;
+	void* bufferData = nullptr;
+	uint32_t oldSize = 0;
+
+	if (buffer->indexBufferSize < size)
+	{
+		vmaMapMemory(vmaAllocator, indexMemory, &data);
+		memcpy(bufferData, data, buffer->indexBufferSize);
+		vmaUnmapMemory(vmaAllocator, indexMemory);
+
+		vkDestroyBuffer(vkBackends->device, indexBuffer, nullptr);
+		vmaFreeMemory(vmaAllocator, indexMemory);
+		vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+		oldSize = buffer->indexBufferSize;
+		buffer->indexBufferSize = size;
+	}
+
+	vmaMapMemory(vmaAllocator, indexMemory, &data);
+	memcpy(data, bufferData, oldSize);
+	memcpy((char*)data + offset, indices, size);
+	vmaUnmapMemory(vmaAllocator, indexMemory);
+
+}
+
+void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
+{
+	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[vulkan] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
+
+	VulkanBackends* vkBackends = s_VkBackends;
+	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
+
+	VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
+	VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+
+	vkDestroyBuffer(vkBackends->device, vertexBuffer, nullptr);
+	vmaFreeMemory(vmaAllocator, vertexMemory);
+
+	vks::createBuffer(vkBackends, &vertexBuffer, &vertexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+}
+
+void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
+{
+	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[vulkan] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
+
+	VulkanBackends* vkBackends = s_VkBackends;
+	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
+
+	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
+	VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
+
+	vkDestroyBuffer(vkBackends->device, indexBuffer, nullptr);
+	vmaFreeMemory(vmaAllocator, indexMemory);
+
+	vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 }
 
 void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)

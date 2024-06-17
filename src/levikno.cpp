@@ -1770,6 +1770,26 @@ LvnPipelineSpecification pipelineSpecificationGetConfig()
 	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
 }
 
+void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
+{
+	s_LvnContext->graphicsContext.bufferUpdateVertexData(buffer, vertices, size, offset);
+}
+
+void bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
+{
+	s_LvnContext->graphicsContext.bufferUpdateVertexData(buffer, indices, size, offset);
+}
+
+void bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
+{
+	s_LvnContext->graphicsContext.bufferResizeVertexBuffer(buffer, size);
+}
+
+void bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
+{
+	s_LvnContext->graphicsContext.bufferResizeIndexBuffer(buffer, size);
+}
+
 const LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 {
 	return &cubemap->textureData;

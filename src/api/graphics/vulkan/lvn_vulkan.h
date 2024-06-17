@@ -55,6 +55,10 @@ namespace lvn
 
 	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
 	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
+	void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset);
+	void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset);
+	void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size);
+	void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size);
 	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 	void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
 	LvnTexture* vksImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex);

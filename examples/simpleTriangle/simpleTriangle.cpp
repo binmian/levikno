@@ -6,7 +6,7 @@
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
 
-float s_Vertices[] = 
+static float s_Vertices[] = 
 {
 /*      Pos (x,y,z)   |   color (r,g,b)   */
 	 0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
@@ -14,7 +14,7 @@ float s_Vertices[] =
 	-0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
 };
 
-uint32_t s_Indices[] = 
+static uint32_t s_Indices[] = 
 {
 	0, 1, 2
 };

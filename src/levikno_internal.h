@@ -270,6 +270,10 @@ struct LvnGraphicsContext
 
 	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
 	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
+	void                        (*bufferUpdateVertexData)(LvnBuffer*, void*, uint32_t, uint32_t);
+	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint32_t, uint32_t);
+	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint32_t);
+	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint32_t);
 	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
 	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
 	LvnTexture*                 (*getFrameBufferImage)(LvnFrameBuffer*, uint32_t);
@@ -312,6 +316,11 @@ struct LvnPipeline
 
 struct LvnBuffer
 {
+	uint32_t type;
+
+	uint32_t vertexBufferSize;
+	uint32_t indexBufferSize;
+
 	void* vertexBuffer;
 	void* vertexBufferMemory;
 	void* indexBuffer;

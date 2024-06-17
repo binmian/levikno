@@ -2,6 +2,7 @@
 #define HG_LEVIKNO_H
 
 // Platform
+#include <cstdint>
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__) 
 	#ifndef LVN_PLATFORM_WINDOWS
 		#define LVN_PLATFORM_WINDOWS
@@ -1158,6 +1159,11 @@ namespace lvn
 
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    pipelineSpecificationGetConfig();
+
+	LVN_API void                        bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset);
+	LVN_API void                        bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset);
+	LVN_API void                        bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size);
+	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size);
 
 	LVN_API const LvnTexture*           cubemapGetTextureData(LvnCubemap* cubemap);                                                                       // get the cubemap texture from the cubemap
 
