@@ -684,12 +684,9 @@ struct LvnDescriptorLayout;
 struct LvnDescriptorLayoutCreateInfo;
 struct LvnDescriptorSet;
 struct LvnDescriptorUpdateInfo;
-struct LvnDrawCommand;
-struct LvnDrawList;
 struct LvnEvent;
 struct LvnFont;
 struct LvnFontGlyph;
-struct LvnFontMetrics;
 struct LvnFrameBuffer;
 struct LvnFrameBufferColorAttachment;
 struct LvnFrameBufferCreateInfo;
@@ -753,8 +750,6 @@ struct LvnWindowLostFocusEvent;
 struct LvnWindowMovedEvent;
 struct LvnWindowResizeEvent;
 
-
-class LvnTimer;
 
 template<typename T>
 class LvnData;
@@ -980,8 +975,10 @@ namespace lvn
 	LVN_API std::string             dateGetSecondNumStr();                              // get the current second as a string
 
 
-	LVN_API std::string             loadFileSrc(const char* filepath);                  // get the src contents from a text file format, filepath must be a valid path to a text file
-	LVN_API LvnData<uint8_t>        loadFileSrcBin(const char* filepath);               // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
+	LVN_API std::string             loadFileSrc(const char* filepath);                                     // get the src contents from a text file format, filepath must be a valid path to a text file
+	LVN_API LvnData<uint8_t>        loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
+
+	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, float fontSize, LvnCharset charset);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
 
 
 	LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
@@ -1165,6 +1162,8 @@ namespace lvn
 	LVN_API void                        bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size);
 	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size);
 
+	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
+
 	LVN_API const LvnTexture*           cubemapGetTextureData(LvnCubemap* cubemap);                                                                       // get the cubemap texture from the cubemap
 
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);                   // update the data stored in a uniform or storage buffer
@@ -1182,28 +1181,25 @@ namespace lvn
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
 
-	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
-	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                                                       // destroy mesh object
+	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
+	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                       // destroy mesh object
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        freeModel(LvnModel* model);
 
-	LVN_API LvnCamera                   createCamera(LvnCameraCreateInfo* createInfo);
-	LVN_API void                        cameraUpdateMatrix(LvnCamera* camera);
-	LVN_API void                        cameraSetFov(LvnCamera* camera, float fovDeg);
-	LVN_API void                        cameraSetPlane(LvnCamera* camera, float nearPlane, float farPlane);
-	LVN_API void                        cameraSetPos(LvnCamera* camera, const LvnVec3& position);
-	LVN_API void                        cameraSetOrient(LvnCamera* camera, const LvnVec3& orientation);
-	LVN_API void                        cameraSetUpVec(LvnCamera* camera, const LvnVec3& upVector);
-	LVN_API float                       cameraGetFov(LvnCamera* camera);
-	LVN_API float                       cameraGetNearPlane(LvnCamera* camera);
-	LVN_API float                       cameraGetFarPlane(LvnCamera* camera);
-	LVN_API LvnVec3                     cameraGetPos(LvnCamera* camera);
-	LVN_API LvnVec3                     cameraGetOrient(LvnCamera* camera);
-	LVN_API LvnVec3                     cameraGetUpVec(LvnCamera* camera);
-
-	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
-
+	LVN_API LvnCamera                   cameraConfigInit(LvnCameraCreateInfo* createInfo);                                // initialize the config of the camera struct given the create info parameters
+	LVN_API void                        cameraUpdateMatrix(LvnCamera* camera);                                            // updates the camera matrix given the camera position, orientation, aspect ratio, fov, near plane, and far plane are set, note that it will also update the projection and view matrix 
+	LVN_API void                        cameraSetFov(LvnCamera* camera, float fovDeg);                                    // set the fov of the camera in degrees
+	LVN_API void                        cameraSetPlane(LvnCamera* camera, float nearPlane, float farPlane);               // set the near and far plane of the camera
+	LVN_API void                        cameraSetPos(LvnCamera* camera, const LvnVec3& position);                         // set the position of the camera in coord space
+	LVN_API void                        cameraSetOrient(LvnCamera* camera, const LvnVec3& orientation);                   // set the orientation of the camera
+	LVN_API void                        cameraSetUpVec(LvnCamera* camera, const LvnVec3& upVector);                       // set the up vector of the camera
+	LVN_API float                       cameraGetFov(LvnCamera* camera);                                                  // get the fov of the camera in degrees
+	LVN_API float                       cameraGetNearPlane(LvnCamera* camera);                                            // get the near plane of the camera
+	LVN_API float                       cameraGetFarPlane(LvnCamera* camera);                                             // get the far plane of the camera
+	LVN_API LvnVec3                     cameraGetPos(LvnCamera* camera);                                                  // get the position of the camera in coord space
+	LVN_API LvnVec3                     cameraGetOrient(LvnCamera* camera);                                               // get the orientation of the camera
+	LVN_API LvnVec3                     cameraGetUpVec(LvnCamera* camera);                                                // get the up vector of the camera
 
 	/* [Audio] */
 	LVN_API LvnResult                   createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo);
@@ -1658,6 +1654,7 @@ struct LvnPair
 	union { T p1, x, width; };
 	union { T p2, y, height; };
 };
+
 
 // ---------------------------------------------
 // [SECTION]: Vectors & Matrices
@@ -4233,6 +4230,35 @@ struct LvnCubemapCreateInfo
 	LvnImageData posx, negx, posy, negy, posz, negz;
 };
 
+struct LvnFontGlyph
+{
+	struct
+	{
+		float x0, y0, x1, y1;
+	} uv;
+
+	struct
+	{
+		float x, y;
+	} size, bearing;
+
+	int8_t unicode;
+	int advance;
+};
+
+struct LvnCharset
+{
+	int8_t first, last;        // first and last codepoints to iterate through when loading glyph data, the codepoints relate to ASCII digits
+};
+
+struct LvnFont
+{
+	LvnImageData atlas;
+	float fontSize;
+
+	LvnCharset codepoints;
+	LvnData<LvnFontGlyph> glyphs;
+};
 
 struct LvnSoundCreateInfo
 {

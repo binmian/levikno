@@ -1,10 +1,15 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
+#include <cmath>
+#include <cstdint>
 #include <stdarg.h>
 #include <time.h>
 
 #include "stb_image.h"
+#include "stb_truetype.h"
+#include "stb_image_write.h"
+
 #include "miniaudio.h"
 
 #ifdef LVN_PLATFORM_WINDOWS
@@ -88,7 +93,7 @@ static const char* getLogLevelName(LvnLogLevel level)
 }
 
 
-/* [API] */
+/* [SECTION]: Core */
 LvnResult createContext(LvnContextCreateInfo* createInfo)
 {
 	if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
@@ -340,9 +345,111 @@ LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 	return LvnData<uint8_t>(bin.data(), bin.size());
 }
 
+LvnFont loadFontFromFileTTF(const char* filepath, float fontSize, LvnCharset charset)
+{
+	LvnFont font{};
+
+	LvnData<uint8_t> fontData = lvn::loadFileSrcBin(filepath);
+	LvnVector<uint8_t> fontBuffer(fontData.data(), fontData.size());
+
+	/* prepare font */
+	stbtt_fontinfo info;
+	if (!stbtt_InitFont(&info, fontBuffer.data(), 0))
+	{
+		LVN_CORE_ERROR("failed to load ttf font from file: %s", filepath);
+		return font;
+	}
+
+	/* calculate font scaling */
+	float scale = stbtt_ScaleForPixelHeight(&info, fontSize);
+
+	int width = 0;   // bitmap width
+	int height = fontSize; // bitmap height
+
+	for (int8_t i = charset.first; i <= charset.last; i++)
+	{
+		int advance, lsb;
+		stbtt_GetCodepointHMetrics(&info, i, &advance, &lsb);
+
+		width += roundf(scale * advance);
+	}
+
+	LvnVector<uint8_t> bitmap(width * height * sizeof(uint8_t));
+
+	int x = 0;
+	int ascent, descent, lineGap;
+	stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
+	
+	ascent = roundf(ascent * scale);
+	descent = roundf(descent * scale);
+
+	font.fontSize = fontSize;
+	font.codepoints = charset;
+
+	LvnVector<LvnFontGlyph> glyphs(charset.last - charset.first + 1);
+
+	uint8_t firstChar = charset.first;
+
+	for (uint8_t i = charset.first; i <= charset.last; i++)
+	{
+		int x0 = x;
+
+		int advance, lsb;
+		stbtt_GetCodepointHMetrics(&info, i, &advance, &lsb);
+		advance = roundf(advance * scale);
+		lsb = roundf(lsb * scale);
+
+		// get bounding box for character (may be offset to account for chars that dip above or below the line)
+		int c_x1, c_y1, c_x2, c_y2;
+		stbtt_GetCodepointBitmapBox(&info, i, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
+		
+		// compute y (different characters have different heights)
+		int y = ascent + c_y1;
+		
+		// render character (stride and offset is important here)
+		int byteOffset = x + lsb + (y * width);
+		stbtt_MakeCodepointBitmap(&info, bitmap.data() + byteOffset, c_x2 - c_x1, c_y2 - c_y1, width, scale, scale, i);
+
+		// advance x
+		x += advance;
+
+		LvnFontGlyph glyph{};
+		glyph.unicode = i;
+		glyph.advance = advance;
+		glyph.size.x = c_x2 - c_x1;
+		glyph.size.x = c_y2 - c_y1;
+		glyph.bearing.x = lsb;
+		glyph.bearing.y = y;
+		glyph.uv.x0 = (float)x0 / (float)width;
+		glyph.uv.x1 = (float)x / (float)width;
+		glyph.uv.y0 = 0.0f;
+		glyph.uv.y1 = 1.0f;
+
+		glyphs[i - firstChar] = glyph;
+	}
+	
+	/* save out a 1 channel image */
+	stbi_write_png("out.png", width, height, 1, bitmap.data(), width);
+	
+	font.glyphs = LvnData<LvnFontGlyph>(glyphs.data(), glyphs.size());
+
+	LvnImageData atlas{};
+	atlas.width = width;
+	atlas.height = height;
+	atlas.channels = 1;
+	atlas.size = width * height;
+	atlas.pixels = LvnData<uint8_t>(bitmap.data(), bitmap.size());
+
+	font.atlas = atlas;
+
+	return font;
+}
+
+
+
 void* memAlloc(size_t size)
 {
-	void* allocmem = malloc(size);
+	void* allocmem = calloc(1, size);
 	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
 	if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
 	return allocmem;
@@ -679,9 +786,7 @@ LvnResult logAddPattern(LvnLogPattern* logPattern)
 	return Lvn_Result_Success;
 }
 
-// [Window]
-
-/* [Events] */
+// [SECTION]: Events
 bool dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*, void*))
 {
 	if (event->type == Lvn_EventType_AppRender)
@@ -942,7 +1047,7 @@ bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent
 }
 
 
-/* [Window] */
+// [SECTION]: Window
 
 static const char* getWindowApiNameEnum(LvnWindowApi api)
 {
@@ -1123,7 +1228,7 @@ LvnWindowCreateInfo windowCreateInfoGetConfig(int width, int height, const char*
 	 return windowCreateInfo;
 }
 
-// [Input]
+// [SECTION]: Input
 bool keyPressed(LvnWindow* window, int keycode)
 {
 	return s_LvnContext->windowContext.keyPressed(window, keycode);
@@ -1189,7 +1294,7 @@ void windowGetSize(LvnWindow* window, int* width, int* height)
 	s_LvnContext->windowContext.getWindowSizePtr(window, width, height);
 }
 
-// [Graphics]
+// [SECTION]: Graphics
 
 static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
 {
@@ -1777,7 +1882,7 @@ void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, ui
 
 void bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
 {
-	s_LvnContext->graphicsContext.bufferUpdateVertexData(buffer, indices, size, offset);
+	s_LvnContext->graphicsContext.bufferUpdateIndexData(buffer, indices, size, offset);
 }
 
 void bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
@@ -1939,7 +2044,7 @@ void freeModel(LvnModel* model)
 	}
 }
 
-LvnCamera createCamera(LvnCameraCreateInfo* createInfo)
+LvnCamera cameraConfigInit(LvnCameraCreateInfo* createInfo)
 {
 	LvnCamera camera{};
 	camera.width = createInfo->width;

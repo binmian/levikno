@@ -20,13 +20,26 @@ if (CMAKE_GENERATOR MATCHES "Visual Studio")
 	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT basicScene)
 endif()
 
+# pong
+add_executable(pong pong.cpp)
 
-# simple triangle
-set(SIMPLE_TRIANGLE_SRC
-	simpleTriangle/simpleTriangle.cpp
+target_include_directories(pong 
+	PRIVATE
+		${PROJECT_SOURCE_DIR}/include
 )
 
-add_executable(simpleTriangle ${SIMPLE_TRIANGLE_SRC})
+target_link_libraries(pong
+	PRIVATE
+		levikno
+)
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio")
+	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pong)
+endif()
+
+
+# simple triangle
+add_executable(simpleTriangle simpleTriangle.cpp)
 
 target_include_directories(simpleTriangle 
 	PRIVATE

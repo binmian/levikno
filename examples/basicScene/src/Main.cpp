@@ -727,7 +727,7 @@ int main()
 	cameraCreateInfo.fovDeg = 60.0f;
 	cameraCreateInfo.nearPlane = 0.1f;
 	cameraCreateInfo.farPlane = 100.0f;
-	LvnCamera camera = lvn::createCamera(&cameraCreateInfo);
+	LvnCamera camera = lvn::cameraConfigInit(&cameraCreateInfo);
 
 
 	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/WaterBottle/WaterBottle.gltf");
@@ -757,7 +757,7 @@ int main()
 
 
 	LvnSoundCreateInfo soundCreateInfo{};
-	soundCreateInfo.filepath = "/home/bma/Downloads/Brodyquest.mp3"; // your audio filepath here
+	soundCreateInfo.filepath = "/home/bma/Downloads/Soundtrack - Red Alert 2 - Blow It Up.mp3"; // your audio filepath here
 	soundCreateInfo.volume = 1.0f;
 	soundCreateInfo.pitch = 1.0f;
 	soundCreateInfo.pan = 0.0f;
@@ -768,6 +768,9 @@ int main()
 
 	SoundData sndData = { .sound = sound, .vol = 1.0f, .pan = 0.0f, .pitch = 1.0f };
 	lvn::windowSetEventCallback(window, eventsCallbackFn, &sndData);
+
+
+	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/levikno/JetBrainsMonoNerdFont-Regular.ttf", 32, { 32, 126 });
 
 
 	lvn::soundSetPlayStart(sound);

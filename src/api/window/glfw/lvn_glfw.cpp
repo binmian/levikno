@@ -96,7 +96,7 @@ namespace lvn
 		windowContext->getWindowPos = glfwImplGetWindowPos;
 		windowContext->getWindowPosPtr = glfwImplGetWindowPosPtr;
 		windowContext->getWindowSize = glfwImplGetWindowSize;
-		windowContext->getWindowPosPtr = glfwImplGetWindowSizePtr;
+		windowContext->getWindowSizePtr = glfwImplGetWindowSizePtr;
 
 
 		LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();

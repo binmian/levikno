@@ -25,7 +25,7 @@ struct LvnVector
 		m_Capacity = size;
 		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
 	}
-	LvnVector(T* data, uint32_t size)
+	LvnVector(const T* data, uint32_t size)
 	{
 		m_Size = size;
 		m_Capacity = size;

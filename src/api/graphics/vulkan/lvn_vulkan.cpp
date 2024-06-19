@@ -1,4 +1,5 @@
 #include "lvn_vulkan.h"
+#include "vulkan/vulkan_core.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -573,7 +574,7 @@ namespace vks
 	{
 		for (uint32_t i = 0; i < count; i++)
 		{
-			if (pAvailablePresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+			if (pAvailablePresentModes[i] == VK_PRESENT_MODE_FIFO_KHR)
 			{
 				return pAvailablePresentModes[i];
 			}
@@ -2058,12 +2059,14 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
+	vkDeviceWaitIdle(vkBackends->device);
+
 	// sync objects
-	for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
+	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
 	{
-		vkDestroySemaphore(vkBackends->device, surfaceData->imageAvailableSemaphores[j], nullptr);
-		vkDestroySemaphore(vkBackends->device, surfaceData->renderFinishedSemaphores[j], nullptr);
-		vkDestroyFence(vkBackends->device, surfaceData->inFlightFences[j], nullptr);
+		vkDestroySemaphore(vkBackends->device, surfaceData->imageAvailableSemaphores[i], nullptr);
+		vkDestroySemaphore(vkBackends->device, surfaceData->renderFinishedSemaphores[i], nullptr);
+		vkDestroyFence(vkBackends->device, surfaceData->inFlightFences[i], nullptr);
 	}
 
 	lvn::memFree(surfaceData->renderFinishedSemaphores);
@@ -2071,9 +2074,9 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	lvn::memFree(surfaceData->inFlightFences);
 
 	// swap chain images
-	for (uint32_t j = 0; j < surfaceData->swapChainImageViewCount; j++)
+	for (uint32_t i = 0; i < surfaceData->swapChainImageViewCount; i++)
 	{
-		vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[j], nullptr);
+		vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[i], nullptr);
 	}
 
 	vkDestroyImageView(vkBackends->device, surfaceData->depthImageView, nullptr);
@@ -2081,9 +2084,9 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
 
 	// frame buffers
-	for (uint32_t j = 0; j < surfaceData->frameBufferCount; j++)
+	for (uint32_t i = 0; i < surfaceData->frameBufferCount; i++)
 	{
-		vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[j], nullptr);
+		vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[i], nullptr);
 	}
 
 	if (surfaceData->commandBuffers)
@@ -3070,6 +3073,8 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 	buffer->vertexBufferSize = createInfo->vertexBufferSize;
 	buffer->indexBufferSize = createInfo->indexBufferSize;
 
+	bool vertexOnly = createInfo->type & (Lvn_BufferType_Index | Lvn_BufferType_DynamicIndex) ? false : true;
+
 	bool dynamicVertex = false, dynamicIndex = false;
 
 	if (createInfo->type & Lvn_BufferType_DynamicVertex)
@@ -3077,17 +3082,15 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 	if (createInfo->type & Lvn_BufferType_DynamicIndex)
 		dynamicIndex = true;
 
-	if (dynamicVertex || dynamicIndex)
+	if (dynamicVertex || dynamicIndex) // buffers need to be seperate if either buffer is dynamic
 	{
+		// dynamic buffers will have their memory stored on the cpu
+
+		// vertex 
 		VkBuffer vertexBuffer;
 		VmaAllocation vertexMemory;
 
-		VkBuffer indexBuffer;
-		VmaAllocation indexMemory;
-
-		// create the main buffer with cpu memory usage
 		vks::createBuffer(vkBackends, &vertexBuffer, &vertexMemory, createInfo->vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-		vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, createInfo->indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
 		if (createInfo->pVertices)
 		{
@@ -3096,19 +3099,30 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 			memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
 			vmaUnmapMemory(vkBackends->vmaAllocator, vertexMemory);
 		}
-		if (createInfo->pIndices)
-		{
-			void* data;
-			vmaMapMemory(vkBackends->vmaAllocator, indexMemory, &data);
-			memcpy(data, createInfo->pIndices, createInfo->indexBufferSize);
-			vmaUnmapMemory(vkBackends->vmaAllocator, indexMemory);
-		}
 
-		// copy data to buffer object
 		buffer->vertexBuffer = vertexBuffer;
 		buffer->vertexBufferMemory = vertexMemory;
-		buffer->indexBuffer = indexBuffer;
-		buffer->indexBufferMemory = indexMemory;
+
+		// index
+		if (!vertexOnly)
+		{
+			VkBuffer indexBuffer;
+			VmaAllocation indexMemory;
+
+			vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, createInfo->indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+			if (createInfo->pIndices)
+			{
+				void* data;
+				vmaMapMemory(vkBackends->vmaAllocator, indexMemory, &data);
+				memcpy(data, createInfo->pIndices, createInfo->indexBufferSize);
+				vmaUnmapMemory(vkBackends->vmaAllocator, indexMemory);
+			}
+
+			buffer->indexBuffer = indexBuffer;
+			buffer->indexBufferMemory = indexMemory;
+		}
+
 		buffer->indexOffset = 0;
 	}
 	else
@@ -3616,26 +3630,8 @@ void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t
 	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
 	VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
 
-	void* data = nullptr;
-	void* bufferData = nullptr;
-	uint32_t oldSize = 0;
-
-	if (buffer->indexBufferSize < size)
-	{
-		vmaMapMemory(vmaAllocator, indexMemory, &data);
-		memcpy(bufferData, data, buffer->indexBufferSize);
-		vmaUnmapMemory(vmaAllocator, indexMemory);
-
-		vkDestroyBuffer(vkBackends->device, indexBuffer, nullptr);
-		vmaFreeMemory(vmaAllocator, indexMemory);
-		vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-
-		oldSize = buffer->indexBufferSize;
-		buffer->indexBufferSize = size;
-	}
-
+	void* data;
 	vmaMapMemory(vmaAllocator, indexMemory, &data);
-	memcpy(data, bufferData, oldSize);
 	memcpy((char*)data + offset, indices, size);
 	vmaUnmapMemory(vmaAllocator, indexMemory);
 
