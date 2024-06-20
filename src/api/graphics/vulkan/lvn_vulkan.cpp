@@ -1,4 +1,5 @@
 #include "lvn_vulkan.h"
+#include "levikno.h"
 #include "vulkan/vulkan_core.h"
 
 #define GLFW_INCLUDE_NONE
@@ -561,7 +562,7 @@ namespace vks
 	{
 		for (uint32_t i = 0; i < count; i++)
 		{
-			if (pAvailableFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB && pAvailableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			if (pAvailableFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM && pAvailableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 			{
 				return pAvailableFormats[i];
 			}
@@ -574,7 +575,7 @@ namespace vks
 	{
 		for (uint32_t i = 0; i < count; i++)
 		{
-			if (pAvailablePresentModes[i] == VK_PRESENT_MODE_FIFO_KHR)
+			if (pAvailablePresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
 			{
 				return pAvailablePresentModes[i];
 			}
@@ -1378,7 +1379,7 @@ namespace vks
 		pipelineSpecification.rasterizer.depthClampEnable = false;
 		pipelineSpecification.rasterizer.rasterizerDiscardEnable = false;
 		pipelineSpecification.rasterizer.lineWidth = 1.0f;
-		pipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Back;
+		pipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
 		pipelineSpecification.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
 		pipelineSpecification.rasterizer.depthBiasEnable = false;
 		pipelineSpecification.rasterizer.depthBiasConstantFactor = 0.0f;
@@ -2541,9 +2542,9 @@ void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
-	viewport.y = 0.0f;
+	viewport.y = static_cast<float>(surfaceData->swapChainExtent.height);
 	viewport.width = static_cast<float>(surfaceData->swapChainExtent.width);
-	viewport.height = static_cast<float>(surfaceData->swapChainExtent.height);
+	viewport.height = -static_cast<float>(surfaceData->swapChainExtent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &viewport);

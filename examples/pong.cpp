@@ -1,20 +1,28 @@
-#include <cstdint>
-#include <iterator>
+#include <cstdlib>
 #include <levikno/levikno.h>
 
 #include <vector>
+#include <chrono>
+#include <cstdint>
 
+#define COLOR_FG 0.78, 0.82, 1.0
+#define COLOR_BG 0.12, 0.11, 0.18
 
 #define MAX_VERTEX_COUNT (5000)
 #define MAX_INDEX_COUNT (5000)
 
+struct Vertex
+{
+	LvnVec2 pos;
+	LvnVec3 color;
+};
+
 struct DrawCommand
 {
-	float* pVertices;
+	Vertex* pVertices;
 	uint32_t* pIndices;
 	uint32_t vertexCount;
 	uint32_t indexCount;
-	uint32_t vertexStride;
 };
 
 class DrawList
@@ -25,7 +33,7 @@ public:
 	uint64_t vertexSize;
 	uint64_t indexSize;
 
-	std::vector<float> vertices;
+	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 	std::vector<DrawCommand> drawCommands;
 
@@ -38,12 +46,12 @@ public:
 		for (auto& index : batchIndices)
 			index += this->vertexCount;
 
-		this->vertices.insert(this->vertices.end(), drawCmd.pVertices, drawCmd.pVertices + drawCmd.vertexCount * drawCmd.vertexStride);
+		this->vertices.insert(this->vertices.end(), drawCmd.pVertices, drawCmd.pVertices + drawCmd.vertexCount);
 		this->indices.insert(this->indices.end(), batchIndices.begin(), batchIndices.end());
 
 		this->vertexCount += drawCmd.vertexCount;
 		this->indexCount += drawCmd.indexCount;
-		this->vertexSize += drawCmd.vertexCount * drawCmd.vertexStride * sizeof(float);
+		this->vertexSize += drawCmd.vertexCount * sizeof(Vertex);
 		this->indexSize += drawCmd.indexCount * sizeof(uint32_t);
 	}
 
@@ -67,21 +75,52 @@ public:
 	}
 };
 
-
-static float s_Vertices[] = 
+class Timer
 {
-/*      Pos (x,y,z)   |   color (r,g,b)   */
-	 0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
-	 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
-	-0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
+private:
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
+
+public:
+	void start() { m_Time = std::chrono::high_resolution_clock::now(); }
+	void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
+	float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
+	float elapsedms() { return elapsed() * 1000.0f; }
 };
 
-static float s_Vertices2[] = 
+
+struct UniformData
+{
+	LvnMat4 matrix;
+};
+
+struct Box
+{
+	LvnVec2 pos, size;
+	LvnVec3 color;
+};
+
+struct Ball
+{
+	LvnVec2 pos, size;
+	LvnVec3 color;
+
+	float velocity, angle;
+};
+
+static Vertex s_Vertices[] = 
 {
 /*      Pos (x,y,z)   |   color (r,g,b)   */
-	 0.0f,-0.8f, 0.0f, 1.0f, 1.0f, 1.0f, // v1
-	 0.1f, 0.1f, 0.0f, 0.0f, 1.0f, 1.0f, // v2
-	-0.1f, 0.1f, 0.0f, 0.0f, 1.0f, 1.0f, // v3
+	{ { 0.0f, 0.5f }, { 1.0f, 0.0f, 0.0f } }, // v1
+	{ {-0.5f,-0.5f }, { 0.0f, 1.0f, 0.0f } }, // v2
+	{ { 0.5f,-0.5f }, { 0.0f, 0.0f, 1.0f } }, // v3
+};
+
+static Vertex s_Vertices2[] = 
+{
+/*      Pos (x,y,z)   |   color (r,g,b)   */
+	{ { 0.0f, 0.8f }, { 0.0f, 1.0f, 1.0f } }, // v1
+	{ {-0.1f,-0.1f }, { 1.0f, 1.0f, 0.0f } }, // v2
+	{ { 0.1f,-0.1f }, { 1.0f, 0.0f, 1.0f } }, // v3
 };
 
 static uint32_t s_Indices[] = 
@@ -97,9 +136,16 @@ layout(location = 1) in vec3 inColor;
 
 layout(location = 0) out vec3 fragColor;
 
+
+layout (binding = 0) uniform ObjectBuffer 
+{
+	mat4 matrix;
+} ubo;
+
+
 void main()
 {
-	gl_Position = vec4(inPos, 1.0);
+	gl_Position = ubo.matrix * vec4(inPos, 1.0);
 	fragColor = inColor;
 }
 )";
@@ -117,6 +163,27 @@ void main()
 }
 )";
 
+
+void drawRect(DrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
+{
+	Vertex vertices[] = 
+	{
+		{{ pos.x, pos.y + size.y },          color },
+		{{ pos.x, pos.y },                   color },
+		{{ pos.x + size.x, pos.y },          color },
+		{{ pos.x + size.x, pos.y + size.y }, color },
+	};
+
+	uint32_t indices[] = { 0, 1, 2, 0, 2, 3 };
+
+	DrawCommand drawCmd{};
+	drawCmd.pVertices = vertices;
+	drawCmd.vertexCount = 4;
+	drawCmd.pIndices = indices;
+	drawCmd.indexCount = 6;
+
+	list->push_back(drawCmd);
+}
 
 int main(int argc, char** argv)
 {
@@ -158,8 +225,8 @@ int main(int argc, char** argv)
 	windowInfo.title = "Pong";
 	windowInfo.width = 800;
 	windowInfo.height = 600;
-	windowInfo.minWidth = 300;
-	windowInfo.minHeight = 200;
+	windowInfo.minWidth = 800;
+	windowInfo.minHeight = 600;
 
 	LvnWindow* window;
 	lvn::createWindow(&window, &windowInfo);
@@ -169,7 +236,6 @@ int main(int argc, char** argv)
 	drawCmd.vertexCount = 3;
 	drawCmd.pIndices = s_Indices;
 	drawCmd.indexCount = sizeof(s_Indices) / sizeof(s_Indices[0]);
-	drawCmd.vertexStride = 6;
 
 	DrawList drawList{};
 
@@ -191,13 +257,13 @@ int main(int argc, char** argv)
 	// create the vertex attributes and descriptor bindings to layout our vertex data
 	LvnVertexAttribute attributes[2] = 
 	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
+		{ 0, 0, Lvn_VertexDataType_Vec2f, 0 },
+		{ 0, 1, Lvn_VertexDataType_Vec3f, (2 * sizeof(float)) },
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};
 	vertexBindingDescription.binding = 0;
-	vertexBindingDescription.stride = 6 * sizeof(float);
+	vertexBindingDescription.stride = sizeof(Vertex);
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
@@ -207,7 +273,7 @@ int main(int argc, char** argv)
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
 	bufferCreateInfo.pVertices = nullptr;
-	bufferCreateInfo.vertexBufferSize = MAX_VERTEX_COUNT * 6 * sizeof(float);
+	bufferCreateInfo.vertexBufferSize = MAX_VERTEX_COUNT * sizeof(Vertex);
 	bufferCreateInfo.pIndices = nullptr;
 	bufferCreateInfo.indexBufferSize = MAX_INDEX_COUNT * sizeof(uint32_t);
 
@@ -225,11 +291,34 @@ int main(int argc, char** argv)
 	LvnShader* shader;
 	lvn::createShaderFromSrc(&shader, &shaderCreateInfo);
 
+	// descriptor binding
+	LvnDescriptorBinding descriptorBinding{};
+	descriptorBinding.binding = 0;
+	descriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
+	descriptorBinding.descriptorCount = 1;
+	descriptorBinding.maxAllocations = 1;
+
+	// descriptor layout create info
+	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
+	descriptorLayoutCreateInfo.pDescriptorBindings = &descriptorBinding;
+	descriptorLayoutCreateInfo.descriptorBindingCount = 1;
+	descriptorLayoutCreateInfo.maxSets = 1;
+
+	// create descriptor layout
+	LvnDescriptorLayout* descriptorLayout;
+	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
+
+	// create descriptor set using layout
+	LvnDescriptorSet* descriptorSet;
+	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
+
 	// get the render pass from the window to pass into the pipeline
 	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
 
 	// create pipeline specification or fixed functions
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
+	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Front;
 
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};
@@ -238,6 +327,8 @@ int main(int argc, char** argv)
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.pVertexAttributes = attributes;
 	pipelineCreateInfo.vertexAttributeCount = 2;
+	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
+	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
 	pipelineCreateInfo.renderPass = renderPass;
 
@@ -249,13 +340,154 @@ int main(int argc, char** argv)
 	lvn::destroyShader(shader);
 
 
-	lvn::bufferUpdateVertexData(buffer, drawList.vertices.data(), drawList.vertices.size() * sizeof(float), 0);
+	// uniform buffer create info
+	LvnUniformBufferCreateInfo uniformBufferInfo{};
+	uniformBufferInfo.binding = 0;
+	uniformBufferInfo.type = Lvn_BufferType_Uniform;
+	uniformBufferInfo.size = sizeof(UniformData);
+
+	// create uniform buffer
+	LvnUniformBuffer* uniformBuffer;
+	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
+
+
+	// update descriptor set
+	LvnDescriptorUpdateInfo descriptorUpdateInfo{};
+	descriptorUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorUpdateInfo.binding = 0;
+	descriptorUpdateInfo.descriptorCount = 1;
+	descriptorUpdateInfo.bufferInfo = uniformBuffer;
+
+	lvn::updateDescriptorSetData(descriptorSet, &descriptorUpdateInfo, 1);
+
+
+	// update buffer data
+	lvn::bufferUpdateVertexData(buffer, drawList.vertices.data(), drawList.vertices.size() * sizeof(Vertex), 0);
 	lvn::bufferUpdateIndexData(buffer, drawList.indices.data(), drawList.indices.size() * sizeof(uint32_t), 0);
+
+	DrawList list{};
+	UniformData uniformData{};
+
+	float oldTime = 0.0f;
+	Timer deltaTime;
+	deltaTime.start();
+
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+
+	float paddleWidth = 20.0f, paddleHeight = 120.0f;
+	float paddleSpeed = 1000.0f;
+
+	Box p1{};
+	p1.pos = { width * -0.5f + 20.0f, 0.0f };
+	p1.size = { paddleWidth, paddleHeight };
+	p1.color = { 1.0f, 1.0f, 1.0f };
+
+	Box p2{};
+	p2.pos = { width * 0.5f - p2.size.x - 20.0f, 0.0f };
+	p2.size = { paddleWidth, paddleHeight };
+	p2.color = { 1.0f, 1.0f, 1.0f };
+
+
+	float ballSpeed = 1000.0f;
+	Ball ball{};
+	ball.pos = { 0.0f, 0.0f };
+	ball.size = { 20.0f, 20.0f };
+	ball.color = { 1.0f, 1.0f, 1.0f };
+	ball.velocity = ballSpeed;
+	ball.angle = 30.0f;
+
+
 
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
 
+		int width, height;
+		lvn::windowGetSize(window, &width, &height);
+
+		LvnMat4 proj = lvn::ortho((float)width * -0.5f, (float)width * 0.5f, (float)height * -0.5f, (float)height * 0.5f, -1.0f, 1.0f);
+		LvnMat4 view = LvnMat4(1.0f);
+		LvnMat4 camera = proj * view;
+
+		uniformData.matrix = camera;
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(uniformData));
+
+
+		float paddleSpeed = height;
+
+		float halfWidth = width * 0.5f;
+		float halfHeight = height * 0.5f;
+
+		p1.pos.x = -halfWidth + 20.0f;
+		p2.pos.x = halfWidth - p2.size.x - 20.0f;
+
+		float timeNow = deltaTime.elapsed();
+		float dt = timeNow - oldTime;
+		oldTime = timeNow;
+
+		if (lvn::keyPressed(window, Lvn_KeyCode_W))
+		{
+			p1.pos.y += paddleSpeed * dt;
+		}
+		if (lvn::keyPressed(window, Lvn_KeyCode_S))
+		{
+			p1.pos.y -= paddleSpeed * dt;
+		}
+		if (lvn::keyPressed(window, Lvn_KeyCode_Up))
+		{
+			p2.pos.y += paddleSpeed * dt;
+		}
+		if (lvn::keyPressed(window, Lvn_KeyCode_Down))
+		{
+			p2.pos.y -= paddleSpeed * dt;
+		}
+
+		if (p1.pos.y <= -halfHeight) { p1.pos.y = -halfHeight; }
+		else if (p1.pos.y >= halfHeight - paddleHeight) { p1.pos.y = halfHeight - paddleHeight; }
+		if (p2.pos.y <= -halfHeight) { p2.pos.y = -halfHeight; }
+		else if (p2.pos.y >= halfHeight - paddleHeight) { p2.pos.y = halfHeight - paddleHeight; }
+
+		ball.velocity = ballSpeed * dt;
+		ball.pos.x += ball.velocity * cos(lvn::radians(ball.angle));
+		ball.pos.y += ball.velocity * sin(lvn::radians(ball.angle));
+
+		// left side
+		if (ball.pos.y <= -halfHeight) { ball.pos.y = -halfHeight; ball.angle *= -1; }
+		if (ball.pos.y >= halfHeight - ball.size.y) { ball.pos.y = halfHeight - ball.size.y; ball.angle *= -1; }
+
+		if (ball.pos.x <= p1.pos.x + p1.size.x &&
+			(ball.pos.y >= p1.pos.y && ball.pos.y + ball.size.y <= p1.pos.y + p1.size.y))
+		{
+			if (!(ball.pos.x <= p1.pos.x + p1.size.x * 0.5f))
+			{
+				ball.angle = 180.0f - ball.angle + (rand() % 61) - 30.0f;
+			}
+		}
+
+		// right side
+		if (ball.pos.x <= -halfWidth - ball.size.x) { ball.pos = {0.0f, 0.0f}; ball.angle = (rand() % 61) - 30.0f; }
+		if (ball.pos.x >= halfWidth) { ball.pos = {0.0f, 0.0f}; ball.angle = (rand() % 61) - 30.0f; }
+
+
+		if (ball.pos.x + ball.size.x >= p2.pos.x &&
+			(ball.pos.y >= p2.pos.y && ball.pos.y + ball.size.y <= p2.pos.y + p2.size.y))
+		{
+			if (!(ball.pos.x + ball.size.x >= p2.pos.x + p2.size.x * 0.5f))
+			{
+				ball.angle = (180.0f - ball.angle) + (rand() % 61) - 30.0f;
+			}
+		}
+
+
+		drawRect(&list, p1.pos, p1.size, p1.color);
+		drawRect(&list, p2.pos, p2.size, p2.color);
+		drawRect(&list, ball.pos, ball.size, ball.color);
+
+		lvn::bufferUpdateVertexData(buffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
+		lvn::bufferUpdateIndexData(buffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
+
+		// begin render
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
 
@@ -265,23 +497,29 @@ int main(int argc, char** argv)
 
 		// bind pipeline
 		lvn::renderCmdBindPipeline(window, pipeline);
+		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		// bind vertex and index buffer
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
 		// draw triangle
-		lvn::renderCmdDrawIndexed(window, 6); // number of elements in indices array (3)
+		lvn::renderCmdDrawIndexed(window, list.indices.size()); // number of elements in indices array (3)
 
 
 		// end render pass and submit rendering
 		lvn::renderCmdEndRenderPass(window);
 		lvn::renderEndCommandRecording(window);
 		lvn::renderDrawSubmit(window); // note that this function is where we actually submit our render data to the GPU
+
+		list.clear();
 	}
 
 	lvn::destroyBuffer(buffer);
 	lvn::destroyPipeline(pipeline);
+	lvn::destroyDescriptorLayout(descriptorLayout);
+	lvn::destroyDescriptorSet(descriptorSet);
+	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyWindow(window);
 
 	lvn::terminateContext();

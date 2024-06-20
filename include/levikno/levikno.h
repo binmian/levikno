@@ -1224,43 +1224,164 @@ namespace lvn
 	template <typename T>
 	LVN_API T                           clamp(const T& val, const T& low, const T& high) { return lvn::max(lvn::min(val, high), low); }
 
-	float radians(float deg);
-	float degrees(float rad);
-
-	float inverseSqrt(float num);
-
-	LvnVec2f normalize(LvnVec2f v);
-	LvnVec2d normalize(LvnVec2d v);
-	LvnVec3f normalize(LvnVec3f v);
-	LvnVec3d normalize(LvnVec3d v);
-	LvnVec4f normalize(LvnVec4f v);
-	LvnVec4d normalize(LvnVec4d v);
-
-	LvnVec3f cross(LvnVec3f v1, LvnVec3f v2);
-	LvnVec3d cross(LvnVec3d v1, LvnVec3d v2);
+	template <typename T>
+	LVN_API LvnPair<T>                  midpoint(const T& x1, const T& y1, const T& x2, const T& y2) { return { (x1 + x2) / static_cast<T>(2), (y1 + y2) / static_cast<T>(2) }; }
 
 	template <typename T>
-	T dot(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
+	LVN_API T                           distance(const T& x1, const T& y1, const T& x2, const T& y2) { return sqrt(pow((x1 - x2), static_cast<T>(2)) + pow((y1 - y2), static_cast<T>(2))); }
+
+	template<typename T>
+	LVN_API bool                        within(T num, T within, T range) { return num <= (within + range) && num >= (within - range); }
+	
+	template<typename T>
+	LVN_API bool                        within(T num, T within, T lowerRange, T upperRange) { return num <= (within + upperRange) && num >= (within - lowerRange); }
+
+	LVN_API float radians(float deg);
+	LVN_API float degrees(float rad);
+
+	LVN_API float inverseSqrt(float num);
+
+	LVN_API LvnVec2f normalize(LvnVec2f v);
+	LVN_API LvnVec2d normalize(LvnVec2d v);
+	LVN_API LvnVec3f normalize(LvnVec3f v);
+	LVN_API LvnVec3d normalize(LvnVec3d v);
+	LVN_API LvnVec4f normalize(LvnVec4f v);
+	LVN_API LvnVec4d normalize(LvnVec4d v);
+
+	LVN_API LvnVec3f cross(LvnVec3f v1, LvnVec3f v2);
+	LVN_API LvnVec3d cross(LvnVec3d v1, LvnVec3d v2);
+
+	template <typename T>
+	LVN_API T dot(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y;
 	}
 
 	template <typename T>
-	T dot(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+	LVN_API T dot(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 	}
 
 	template <typename T>
-	T dot(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
+	LVN_API T dot(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
 	}
 
 	template <typename T>
-	T angle(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+	LVN_API T angle(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
 	{
 		return acos(lvn::clamp(lvn::dot(v1, v2), T(-1), T(1)));
+	}
+
+	template <typename T>
+	LVN_API LvnMat2x2_t<T> inverse(const LvnMat2x2_t<T>& m)
+	{
+		T oneOverDeterminant = static_cast<T>(1) / (
+			+ m[0][0] * m[1][1]
+			- m[1][0] * m[0][1]);
+
+		LvnMat2x2_t<T> inverse(
+			+ m[1][1] * oneOverDeterminant,
+			- m[0][1] * oneOverDeterminant,
+			- m[1][0] * oneOverDeterminant,
+			+ m[0][0] * oneOverDeterminant);
+
+		return inverse;
+	}
+
+	template <typename T>
+	LVN_API LvnMat3x3_t<T> inverse(const LvnMat3x3_t<T>& m)
+	{
+		T oneOverDeterminant = static_cast<T>(1) / (
+			+ m[0][0] * (m[1][1] * m[2][2] - m[2][1] * m[1][2])
+			- m[1][0] * (m[0][1] * m[2][2] - m[2][1] * m[0][2])
+			+ m[2][0] * (m[0][1] * m[1][2] - m[1][1] * m[0][2]));
+
+		LvnMat3x3_t<T> inverse;
+		inverse[0][0] = + (m[1][1] * m[2][2] - m[2][1] * m[1][2]) * oneOverDeterminant;
+		inverse[1][0] = - (m[1][0] * m[2][2] - m[2][0] * m[1][2]) * oneOverDeterminant;
+		inverse[2][0] = + (m[1][0] * m[2][1] - m[2][0] * m[1][1]) * oneOverDeterminant;
+		inverse[0][1] = - (m[0][1] * m[2][2] - m[2][1] * m[0][2]) * oneOverDeterminant;
+		inverse[1][1] = + (m[0][0] * m[2][2] - m[2][0] * m[0][2]) * oneOverDeterminant;
+		inverse[2][1] = - (m[0][0] * m[2][1] - m[2][0] * m[0][1]) * oneOverDeterminant;
+		inverse[0][2] = + (m[0][1] * m[1][2] - m[1][1] * m[0][2]) * oneOverDeterminant;
+		inverse[1][2] = - (m[0][0] * m[1][2] - m[1][0] * m[0][2]) * oneOverDeterminant;
+		inverse[2][2] = + (m[0][0] * m[1][1] - m[1][0] * m[0][1]) * oneOverDeterminant;
+
+		return inverse;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> inverse(const LvnMat4x4_t<T>& m)
+	{
+		T coef00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+		T coef02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+		T coef03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
+
+		T coef04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+		T coef06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+		T coef07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
+
+		T coef08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+		T coef10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+		T coef11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
+
+		T coef12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+		T coef14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+		T coef15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
+
+		T coef16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+		T coef18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+		T coef19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
+
+		T coef20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+		T coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+		T coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+
+		LvnVec4_t<T> fac0(coef00, coef00, coef02, coef03);
+		LvnVec4_t<T> fac1(coef04, coef04, coef06, coef07);
+		LvnVec4_t<T> fac2(coef08, coef08, coef10, coef11);
+		LvnVec4_t<T> fac3(coef12, coef12, coef14, coef15);
+		LvnVec4_t<T> fac4(coef16, coef16, coef18, coef19);
+		LvnVec4_t<T> fac5(coef20, coef20, coef22, coef23);
+
+		LvnVec4_t<T> vec0(m[1][0], m[0][0], m[0][0], m[0][0]);
+		LvnVec4_t<T> vec1(m[1][1], m[0][1], m[0][1], m[0][1]);
+		LvnVec4_t<T> vec2(m[1][2], m[0][2], m[0][2], m[0][2]);
+		LvnVec4_t<T> vec3(m[1][3], m[0][3], m[0][3], m[0][3]);
+
+		LvnVec4_t<T> inv0(vec1 * fac0 - vec2 * fac1 + vec3 * fac2);
+		LvnVec4_t<T> inv1(vec0 * fac0 - vec2 * fac3 + vec3 * fac4);
+		LvnVec4_t<T> inv2(vec0 * fac1 - vec1 * fac3 + vec3 * fac5);
+		LvnVec4_t<T> inv3(vec0 * fac2 - vec1 * fac4 + vec2 * fac5);
+
+		LvnVec4_t<T> signA(+1, -1, +1, -1);
+		LvnVec4_t<T> signB(-1, +1, -1, +1);
+		LvnMat4x4_t<T> inverse(inv0 * signA, inv1 * signB, inv2 * signA, inv3 * signB);
+
+		LvnVec4_t<T> row0(inverse[0][0], inverse[1][0], inverse[2][0], inverse[3][0]);
+
+		LvnVec4_t<T> dot0(m[0] * row0);
+		T dot1 = (dot0.x + dot0.y) + (dot0.z + dot0.w);
+
+		T oneOverDeterminant = static_cast<T>(1) / dot1;
+
+		return inverse * oneOverDeterminant;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar)
+	{
+		LvnMat4x4_t<T> matrix(static_cast<T>(1));
+		matrix[0][0] = static_cast<T>(2) / (right - left);
+		matrix[1][1] = static_cast<T>(2) / (top - bottom);
+		matrix[2][2] = static_cast<T>(1) / (zFar - zNear);
+		matrix[3][0] = - (right + left)  / (right - left);
+		matrix[3][1] = - (top + bottom)  / (top - bottom);
+		matrix[3][2] = - zNear / (zFar - zNear);
+		return matrix;
 	}
 
 	template <typename T>
@@ -1758,6 +1879,17 @@ struct LvnVec2_t
 			return y;
 		}
 	}
+	T& operator[](int i) const
+	{
+		switch (i)
+		{
+		default:
+		case 0:
+			return x;
+		case 1:
+			return y;
+		}
+	}
 };
 
 template<typename T>
@@ -1855,6 +1987,19 @@ struct LvnVec3_t
 		return *this;
 	}
 	T& operator[](int i)
+	{
+		switch (i)
+		{
+		default:
+		case 0:
+			return x;
+		case 1:
+			return y;
+		case 2:
+			return z;
+		}
+	}
+	T& operator[](int i) const
 	{
 		switch (i)
 		{
@@ -1985,6 +2130,21 @@ struct LvnVec4_t
 			return w;
 		}
 	}
+	T& operator[](int i) const
+	{
+		switch (i)
+		{
+		default:
+		case 0:
+			return x;
+		case 1:
+			return y;
+		case 2:
+			return z;
+		case 3:
+			return w;
+		}
+	}
 };
 
 
@@ -2039,6 +2199,10 @@ struct LvnMat2x2_t
 	{
 		return this->value[i];
 	}
+	LvnVec2_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat2x2_t<T> operator+()
 	{
@@ -2064,11 +2228,11 @@ struct LvnMat2x2_t
 			this->value[0] - m.value[0],
 			this->value[1] - m.value[1]);
 	}
-	LvnMat2x2_t<T> operator*(const T& n)
+	LvnMat2x2_t<T> operator*(const T& s)
 	{
 		return LvnMat2x2_t<T>(
-			this->value[0] * n,
-			this->value[1] * n);
+			this->value[0] * s,
+			this->value[1] * s);
 	}
 	LvnMat2x2_t<T> operator*(const LvnMat2x2_t<T>& m)
 	{
@@ -2233,6 +2397,10 @@ struct LvnMat3x3_t
 	{
 		return this->value[i];
 	}
+	LvnVec3_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat3x3_t<T> operator+()
 	{
@@ -2261,6 +2429,13 @@ struct LvnMat3x3_t
 			this->value[0] - m.value[0],
 			this->value[1] - m.value[1],
 			this->value[2] - m.value[2]);
+	}
+	LvnMat3x3_t<T> operator*(const T& s)
+	{
+		return LvnMat3x3_t<T>(
+			this->value[0] * s,
+			this->value[1] * s,
+			this->value[2] * s);
 	}
 	LvnMat3x3_t<T> operator*(const LvnMat3x3_t<T>& m)
 	{
@@ -2447,6 +2622,10 @@ struct LvnMat4x4_t
 	{
 		return this->value[i];
 	}
+	LvnVec4_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat4x4_t<T> operator+()
 	{
@@ -2479,6 +2658,14 @@ struct LvnMat4x4_t
 			this->value[1] - m.value[1],
 			this->value[2] - m.value[2],
 			this->value[3] - m.value[3]);
+	}
+	LvnMat4x4_t<T> operator*(const T& s)
+	{
+		return LvnMat4x4_t<T>(
+			this->value[0] * s,
+			this->value[1] * s,
+			this->value[2] * s,
+			this->value[3] * s);
 	}
 	LvnMat4x4_t<T> operator*(const LvnMat4x4_t<T>& m)
 	{
@@ -2681,6 +2868,10 @@ struct LvnMat2x3_t
 	{
 		return this->value[i];
 	}
+	LvnVec3_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat2x3_t<T> operator+()
 	{
@@ -2705,6 +2896,12 @@ struct LvnMat2x3_t
 		return LvnMat2x3_t<T>(
 			this->value[0] - m.value[0],
 			this->value[1] - m.value[1]);
+	}
+	LvnMat2x3_t<T> operator*(const T& s)
+	{
+		return LvnMat2x3_t<T>(
+			this->value[0] * s,
+			this->value[1] * s);
 	}
 	LvnMat2x3_t<T> operator*(const LvnMat2x2_t<T>& m)
 	{
@@ -2878,6 +3075,10 @@ struct LvnMat2x4_t
 	{
 		return this->value[i];
 	}
+	LvnVec4_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat2x4_t<T> operator+()
 	{
@@ -2902,6 +3103,12 @@ struct LvnMat2x4_t
 		return LvnMat2x4_t<T>(
 			this->value[0] - m.value[0],
 			this->value[1] - m.value[1]);
+	}
+	LvnMat2x4_t<T> operator*(const T& s)
+	{
+		return LvnMat2x4_t<T>(
+			this->value[0] * s,
+			this->value[1] * s);
 	}
 	LvnMat4x4_t<T> operator*(const LvnMat4x2_t<T>& m)
 	{
@@ -3098,6 +3305,10 @@ struct LvnMat3x2_t
 	{
 		return this->value[i];
 	}
+	LvnVec2_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat3x2_t<T> operator+()
 	{
@@ -3126,6 +3337,13 @@ struct LvnMat3x2_t
 			this->value[0] - m.value[0],
 			this->value[1] - m.value[1],
 			this->value[2] - m.value[2]);
+	}
+	LvnMat3x2_t<T> operator*(const T& s)
+	{
+		return LvnMat3x2_t<T>(
+			this->value[0] * s,
+			this->value[1] * s,
+			this->value[2] * s);
 	}
 	LvnMat3x2_t<T> operator*(const LvnMat3x3_t<T>& m)
 	{
@@ -3273,6 +3491,10 @@ struct LvnMat3x4_t
 	{
 		return this->value[i];
 	}
+	LvnVec4_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat3x4_t<T> operator+()
 	{
@@ -3301,6 +3523,13 @@ struct LvnMat3x4_t
 			this->value[0] - m.value[0],
 			this->value[1] - m.value[1],
 			this->value[2] - m.value[2]);
+	}
+	LvnMat3x4_t<T> operator*(const T& s)
+	{
+		return LvnMat3x4_t<T>(
+			this->value[0] * s,
+			this->value[1] * s,
+			this->value[2] * s);
 	}
 	LvnMat4x4_t<T> operator*(const LvnMat4x3_t<T>& m)
 	{
@@ -3506,6 +3735,10 @@ struct LvnMat4x2_t
 	{
 		return this->value[i];
 	}
+	LvnVec2_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat4x2_t<T> operator+()
 	{
@@ -3538,6 +3771,14 @@ struct LvnMat4x2_t
 			this->value[1] - m.value[1],
 			this->value[2] - m.value[2],
 			this->value[3] - m.value[3]);
+	}
+	LvnMat4x2_t<T> operator*(const T& s)
+	{
+		return LvnMat4x2_t<T>(
+			this->value[0] * s,
+			this->value[1] * s,
+			this->value[2] * s,
+			this->value[3] * s);
 	}
 	LvnMat2x2_t<T> operator*(const LvnMat2x4_t<T>& m)
 	{
@@ -3710,6 +3951,10 @@ struct LvnMat4x3_t
 	{
 		return this->value[i];
 	}
+	LvnVec3_t<T> operator[](int i) const
+	{
+		return this->value[i];
+	}
 
 	LvnMat4x3_t<T> operator+()
 	{
@@ -3742,6 +3987,14 @@ struct LvnMat4x3_t
 			this->value[1] - m.value[1],
 			this->value[2] - m.value[2],
 			this->value[3] - m.value[3]);
+	}
+	LvnMat4x3_t<T> operator*(const T& s)
+	{
+		return LvnMat4x3_t<T>(
+			this->value[0] * s,
+			this->value[1] * s,
+			this->value[2] * s,
+			this->value[3] * s);
 	}
 	LvnMat2x3_t<T> operator*(const LvnMat2x4_t<T>& m)
 	{
