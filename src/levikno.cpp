@@ -22,7 +22,7 @@
 
 #include "lvn_glfw.h"
 
-#ifndef LVN_GRAPHICS_API_NO_INCLUDE_VULKAN
+#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
 	#include "lvn_vulkan.h"
 #endif
 
@@ -1322,7 +1322,7 @@ static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValid
 		}
 		case Lvn_GraphicsApi_vulkan:
 		{
-		#ifndef LVN_GRAPHICS_API_NO_INCLUDE_VULKAN
+		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
 			result = vksImplCreateContext(&lvnctx->graphicsContext, enableValidation);
 		#endif
 			break;
@@ -1354,7 +1354,7 @@ static void terminateGraphicsContext()
 		}
 		case Lvn_GraphicsApi_vulkan:
 		{
-		#ifndef LVN_GRAPHICS_API_NO_INCLUDE_VULKAN
+		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
 			vksImplTerminateContext();
 		#endif
 			break;

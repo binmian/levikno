@@ -117,15 +117,17 @@ set(MIN_VULKAN_VERSION 1.3)
 find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
 
 if(Vulkan_FOUND)
-    message ("Vulkan found")
-else()
-    message (FATAL_ERROR "Cannot find Vulkan")
-endif()
+	message ("Vulkan found")
+	add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
 
-if(Vulkan_glslang_FOUND)
-    message ("glslang found")
+	if(Vulkan_glslang_FOUND)
+		message ("glslang found")
+	else()
+		message ("FATAL_ERROR cannot find glslang")
+	endif()
+
 else()
-    message (FATAL_ERROR "Cannot find glslang")
+	message ("cannot find Vulkan")
 endif()
 
 set(VULKAN_LIB_DIR

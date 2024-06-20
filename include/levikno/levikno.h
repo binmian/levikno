@@ -78,11 +78,6 @@
 	#define LVN_CORE_ASSERT(x, ...)
 #endif
 
-// api
-#ifdef LVN_GRAPHICS_API_INCLUDE_NONE
-	#define LVN_GRAPHICS_API_NO_INCLUDE_VULKAN
-#endif
-
 
 #define LVN_TRUE 1
 #define LVN_FALSE 0

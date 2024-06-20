@@ -184,10 +184,10 @@ void eventsCallbackFn(LvnEvent* e)
 float vertices[] =
 {
 	/*      pos        |       color     |   TexUV    */
-	-1.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-	-1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-	 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-	 1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
+	-1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+	 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+	 1.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
 std::vector<LvnVertex> lvnVertices = 
@@ -233,13 +233,13 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 		camera->position += (camera->orientation * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_A))
-		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_S))
 		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_D))
-		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Space))
 		camera->position += (camera->upVector * s_CameraSpeed) * dt;
@@ -249,13 +249,13 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Left))
 	{
-		s_AngleX -= dt;
+		s_AngleX += dt;
 		camera->orientation.x = cos(s_AngleX);
 		camera->orientation.z = sin(s_AngleX);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Right))
 	{
-		s_AngleX += dt;
+		s_AngleX -= dt;
 		camera->orientation.x = cos(s_AngleX);
 		camera->orientation.z = sin(s_AngleX);
 	}
@@ -770,7 +770,7 @@ int main()
 	lvn::windowSetEventCallback(window, eventsCallbackFn, &sndData);
 
 
-	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/levikno/JetBrainsMonoNerdFont-Regular.ttf", 32, { 32, 126 });
+	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/JetBrainsMonoNerdFont-Regular.ttf", 32, { 32, 126 });
 
 
 	lvn::soundSetPlayStart(sound);
