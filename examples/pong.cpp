@@ -354,6 +354,7 @@ int main(int argc, char** argv)
 
 	LVN_INFO("Use w and s to move the left paddle up and down. Use the up and down arrow keys to move the right paddle up and down. Have fun!");
 
+
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
@@ -412,10 +413,18 @@ int main(int argc, char** argv)
 		ball.pos.y += ball.velocity * sin(lvn::radians(ball.angle));
 
 		// hit bottom side
-		if (ball.pos.y <= -halfHeight) { ball.pos.y = -halfHeight; ball.angle *= -1; }
+		if (ball.pos.y <= -halfHeight)
+		{
+			ball.pos.y = -halfHeight;
+			ball.angle *= -1;
+		}
 
 		// hit top side
-		if (ball.pos.y >= halfHeight - ball.size.y) { ball.pos.y = halfHeight - ball.size.y; ball.angle *= -1; }
+		if (ball.pos.y >= halfHeight - ball.size.y)
+		{
+			ball.pos.y = halfHeight - ball.size.y;
+			ball.angle *= -1;
+		}
 
 		// hit left side
 		if (ball.pos.x <= -halfWidth - ball.size.x)

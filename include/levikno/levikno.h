@@ -1199,6 +1199,8 @@ namespace lvn
 	/* [Audio] */
 	LVN_API LvnResult                   createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo);
 	LVN_API void                        destroySound(LvnSound* sound);
+	LVN_API LvnSoundCreateInfo          soundConfigInit(const char* filepath);
+
 
 	LVN_API void                        soundSetVolume(LvnSound* sound, float volume);
 	LVN_API void                        soundSetPan(LvnSound* sound, float pan);

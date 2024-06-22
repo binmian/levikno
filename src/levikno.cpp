@@ -2207,6 +2207,19 @@ void destroySound(LvnSound* sound)
 	delete sound;
 }
 
+LvnSoundCreateInfo soundConfigInit(const char* filepath)
+{
+	LvnSoundCreateInfo soundInit{};
+	soundInit.pos = { 0.0f, 0.0f, 0.0f };
+	soundInit.volume = 1.0f;
+	soundInit.pan = 0.0f;
+	soundInit.pitch = 1.0f;
+	soundInit.looping = false;
+	soundInit.filepath = filepath;
+
+	return soundInit;
+}
+
 void soundSetVolume(LvnSound* sound, float volume)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
