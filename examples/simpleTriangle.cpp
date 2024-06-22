@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 	lvnCreateInfo.enableLogging = true;
 	lvnCreateInfo.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_opengl;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -156,10 +156,10 @@ int main(int argc, char** argv)
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
-	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.pVertexAttributes = attributes;
 	pipelineCreateInfo.vertexAttributeCount = 2;
+	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.shader = shader;
 	pipelineCreateInfo.renderPass = renderPass;
 

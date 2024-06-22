@@ -107,27 +107,6 @@ struct Ball
 	float velocity, angle;
 };
 
-static Vertex s_Vertices[] = 
-{
-/*      Pos (x,y,z)   |   color (r,g,b)   */
-	{ { 0.0f, 0.5f }, { 1.0f, 0.0f, 0.0f } }, // v1
-	{ {-0.5f,-0.5f }, { 0.0f, 1.0f, 0.0f } }, // v2
-	{ { 0.5f,-0.5f }, { 0.0f, 0.0f, 1.0f } }, // v3
-};
-
-static Vertex s_Vertices2[] = 
-{
-/*      Pos (x,y,z)   |   color (r,g,b)   */
-	{ { 0.0f, 0.8f }, { 0.0f, 1.0f, 1.0f } }, // v1
-	{ {-0.1f,-0.1f }, { 1.0f, 1.0f, 0.0f } }, // v2
-	{ { 0.1f,-0.1f }, { 1.0f, 0.0f, 1.0f } }, // v3
-};
-
-static uint32_t s_Indices[] = 
-{
-	0, 1, 2
-};
-
 static const char* s_VertexShaderSrc = R"(
 #version 460
 
@@ -231,28 +210,6 @@ int main(int argc, char** argv)
 	LvnWindow* window;
 	lvn::createWindow(&window, &windowInfo);
 
-	DrawCommand drawCmd{};
-	drawCmd.pVertices = s_Vertices;
-	drawCmd.vertexCount = 3;
-	drawCmd.pIndices = s_Indices;
-	drawCmd.indexCount = sizeof(s_Indices) / sizeof(s_Indices[0]);
-
-	DrawList drawList{};
-
-	drawList.push_back(drawCmd);
-
-	drawCmd.pVertices = s_Vertices2;
-	drawCmd.vertexCount = 3;
-
-	drawList.push_back(drawCmd);
-
-	LVN_INFO("vertex size: %u", drawList.vertexSize);
-	LVN_INFO("index size: %u", drawList.indexSize);
-
-	for (uint32_t i = 0; i < drawList.vertices.size(); i++)
-	{
-		LVN_INFO("%f", drawList.vertices[i]);
-	}
 
 	// create the vertex attributes and descriptor bindings to layout our vertex data
 	LvnVertexAttribute attributes[2] = 
@@ -361,10 +318,6 @@ int main(int argc, char** argv)
 	lvn::updateDescriptorSetData(descriptorSet, &descriptorUpdateInfo, 1);
 
 
-	// update buffer data
-	lvn::bufferUpdateVertexData(buffer, drawList.vertices.data(), drawList.vertices.size() * sizeof(Vertex), 0);
-	lvn::bufferUpdateIndexData(buffer, drawList.indices.data(), drawList.indices.size() * sizeof(uint32_t), 0);
-
 	DrawList list{};
 	UniformData uniformData{};
 
@@ -389,7 +342,7 @@ int main(int argc, char** argv)
 	p2.color = { 1.0f, 1.0f, 1.0f };
 
 
-	float ballSpeed = 1000.0f;
+	float ballSpeed = 500.0f;
 	Ball ball{};
 	ball.pos = { 0.0f, 0.0f };
 	ball.size = { 20.0f, 20.0f };
@@ -397,7 +350,9 @@ int main(int argc, char** argv)
 	ball.velocity = ballSpeed;
 	ball.angle = 30.0f;
 
+	bool ballSide = false;
 
+	LVN_INFO("Use w and s to move the left paddle up and down. Use the up and down arrow keys to move the right paddle up and down. Have fun!");
 
 	while (lvn::windowOpen(window))
 	{
@@ -448,35 +403,57 @@ int main(int argc, char** argv)
 		if (p2.pos.y <= -halfHeight) { p2.pos.y = -halfHeight; }
 		else if (p2.pos.y >= halfHeight - paddleHeight) { p2.pos.y = halfHeight - paddleHeight; }
 
+
+		// ball movement
+
+		// calc next ball pos
 		ball.velocity = ballSpeed * dt;
 		ball.pos.x += ball.velocity * cos(lvn::radians(ball.angle));
 		ball.pos.y += ball.velocity * sin(lvn::radians(ball.angle));
 
-		// left side
+		// hit bottom side
 		if (ball.pos.y <= -halfHeight) { ball.pos.y = -halfHeight; ball.angle *= -1; }
+
+		// hit top side
 		if (ball.pos.y >= halfHeight - ball.size.y) { ball.pos.y = halfHeight - ball.size.y; ball.angle *= -1; }
 
-		if (ball.pos.x <= p1.pos.x + p1.size.x &&
-			(ball.pos.y >= p1.pos.y && ball.pos.y + ball.size.y <= p1.pos.y + p1.size.y))
+		// hit left side
+		if (ball.pos.x <= -halfWidth - ball.size.x)
 		{
-			if (!(ball.pos.x <= p1.pos.x + p1.size.x * 0.5f))
-			{
-				ball.angle = 180.0f - ball.angle + (rand() % 61) - 30.0f;
-			}
+			ball.pos = {0.0f, 0.0f};
+			ball.angle = (rand() % 61) - 30.0f;
+			ballSide = false;
+			ballSpeed = 500.0f;
 		}
 
-		// right side
-		if (ball.pos.x <= -halfWidth - ball.size.x) { ball.pos = {0.0f, 0.0f}; ball.angle = (rand() % 61) - 30.0f; }
-		if (ball.pos.x >= halfWidth) { ball.pos = {0.0f, 0.0f}; ball.angle = (rand() % 61) - 30.0f; }
+		// hit right side
+		if (ball.pos.x >= halfWidth)
+		{
+			ball.pos = {0.0f, 0.0f};
+			ball.angle = 180.0f - ((rand() % 61) - 30.0f);
+			ballSide = true;
+			ballSpeed = 500.0f;
+		}
 
 
-		if (ball.pos.x + ball.size.x >= p2.pos.x &&
+		// hit left paddle
+		if (ball.pos.x <= p1.pos.x + p1.size.x && ballSide &&
+			(ball.pos.y >= p1.pos.y && ball.pos.y + ball.size.y <= p1.pos.y + p1.size.y))
+		{
+			ball.angle = 180.0f - ball.angle + (rand() % 61) - 30.0f;
+			ballSpeed += 10.0f;
+			lvn::clamp(ballSpeed, 500.0f, 1500.0f);
+			ballSide = false;
+		}
+
+		// hit right paddle
+		if (ball.pos.x + ball.size.x >= p2.pos.x && !ballSide &&
 			(ball.pos.y >= p2.pos.y && ball.pos.y + ball.size.y <= p2.pos.y + p2.size.y))
 		{
-			if (!(ball.pos.x + ball.size.x >= p2.pos.x + p2.size.x * 0.5f))
-			{
-				ball.angle = (180.0f - ball.angle) + (rand() % 61) - 30.0f;
-			}
+			ball.angle = (180.0f - ball.angle) + (rand() % 61) - 30.0f;
+			ballSpeed += 10.0f;
+			lvn::clamp(ballSpeed, 500.0f, 1500.0f);
+			ballSide = true;
 		}
 
 
