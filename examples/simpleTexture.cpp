@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <levikno/levikno.h>
 
 #include <vector>
@@ -8,15 +9,16 @@
 
 static float s_Vertices[] =
 {
-/*      Pos (x,y,z)   |   color (r,g,b)   */
-	 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
-	-0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
-	 0.5f,-0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
+/*      pos (x,y,z)   |   color (r,g,b) |  TexCoord     */
+	-0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // v1
+	-0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, // v2
+	 0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // v3
+	 0.5f,-0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, // v4
 };
 
 static uint32_t s_Indices[] = 
 {
-	0, 1, 2
+	0, 1, 2, 2, 1, 3
 };
 
 static const char* s_VertexShaderSrc = R"(
@@ -24,13 +26,16 @@ static const char* s_VertexShaderSrc = R"(
 
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inColor;
+layout(location = 2) in vec2 inTexCoord;
 
 layout(location = 0) out vec3 fragColor;
+layout(location = 1) out vec2 fragTexCoord;
 
 void main()
 {
 	gl_Position = vec4(inPos, 1.0);
 	fragColor = inColor;
+	fragTexCoord = inTexCoord;
 }
 )";
 
@@ -40,16 +45,26 @@ static const char* s_FragmentShaderSrc = R"(
 layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec3 fragColor;
+layout(location = 1) in vec2 fragTexCoord;
+
+layout(binding = 0) uniform sampler2D inTexture;
 
 void main()
 {
-	outColor = vec4(fragColor, 1.0);
+	vec3 color = vec3(texture(inTexture, fragTexCoord));
+	outColor = vec4(color, 1.0);
 }
 )";
 
 
 int main(int argc, char** argv)
 {
+	if (argc < 2)
+	{
+		printf("No input file given, please include a path to an image file\n");
+		return -1;
+	}
+
 	// [Create Context]
 	// create the context to load the library
 
@@ -108,21 +123,22 @@ int main(int argc, char** argv)
 	// create the buffer to store our vertex data
 
 	// create the vertex attributes and descriptor bindings to layout our vertex data
-	LvnVertexAttribute attributes[2] = 
+	LvnVertexAttribute attributes[3] = 
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
 		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
+		{ 0, 2, Lvn_VertexDataType_Vec2f, (6 * sizeof(float)) },
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};
 	vertexBindingDescription.binding = 0;
-	vertexBindingDescription.stride = 6 * sizeof(float);
+	vertexBindingDescription.stride = 8 * sizeof(float);
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
 	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = 2;
+	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
 	bufferCreateInfo.pVertices = s_Vertices;
@@ -147,19 +163,45 @@ int main(int argc, char** argv)
 	LvnShader* shader;
 	lvn::createShaderFromSrc(&shader, &shaderCreateInfo);
 
+	// descriptor binding
+	LvnDescriptorBinding descriptorBinding{};
+	descriptorBinding.binding = 0;
+	descriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
+	descriptorBinding.descriptorCount = 1;
+	descriptorBinding.maxAllocations = 1;
+
+	// descriptor layout create info
+	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
+	descriptorLayoutCreateInfo.pDescriptorBindings = &descriptorBinding;
+	descriptorLayoutCreateInfo.descriptorBindingCount = 1;
+	descriptorLayoutCreateInfo.maxSets = 1;
+
+	// create descriptor layout
+	LvnDescriptorLayout* descriptorLayout;
+	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
+
+	// create descriptor set using layout
+	LvnDescriptorSet* descriptorSet;
+	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
+
+
 	// get the render pass from the window to pass into the pipeline
 	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
 
 	// create pipeline specification or fixed functions
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
+	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Front;
 
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
 	pipelineCreateInfo.pVertexAttributes = attributes;
-	pipelineCreateInfo.vertexAttributeCount = 2;
+	pipelineCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
 	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
+	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
+	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
 	pipelineCreateInfo.renderPass = renderPass;
 
@@ -169,6 +211,32 @@ int main(int argc, char** argv)
 
 	// destroy the shader after creating the pipeline
 	lvn::destroyShader(shader);
+
+
+	// [Create texture]
+
+	// load image data
+	LvnImageData imageData = lvn::loadImageData(argv[1], 4);
+
+	// texture create info struct
+	LvnTextureCreateInfo textureCreateInfo{};
+	textureCreateInfo.imageData = imageData;
+	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+
+	LvnTexture* texture;
+	lvn::createTexture(&texture, &textureCreateInfo);
+
+	// update descriptor set
+	LvnDescriptorUpdateInfo descriptorUpdateInfo{};
+	descriptorUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorUpdateInfo.binding = 0;
+	descriptorUpdateInfo.descriptorCount = 1;
+	descriptorUpdateInfo.textureInfo = texture;
+
+	lvn::updateDescriptorSetData(descriptorSet, &descriptorUpdateInfo, 1);
 
 
 	// [Main Render Loop]
@@ -187,6 +255,9 @@ int main(int argc, char** argv)
 		// bind pipeline
 		lvn::renderCmdBindPipeline(window, pipeline);
 
+		// bind descriptor set
+		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
+
 		// bind vertex and index buffer
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
@@ -201,8 +272,11 @@ int main(int argc, char** argv)
 	}
 
 	// destroy objects after they are finished being used
+	lvn::destroyTexture(texture);
 	lvn::destroyBuffer(buffer);
 	lvn::destroyPipeline(pipeline);
+	lvn::destroyDescriptorLayout(descriptorLayout);
+	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyWindow(window);
 
 	// terminate the context at the end of the program

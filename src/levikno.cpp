@@ -1991,8 +1991,10 @@ LvnImageData loadImageData(const char* filepath, int forceChannels)
 		return {};
 	}
 
+	stbi_set_flip_vertically_on_load(true);
 	int imageWidth, imageHeight, imageChannels;
 	stbi_uc* pixels = stbi_load(filepath, &imageWidth, &imageHeight, &imageChannels, forceChannels);
+	stbi_set_flip_vertically_on_load(false);
 
 	if (!pixels)
 	{

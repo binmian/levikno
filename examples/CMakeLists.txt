@@ -38,6 +38,24 @@ if (CMAKE_GENERATOR MATCHES "Visual Studio")
 endif()
 
 
+# simple texture
+add_executable(simpleTexture simpleTexture.cpp)
+
+target_include_directories(simpleTexture 
+	PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+)
+
+target_link_libraries(simpleTexture
+	PRIVATE
+		levikno
+)
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio")
+	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleTexture)
+endif()
+
+
 # simple triangle
 add_executable(simpleTriangle simpleTriangle.cpp)
 
