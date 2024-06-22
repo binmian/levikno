@@ -2115,7 +2115,7 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 }
 
 
-LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableValidation)
+LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 {
 	if (s_VkBackends == nullptr)
 	{
@@ -2125,7 +2125,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	VulkanBackends* vkBackends = s_VkBackends;
 	LvnContext* lvnctx = lvn::getContext();
 
-	vkBackends->enableValidationLayers = enableValidation;
+	vkBackends->enableValidationLayers = graphicsContext->enableValidationLayers;
 
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
 	graphicsContext->checkPhysicalDeviceSupport = vksImplCheckPhysicalDeviceSupport;
@@ -2186,7 +2186,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext, bool enableV
 	graphicsContext->setFrameBufferClearColor = vksImplSetFrameBufferClearColor;
 
 	// Create Vulkan Instance
-	if (vks::createVulkanInstace(vkBackends, enableValidation) != Lvn_Result_Success)
+	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableValidationLayers) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create vulkan instance when creating graphics context");
 		return Lvn_Result_Failure;
@@ -2262,7 +2262,6 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
 	}
 
 	*pPhysicalDevices = vkBackends->lvnPhysicalDevices.data();
-
 }
 
 LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)

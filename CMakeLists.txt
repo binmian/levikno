@@ -44,6 +44,35 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
 
 
+# Find VulkanSDK
+set(MIN_VULKAN_VERSION 1.3)
+find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
+
+if(Vulkan_FOUND)
+	message ("Vulkan found")
+	add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
+
+	set (LVN_VULKAN_SRC
+		src/api/graphics/vulkan/lvn_vulkan.cpp
+		src/api/graphics/vulkan/lvn_vulkan.h
+		src/api/graphics/vulkan/lvn_vulkanBackends.h
+	)
+
+	if(Vulkan_glslang_FOUND)
+		message ("glslang found")
+	else()
+		message ("FATAL_ERROR cannot find glslang")
+	endif()
+
+else()
+	message ("cannot find Vulkan")
+endif()
+
+set(VULKAN_LIB_DIR
+	Vulkan::Vulkan
+	Vulkan::glslang
+)
+
 # Source build files
 
 # Graphics
@@ -52,10 +81,12 @@ set(LVN_GRAPHICS_SRC
 	src/external/glad/include/glad/glad.h
 	src/external/glad/src/glad.c
 
+	# opengl
+	src/api/graphics/opengl/lvn_opengl.cpp
+	src/api/graphics/opengl/lvn_opengl.h
+
 	# vulkan
-	src/api/graphics/vulkan/lvn_vulkan.cpp
-	src/api/graphics/vulkan/lvn_vulkan.h
-	src/api/graphics/vulkan/lvn_vulkanBackends.h
+	${LVN_VULKAN_SRC}
 )
 
 set(LVN_SOURCES
@@ -98,6 +129,7 @@ target_include_directories(levikno
 		${PROJECT_SOURCE_DIR}/src
 		${PROJECT_SOURCE_DIR}/include/levikno
 		${PROJECT_SOURCE_DIR}/src/api/graphics/vulkan
+		${PROJECT_SOURCE_DIR}/src/api/graphics/opengl
 		${PROJECT_SOURCE_DIR}/src/api/window/glfw
 		${PROJECT_SOURCE_DIR}/src/external
 		${PROJECT_SOURCE_DIR}/src/external/glfw/include
@@ -110,29 +142,6 @@ target_include_directories(levikno
 target_compile_definitions(levikno PRIVATE
 	$<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
 	$<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
-)
-
-# Find VulkanSDK
-set(MIN_VULKAN_VERSION 1.3)
-find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
-
-if(Vulkan_FOUND)
-	message ("Vulkan found")
-	add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
-
-	if(Vulkan_glslang_FOUND)
-		message ("glslang found")
-	else()
-		message ("FATAL_ERROR cannot find glslang")
-	endif()
-
-else()
-	message ("cannot find Vulkan")
-endif()
-
-set(VULKAN_LIB_DIR
-	Vulkan::Vulkan
-	Vulkan::glslang
 )
 
 target_link_libraries(levikno

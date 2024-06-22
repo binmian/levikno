@@ -221,6 +221,7 @@ struct LvnWindowContext
 struct LvnGraphicsContext
 {
 	LvnGraphicsApi              graphicsapi;
+	bool                        enableValidationLayers;
 
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
 	LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);

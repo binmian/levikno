@@ -18,7 +18,7 @@ namespace lvn
 
 	static void GLFWerrorCallback(int error, const char* descripion)
 	{
-		LVN_CORE_ERROR("glfw-error: (%d): %s", error, descripion);
+		LVN_CORE_ERROR("[glfw]: (%d): %s", error, descripion);
 	}
 
 	static LvnResult createGraphicsRelatedAPIData(LvnWindow* window)
@@ -30,10 +30,15 @@ namespace lvn
 				createVulkanWindowSurfaceData(window);
 				return Lvn_Result_Success;
 			}
+			case Lvn_GraphicsApi_opengl:
+			{
+				glfwMakeContextCurrent(static_cast<GLFWwindow*>(window->nativeWindow));
+				return Lvn_Result_Success;
+			}
 
 			default:
 			{
-				return Lvn_Result_Success;
+				return Lvn_Result_Failure;
 			}
 		}
 	}
@@ -411,7 +416,11 @@ namespace lvn
 	void glfwImplUpdateWindow(LvnWindow* window)
 	{
 		if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
-			glfwSwapBuffers(static_cast<GLFWwindow*>(window->nativeWindow));
+		{
+			GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
+			glfwMakeContextCurrent(glfwWindow);
+			glfwSwapBuffers(glfwWindow);
+		}
 
 		glfwPollEvents();
 	}

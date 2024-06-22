@@ -26,6 +26,8 @@
 	#include "lvn_vulkan.h"
 #endif
 
+#include "lvn_opengl.h"
+
 #include "lvn_loadModel.h"
 
 static LvnContext* s_LvnContext = nullptr;
@@ -40,12 +42,12 @@ static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
 static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
 static const char*                  getWindowApiNameEnum(LvnWindowApi api);
-static LvnResult                    setWindowContext(LvnWindowApi windowapi);
-static void                         terminateWindowContext();
-static LvnResult                    setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation);
-static void                         terminateGraphicsContext();
-static LvnResult                    initAudioContext();
-static void                         terminateAudioContext();
+static LvnResult                    setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi);
+static void                         terminateWindowContext(LvnContext* lvnctx);
+static LvnResult                    setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsapi);
+static void                         terminateGraphicsContext(LvnContext* lvnctx);
+static LvnResult                    initAudioContext(LvnContext* lvnctx);
+static void                         terminateAudioContext(LvnContext* lvnctx);
 
 
 static void enableLogANSIcodeColors()
@@ -101,6 +103,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
+	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->enableVulkanValidationLayers;
 
 	// logging
 	if (createInfo->enableLogging) { logInit(); }
@@ -108,14 +111,14 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	s_LvnContext->coreLogger.logLevel = createInfo->coreLogLevel;
 
 	// window context
-	LvnResult result = setWindowContext(createInfo->windowapi);
+	LvnResult result = setWindowContext(s_LvnContext, createInfo->windowapi);
 	if (result != Lvn_Result_Success) { return result; }
 
 	// graphics context
-	result = setGraphicsContext(createInfo->graphicsapi, createInfo->enableVulkanValidationLayers);
+	result = setGraphicsContext(s_LvnContext, createInfo->graphicsapi);
 	if (result != Lvn_Result_Success) { return result; }
 
-	result = initAudioContext();
+	result = initAudioContext(s_LvnContext);
 	if (result != Lvn_Result_Success) { return result; }
 
 	return Lvn_Result_Success;
@@ -125,9 +128,9 @@ void terminateContext()
 {
 	if (s_LvnContext == nullptr) { return; }
 
-	terminateWindowContext();
-	terminateGraphicsContext();
-	terminateAudioContext();
+	terminateWindowContext(s_LvnContext);
+	terminateGraphicsContext(s_LvnContext);
+	terminateAudioContext(s_LvnContext);
 
 	if (s_LvnContext->numMemoryAllocations)
 	{
@@ -1061,10 +1064,8 @@ static const char* getWindowApiNameEnum(LvnWindowApi api)
 	return LVN_EMPTY_STR;
 }
 
-static LvnResult setWindowContext(LvnWindowApi windowapi)
+static LvnResult setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi)
 {
-	LvnContext* lvnctx = s_LvnContext;
-
 	LvnResult result = Lvn_Result_Failure;
 	switch (windowapi)
 	{
@@ -1094,10 +1095,8 @@ static LvnResult setWindowContext(LvnWindowApi windowapi)
 	return result;
 }
 
-static void terminateWindowContext()
+static void terminateWindowContext(LvnContext* lvnctx)
 {
-	LvnContext* lvnctx = s_LvnContext;
-
 	switch (lvnctx->windowapi)
 	{
 		case Lvn_WindowApi_None:
@@ -1308,10 +1307,8 @@ static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
 	return LVN_EMPTY_STR;
 }
 
-static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValidation)
+static LvnResult setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsapi)
 {
-	LvnContext* lvnctx = s_LvnContext;
-
 	LvnResult result = Lvn_Result_Failure;
 	switch (graphicsapi)
 	{
@@ -1323,12 +1320,13 @@ static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValid
 		case Lvn_GraphicsApi_vulkan:
 		{
 		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-			result = vksImplCreateContext(&lvnctx->graphicsContext, enableValidation);
+			result = vksImplCreateContext(&lvnctx->graphicsContext);
 		#endif
 			break;
 		}
 		case Lvn_GraphicsApi_opengl:
 		{
+			result = oglsImplCreateContext(&lvnctx->graphicsContext);
 			break;
 		}
 	}
@@ -1341,10 +1339,8 @@ static LvnResult setGraphicsContext(LvnGraphicsApi graphicsapi, bool enableValid
 	return result;
 }
 
-static void terminateGraphicsContext()
+static void terminateGraphicsContext(LvnContext* lvnctx)
 {
-	LvnContext* lvnctx = s_LvnContext;
-
 	switch (lvnctx->graphicsapi)
 	{
 		case Lvn_GraphicsApi_None:
@@ -1361,6 +1357,7 @@ static void terminateGraphicsContext()
 		}
 		case Lvn_GraphicsApi_opengl:
 		{
+			oglsImplTerminateContext();
 			break;
 		}
 		default:
@@ -1372,7 +1369,7 @@ static void terminateGraphicsContext()
 	LVN_CORE_TRACE("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
 }
 
-static LvnResult initAudioContext()
+static LvnResult initAudioContext(LvnContext* lvnctx)
 {
 	ma_engine* pEngine = (ma_engine*)lvn::memAlloc(sizeof(ma_engine));
 
@@ -1382,17 +1379,17 @@ static LvnResult initAudioContext()
 		return Lvn_Result_Failure;
 	}
 
-	s_LvnContext->audioEngineContextPtr = pEngine;
+	lvnctx->audioEngineContextPtr = pEngine;
 
 	return Lvn_Result_Success;
 }
 
-static void terminateAudioContext()
+static void terminateAudioContext(LvnContext* lvnctx)
 {
-	if (s_LvnContext->audioEngineContextPtr != nullptr)
+	if (lvnctx->audioEngineContextPtr != nullptr)
 	{
-		ma_engine_uninit(static_cast<ma_engine*>(s_LvnContext->audioEngineContextPtr));
-		lvn::memFree(s_LvnContext->audioEngineContextPtr);
+		ma_engine_uninit(static_cast<ma_engine*>(lvnctx->audioEngineContextPtr));
+		lvn::memFree(lvnctx->audioEngineContextPtr);
 	}
 }
 
