@@ -38,6 +38,42 @@ if (CMAKE_GENERATOR MATCHES "Visual Studio")
 endif()
 
 
+# simple matrix
+add_executable(simpleMatrix simpleMatrix.cpp)
+
+target_include_directories(simpleMatrix 
+	PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+)
+
+target_link_libraries(simpleMatrix
+	PRIVATE
+		levikno
+)
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio")
+	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleMatrix)
+endif()
+
+
+# simple text
+add_executable(simpleText simpleText.cpp)
+
+target_include_directories(simpleText 
+	PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+)
+
+target_link_libraries(simpleText
+	PRIVATE
+		levikno
+)
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio")
+	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleText)
+endif()
+
+
 # simple texture
 add_executable(simpleTexture simpleTexture.cpp)
 

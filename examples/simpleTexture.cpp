@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <levikno/levikno.h>
 
 #include <vector>
@@ -9,11 +8,11 @@
 
 static float s_Vertices[] =
 {
-/*      pos (x,y,z)   |   color (r,g,b) |  TexCoord     */
-	-0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, // v1
-	-0.5f,-0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, // v2
-	 0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // v3
-	 0.5f,-0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, // v4
+/*      pos (x,y,z)   |  TexCoord     */
+	-0.5f, 0.5f, 0.0f, 0.0f, 1.0f, // v1
+	-0.5f,-0.5f, 0.0f, 0.0f, 0.0f, // v2
+	 0.5f, 0.5f, 0.0f, 1.0f, 1.0f, // v3
+	 0.5f,-0.5f, 0.0f, 1.0f, 0.0f, // v4
 };
 
 static uint32_t s_Indices[] = 
@@ -25,16 +24,13 @@ static const char* s_VertexShaderSrc = R"(
 #version 460
 
 layout(location = 0) in vec3 inPos;
-layout(location = 1) in vec3 inColor;
-layout(location = 2) in vec2 inTexCoord;
+layout(location = 1) in vec2 inTexCoord;
 
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
+layout(location = 0) out vec2 fragTexCoord;
 
 void main()
 {
 	gl_Position = vec4(inPos, 1.0);
-	fragColor = inColor;
 	fragTexCoord = inTexCoord;
 }
 )";
@@ -44,8 +40,7 @@ static const char* s_FragmentShaderSrc = R"(
 
 layout(location = 0) out vec4 outColor;
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec2 fragTexCoord;
+layout(location = 0) in vec2 fragTexCoord;
 
 layout(binding = 0) uniform sampler2D inTexture;
 
@@ -123,16 +118,15 @@ int main(int argc, char** argv)
 	// create the buffer to store our vertex data
 
 	// create the vertex attributes and descriptor bindings to layout our vertex data
-	LvnVertexAttribute attributes[3] = 
+	LvnVertexAttribute attributes[] = 
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
-		{ 0, 2, Lvn_VertexDataType_Vec2f, (6 * sizeof(float)) },
+		{ 0, 1, Lvn_VertexDataType_Vec2f, (3 * sizeof(float)) },
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};
 	vertexBindingDescription.binding = 0;
-	vertexBindingDescription.stride = 8 * sizeof(float);
+	vertexBindingDescription.stride = 5 * sizeof(float);
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
@@ -191,7 +185,6 @@ int main(int argc, char** argv)
 
 	// create pipeline specification or fixed functions
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
-	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Front;
 
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};

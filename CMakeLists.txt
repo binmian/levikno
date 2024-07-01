@@ -43,6 +43,9 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
 
+# freetype
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/freetype)
+
 
 # Find VulkanSDK
 set(MIN_VULKAN_VERSION 1.3)
@@ -107,10 +110,6 @@ set(LVN_SOURCES
 	# stb
 	src/external/stb_image.c
 	src/external/stb_image.h
-	src/external/stb_truetype.c
-	src/external/stb_truetype.h
-	src/external/stb_image_write.c
-	src/external/stb_image_write.h
 
 	# json
 	src/external/json.h
@@ -119,7 +118,7 @@ set(LVN_SOURCES
 	src/external/miniaudio.c
 	src/external/miniaudio.h
 
-  ${LVN_GRAPHICS_SRC}
+	${LVN_GRAPHICS_SRC}
 )
 
 add_library(levikno STATIC ${LVN_SOURCES})
@@ -135,6 +134,7 @@ target_include_directories(levikno
 		${PROJECT_SOURCE_DIR}/src/external/glfw/include
 		${PROJECT_SOURCE_DIR}/src/external/glad/include
 		${PROJECT_SOURCE_DIR}/src/external/vulkan/include
+		${PROJECT_SOURCE_DIR}/src/external/freetype/include
 )
 
 
@@ -145,8 +145,9 @@ target_compile_definitions(levikno PRIVATE
 )
 
 target_link_libraries(levikno
-	PRIVATE 
+	PRIVATE
 		glfw
+		freetype
 		${VULKAN_LIB_DIR}
 )
 

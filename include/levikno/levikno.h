@@ -973,7 +973,8 @@ namespace lvn
 	LVN_API std::string             loadFileSrc(const char* filepath);                                     // get the src contents from a text file format, filepath must be a valid path to a text file
 	LVN_API LvnData<uint8_t>        loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
 
-	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, float fontSize, LvnCharset charset);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
+	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
+	LVN_API LvnFontGlyph            fontGetGlyph(LvnFont* font, int8_t codepoint);
 
 
 	LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use

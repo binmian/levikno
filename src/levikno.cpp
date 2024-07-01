@@ -7,10 +7,8 @@
 #include <time.h>
 
 #include "stb_image.h"
-#include "stb_truetype.h"
-#include "stb_image_write.h"
-
 #include "miniaudio.h"
+#include "freetype/freetype.h"
 
 #ifdef LVN_PLATFORM_WINDOWS
 	#include <windows.h>
@@ -348,107 +346,104 @@ LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 	return LvnData<uint8_t>(bin.data(), bin.size());
 }
 
-LvnFont loadFontFromFileTTF(const char* filepath, float fontSize, LvnCharset charset)
+LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset)
 {
 	LvnFont font{};
 
 	LvnData<uint8_t> fontData = lvn::loadFileSrcBin(filepath);
 	LvnVector<uint8_t> fontBuffer(fontData.data(), fontData.size());
 
-	/* prepare font */
-	stbtt_fontinfo info;
-	if (!stbtt_InitFont(&info, fontBuffer.data(), 0))
+	FT_Library ft;
+	FT_Face face;
+
+	if (FT_Init_FreeType(&ft))
 	{
-		LVN_CORE_ERROR("failed to load ttf font from file: %s", filepath);
+		LVN_CORE_ERROR("[freetype]: failed to load freetype library");
+		LVN_CORE_ASSERT(false, "failed to load freetype");
 		return font;
 	}
 
-	/* calculate font scaling */
-	float scale = stbtt_ScaleForPixelHeight(&info, fontSize);
-
-	int width = 0;   // bitmap width
-	int height = fontSize; // bitmap height
-
-	for (int8_t i = charset.first; i <= charset.last; i++)
+	if (FT_New_Face(ft, filepath, 0, &face))
 	{
-		int advance, lsb;
-		stbtt_GetCodepointHMetrics(&info, i, &advance, &lsb);
-
-		width += roundf(scale * advance);
+		LVN_CORE_ERROR("[freetype]: failed to load font face!");
+		LVN_CORE_ASSERT(false, "failed to load font face");
+		return font;
 	}
 
-	LvnVector<uint8_t> bitmap(width * height * sizeof(uint8_t));
+	FT_Set_Char_Size(face, 0, fontSize << 6, 96, 96);
 
-	int x = 0;
-	int ascent, descent, lineGap;
-	stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
-	
-	ascent = roundf(ascent * scale);
-	descent = roundf(descent * scale);
+	int maxDim = (1 + (face->size->metrics.height >> 6)) * ceilf(sqrtf(charset.last - charset.first));
+	int width = 1;
+	while (width < maxDim) width <<= 1;
+	int height = width;
 
-	font.fontSize = fontSize;
-	font.codepoints = charset;
+	// render glyphs to atlas
+	LvnVector<uint8_t> pixels(width * height);
+	int penx = 0, peny = 0;
 
 	LvnVector<LvnFontGlyph> glyphs(charset.last - charset.first + 1);
 
-	uint8_t firstChar = charset.first;
-
-	for (uint8_t i = charset.first; i <= charset.last; i++)
+	for (int8_t i = charset.first; i <= charset.last; i++)
 	{
-		int x0 = x;
+		FT_Load_Char(face, i, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT);
+		FT_Bitmap* bmp = &face->glyph->bitmap;
 
-		int advance, lsb;
-		stbtt_GetCodepointHMetrics(&info, i, &advance, &lsb);
-		advance = roundf(advance * scale);
-		lsb = roundf(lsb * scale);
+		if (penx + bmp->width >= width)
+		{
+			penx = 0;
+			peny += ((face->size->metrics.height >> 6) + 1);
+		}
 
-		// get bounding box for character (may be offset to account for chars that dip above or below the line)
-		int c_x1, c_y1, c_x2, c_y2;
-		stbtt_GetCodepointBitmapBox(&info, i, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
-		
-		// compute y (different characters have different heights)
-		int y = ascent + c_y1;
-		
-		// render character (stride and offset is important here)
-		int byteOffset = x + lsb + (y * width);
-		stbtt_MakeCodepointBitmap(&info, bitmap.data() + byteOffset, c_x2 - c_x1, c_y2 - c_y1, width, scale, scale, i);
+		for (unsigned int row = 0; row < bmp->rows; row++)
+		{
+			for (unsigned int col = 0; col < bmp->width; col++)
+			{
+				int x = penx + col;
+				int y = peny + row;
+				pixels[y * width + x] = bmp->buffer[row * bmp->pitch + col];
+			}
+		}
 
-		// advance x
-		x += advance;
 
 		LvnFontGlyph glyph{};
-		glyph.unicode = i;
-		glyph.advance = advance;
-		glyph.size.x = c_x2 - c_x1;
-		glyph.size.x = c_y2 - c_y1;
-		glyph.bearing.x = lsb;
-		glyph.bearing.y = y;
-		glyph.uv.x0 = (float)x0 / (float)width;
-		glyph.uv.x1 = (float)x / (float)width;
-		glyph.uv.y0 = 0.0f;
-		glyph.uv.y1 = 1.0f;
+		glyph.uv.x0 = (float)penx / (float)width;
+		glyph.uv.y0 = (float)peny / (float)height;
+		glyph.uv.x1 = (float)(penx + bmp->width) / (float)width;
+		glyph.uv.y1 = (float)(peny + bmp->rows) / (float)height;
 
-		glyphs[i - firstChar] = glyph;
+		glyph.size.x = bmp->width;
+		glyph.size.y = bmp->rows;
+		glyph.bearing.x = face->glyph->bitmap_left;
+		glyph.bearing.y = face->glyph->bitmap_top;
+		glyph.advance = face->glyph->advance.x >> 6;
+
+		glyphs[i - charset.first] = glyph;
+
+		penx += bmp->width + 1;
 	}
-	
-	/* save out a 1 channel image */
-	stbi_write_png("out.png", width, height, 1, bitmap.data(), width);
-	
-	font.glyphs = LvnData<LvnFontGlyph>(glyphs.data(), glyphs.size());
 
+	FT_Done_FreeType(ft);
+	
 	LvnImageData atlas{};
 	atlas.width = width;
 	atlas.height = height;
 	atlas.channels = 1;
 	atlas.size = width * height;
-	atlas.pixels = LvnData<uint8_t>(bitmap.data(), bitmap.size());
+	atlas.pixels = LvnData<uint8_t>(pixels.data(), pixels.size());
 
 	font.atlas = atlas;
+	font.glyphs = LvnData<LvnFontGlyph>(glyphs.data(), glyphs.size());
+	font.codepoints = charset;
+	font.fontSize = fontSize;
 
 	return font;
 }
 
-
+LvnFontGlyph fontGetGlyph(LvnFont* font, int8_t codepoint)
+{
+	LVN_CORE_ASSERT(codepoint >= font->codepoints.first && codepoint <= font->codepoints.last, "codepoint out of charset range");
+	return font->glyphs[codepoint - font->codepoints.first];
+}
 
 void* memAlloc(size_t size)
 {
@@ -1998,7 +1993,7 @@ LvnImageData loadImageData(const char* filepath, int forceChannels)
 
 	if (!pixels)
 	{
-		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*) | failed to load image pixel data to (%p) from file: %s", pixels, filepath);
+		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*) | failed to load image pixel data from file: %s", filepath);
 		return {};
 	}
 
