@@ -463,6 +463,7 @@ int main(int argc, char** argv)
 		drawText(&list, &font, ascii.c_str(), {20.0f, height - 400.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 
 
+		// update buffers
 		lvn::bufferUpdateVertexData(buffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
 		lvn::bufferUpdateIndexData(buffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
 
