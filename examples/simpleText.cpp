@@ -229,7 +229,7 @@ int main(int argc, char** argv)
 
 	// window create info struct
 	LvnWindowCreateInfo windowInfo{};
-	windowInfo.title = "simpleTexture";
+	windowInfo.title = "simpleText";
 	windowInfo.width = 1280;
 	windowInfo.height = 720;
 	windowInfo.minWidth = 800;
