@@ -267,7 +267,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
 		// draw triangle
-		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices)); // number of elements in indices array (3)
+		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices)); // number of elements in indices array (6)
 
 		// end render pass and submit rendering
 		lvn::renderCmdEndRenderPass(window);

@@ -1,8 +1,5 @@
 #include "lvn_opengl.h"
-#include "levikno.h"
 
-#include <cstdint>
-#include <cstring>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -24,6 +21,8 @@ namespace ogls
 	static uint32_t getVertexAttributeSizeEnum(LvnVertexDataType type);
 	static GLenum getVertexAttributeFormatEnum(LvnVertexDataType type);
 	static void initDefaultOglPipelineSpecification();
+	static GLenum getTextureFilterEnum(LvnTextureFilter filter);
+	static GLenum getTextureWrapModeEnum(LvnTextureMode mode);
 
 	static LvnResult checkErrorCode()
 	{
@@ -201,6 +200,37 @@ namespace ogls
 		s_DefaultOglPipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
 	}
 
+	static GLenum getTextureFilterEnum(LvnTextureFilter filter)
+	{
+		switch (filter)
+		{
+			case Lvn_TextureFilter_Nearest: { return GL_NEAREST; }
+			case Lvn_TextureFilter_Linear: { return GL_LINEAR; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown sampler filter enum type (%u), setting filter to \'GL_NEAREST\' as default", filter);
+				return GL_NEAREST;
+			}
+		}
+	}
+
+	static GLenum getTextureWrapModeEnum(LvnTextureMode mode)
+	{
+		switch (mode)
+		{
+			case Lvn_TextureMode_Repeat: { return GL_REPEAT; }
+			case Lvn_TextureMode_MirrorRepeat: { return GL_MIRRORED_REPEAT; }
+			case Lvn_TextureMode_ClampToEdge: { return GL_CLAMP_TO_EDGE; }
+			case Lvn_TextureMode_ClampToBorder: { return GL_CLAMP_TO_BORDER; }
+
+			default:
+			{
+				LVN_CORE_WARN("unknown sampler address mode enum type (%u), setting mode to \'GL_REPEAT\' as default", mode);
+				return GL_REPEAT;
+			}
+		}
+	}
 } /* namespace ogls */
 
 
@@ -482,7 +512,41 @@ LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUnifor
 
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
 {
-	
+	uint32_t id;
+	glGenTextures(1, &id);
+	glBindTexture(GL_TEXTURE_2D, id);
+
+	GLenum texWrapMode = ogls::getTextureWrapModeEnum(createInfo->wrapMode);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));
+
+	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
+	GLenum interalFormat = GL_RGB;
+	switch (createInfo->imageData.channels)
+	{
+		case 1: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; interalFormat = GL_RED; break; }
+		case 2: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; interalFormat = GL_RG; break; }
+		case 3: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; interalFormat = GL_RGB; break; }
+		case 4: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; interalFormat = GL_RGBA; break; }
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
+	glGenerateMipmap(GL_TEXTURE_2D);
+	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	{
+		LVN_CORE_ERROR("[opengl]: last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
+		return Lvn_Result_Failure;
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	texture->image = (uint32_t*)lvn::memAlloc(sizeof(uint32_t));
+	memcpy(texture->image, &id, sizeof(uint32_t));
+
+	return Lvn_Result_Success;
 }
 
 LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo)
@@ -547,7 +611,11 @@ void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 
 void oglsImplDestroyTexture(LvnTexture* texture)
 {
-	
+	uint32_t* id = static_cast<uint32_t*>(texture->image);
+
+	glDeleteTextures(1, id);
+
+	lvn::memFree(id);
 }
 
 void oglsImplDestroyCubemap(LvnCubemap* cubemap)
@@ -679,12 +747,18 @@ LvnPipelineSpecification oglsImplGetDefaultPipelineSpecification()
 
 void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
 {
-	
+	uint32_t vbo = *static_cast<uint32_t*>(buffer->vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, vertices);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
 {
-	
+	uint32_t ibo = *static_cast<uint32_t*>(buffer->indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, indices);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)

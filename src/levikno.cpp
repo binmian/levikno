@@ -1802,54 +1802,63 @@ void destroyShader(LvnShader* shader)
 {
 	s_LvnContext->graphicsContext.destroyShader(shader);
 	delete shader;
+	shader = nullptr;
 }
 
 void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
 	s_LvnContext->graphicsContext.destroyDescriptorLayout(descriptorLayout);
 	delete descriptorLayout;
+	descriptorLayout = nullptr;
 }
 
 void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 {
 	s_LvnContext->graphicsContext.destroyDescriptorSet(descriptorSet);
 	delete descriptorSet;
+	descriptorSet = nullptr;
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
 {
 	s_LvnContext->graphicsContext.destroyPipeline(pipeline);
 	delete pipeline;
+	pipeline = nullptr;
 }
 
 void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
 	s_LvnContext->graphicsContext.destroyFrameBuffer(frameBuffer);
 	delete frameBuffer;
+	frameBuffer = nullptr;
 }
 
 void destroyBuffer(LvnBuffer* buffer)
 {
 	s_LvnContext->graphicsContext.destroyBuffer(buffer);
 	delete buffer;
+	buffer = nullptr;
 }
 
 void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
 	s_LvnContext->graphicsContext.destroyUniformBuffer(uniformBuffer);
 	delete uniformBuffer;
+	uniformBuffer = nullptr;
 }
 
 void destroyTexture(LvnTexture* texture)
 {
 	s_LvnContext->graphicsContext.destroyTexture(texture);
 	delete texture;
+	texture = nullptr;
 }
 
 void destroyCubemap(LvnCubemap* cubemap)
 {
 	s_LvnContext->graphicsContext.destroyCubemap(cubemap);
 	delete cubemap;
+	cubemap = nullptr;
 }
 
 void destroyMesh(LvnMesh* mesh)

@@ -26,11 +26,11 @@
 // dll
 #ifdef LVN_PLATFORM_WINDOWS
   #ifdef LVN_SHARED_LIBRARY_EXPORT
-	  #define LVN_API __declspec(dllexport)
+		#define LVN_API __declspec(dllexport)
   #elif LVN_SHARED_LIBRARY_IMPORT
-	  #define LVN_API __declspec(dllimport)
-  #else 
-	  #define LVN_API
+		#define LVN_API __declspec(dllimport)
+  #else
+		#define LVN_API
   #endif
 #else
   #define LVN_API

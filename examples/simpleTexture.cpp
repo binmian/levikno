@@ -6,20 +6,6 @@
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
 
-static float s_Vertices[] =
-{
-/*      pos (x,y,z)   |  TexCoord     */
-	-0.5f, 0.5f, 0.0f, 0.0f, 1.0f, // v1
-	-0.5f,-0.5f, 0.0f, 0.0f, 0.0f, // v2
-	 0.5f, 0.5f, 0.0f, 1.0f, 1.0f, // v3
-	 0.5f,-0.5f, 0.0f, 1.0f, 0.0f, // v4
-};
-
-static uint32_t s_Indices[] = 
-{
-	0, 1, 2, 2, 1, 3
-};
-
 static const char* s_VertexShaderSrc = R"(
 #version 460
 
@@ -28,9 +14,14 @@ layout(location = 1) in vec2 inTexCoord;
 
 layout(location = 0) out vec2 fragTexCoord;
 
+layout (binding = 0) uniform ObjectBuffer
+{
+	mat4 matrix;
+} ubo;
+
 void main()
 {
-	gl_Position = vec4(inPos, 1.0);
+	gl_Position = ubo.matrix * vec4(inPos, 1.0);
 	fragTexCoord = inTexCoord;
 }
 )";
@@ -42,7 +33,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec2 fragTexCoord;
 
-layout(binding = 0) uniform sampler2D inTexture;
+layout(binding = 1) uniform sampler2D inTexture;
 
 void main()
 {
@@ -50,6 +41,11 @@ void main()
 	outColor = vec4(color, 1.0);
 }
 )";
+
+struct UniformData
+{
+	LvnMat4 matrix;
+};
 
 
 int main(int argc, char** argv)
@@ -114,11 +110,27 @@ int main(int argc, char** argv)
 	lvn::createWindow(&window, &windowInfo);
 
 
+	// [Create texture]
+	// load image data
+	LvnImageData imageData = lvn::loadImageData(argv[1], 4); // NOTE: image data is loaded as an argument
+
+	// texture create info struct
+	LvnTextureCreateInfo textureCreateInfo{};
+	textureCreateInfo.imageData = imageData;
+	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+
+	LvnTexture* texture;
+	lvn::createTexture(&texture, &textureCreateInfo);
+
+
 	// [Create Buffer]
 	// create the buffer to store our vertex data
 
 	// create the vertex attributes and descriptor bindings to layout our vertex data
-	LvnVertexAttribute attributes[] = 
+	LvnVertexAttribute attributes[] =
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
 		{ 0, 1, Lvn_VertexDataType_Vec2f, (3 * sizeof(float)) },
@@ -128,6 +140,21 @@ int main(int argc, char** argv)
 	vertexBindingDescription.binding = 0;
 	vertexBindingDescription.stride = 5 * sizeof(float);
 
+	// NOTE: the width and height of the loaded image will be used for the size of our square in the vertex buffer
+	float vertices[] =
+	{
+	/*      pos (x,y,z)   |  TexCoord     */
+		-0.5f * imageData.width, 0.5f * imageData.height, 0.0f, 0.0f, 1.0f, // v1
+		-0.5f * imageData.width,-0.5f * imageData.height, 0.0f, 0.0f, 0.0f, // v2
+		 0.5f * imageData.width, 0.5f * imageData.height, 0.0f, 1.0f, 1.0f, // v3
+		 0.5f * imageData.width,-0.5f * imageData.height, 0.0f, 1.0f, 0.0f, // v4
+	};
+
+	uint32_t indices[] =
+	{
+		0, 1, 2, 2, 1, 3
+	};
+
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
@@ -135,10 +162,10 @@ int main(int argc, char** argv)
 	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = s_Vertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(s_Vertices);
-	bufferCreateInfo.pIndices = s_Indices;
-	bufferCreateInfo.indexBufferSize = sizeof(s_Indices);
+	bufferCreateInfo.pVertices = vertices;
+	bufferCreateInfo.vertexBufferSize = sizeof(vertices);
+	bufferCreateInfo.pIndices = indices;
+	bufferCreateInfo.indexBufferSize = sizeof(indices);
 
 	// create buffer
 	LvnBuffer* buffer;
@@ -158,17 +185,29 @@ int main(int argc, char** argv)
 	lvn::createShaderFromSrc(&shader, &shaderCreateInfo);
 
 	// descriptor binding
-	LvnDescriptorBinding descriptorBinding{};
-	descriptorBinding.binding = 0;
-	descriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	descriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
-	descriptorBinding.descriptorCount = 1;
-	descriptorBinding.maxAllocations = 1;
+	LvnDescriptorBinding descriptorBindingUniform{};
+	descriptorBindingUniform.binding = 0;
+	descriptorBindingUniform.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorBindingUniform.shaderStage = Lvn_ShaderStage_Vertex;
+	descriptorBindingUniform.descriptorCount = 1;
+	descriptorBindingUniform.maxAllocations = 1;
+
+	LvnDescriptorBinding descriptorBindingTexture{};
+	descriptorBindingTexture.binding = 1;
+	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorBindingTexture.shaderStage = Lvn_ShaderStage_Fragment;
+	descriptorBindingTexture.descriptorCount = 1;
+	descriptorBindingTexture.maxAllocations = 1;
+
+	LvnDescriptorBinding descriptorBindings[] =
+	{
+		descriptorBindingUniform, descriptorBindingTexture,
+	};
 
 	// descriptor layout create info
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
-	descriptorLayoutCreateInfo.pDescriptorBindings = &descriptorBinding;
-	descriptorLayoutCreateInfo.descriptorBindingCount = 1;
+	descriptorLayoutCreateInfo.pDescriptorBindings = descriptorBindings;
+	descriptorLayoutCreateInfo.descriptorBindingCount = ARRAY_LEN(descriptorBindings);
 	descriptorLayoutCreateInfo.maxSets = 1;
 
 	// create descriptor layout
@@ -206,36 +245,56 @@ int main(int argc, char** argv)
 	lvn::destroyShader(shader);
 
 
-	// [Create texture]
+	// [Create uniform buffer]
+	// uniform buffer create info struct
+	LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
+	uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
+	uniformBufferCreateInfo.binding = 0;
+	uniformBufferCreateInfo.size = sizeof(UniformData);
 
-	// load image data
-	LvnImageData imageData = lvn::loadImageData(argv[1], 4);
+	// create uniform buffer
+	LvnUniformBuffer* uniformBuffer;
+	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferCreateInfo);
 
-	// texture create info struct
-	LvnTextureCreateInfo textureCreateInfo{};
-	textureCreateInfo.imageData = imageData;
-	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
-
-	LvnTexture* texture;
-	lvn::createTexture(&texture, &textureCreateInfo);
 
 	// update descriptor set
-	LvnDescriptorUpdateInfo descriptorUpdateInfo{};
-	descriptorUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	descriptorUpdateInfo.binding = 0;
-	descriptorUpdateInfo.descriptorCount = 1;
-	descriptorUpdateInfo.textureInfo = texture;
+	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
+	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorUniformUpdateInfo.binding = 0;
+	descriptorUniformUpdateInfo.descriptorCount = 1;
+	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
-	lvn::updateDescriptorSetData(descriptorSet, &descriptorUpdateInfo, 1);
+	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.binding = 1;
+	descriptorTextureUpdateInfo.descriptorCount = 1;
+	descriptorTextureUpdateInfo.textureInfo = texture;
 
+	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
+	{
+		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
+	};
+
+	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
+
+
+	UniformData uniformData{};
 
 	// [Main Render Loop]
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+
+		int width, height;
+		lvn::windowGetSize(window, &width, &height);
+
+		// update matrix
+		LvnMat4 proj = lvn::ortho((float)width * -0.5f, (float)width * 0.5f, (float)height * -0.5f, (float)height * 0.5f, -1.0f, 1.0f);
+		LvnMat4 view = LvnMat4(1.0f);
+		LvnMat4 camera = proj * view;
+
+		uniformData.matrix = camera;
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);
@@ -256,7 +315,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
 		// draw triangle
-		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices)); // number of elements in indices array (3)
+		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(indices)); // number of elements in indices array (6)
 
 		// end render pass and submit rendering
 		lvn::renderCmdEndRenderPass(window);
@@ -267,6 +326,7 @@ int main(int argc, char** argv)
 	// destroy objects after they are finished being used
 	lvn::destroyTexture(texture);
 	lvn::destroyBuffer(buffer);
+	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);
 	lvn::destroyDescriptorSet(descriptorSet);
