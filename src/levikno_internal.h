@@ -93,6 +93,13 @@ struct LvnVector
 	uint32_t    find_index(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; uint32_t i = 0; while (begin < end) { if (*begin == e) break; begin++; i++; } return i; } // NOTE: find_index acts similar to find function; if no value was found, returns the index one greater than the last index in the vector (m_Size)
 };
 
+template <typename P1, typename P2>
+struct LvnDuoPair
+{
+	P1 p1;
+	P2 p2;
+};
+
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
 // ------------------------------------------------------------
@@ -375,6 +382,22 @@ struct LvnSound
 };
 
 
+struct LvnObjectMemAllocCount
+{
+	uint64_t windows;
+	uint64_t loggers;
+	uint64_t frameBuffers;
+	uint64_t shaders;
+	uint64_t descriptorLayouts;
+	uint64_t descriptorSets;
+	uint64_t pipelines;
+	uint64_t buffers;
+	uint64_t uniformBuffers;
+	uint64_t textures;
+	uint64_t cubemaps;
+	uint64_t sounds;
+};
+
 struct LvnContext
 {
 	LvnWindowApi                windowapi;
@@ -389,7 +412,9 @@ struct LvnContext
 	LvnVector<LvnLogPattern>    userLogPatterns;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
+
 	size_t                      numMemoryAllocations;
+	LvnObjectMemAllocCount      objectMemoryAllocations;
 };
 
 #endif

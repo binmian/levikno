@@ -25,13 +25,13 @@
 
 // dll
 #ifdef LVN_PLATFORM_WINDOWS
-  #ifdef LVN_SHARED_LIBRARY_EXPORT
+	#ifdef LVN_SHARED_LIBRARY_EXPORT
 		#define LVN_API __declspec(dllexport)
-  #elif LVN_SHARED_LIBRARY_IMPORT
+	#elif LVN_SHARED_LIBRARY_IMPORT
 		#define LVN_API __declspec(dllimport)
-  #else
+	#else
 		#define LVN_API
-  #endif
+	#endif
 #else
   #define LVN_API
 #endif 
@@ -100,7 +100,7 @@
 
 
 #include <stdlib.h> // malloc, free
-#include <stdint.h> // uint32_t, uint64_t
+#include <stdint.h> // uint8_t, uint16_t, uint32_t, uint64_t
 #include <string.h> // strlen
 #include <math.h>
 

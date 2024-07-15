@@ -30,7 +30,6 @@
 
 static LvnContext* s_LvnContext = nullptr;
 
-
 namespace lvn
 {
 
@@ -130,10 +129,19 @@ void terminateContext()
 	terminateGraphicsContext(s_LvnContext);
 	terminateAudioContext(s_LvnContext);
 
-	if (s_LvnContext->numMemoryAllocations)
-	{
-		LVN_CORE_ERROR("not all memory allocations have been freed! Number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations);
-	}
+	if (s_LvnContext->objectMemoryAllocations.windows > 0) { LVN_CORE_WARN("not all window objects have been destroyed, number of window objects remaining: %zu", s_LvnContext->objectMemoryAllocations.windows); }
+	if (s_LvnContext->objectMemoryAllocations.loggers > 0) { LVN_CORE_WARN("not all logger objects have been destroyed, number of logger objects remaining: %zu", s_LvnContext->objectMemoryAllocations.loggers); }
+	if (s_LvnContext->objectMemoryAllocations.frameBuffers > 0) { LVN_CORE_WARN("not all frameBuffers objects have been destroyed, number of frameBuffers objects remaining: %zu", s_LvnContext->objectMemoryAllocations.frameBuffers); }
+	if (s_LvnContext->objectMemoryAllocations.shaders > 0) { LVN_CORE_WARN("not all shader objects have been destroyed, number of shader objects remaining: %zu", s_LvnContext->objectMemoryAllocations.shaders); }
+	if (s_LvnContext->objectMemoryAllocations.descriptorLayouts > 0) { LVN_CORE_WARN("not all descriptor layout objects have been destroyed, number of descriptor layout objects remaining: %zu", s_LvnContext->objectMemoryAllocations.descriptorLayouts); }
+	if (s_LvnContext->objectMemoryAllocations.descriptorSets > 0) { LVN_CORE_WARN("not all descriptor set objects have been destroyed, number of descriptor set objects remaining: %zu", s_LvnContext->objectMemoryAllocations.descriptorSets); }
+	if (s_LvnContext->objectMemoryAllocations.pipelines > 0) { LVN_CORE_WARN("not all pipelines objects have been destroyed, number of pipelines objects remaining: %zu", s_LvnContext->objectMemoryAllocations.pipelines); }
+	if (s_LvnContext->objectMemoryAllocations.buffers > 0) { LVN_CORE_WARN("not all buffer objects have been destroyed, number of buffer objects remaining: %zu", s_LvnContext->objectMemoryAllocations.buffers); }
+	if (s_LvnContext->objectMemoryAllocations.uniformBuffers > 0) { LVN_CORE_WARN("not all uniform buffer objects have been destroyed, number of uniform buffer objects remaining: %zu", s_LvnContext->objectMemoryAllocations.uniformBuffers); }
+	if (s_LvnContext->objectMemoryAllocations.textures > 0) { LVN_CORE_WARN("not all window texture have been destroyed, number of texture objects remaining: %zu", s_LvnContext->objectMemoryAllocations.textures); }
+	if (s_LvnContext->objectMemoryAllocations.cubemaps > 0) { LVN_CORE_WARN("not all cubemap objects have been destroyed, number of cubemap objects remaining: %zu", s_LvnContext->objectMemoryAllocations.cubemaps); }
+	if (s_LvnContext->objectMemoryAllocations.sounds > 0) { LVN_CORE_WARN("not all sound objects have been destroyed, number of sound objects remaining: %zu", s_LvnContext->objectMemoryAllocations.sounds); }
+	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
 	
 	logTerminate();
 
@@ -143,6 +151,7 @@ void terminateContext()
 
 LvnContext* getContext()
 {
+	LVN_CORE_ASSERT(s_LvnContext != nullptr, "levikno context is nullptr, context was probably not created or initiated before using the library")
 	return s_LvnContext;
 }
 
@@ -528,7 +537,7 @@ static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
 
 LvnResult logInit()
 {
-	LvnContext* lvnctx = s_LvnContext;
+	LvnContext* lvnctx = lvn::getContext();
 
 	if (!lvnctx->logging)
 	{
@@ -555,7 +564,7 @@ LvnResult logInit()
 
 void logTerminate()
 {
-	LvnContext* lvnctx = s_LvnContext;
+	LvnContext* lvnctx = lvn::getContext();
 
 	if (lvnctx->logging)
 	{
@@ -580,7 +589,7 @@ void logRenameLogger(LvnLogger* logger, const char* name)
 
 void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!lvn::getContext()->logging) { return; }
 
 	std::string msgstr;
 
@@ -601,7 +610,7 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
-	if (!s_LvnContext->logging) { return; }
+	if (!lvn::getContext()->logging) { return; }
 
 	LvnLogMessage logMsg =
 	{
@@ -735,12 +744,12 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 
 LvnLogger* logGetCoreLogger()
 {
-	return &s_LvnContext->coreLogger;
+	return &lvn::getContext()->coreLogger;
 }
 
 LvnLogger* logGetClientLogger()
 {
-	return &s_LvnContext->clientLogger;
+	return &lvn::getContext()->clientLogger;
 }
 
 const char* logGetANSIcodeColor(LvnLogLevel level)
@@ -749,6 +758,7 @@ const char* logGetANSIcodeColor(LvnLogLevel level)
 	{
 		case Lvn_LogLevel_None:     { return LVN_LOG_COLOR_RESET; }
 		case Lvn_LogLevel_Trace:    { return LVN_LOG_COLOR_TRACE; }
+		case Lvn_LogLevel_Debug:    { return LVN_LOG_COLOR_DEBUG; }
 		case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
 		case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
 		case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
@@ -779,7 +789,7 @@ LvnResult logAddPattern(LvnLogPattern* logPattern)
 		if (s_LogPatterns[i].symbol == logPattern->symbol) { return Lvn_Result_Failure; }
 	}
 
-	s_LvnContext->userLogPatterns.push_back(*logPattern);
+	lvn::getContext()->userLogPatterns.push_back(*logPattern);
 
 	return Lvn_Result_Success;
 }
@@ -1120,12 +1130,12 @@ static void terminateWindowContext(LvnContext* lvnctx)
 
 LvnWindowApi getWindowApi()
 {
-	return s_LvnContext->windowapi;
+	return lvn::getContext()->windowapi;
 }
 
 const char* getWindowApiName()
 {
-	switch (s_LvnContext->windowapi)
+	switch (lvn::getContext()->windowapi)
 	{
 		case Lvn_WindowApi_None:  { return "None";  }
 		case Lvn_WindowApi_glfw:  { return "glfw";  }
@@ -1138,6 +1148,8 @@ const char* getWindowApiName()
 
 LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (createInfo->width < 0 || createInfo->height < 0)
 	{
 		LVN_CORE_ERROR("createWindow(LvnWindow**, LvnWindowCreateInfo*) | cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
@@ -1145,40 +1157,43 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 	}
 
 	*window = new LvnWindow();
+	lvnctx->objectMemoryAllocations.windows++;
 	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title, createInfo->width, createInfo->height);
-	return s_LvnContext->windowContext.createWindow(*window, createInfo);
+	return lvnctx->windowContext.createWindow(*window, createInfo);
 }
 
 void destroyWindow(LvnWindow* window)
 {
-	s_LvnContext->windowContext.destroyWindow(window);
+	LvnContext* lvnctx = lvn::getContext();
+	lvnctx->windowContext.destroyWindow(window);
 	delete window;
 	window = nullptr;
+	lvnctx->objectMemoryAllocations.windows--;
 }
 
 void windowUpdate(LvnWindow* window)
 {
-	s_LvnContext->windowContext.updateWindow(window);
+	lvn::getContext()->windowContext.updateWindow(window);
 }
 
 bool windowOpen(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.windowOpen(window);
+	return lvn::getContext()->windowContext.windowOpen(window);
 }
 
 LvnPair<int> windowGetDimensions(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getWindowSize(window);
+	return lvn::getContext()->windowContext.getWindowSize(window);
 }
 
 int windowGetWidth(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getWindowWidth(window);
+	return lvn::getContext()->windowContext.getWindowWidth(window);
 }
 
 int windowGetHeight(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getWindowHeight(window);
+	return lvn::getContext()->windowContext.getWindowHeight(window);
 }
 
 void windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*), void* userData)
@@ -1189,12 +1204,12 @@ void windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*), void
 
 void windowSetVSync(LvnWindow* window, bool enable)
 {
-	s_LvnContext->windowContext.setWindowVSync(window, enable);
+	lvn::getContext()->windowContext.setWindowVSync(window, enable);
 }
 
 bool windowGetVSync(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getWindowVSync(window);
+	return lvn::getContext()->windowContext.getWindowVSync(window);
 }
 
 void* windowGetNativeWindow(LvnWindow* window)
@@ -1209,7 +1224,7 @@ LvnRenderPass* windowGetRenderPass(LvnWindow* window)
 
 void windowSetContextCurrent(LvnWindow* window)
 {
-	s_LvnContext->windowContext.setWindowContextCurrent(window);
+	lvn::getContext()->windowContext.setWindowContextCurrent(window);
 }
 
 LvnWindowCreateInfo windowCreateInfoGetConfig(int width, int height, const char* title)
@@ -1225,67 +1240,67 @@ LvnWindowCreateInfo windowCreateInfoGetConfig(int width, int height, const char*
 // [SECTION]: Input
 bool keyPressed(LvnWindow* window, int keycode)
 {
-	return s_LvnContext->windowContext.keyPressed(window, keycode);
+	return lvn::getContext()->windowContext.keyPressed(window, keycode);
 }
 
 bool keyReleased(LvnWindow* window, int keycode)
 {
-	return s_LvnContext->windowContext.keyReleased(window, keycode);
+	return lvn::getContext()->windowContext.keyReleased(window, keycode);
 }
 
 bool mouseButtonPressed(LvnWindow* window, int button)
 {
-	return s_LvnContext->windowContext.mouseButtonPressed(window, button);
+	return lvn::getContext()->windowContext.mouseButtonPressed(window, button);
 }
 
 bool mouseButtonReleased(LvnWindow* window, int button)
 {
-	return s_LvnContext->windowContext.mouseButtonReleased(window, button);
+	return lvn::getContext()->windowContext.mouseButtonReleased(window, button);
 }
 
 void mouseSetPos(LvnWindow* window, float x, float y)
 {
-	s_LvnContext->windowContext.setMousePos(window, x, y);
+	lvn::getContext()->windowContext.setMousePos(window, x, y);
 }
 
 LvnPair<float> mouseGetPos(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getMousePos(window);
+	return lvn::getContext()->windowContext.getMousePos(window);
 }
 
 void mouseGetPos(LvnWindow* window, float* xpos, float* ypos)
 {
-	s_LvnContext->windowContext.getMousePosPtr(window, xpos, ypos);
+	lvn::getContext()->windowContext.getMousePosPtr(window, xpos, ypos);
 }
 
 float mouseGetX(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getMouseX(window);
+	return lvn::getContext()->windowContext.getMouseX(window);
 }
 
 float mouseGetY(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getMouseY(window);
+	return lvn::getContext()->windowContext.getMouseY(window);
 }
 
 LvnPair<int> windowGetPos(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getWindowPos(window);
+	return lvn::getContext()->windowContext.getWindowPos(window);
 }
 
 void windowGetPos(LvnWindow* window, int* xpos, int* ypos)
 {
-	s_LvnContext->windowContext.getWindowPosPtr(window, xpos, ypos);
+	lvn::getContext()->windowContext.getWindowPosPtr(window, xpos, ypos);
 }
 
 LvnPair<int> windowGetSize(LvnWindow* window)
 {
-	return s_LvnContext->windowContext.getWindowSize(window);
+	return lvn::getContext()->windowContext.getWindowSize(window);
 }
 
 void windowGetSize(LvnWindow* window, int* width, int* height)
 {
-	s_LvnContext->windowContext.getWindowSizePtr(window, width, height);
+	lvn::getContext()->windowContext.getWindowSizePtr(window, width, height);
 }
 
 // [SECTION]: Graphics
@@ -1390,12 +1405,12 @@ static void terminateAudioContext(LvnContext* lvnctx)
 
 LvnGraphicsApi getGraphicsApi()
 {
-	return s_LvnContext->graphicsapi;
+	return lvn::getContext()->graphicsapi;
 }
 
 const char* getGraphicsApiName()
 {
-	switch (s_LvnContext->graphicsapi)
+	switch (lvn::getContext()->graphicsapi)
 	{
 		case Lvn_GraphicsApi_None:   { return "None";   }
 		case Lvn_GraphicsApi_vulkan: { return "vulkan"; }
@@ -1409,7 +1424,7 @@ const char* getGraphicsApiName()
 void getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCount)
 {
 	uint32_t getDeviceCount;
-	s_LvnContext->graphicsContext.getPhysicalDevices(nullptr, &getDeviceCount);
+	lvn::getContext()->graphicsContext.getPhysicalDevices(nullptr, &getDeviceCount);
 
 	if (pPhysicalDevices == nullptr)
 	{
@@ -1417,7 +1432,7 @@ void getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCo
 		return;
 	}
 
-	s_LvnContext->graphicsContext.getPhysicalDevices(pPhysicalDevices, &getDeviceCount);
+	lvn::getContext()->graphicsContext.getPhysicalDevices(pPhysicalDevices, &getDeviceCount);
 
 	return;
 }
@@ -1429,37 +1444,37 @@ LvnPhysicalDeviceInfo getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice)
 
 LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 {
-	return s_LvnContext->graphicsContext.checkPhysicalDeviceSupport(physicalDevice);
+	return lvn::getContext()->graphicsContext.checkPhysicalDeviceSupport(physicalDevice);
 }
 
 LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 {
-	return s_LvnContext->graphicsContext.renderInit(renderInfo);
+	return lvn::getContext()->graphicsContext.renderInit(renderInfo);
 }
 
 void renderClearColor(LvnWindow* window, float r, float g, float b, float a)
 {
-	s_LvnContext->graphicsContext.renderClearColor(window, r, g, b, a);
+	lvn::getContext()->graphicsContext.renderClearColor(window, r, g, b, a);
 }
 
 void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
-	s_LvnContext->graphicsContext.renderCmdDraw(window, vertexCount);
+	lvn::getContext()->graphicsContext.renderCmdDraw(window, vertexCount);
 }
 
 void renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 {
-	s_LvnContext->graphicsContext.renderCmdDrawIndexed(window, indexCount);
+	lvn::getContext()->graphicsContext.renderCmdDrawIndexed(window, indexCount);
 }
 
 void renderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-	s_LvnContext->graphicsContext.renderCmdDrawInstanced(window, vertexCount, instanceCount, firstInstance);
+	lvn::getContext()->graphicsContext.renderCmdDrawInstanced(window, vertexCount, instanceCount, firstInstance);
 }
 
 void renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-	s_LvnContext->graphicsContext.renderCmdDrawIndexedInstanced(window, indexCount, instanceCount, firstInstance);
+	lvn::getContext()->graphicsContext.renderCmdDrawIndexedInstanced(window, indexCount, instanceCount, firstInstance);
 }
 
 void renderCmdSetStencilReference(uint32_t reference)
@@ -1474,66 +1489,68 @@ void renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 
 void renderBeginNextFrame(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderBeginNextFrame(window);
+	lvn::getContext()->graphicsContext.renderBeginNextFrame(window);
 }
 
 void renderDrawSubmit(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderDrawSubmit(window);
+	lvn::getContext()->graphicsContext.renderDrawSubmit(window);
 }
 
 void renderBeginCommandRecording(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderBeginCommandRecording(window);
+	lvn::getContext()->graphicsContext.renderBeginCommandRecording(window);
 }
 
 void renderEndCommandRecording(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderEndCommandRecording(window);
+	lvn::getContext()->graphicsContext.renderEndCommandRecording(window);
 }
 
 void renderCmdBeginRenderPass(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderCmdBeginRenderPass(window);
+	lvn::getContext()->graphicsContext.renderCmdBeginRenderPass(window);
 }
 
 void renderCmdEndRenderPass(LvnWindow* window)
 {
-	s_LvnContext->graphicsContext.renderCmdEndRenderPass(window);
+	lvn::getContext()->graphicsContext.renderCmdEndRenderPass(window);
 }
 
 void renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 {
-	s_LvnContext->graphicsContext.renderCmdBindPipeline(window, pipeline);
+	lvn::getContext()->graphicsContext.renderCmdBindPipeline(window, pipeline);
 }
 
 void renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
-	s_LvnContext->graphicsContext.renderCmdBindVertexBuffer(window, buffer);
+	lvn::getContext()->graphicsContext.renderCmdBindVertexBuffer(window, buffer);
 }
 
 void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
-	s_LvnContext->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
+	lvn::getContext()->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
 }
 
 void renderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
-	s_LvnContext->graphicsContext.renderCmdBindDescriptorSets(window, pipeline, firstSetIndex, descriptorSetCount, pDescriptorSets);
+	lvn::getContext()->graphicsContext.renderCmdBindDescriptorSets(window, pipeline, firstSetIndex, descriptorSetCount, pDescriptorSets);
 }
 
 void renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
-	s_LvnContext->graphicsContext.renderCmdBeginFrameBuffer(window, frameBuffer);
+	lvn::getContext()->graphicsContext.renderCmdBeginFrameBuffer(window, frameBuffer);
 }
 
 void renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
-	s_LvnContext->graphicsContext.renderCmdEndFrameBuffer(window, frameBuffer);
+	lvn::getContext()->graphicsContext.renderCmdEndFrameBuffer(window, frameBuffer);
 }
 
 LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (!createInfo->vertexSrc)
 	{
 		LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
@@ -1547,12 +1564,15 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 	}
 
 	*shader = new LvnShader();
+	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source): (%p)", *shader);
-	return s_LvnContext->graphicsContext.createShaderFromSrc(*shader, createInfo);
+	return lvnctx->graphicsContext.createShaderFromSrc(*shader, createInfo);
 }
 
 LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (!createInfo->vertexSrc)
 	{
 		LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
@@ -1566,12 +1586,15 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 	}
 
 	*shader = new LvnShader();
+	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
-	return s_LvnContext->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
+	return lvnctx->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
 }
 
 LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (!createInfo->vertexSrc)
 	{
 		LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
@@ -1585,12 +1608,15 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 	}
 
 	*shader = new LvnShader();
+	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
-	return s_LvnContext->graphicsContext.createShaderFromFileBin(*shader, createInfo);
+	return lvnctx->graphicsContext.createShaderFromFileBin(*shader, createInfo);
 }
 
 LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (!createInfo->descriptorBindingCount)
 	{
 		LVN_CORE_ERROR("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->descriptorBindingCount is 0, cannot create descriptor layout without the descriptor bindings count");
@@ -1604,26 +1630,35 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 	}
 
 	*descriptorLayout = new LvnDescriptorLayout();
+	lvnctx->objectMemoryAllocations.descriptorLayouts++;
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
-	return s_LvnContext->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
+	return lvnctx->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
 }
 
 LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	*descriptorSet = new LvnDescriptorSet();
+	lvnctx->objectMemoryAllocations.descriptorSets++;
 	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
-	return s_LvnContext->graphicsContext.createDescriptorSet(*descriptorSet, descriptorLayout);
+	return lvnctx->graphicsContext.createDescriptorSet(*descriptorSet, descriptorLayout);
 }
 
 LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	*pipeline = new LvnPipeline();
+	lvnctx->objectMemoryAllocations.pipelines++;
 	LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
-	return s_LvnContext->graphicsContext.createPipeline(*pipeline, createInfo);
+	return lvnctx->graphicsContext.createPipeline(*pipeline, createInfo);
 }
 
 LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (createInfo->pColorAttachments == nullptr)
 	{
 		LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments is nullptr, cannot create framebuffer without one or more color attachments");
@@ -1656,12 +1691,15 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 	}
 
 	*frameBuffer = new LvnFrameBuffer();
+	lvnctx->objectMemoryAllocations.frameBuffers++;
 	LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
-	return s_LvnContext->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
+	return lvnctx->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
 }
 
 LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	// check valid buffer type
 	if (createInfo->type == Lvn_BufferType_Unknown)
 	{
@@ -1708,12 +1746,15 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 	}
 
 	*buffer = new LvnBuffer();
+	lvnctx->objectMemoryAllocations.buffers++;
 	LVN_CORE_TRACE("created buffer: (%p)", *buffer);
-	return s_LvnContext->graphicsContext.createBuffer(*buffer, createInfo);
+	return lvnctx->graphicsContext.createBuffer(*buffer, createInfo);
 }
 
 LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	// check valid buffer type
 	if (createInfo->type & Lvn_BufferType_Unknown)
 	{
@@ -1727,19 +1768,25 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 	}
 
 	*uniformBuffer = new LvnUniformBuffer();
+	lvnctx->objectMemoryAllocations.uniformBuffers++;
 	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
-	return s_LvnContext->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
+	return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
 LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	*texture = new LvnTexture();
+	lvnctx->objectMemoryAllocations.textures++;
 	LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize());
-	return s_LvnContext->graphicsContext.createTexture(*texture, createInfo);
+	return lvnctx->graphicsContext.createTexture(*texture, createInfo);
 }
 
 LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (createInfo->posx.pixels.data() == nullptr)
 	{
 		LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posx.pixels does not point to a valid pointer array");
@@ -1783,8 +1830,9 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	// }
 
 	*cubemap = new LvnCubemap();
+	lvnctx->objectMemoryAllocations.cubemaps++;
 	LVN_CORE_TRACE("created cubemap: (%p)", *cubemap);
-	return s_LvnContext->graphicsContext.createCubemap(*cubemap, createInfo);
+	return lvnctx->graphicsContext.createCubemap(*cubemap, createInfo);
 }
 
 LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
@@ -1800,65 +1848,92 @@ LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
 
 void destroyShader(LvnShader* shader)
 {
-	s_LvnContext->graphicsContext.destroyShader(shader);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyShader(shader);
 	delete shader;
 	shader = nullptr;
+	lvnctx->objectMemoryAllocations.shaders--;
 }
 
 void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
-	s_LvnContext->graphicsContext.destroyDescriptorLayout(descriptorLayout);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyDescriptorLayout(descriptorLayout);
 	delete descriptorLayout;
 	descriptorLayout = nullptr;
+	lvnctx->objectMemoryAllocations.descriptorLayouts--;
 }
 
 void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 {
-	s_LvnContext->graphicsContext.destroyDescriptorSet(descriptorSet);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
 	delete descriptorSet;
 	descriptorSet = nullptr;
+	lvnctx->objectMemoryAllocations.descriptorSets--;
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
 {
-	s_LvnContext->graphicsContext.destroyPipeline(pipeline);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyPipeline(pipeline);
 	delete pipeline;
 	pipeline = nullptr;
+	lvnctx->objectMemoryAllocations.pipelines--;
 }
 
 void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
-	s_LvnContext->graphicsContext.destroyFrameBuffer(frameBuffer);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyFrameBuffer(frameBuffer);
 	delete frameBuffer;
 	frameBuffer = nullptr;
+	lvnctx->objectMemoryAllocations.frameBuffers--;
 }
 
 void destroyBuffer(LvnBuffer* buffer)
 {
-	s_LvnContext->graphicsContext.destroyBuffer(buffer);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyBuffer(buffer);
 	delete buffer;
 	buffer = nullptr;
+	lvnctx->objectMemoryAllocations.buffers--;
 }
 
 void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
-	s_LvnContext->graphicsContext.destroyUniformBuffer(uniformBuffer);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyUniformBuffer(uniformBuffer);
 	delete uniformBuffer;
 	uniformBuffer = nullptr;
+	lvnctx->objectMemoryAllocations.uniformBuffers--;
 }
 
 void destroyTexture(LvnTexture* texture)
 {
-	s_LvnContext->graphicsContext.destroyTexture(texture);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyTexture(texture);
 	delete texture;
 	texture = nullptr;
+	lvnctx->objectMemoryAllocations.textures--;
 }
 
 void destroyCubemap(LvnCubemap* cubemap)
 {
-	s_LvnContext->graphicsContext.destroyCubemap(cubemap);
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroyCubemap(cubemap);
 	delete cubemap;
 	cubemap = nullptr;
+	lvnctx->objectMemoryAllocations.cubemaps--;
 }
 
 void destroyMesh(LvnMesh* mesh)
@@ -1868,32 +1943,32 @@ void destroyMesh(LvnMesh* mesh)
 
 void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification)
 {
-	s_LvnContext->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
+	lvn::getContext()->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
 }
 
 LvnPipelineSpecification pipelineSpecificationGetConfig()
 {
-	return s_LvnContext->graphicsContext.getDefaultPipelineSpecification();
+	return lvn::getContext()->graphicsContext.getDefaultPipelineSpecification();
 }
 
 void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
 {
-	s_LvnContext->graphicsContext.bufferUpdateVertexData(buffer, vertices, size, offset);
+	lvn::getContext()->graphicsContext.bufferUpdateVertexData(buffer, vertices, size, offset);
 }
 
 void bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
 {
-	s_LvnContext->graphicsContext.bufferUpdateIndexData(buffer, indices, size, offset);
+	lvn::getContext()->graphicsContext.bufferUpdateIndexData(buffer, indices, size, offset);
 }
 
 void bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
 {
-	s_LvnContext->graphicsContext.bufferResizeVertexBuffer(buffer, size);
+	lvn::getContext()->graphicsContext.bufferResizeVertexBuffer(buffer, size);
 }
 
 void bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
 {
-	s_LvnContext->graphicsContext.bufferResizeIndexBuffer(buffer, size);
+	lvn::getContext()->graphicsContext.bufferResizeIndexBuffer(buffer, size);
 }
 
 const LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
@@ -1903,32 +1978,32 @@ const LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 
 void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
 {
-	s_LvnContext->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
+	lvn::getContext()->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
 }
 
 void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
-	s_LvnContext->graphicsContext.updateDescriptorSetData(descriptorSet, pUpdateInfo, count);
+	lvn::getContext()->graphicsContext.updateDescriptorSetData(descriptorSet, pUpdateInfo, count);
 }
 
 LvnTexture* frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
 {
-	return s_LvnContext->graphicsContext.getFrameBufferImage(frameBuffer, attachmentIndex);
+	return lvn::getContext()->graphicsContext.getFrameBufferImage(frameBuffer, attachmentIndex);
 }
 
 LvnRenderPass* frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
 {
-	return s_LvnContext->graphicsContext.getFrameBufferRenderPass(frameBuffer);
+	return lvn::getContext()->graphicsContext.getFrameBufferRenderPass(frameBuffer);
 }
 
 void frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
 {
-	return s_LvnContext->graphicsContext.updateFrameBuffer(frameBuffer, width, height);
+	return lvn::getContext()->graphicsContext.updateFrameBuffer(frameBuffer, width, height);
 }
 
 void frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
-	return s_LvnContext->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
+	return lvn::getContext()->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
 LvnBuffer* meshGetBuffer(LvnMesh* mesh)
@@ -2171,13 +2246,15 @@ uint32_t getVertexDataTypeSize(LvnVertexDataType type)
 
 LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (createInfo->filepath == nullptr)
 	{
 		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | createInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file");
 		return Lvn_Result_Failure;
 	}
 
-	ma_engine* pEngine = static_cast<ma_engine*>(s_LvnContext->audioEngineContextPtr);
+	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
 
 	ma_sound* pSound = (ma_sound*)lvn::memAlloc(sizeof(ma_sound));
 	if (ma_sound_init_from_file(pEngine, createInfo->filepath, 0, NULL, NULL, pSound) != MA_SUCCESS)
@@ -2200,17 +2277,21 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	soundPtr->looping = createInfo->looping;
 	soundPtr->soundPtr = pSound;
 
+	lvnctx->objectMemoryAllocations.sounds++;
 	return Lvn_Result_Success;
 }
 
 void destroySound(LvnSound* sound)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 
 	ma_sound_uninit(pSound);
 	lvn::memFree(pSound);
 
 	delete sound;
+	lvnctx->objectMemoryAllocations.sounds--;
 }
 
 LvnSoundCreateInfo soundConfigInit(const char* filepath)
