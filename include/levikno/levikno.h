@@ -281,7 +281,7 @@ enum LvnKeyCodes
 	/* Function keys */
 	Lvn_KeyCode_Escape          = 256,
 	Lvn_KeyCode_Enter           = 257,
-	Lvn_KeyCode_Tab	            = 258,
+	Lvn_KeyCode_Tab             = 258,
 	Lvn_KeyCode_Backspace       = 259,
 	Lvn_KeyCode_Insert          = 260,
 	Lvn_KeyCode_Delete          = 261,
@@ -384,7 +384,7 @@ enum LvnMouseCursorModes
 	Lvn_MouseCursor_HResize         = Lvn_MouseCursor_ResizeEW,
 	Lvn_MouseCursor_VRrsize         = Lvn_MouseCursor_ResizeNS,
 	Lvn_MouseCursor_Hand            = Lvn_MouseCursor_PointingHand,
-	Lvn_MouseCursor_Max	            = 10,
+	Lvn_MouseCursor_Max             = 10,
 };
 
 /* Logging Types */
@@ -567,24 +567,24 @@ enum LvnGraphicsApi
 
 enum LvnPhysicalDeviceType
 {
-	Lvn_PhysicalDeviceType_Other = 0,
-	Lvn_PhysicalDeviceType_Integrated_GPU = 1,
-	Lvn_PhysicalDeviceType_Discrete_GPU = 2,
-	Lvn_PhysicalDeviceType_Virtual_GPU = 3,
-	Lvn_PhysicalDeviceType_CPU = 4,
+	Lvn_PhysicalDeviceType_Other           = 0,
+	Lvn_PhysicalDeviceType_Integrated_GPU  = 1,
+	Lvn_PhysicalDeviceType_Discrete_GPU    = 2,
+	Lvn_PhysicalDeviceType_Virtual_GPU     = 3,
+	Lvn_PhysicalDeviceType_CPU             = 4,
 
 	Lvn_PhysicalDeviceType_Unknown = Lvn_PhysicalDeviceType_Other,
 };
 
 enum LvnSampleCount
 {
-	Lvn_SampleCount_1_Bit  = 0x00000001,
-	Lvn_SampleCount_2_Bit  = 0x00000002,
-	Lvn_SampleCount_4_Bit  = 0x00000004,
-	Lvn_SampleCount_8_Bit  = 0x00000008,
-	Lvn_SampleCount_16_Bit = 0x00000010,
-	Lvn_SampleCount_32_Bit = 0x00000020,
-	Lvn_SampleCount_64_Bit = 0x00000040,
+	Lvn_SampleCount_1_Bit  = (1U << 0),
+	Lvn_SampleCount_2_Bit  = (1U << 1),
+	Lvn_SampleCount_4_Bit  = (1U << 2),
+	Lvn_SampleCount_8_Bit  = (1U << 3),
+	Lvn_SampleCount_16_Bit = (1U << 4),
+	Lvn_SampleCount_32_Bit = (1U << 5),
+	Lvn_SampleCount_64_Bit = (1U << 6),
 };
 
 enum LvnShaderStage
@@ -596,14 +596,14 @@ enum LvnShaderStage
 
 enum LvnStencilOperation
 {
-	Lvn_StencilOperation_Keep = 0,
-	Lvn_StencilOperation_Zero = 1,
-	Lvn_StencilOperation_Replace = 2,
+	Lvn_StencilOperation_Keep              = 0,
+	Lvn_StencilOperation_Zero              = 1,
+	Lvn_StencilOperation_Replace           = 2,
 	Lvn_StencilOperation_IncrementAndClamp = 3,
 	Lvn_StencilOperation_DecrementAndClamp = 4,
-	Lvn_StencilOperation_Invert = 5,
-	Lvn_StencilOperation_IncrementAndWrap = 6,
-	Lvn_StencilOperation_DecrementAndWrap = 7,
+	Lvn_StencilOperation_Invert            = 5,
+	Lvn_StencilOperation_IncrementAndWrap  = 6,
+	Lvn_StencilOperation_DecrementAndWrap  = 7,
 };
 
 enum LvnTextureFilter

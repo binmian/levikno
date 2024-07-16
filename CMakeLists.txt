@@ -67,14 +67,14 @@ if(Vulkan_FOUND)
 		message ("FATAL_ERROR cannot find glslang")
 	endif()
 
+	set(VULKAN_LIB_DIR
+		Vulkan::Vulkan
+		Vulkan::glslang
+	)
+
 else()
 	message ("cannot find Vulkan")
 endif()
-
-set(VULKAN_LIB_DIR
-	Vulkan::Vulkan
-	Vulkan::glslang
-)
 
 # Source build files
 
