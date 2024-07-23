@@ -53,8 +53,6 @@ namespace lvn
 	void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
-	void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
-	LvnPipelineSpecification vksImplGetDefaultPipelineSpecification();
 	void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset);
 	void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset);
 	void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size);

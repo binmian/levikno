@@ -1,18 +1,15 @@
 #include "lvn_opengl.h"
+#include "levikno.h"
 
+#include <cstdint>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 
-static const char* s_OpenGLDeviceName = "opengl device";
-static uint32_t s_OglVersionMajor = 4;
-static uint32_t s_OglVersionMinor = 6;
-static LvnPhysicalDevice s_OglPhysicalDevice;
-
-static LvnPipelineSpecification s_DefaultOglPipelineSpecification;
-
 namespace lvn
 {
+
+static OglBackends* s_OglBackends = nullptr;
 
 namespace ogls 
 {
@@ -20,28 +17,28 @@ namespace ogls
 	static LvnResult checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
 	static uint32_t getVertexAttributeSizeEnum(LvnVertexDataType type);
 	static GLenum getVertexAttributeFormatEnum(LvnVertexDataType type);
-	static void initDefaultOglPipelineSpecification();
 	static GLenum getTextureFilterEnum(LvnTextureFilter filter);
 	static GLenum getTextureWrapModeEnum(LvnTextureMode mode);
 
 	static LvnResult checkErrorCode()
 	{
+		bool errOccurred = false;
 		GLenum err;
 		while((err = glGetError()) != GL_NO_ERROR)
 		{
 			switch (err)
 			{
-				case GL_INVALID_ENUM: { LVN_CORE_ERROR("[opengl]: invalid enum value"); break; }
-				case GL_INVALID_VALUE: { LVN_CORE_ERROR("[opengl]: invalid parameter value"); break; }
-				case GL_INVALID_INDEX: { LVN_CORE_ERROR("[opengl]: invalid operation, state for a command is invalid for its given parameters"); break; }
-				case GL_STACK_OVERFLOW: { LVN_CORE_ERROR("[opengl]: stack overflow, stack pushing operation causes stack overflow"); }
-				case GL_STACK_UNDERFLOW: { LVN_CORE_ERROR("[opengl]: stack underflow, stach popping operation occurs while stack is at its lowest point"); break; }
-				case GL_OUT_OF_MEMORY: { LVN_CORE_ERROR("[opengl]: out of memory, memory allocation cannot allocate enough memory"); break; }
-				case GL_INVALID_FRAMEBUFFER_OPERATION: { LVN_CORE_ERROR("[opengl]: reading or writing to a frambuffer is not complete"); break; }
+				case GL_INVALID_ENUM: { LVN_CORE_ERROR("[opengl]: invalid enum value"); errOccurred = true; break; }
+				case GL_INVALID_VALUE: { LVN_CORE_ERROR("[opengl]: invalid parameter value"); errOccurred = true; break; }
+				case GL_INVALID_INDEX: { LVN_CORE_ERROR("[opengl]: invalid operation, state for a command is invalid for its given parameters"); errOccurred = true; break; }
+				case GL_STACK_OVERFLOW: { LVN_CORE_ERROR("[opengl]: stack overflow, stack pushing operation causes stack overflow"); errOccurred = true; break; }
+				case GL_STACK_UNDERFLOW: { LVN_CORE_ERROR("[opengl]: stack underflow, stach popping operation occurs while stack is at its lowest point"); errOccurred = true; break; }
+				case GL_OUT_OF_MEMORY: { LVN_CORE_ERROR("[opengl]: out of memory, memory allocation cannot allocate enough memory"); errOccurred = true; break; }
+				case GL_INVALID_FRAMEBUFFER_OPERATION: { LVN_CORE_ERROR("[opengl]: reading or writing to a frambuffer is not complete"); errOccurred = true; break; }
 			}
 		}
 
-		return err == 0 ? Lvn_Result_Success : Lvn_Result_Failure;
+		return errOccurred ? Lvn_Result_Failure : Lvn_Result_Success;
 	}
 
 	static LvnResult checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc)
@@ -139,67 +136,6 @@ namespace ogls
 		}
 	}
 
-	static void initDefaultOglPipelineSpecification()
-	{
-		// Input Assembly
-		s_DefaultOglPipelineSpecification.inputAssembly.topology = Lvn_TopologyType_Triangle;
-		s_DefaultOglPipelineSpecification.inputAssembly.primitiveRestartEnable = false;
-
-		// Viewport
-		s_DefaultOglPipelineSpecification.viewport.x = 0.0f;
-		s_DefaultOglPipelineSpecification.viewport.y = 0.0f;
-		s_DefaultOglPipelineSpecification.viewport.width = 0.0f;
-		s_DefaultOglPipelineSpecification.viewport.height = 0.0f;
-		s_DefaultOglPipelineSpecification.viewport.minDepth = 0.0f;
-		s_DefaultOglPipelineSpecification.viewport.maxDepth = 1.0f;
-
-		// Scissor
-		s_DefaultOglPipelineSpecification.scissor.extent = { 0, 0 };
-		s_DefaultOglPipelineSpecification.scissor.offset = { 0, 0 };
-
-		// Rasterizer
-		s_DefaultOglPipelineSpecification.rasterizer.depthClampEnable = false;
-		s_DefaultOglPipelineSpecification.rasterizer.rasterizerDiscardEnable = false;
-		s_DefaultOglPipelineSpecification.rasterizer.lineWidth = 1.0f;
-		s_DefaultOglPipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
-		s_DefaultOglPipelineSpecification.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
-		s_DefaultOglPipelineSpecification.rasterizer.depthBiasEnable = false;
-		s_DefaultOglPipelineSpecification.rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-		s_DefaultOglPipelineSpecification.rasterizer.depthBiasClamp = 0.0f; // Optional
-		s_DefaultOglPipelineSpecification.rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
-
-		// MultiSampling
-		s_DefaultOglPipelineSpecification.multisampling.sampleShadingEnable = false;
-		s_DefaultOglPipelineSpecification.multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
-		s_DefaultOglPipelineSpecification.multisampling.minSampleShading = 1.0f; // Optional
-		s_DefaultOglPipelineSpecification.multisampling.sampleMask = nullptr; // Optional
-		s_DefaultOglPipelineSpecification.multisampling.alphaToCoverageEnable = false; // Optional
-		s_DefaultOglPipelineSpecification.multisampling.alphaToOneEnable = false; // Optional
-
-		// Color Attachments
-		s_DefaultOglPipelineSpecification.colorBlend.colorBlendAttachmentCount = 0;
-		s_DefaultOglPipelineSpecification.colorBlend.pColorBlendAttachments = nullptr;
-
-		// Color Blend
-		s_DefaultOglPipelineSpecification.colorBlend.logicOpEnable = false;
-		s_DefaultOglPipelineSpecification.colorBlend.blendConstants[0] = 0.0f; // Optional
-		s_DefaultOglPipelineSpecification.colorBlend.blendConstants[1] = 0.0f; // Optional
-		s_DefaultOglPipelineSpecification.colorBlend.blendConstants[2] = 0.0f; // Optional
-		s_DefaultOglPipelineSpecification.colorBlend.blendConstants[3] = 0.0f; // Optional
-
-		// Depth Stencil
-		s_DefaultOglPipelineSpecification.depthstencil.enableDepth = false;
-		s_DefaultOglPipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOperation_Never;
-		s_DefaultOglPipelineSpecification.depthstencil.enableStencil = false;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.compareMask = 0x00;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.writeMask = 0x00;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.reference = 0;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOperation_Never;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOperation_Keep;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOperation_Keep;
-		s_DefaultOglPipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
-	}
-
 	static GLenum getTextureFilterEnum(LvnTextureFilter filter)
 	{
 		switch (filter)
@@ -236,6 +172,17 @@ namespace ogls
 
 LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 {
+	if (s_OglBackends == nullptr)
+	{
+		s_OglBackends = new OglBackends();
+	}
+
+	s_OglBackends->deviceName = "opengl device";
+	s_OglBackends->versionMajor = 4;
+	s_OglBackends->versionMinor = 6;
+	s_OglBackends->defaultOglPipelineSpecification = lvn::pipelineSpecificationGetConfig();
+	s_OglBackends->maxTextureUnitSlots = 32;
+
 	graphicsContext->getPhysicalDevices = oglsImplGetPhysicalDevices;
 	graphicsContext->checkPhysicalDeviceSupport = oglsImplCheckPhysicalDeviceSupport;
 	graphicsContext->renderInit = oglsImplRenderInit;
@@ -281,8 +228,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->renderCmdBeginFrameBuffer = oglsImplRenderCmdBeginFrameBuffer;
 	graphicsContext->renderCmdEndFrameBuffer = oglsImplRenderCmdEndFrameBuffer;
 
-	graphicsContext->setDefaultPipelineSpecification = oglsImplSetDefaultPipelineSpecification;
-	graphicsContext->getDefaultPipelineSpecification = oglsImplGetDefaultPipelineSpecification;
 	graphicsContext->bufferUpdateVertexData = oglsImplBufferUpdateVertexData;
 	graphicsContext->bufferUpdateIndexData = oglsImplBufferUpdateIndexData;
 	graphicsContext->bufferResizeVertexBuffer = oglsImplBufferResizeVertexBuffer;
@@ -294,31 +239,37 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->updateFrameBuffer = oglsImplUpdateFrameBuffer;
 	graphicsContext->setFrameBufferClearColor = oglsImplSetFrameBufferClearColor;
 
-	ogls::initDefaultOglPipelineSpecification();
 
 	// NOTE: opengl does not support any enumerated physical devices so we just create a dummy device
 	LvnPhysicalDeviceInfo info{};
-	memcpy(info.name, s_OpenGLDeviceName, strlen(s_OpenGLDeviceName) + 1);
+	memcpy(info.name, s_OglBackends->deviceName, strlen(s_OglBackends->deviceName) + 1);
 	info.type = Lvn_PhysicalDeviceType_Other;
-	info.apiVersion = (((uint32_t)(s_OglVersionMajor)) << 22) | (((uint32_t)(s_OglVersionMinor)) << 12);
+	info.apiVersion = (((uint32_t)(s_OglBackends->versionMajor)) << 22) | (((uint32_t)(s_OglBackends->versionMinor)) << 12);
 	info.driverVersion = 0;
 
 	LvnPhysicalDevice physicalDevice{};
 	physicalDevice.device = nullptr;
 	physicalDevice.info = info;
 
-	s_OglPhysicalDevice = physicalDevice;
+	s_OglBackends->physicalDevice = physicalDevice;
 
 	return Lvn_Result_Success;
 }
 
 void oglsImplTerminateContext()
 {
-	
+	if (s_OglBackends != nullptr)
+	{
+		delete s_OglBackends;
+	}
+
+	s_OglBackends = nullptr;
 }
 
 void oglsImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount)
 {
+	OglBackends* oglBackends = s_OglBackends;
+
 	if (pPhysicalDevices == nullptr)
 	{
 		*physicalDeviceCount = 1;
@@ -326,7 +277,7 @@ void oglsImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* 
 	}
 
 	LvnPhysicalDevice* physicalDevice = *pPhysicalDevices;
-	physicalDevice = &s_OglPhysicalDevice;
+	physicalDevice = &oglBackends->physicalDevice;
 }
 
 LvnResult oglsImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
@@ -336,6 +287,8 @@ LvnResult oglsImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 
 LvnResult oglsImplRenderInit(LvnRenderInitInfo* renderBackends)
 {
+	OglBackends* oglBackends = s_OglBackends;
+
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -401,12 +354,54 @@ LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo
 
 LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
 {
-	
+	OglDescriptorSet descriptorSetLayout{};
+
+	LvnVector<OglDescriptorBinding> uniformDescriptorBindings, textureDescriptorBindings;
+
+	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
+	{
+		LvnDescriptorType descriptorType = createInfo->pDescriptorBindings[i].descriptorType;
+
+		if (descriptorType == Lvn_DescriptorType_UniformBuffer || descriptorType == Lvn_DescriptorType_StorageBuffer)
+		{
+			OglDescriptorBinding descriptorBinding{};
+			descriptorBinding.type = descriptorType;
+			descriptorBinding.binding = createInfo->pDescriptorBindings[i].binding;
+			uniformDescriptorBindings.push_back(descriptorBinding);
+		}
+		else if (descriptorType == Lvn_DescriptorType_Sampler || descriptorType == Lvn_DescriptorType_SampledImage || descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+		{
+			OglDescriptorBinding descriptorBinding{};
+			descriptorBinding.type = descriptorType;
+			descriptorBinding.binding = createInfo->pDescriptorBindings[i].binding;
+			textureDescriptorBindings.push_back(descriptorBinding);
+		}
+	}
+
+	descriptorSetLayout.uniformBufferCount = uniformDescriptorBindings.size();
+	descriptorSetLayout.textureCount = textureDescriptorBindings.size();
+
+	descriptorSetLayout.uniformBuffers = (OglDescriptorBinding*)lvn::memAlloc(descriptorSetLayout.uniformBufferCount * sizeof(OglDescriptorBinding));
+	descriptorSetLayout.textures = (OglDescriptorBinding*)lvn::memAlloc(descriptorSetLayout.textureCount * sizeof(OglDescriptorBinding));
+
+	memcpy(descriptorSetLayout.uniformBuffers, uniformDescriptorBindings.data(), uniformDescriptorBindings.memsize());
+	memcpy(descriptorSetLayout.textures, textureDescriptorBindings.data(), textureDescriptorBindings.memsize());
+
+	descriptorLayout->descriptorPool = nullptr;
+	descriptorLayout->descriptorLayout = lvn::memAlloc(sizeof(OglDescriptorSet));
+	memcpy(descriptorLayout->descriptorLayout, &descriptorSetLayout, sizeof(OglDescriptorSet));
+
+	return Lvn_Result_Success;
 }
 
 LvnResult oglsImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout)
 {
-	
+	descriptorSet->singleSet = lvn::memAlloc(sizeof(OglDescriptorSet));
+	memcpy(descriptorSet->singleSet, descriptorLayout->descriptorLayout, sizeof(OglDescriptorSet));
+
+	descriptorSet->descriptorCount = 1;
+
+	return Lvn_Result_Success;
 }
 
 LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
@@ -507,7 +502,38 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 
 LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
 {
+	GLenum bufferType = GL_UNIFORM_BUFFER;
+
+	switch (createInfo->type)
+	{
+		case Lvn_BufferType_Uniform:
+		{
+			bufferType = GL_UNIFORM_BUFFER;
+			break;
+		}
+		case Lvn_BufferType_Storage:
+		{
+			bufferType = GL_SHADER_STORAGE_BUFFER;
+			break;
+		}
+		default:
+		{
+			LVN_CORE_ERROR("unknown buffer type (%u) when creating uniform buffer at (%p)", createInfo->type, uniformBuffer);
+			return Lvn_Result_Failure;
+		}
+	}
+
+	uint32_t id;
+	glCreateBuffers(1, &id);
+	glNamedBufferData(id, createInfo->size, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(bufferType, createInfo->binding, id);
+
+	uniformBuffer->uniformBuffer = lvn::memAlloc(sizeof(uint32_t));
+	memcpy(uniformBuffer->uniformBuffer, &id, sizeof(uint32_t));
+
+	uniformBuffer->size = createInfo->size;
 	
+	return Lvn_Result_Success;
 }
 
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
@@ -527,10 +553,10 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 	GLenum interalFormat = GL_RGB;
 	switch (createInfo->imageData.channels)
 	{
-		case 1: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; interalFormat = GL_RED; break; }
-		case 2: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; interalFormat = GL_RG; break; }
-		case 3: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; interalFormat = GL_RGB; break; }
-		case 4: { format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; interalFormat = GL_RGBA; break; }
+		case 1: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }
+		case 2: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }
+		case 3: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }
+		case 4: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }
 	}
 
 	glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
@@ -543,7 +569,7 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	texture->image = (uint32_t*)lvn::memAlloc(sizeof(uint32_t));
+	texture->image = lvn::memAlloc(sizeof(uint32_t));
 	memcpy(texture->image, &id, sizeof(uint32_t));
 
 	return Lvn_Result_Success;
@@ -569,12 +595,16 @@ void oglsImplDestroyShader(LvnShader* shader)
 
 void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
-	
+	OglDescriptorSet* descriptorSetLayout = static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
+	lvn::memFree(descriptorSetLayout->uniformBuffers);
+	lvn::memFree(descriptorSetLayout->textures);
+
+	lvn::memFree(descriptorLayout->descriptorLayout);
 }
 
 void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 {
-	
+	lvn::memFree(descriptorSet->descriptorSets);
 }
 
 void oglsImplDestroyPipeline(LvnPipeline* pipeline)
@@ -606,7 +636,10 @@ void oglsImplDestroyBuffer(LvnBuffer* buffer)
 
 void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
-	
+	uint32_t* id = static_cast<uint32_t*>(uniformBuffer->uniformBuffer);
+	glDeleteBuffers(1, id);
+
+	lvn::memFree(uniformBuffer->uniformBuffer);
 }
 
 void oglsImplDestroyTexture(LvnTexture* texture)
@@ -692,7 +725,7 @@ void oglsImplRenderCmdBeginRenderPass(LvnWindow* window)
 
 void oglsImplRenderCmdEndRenderPass(LvnWindow* window)
 {
-	
+
 }
 
 void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
@@ -721,7 +754,22 @@ void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 
 void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSet)
 {
-	
+	OglBackends* oglBackends = s_OglBackends;
+	int texCount = 0;
+
+	for (uint32_t i = 0; i < descriptorSetCount; i++)
+	{
+		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(pDescriptorSet[i]->singleSet);
+
+		for (uint32_t j = 0; j < descriptorSetPtr->textureCount; j++)
+		{
+			LVN_CORE_ASSERT(texCount < oglBackends->maxTextureUnitSlots, "maximum texture unit slots exceeded");
+
+			glActiveTexture(GL_TEXTURE0 + texCount);
+			glBindTexture(GL_TEXTURE_2D, descriptorSetPtr->textures[j].id);
+			texCount++;
+		}
+	}
 }
 
 void oglsImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
@@ -734,20 +782,11 @@ void oglsImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuf
 	
 }
 
-
-void oglsImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
-{
-	s_DefaultOglPipelineSpecification = *pipelineSpecification;
-}
-
-LvnPipelineSpecification oglsImplGetDefaultPipelineSpecification()
-{
-	return s_DefaultOglPipelineSpecification;
-}
-
 void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
 {
 	uint32_t vbo = *static_cast<uint32_t*>(buffer->vertexBuffer);
+
+	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, size, vertices);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -756,6 +795,8 @@ void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t 
 void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
 {
 	uint32_t ibo = *static_cast<uint32_t*>(buffer->indexBuffer);
+
+	glBindVertexArray(0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, indices);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -773,12 +814,51 @@ void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
 
 void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
 {
-	
+	uint32_t id = *static_cast<uint32_t*>(uniformBuffer->uniformBuffer);
+	glNamedBufferSubData(id, 0, size, data);
 }
 
 void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
-	
+	OglBackends* oglBackends = s_OglBackends;
+	int texCount = 0;
+
+	OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(descriptorSet->singleSet);
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		// uniform buffer
+		if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
+		{
+			for (uint32_t j = 0; j < descriptorSetPtr->uniformBufferCount; j++)
+			{
+				if (descriptorSetPtr->uniformBuffers[j].binding == pUpdateInfo[i].binding)
+				{
+					descriptorSetPtr->uniformBuffers[j].id = *static_cast<uint32_t*>(pUpdateInfo[i].bufferInfo->uniformBuffer);
+					break;
+				}
+			}
+		}
+
+		// texture image
+		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+		{
+			for (uint32_t j = 0; j < descriptorSetPtr->textureCount; j++)
+			{
+				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
+				{
+					descriptorSetPtr->textures[j].id = *static_cast<uint32_t*>(pUpdateInfo[i].textureInfo->image);
+					texCount++;
+					break;
+				}
+			}
+		}
+	}
+
+	if (texCount > oglBackends->maxTextureUnitSlots)
+	{
+		LVN_CORE_WARN("[opengl]: bound texture unit slots in descriptor set (%p) exceed the maximum texture unit slots that can be bound to a shader, bound texture units: (%d), maximum texture unit slots: (%d)", descriptorSet, texCount, oglBackends->maxTextureUnitSlots);
+	}
 }
 
 LvnTexture* oglsImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex)

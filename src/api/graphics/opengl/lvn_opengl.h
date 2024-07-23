@@ -53,8 +53,6 @@ namespace lvn
 	void oglsImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void oglsImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
-	void oglsImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification);
-	LvnPipelineSpecification oglsImplGetDefaultPipelineSpecification();
 	void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset);
 	void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset);
 	void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size);
@@ -65,6 +63,33 @@ namespace lvn
 	LvnRenderPass* oglsImplGetFrameBufferRenderPass(LvnFrameBuffer* frameBuffer);
 	void oglsImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
 	void oglsImplSetFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
+
+	struct OglDescriptorBinding
+	{
+		LvnDescriptorType type;
+		uint32_t binding;
+		uint32_t id;
+	};
+
+	struct OglDescriptorSet
+	{
+		OglDescriptorBinding* uniformBuffers;
+		OglDescriptorBinding* textures;
+
+		uint32_t uniformBufferCount;
+		uint32_t textureCount;
+	};
+
+	struct OglBackends
+	{
+		const char* deviceName;
+		uint32_t versionMajor;
+		uint32_t versionMinor;
+		LvnPhysicalDevice physicalDevice;
+		LvnPipelineSpecification defaultOglPipelineSpecification;
+
+		int maxTextureUnitSlots;
+	};
 }
 
 #endif

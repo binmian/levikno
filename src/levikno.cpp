@@ -45,6 +45,7 @@ static LvnResult                    setGraphicsContext(LvnContext* lvnctx, LvnGr
 static void                         terminateGraphicsContext(LvnContext* lvnctx);
 static LvnResult                    initAudioContext(LvnContext* lvnctx);
 static void                         terminateAudioContext(LvnContext* lvnctx);
+static void                         initStandardPipelineSpecification(LvnContext* lvnctx);
 
 
 static void enableLogANSIcodeColors()
@@ -117,6 +118,9 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	result = initAudioContext(s_LvnContext);
 	if (result != Lvn_Result_Success) { return result; }
+
+	// config
+	initStandardPipelineSpecification(s_LvnContext);
 
 	return Lvn_Result_Success;
 }
@@ -1403,6 +1407,71 @@ static void terminateAudioContext(LvnContext* lvnctx)
 	}
 }
 
+static void initStandardPipelineSpecification(LvnContext* lvnctx)
+{
+	LvnPipelineSpecification pipelineSpecification{};
+
+	// Input Assembly
+	pipelineSpecification.inputAssembly.topology = Lvn_TopologyType_Triangle;
+	pipelineSpecification.inputAssembly.primitiveRestartEnable = false;
+
+	// Viewport
+	pipelineSpecification.viewport.x = 0.0f;
+	pipelineSpecification.viewport.y = 0.0f;
+	pipelineSpecification.viewport.width = 800.0f;
+	pipelineSpecification.viewport.height = 600.0f;
+	pipelineSpecification.viewport.minDepth = 0.0f;
+	pipelineSpecification.viewport.maxDepth = 1.0f;
+
+	// Scissor
+	pipelineSpecification.scissor.offset = { 0, 0 };
+	pipelineSpecification.scissor.extent = { 800, 600 };
+
+	// Rasterizer
+	pipelineSpecification.rasterizer.depthClampEnable = false;
+	pipelineSpecification.rasterizer.rasterizerDiscardEnable = false;
+	pipelineSpecification.rasterizer.lineWidth = 1.0f;
+	pipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
+	pipelineSpecification.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
+	pipelineSpecification.rasterizer.depthBiasEnable = false;
+	pipelineSpecification.rasterizer.depthBiasConstantFactor = 0.0f;
+	pipelineSpecification.rasterizer.depthBiasClamp = 0.0f;
+	pipelineSpecification.rasterizer.depthBiasSlopeFactor = 0.0f;
+
+	// MultiSampling
+	pipelineSpecification.multisampling.sampleShadingEnable = false;
+	pipelineSpecification.multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+	pipelineSpecification.multisampling.minSampleShading = 1.0f;
+	pipelineSpecification.multisampling.sampleMask = nullptr;
+	pipelineSpecification.multisampling.alphaToCoverageEnable = false;
+	pipelineSpecification.multisampling.alphaToOneEnable = false;
+
+	// Color Attachments
+	pipelineSpecification.colorBlend.colorBlendAttachmentCount = 0; // If no attachments are provided, an attachment will automatically be created
+	pipelineSpecification.colorBlend.pColorBlendAttachments = nullptr; 
+
+	// Color Blend
+	pipelineSpecification.colorBlend.logicOpEnable = false;
+	pipelineSpecification.colorBlend.blendConstants[0] = 0.0f;
+	pipelineSpecification.colorBlend.blendConstants[1] = 0.0f;
+	pipelineSpecification.colorBlend.blendConstants[2] = 0.0f;
+	pipelineSpecification.colorBlend.blendConstants[3] = 0.0f;
+
+	// Depth Stencil
+	pipelineSpecification.depthstencil.enableDepth = false;
+	pipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOperation_Never;
+	pipelineSpecification.depthstencil.enableStencil = false;
+	pipelineSpecification.depthstencil.stencil.compareMask = 0x00;
+	pipelineSpecification.depthstencil.stencil.writeMask = 0x00;
+	pipelineSpecification.depthstencil.stencil.reference = 0;
+	pipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOperation_Never;
+	pipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOperation_Keep;
+	pipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOperation_Keep;
+	pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
+
+	lvnctx->defaultPipelineSpecification = pipelineSpecification;
+}
+
 LvnGraphicsApi getGraphicsApi()
 {
 	return lvn::getContext()->graphicsapi;
@@ -1943,12 +2012,15 @@ void destroyMesh(LvnMesh* mesh)
 
 void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification)
 {
-	lvn::getContext()->graphicsContext.setDefaultPipelineSpecification(pipelineSpecification);
+	LVN_CORE_ASSERT(pipelineSpecification != nullptr, "pipeline specification points to nullptr when setting pipeline specification config");
+	LvnContext* lvnctx = lvn::getContext();
+	lvnctx->defaultPipelineSpecification = *pipelineSpecification;
 }
 
 LvnPipelineSpecification pipelineSpecificationGetConfig()
 {
-	return lvn::getContext()->graphicsContext.getDefaultPipelineSpecification();
+	LvnContext* lvnctx = lvn::getContext();
+	return lvnctx->defaultPipelineSpecification;
 }
 
 void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)

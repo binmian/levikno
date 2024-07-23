@@ -276,8 +276,6 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBeginFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 	void                        (*renderCmdEndFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 
-	void                        (*setDefaultPipelineSpecification)(LvnPipelineSpecification*);
-	LvnPipelineSpecification    (*getDefaultPipelineSpecification)();
 	void                        (*bufferUpdateVertexData)(LvnBuffer*, void*, uint32_t, uint32_t);
 	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint32_t, uint32_t);
 	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint32_t);
@@ -314,6 +312,8 @@ struct LvnDescriptorSet
 {
 	void** descriptorSets;
 	uint32_t descriptorCount;
+
+	void* singleSet;
 };
 
 struct LvnPipeline

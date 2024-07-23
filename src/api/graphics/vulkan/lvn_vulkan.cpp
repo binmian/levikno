@@ -92,7 +92,6 @@ namespace vks
 	static VkShaderStageFlags                   getShaderStageFlagEnum(LvnShaderStage stage);
 	static VkFilter                             getTextureFilterEnum(LvnTextureFilter filter);
 	static VkSamplerAddressMode                 getTextureWrapModeEnum(LvnTextureMode mode);
-	static void                                 initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
 	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
 	static LvnResult                            compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, LvnVector<uint8_t>& bin);
@@ -1355,72 +1354,6 @@ namespace vks
 		}
 	}
 
-	static void initStandardVulkanPipelineSpecification(VulkanBackends* vkBackends, LvnContext* lvnctx)
-	{
-		LvnPipelineSpecification pipelineSpecification{};
-
-		// Input Assembly
-		pipelineSpecification.inputAssembly.topology = Lvn_TopologyType_Triangle;
-		pipelineSpecification.inputAssembly.primitiveRestartEnable = false;
-
-		// Viewport
-		pipelineSpecification.viewport.x = 0.0f;
-		pipelineSpecification.viewport.y = 0.0f;
-		pipelineSpecification.viewport.width = 800.0f;
-		pipelineSpecification.viewport.height = 600.0f;
-		pipelineSpecification.viewport.minDepth = 0.0f;
-		pipelineSpecification.viewport.maxDepth = 1.0f;
-
-		// Scissor
-		pipelineSpecification.scissor.offset = { 0, 0 };
-		pipelineSpecification.scissor.extent = { 800, 600 };
-
-		// Rasterizer
-		pipelineSpecification.rasterizer.depthClampEnable = false;
-		pipelineSpecification.rasterizer.rasterizerDiscardEnable = false;
-		pipelineSpecification.rasterizer.lineWidth = 1.0f;
-		pipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
-		pipelineSpecification.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
-		pipelineSpecification.rasterizer.depthBiasEnable = false;
-		pipelineSpecification.rasterizer.depthBiasConstantFactor = 0.0f;
-		pipelineSpecification.rasterizer.depthBiasClamp = 0.0f;
-		pipelineSpecification.rasterizer.depthBiasSlopeFactor = 0.0f;
-
-		// MultiSampling
-		pipelineSpecification.multisampling.sampleShadingEnable = false;
-		pipelineSpecification.multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
-		pipelineSpecification.multisampling.minSampleShading = 1.0f;
-		pipelineSpecification.multisampling.sampleMask = nullptr;
-		pipelineSpecification.multisampling.alphaToCoverageEnable = false;
-		pipelineSpecification.multisampling.alphaToOneEnable = false;
-
-		// Color Attachments
-		pipelineSpecification.colorBlend.colorBlendAttachmentCount = 0; // If no attachments are provided, an attachment will automatically be created
-		pipelineSpecification.colorBlend.pColorBlendAttachments = nullptr; 
-
-		// Color Blend
-		pipelineSpecification.colorBlend.logicOpEnable = false;
-		pipelineSpecification.colorBlend.blendConstants[0] = 0.0f;
-		pipelineSpecification.colorBlend.blendConstants[1] = 0.0f;
-		pipelineSpecification.colorBlend.blendConstants[2] = 0.0f;
-		pipelineSpecification.colorBlend.blendConstants[3] = 0.0f;
-
-		// Depth Stencil
-		pipelineSpecification.depthstencil.enableDepth = false;
-		pipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOperation_Never;
-		pipelineSpecification.depthstencil.enableStencil = false;
-		pipelineSpecification.depthstencil.stencil.compareMask = 0x00;
-		pipelineSpecification.depthstencil.stencil.writeMask = 0x00;
-		pipelineSpecification.depthstencil.stencil.reference = 0;
-		pipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOperation_Never;
-		pipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOperation_Keep;
-		pipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOperation_Keep;
-		pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
-
-		lvnctx->defaultPipelineSpecification = pipelineSpecification;
-		vkBackends->defaultPipelineSpecification = pipelineSpecification;
-	}
-
 	static VulkanPipeline createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData)
 	{
 		VulkanPipeline pipeline{};
@@ -2172,8 +2105,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->renderCmdBeginFrameBuffer = vksImplRenderCmdBeginFrameBuffer;
 	graphicsContext->renderCmdEndFrameBuffer = vksImplRenderCmdEndFrameBuffer;
 
-	graphicsContext->setDefaultPipelineSpecification = vksImplSetDefaultPipelineSpecification;
-	graphicsContext->getDefaultPipelineSpecification = vksImplGetDefaultPipelineSpecification;
 	graphicsContext->bufferUpdateVertexData = vksImplBufferUpdateVertexData;
 	graphicsContext->bufferUpdateIndexData = vksImplBufferUpdateIndexData;
 	graphicsContext->bufferResizeVertexBuffer = vksImplBufferResizeVertexBuffer;
@@ -2306,7 +2237,7 @@ LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
-	vks::initStandardVulkanPipelineSpecification(vkBackends, lvn::getContext()); // set default pipeline fixed functions so that they don't need to be set on every pipeline creation
+	vkBackends->defaultPipelineSpecification = lvn::pipelineSpecificationGetConfig();
 
 	vkBackends->physicalDevice = static_cast<VkPhysicalDevice>(renderInfo->physicalDevice->device);
 	vkBackends->maxFramesInFlight = renderInfo->maxFramesInFlight != 0 ? renderInfo->maxFramesInFlight : 1;
@@ -3592,16 +3523,6 @@ void vksImplDestroyCubemap(LvnCubemap* cubemap)
 	vmaFreeMemory(vkBackends->vmaAllocator, imageMemory);;
 	vkDestroyImageView(vkBackends->device, imageView, nullptr);
 	vkDestroySampler(vkBackends->device, textureSampler, nullptr);
-}
-
-void vksImplSetDefaultPipelineSpecification(LvnPipelineSpecification* pipelineSpecification)
-{
-	s_VkBackends->defaultPipelineSpecification = *pipelineSpecification;
-}
-
-LvnPipelineSpecification vksImplGetDefaultPipelineSpecification()
-{
-	return s_VkBackends->defaultPipelineSpecification;
 }
 
 void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
