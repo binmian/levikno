@@ -2435,6 +2435,20 @@ float degrees(float rad)
 	return rad * 57.2957795131f; // rad * (180 / PI)
 }
 
+float clampAngle(float rad)
+{
+	float angle = fmod(rad, 2 * LVN_PI);
+	if (angle < 0) { angle += 2 * LVN_PI; }
+	return angle;
+}
+
+float clampAngleDeg(float deg)
+{
+	float angle = fmod(deg, 360.0f);
+	if (angle < 0) { angle += 360.0f; }
+	return angle;
+}
+
 float inverseSqrt(float num)
 {
 	union

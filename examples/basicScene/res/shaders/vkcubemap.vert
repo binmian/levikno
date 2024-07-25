@@ -9,7 +9,7 @@ layout (binding = 0) uniform ObjectBuffer
 	mat4 matrix;
 } ubo;
 
-void main() 
+void main()
 {
 	vec4 pos = ubo.matrix * vec4(inPos, 1.0);
     gl_Position = pos.xyww;

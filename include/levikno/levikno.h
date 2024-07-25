@@ -1234,9 +1234,10 @@ namespace lvn
 	template<typename T>
 	LVN_API bool                        within(T num, T within, T lowerRange, T upperRange) { return num <= (within + upperRange) && num >= (within - lowerRange); }
 
-	LVN_API float radians(float deg);
-	LVN_API float degrees(float rad);
-
+	LVN_API float radians(float deg);          // convert degrees to radians
+	LVN_API float degrees(float rad);          // convert radians to degrees
+	LVN_API float clampAngle(float rad);       // clamps the given angle in radians to the translated angle between 0 and 2 PI
+	LVN_API float clampAngleDeg(float deg);    // clamps the given angle in degrees to the translated angle between 0 and 2 PI
 	LVN_API float inverseSqrt(float num);
 
 	LVN_API LvnVec2f normalize(LvnVec2f v);

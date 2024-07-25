@@ -324,8 +324,7 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 		return Lvn_Result_Failure;
 	}
 
-	shader->nativeVertexShaderModule = lvn::memAlloc(sizeof(uint32_t));
-	memcpy(shader->nativeVertexShaderModule, &vertexShader, sizeof(uint32_t));
+	shader->vertexShaderId = vertexShader;
 
 	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragmentShader, 1, &createInfo->fragmentSrc, NULL);
@@ -336,8 +335,7 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 		return Lvn_Result_Failure;
 	}
 
-	shader->nativeFragmentShaderModule = lvn::memAlloc(sizeof(uint32_t));
-	memcpy(shader->nativeFragmentShaderModule, &fragmentShader, sizeof(uint32_t));
+	shader->fragmentShaderId = fragmentShader;
 
 	return Lvn_Result_Success;
 }
@@ -406,22 +404,18 @@ LvnResult oglsImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescri
 
 LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
 {
-	uint32_t vertexShader = *static_cast<uint32_t*>(createInfo->shader->nativeVertexShaderModule);
-	uint32_t fragmentShader = *static_cast<uint32_t*>(createInfo->shader->nativeFragmentShaderModule);
-
 	uint32_t shaderProgram;
 	shaderProgram = glCreateProgram();
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
+	glAttachShader(shaderProgram, createInfo->shader->vertexShaderId);
+	glAttachShader(shaderProgram, createInfo->shader->fragmentShaderId);
 	glLinkProgram(shaderProgram);
-	if (ogls::checkShaderError(vertexShader, GL_PROGRAM, "") != Lvn_Result_Success)
+	if (ogls::checkShaderError(shaderProgram, GL_PROGRAM, "") != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[opengl]: failed to create shader program (id:%u) when creating pipeline (%p)", shaderProgram, pipeline);
 		return Lvn_Result_Failure;
 	}
 
-	pipeline->nativePipeline = lvn::memAlloc(sizeof(uint32_t));
-	memcpy(pipeline->nativePipeline, &shaderProgram, sizeof(uint32_t));
+	pipeline->id = shaderProgram;
 
 	return Lvn_Result_Success;
 }
@@ -486,10 +480,7 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 	memcpy(&buffer->indexOffset, &vbo, sizeof(uint32_t));
 	memcpy((char*)(&buffer->indexOffset) + sizeof(uint32_t), &ibo, sizeof(uint32_t));
 
-	// NOTE: the vertex array (vao) is stored in the vertexBufferMemory variable to save space
-	buffer->vertexBufferMemory = lvn::memAlloc(sizeof(uint32_t));
-	memcpy(buffer->vertexBufferMemory, &vao, sizeof(uint32_t));
-
+	buffer->id = vao;
 	buffer->type = createInfo->type;
 	buffer->vertexBuffer = &buffer->indexOffset;
 	buffer->vertexBufferSize = createInfo->vertexBufferSize;
@@ -528,9 +519,7 @@ LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUnifor
 	glNamedBufferData(id, createInfo->size, nullptr, GL_DYNAMIC_DRAW);
 	glBindBufferBase(bufferType, createInfo->binding, id);
 
-	uniformBuffer->uniformBuffer = lvn::memAlloc(sizeof(uint32_t));
-	memcpy(uniformBuffer->uniformBuffer, &id, sizeof(uint32_t));
-
+	uniformBuffer->id = id;
 	uniformBuffer->size = createInfo->size;
 	
 	return Lvn_Result_Success;
@@ -569,8 +558,7 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	texture->image = lvn::memAlloc(sizeof(uint32_t));
-	memcpy(texture->image, &id, sizeof(uint32_t));
+	texture->id = id;
 
 	return Lvn_Result_Success;
 }
@@ -583,14 +571,8 @@ LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* creat
 
 void oglsImplDestroyShader(LvnShader* shader)
 {
-	uint32_t* vertexShader = static_cast<uint32_t*>(shader->nativeVertexShaderModule);
-	uint32_t* fragmentShader = static_cast<uint32_t*>(shader->nativeFragmentShaderModule);
-	
-	glDeleteShader(*vertexShader);
-	glDeleteShader(*fragmentShader);
-
-	lvn::memFree(vertexShader);
-	lvn::memFree(fragmentShader);
+	glDeleteShader(shader->vertexShaderId);
+	glDeleteShader(shader->fragmentShaderId);
 }
 
 void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
@@ -609,11 +591,7 @@ void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 
 void oglsImplDestroyPipeline(LvnPipeline* pipeline)
 {
-	uint32_t* shaderProgram = static_cast<uint32_t*>(pipeline->nativePipeline);
-
-	glDeleteProgram(*shaderProgram);
-
-	lvn::memFree(shaderProgram);
+	glDeleteProgram(pipeline->id);
 }
 
 void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
@@ -625,30 +603,20 @@ void oglsImplDestroyBuffer(LvnBuffer* buffer)
 {
 	uint32_t* vertexBuffer = static_cast<uint32_t*>(buffer->vertexBuffer);
 	uint32_t* indexBuffer = static_cast<uint32_t*>(buffer->indexBuffer);
-	uint32_t* vertexArray = static_cast<uint32_t*>(buffer->vertexBufferMemory);
 
 	glDeleteBuffers(1, vertexBuffer);
 	glDeleteBuffers(1, indexBuffer);
-	glDeleteVertexArrays(1, vertexArray);
-
-	lvn::memFree(vertexArray);
+	glDeleteVertexArrays(1, &buffer->id);
 }
 
 void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
-	uint32_t* id = static_cast<uint32_t*>(uniformBuffer->uniformBuffer);
-	glDeleteBuffers(1, id);
-
-	lvn::memFree(uniformBuffer->uniformBuffer);
+	glDeleteBuffers(1, &uniformBuffer->id);
 }
 
 void oglsImplDestroyTexture(LvnTexture* texture)
 {
-	uint32_t* id = static_cast<uint32_t*>(texture->image);
-
-	glDeleteTextures(1, id);
-
-	lvn::memFree(id);
+	glDeleteTextures(1, &texture->id);
 }
 
 void oglsImplDestroyCubemap(LvnCubemap* cubemap)
@@ -730,14 +698,12 @@ void oglsImplRenderCmdEndRenderPass(LvnWindow* window)
 
 void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 {
-	uint32_t shaderProgram = *static_cast<uint32_t*>(pipeline->nativePipeline);
-	glUseProgram(shaderProgram);
+	glUseProgram(pipeline->id);
 }
 
 void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
-	uint32_t vertexArray = *static_cast<uint32_t*>(buffer->vertexBufferMemory);
-	glBindVertexArray(vertexArray);
+	glBindVertexArray(buffer->id);
 
 	// uint32_t vertexBuffer = *static_cast<uint32_t*>(buffer->vertexBuffer);
 	// glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -745,8 +711,7 @@ void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 
 void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
-	uint32_t vertexArray = *static_cast<uint32_t*>(buffer->vertexBufferMemory);
-	glBindVertexArray(vertexArray);
+	glBindVertexArray(buffer->id);
 
 	// uint32_t indexBuffer = *static_cast<uint32_t*>(buffer->indexBuffer);
 	// glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -814,8 +779,7 @@ void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
 
 void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
 {
-	uint32_t id = *static_cast<uint32_t*>(uniformBuffer->uniformBuffer);
-	glNamedBufferSubData(id, 0, size, data);
+	glNamedBufferSubData(uniformBuffer->id, 0, size, data);
 }
 
 void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -834,7 +798,7 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 			{
 				if (descriptorSetPtr->uniformBuffers[j].binding == pUpdateInfo[i].binding)
 				{
-					descriptorSetPtr->uniformBuffers[j].id = *static_cast<uint32_t*>(pUpdateInfo[i].bufferInfo->uniformBuffer);
+					descriptorSetPtr->uniformBuffers[j].id = pUpdateInfo[i].bufferInfo->id;
 					break;
 				}
 			}
@@ -847,7 +811,7 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 			{
 				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
 				{
-					descriptorSetPtr->textures[j].id = *static_cast<uint32_t*>(pUpdateInfo[i].textureInfo->image);
+					descriptorSetPtr->textures[j].id = pUpdateInfo[i].textureInfo->id;
 					texCount++;
 					break;
 				}

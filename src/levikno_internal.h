@@ -300,6 +300,9 @@ struct LvnShader
 {
 	void* nativeVertexShaderModule;
 	void* nativeFragmentShaderModule;
+
+	uint32_t vertexShaderId;
+	uint32_t fragmentShaderId;
 };
 
 struct LvnDescriptorLayout
@@ -320,6 +323,8 @@ struct LvnPipeline
 {
 	void* nativePipeline;
 	void* nativePipelineLayout;
+
+	uint32_t id;
 };
 
 struct LvnBuffer
@@ -335,6 +340,7 @@ struct LvnBuffer
 	void* indexBufferMemory;
 
 	uint64_t indexOffset;
+	uint32_t id;
 };
 
 struct LvnUniformBuffer
@@ -343,6 +349,8 @@ struct LvnUniformBuffer
 	void* uniformBufferMemory;
 	void** uniformBufferMapped;
 	uint64_t size;
+
+	uint32_t id;
 };
 
 struct LvnTexture
@@ -351,6 +359,8 @@ struct LvnTexture
 	void* imageMemory;
 	void* imageView;
 	void* sampler;
+
+	uint32_t id;
 };
 
 struct LvnFrameBuffer

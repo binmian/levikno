@@ -179,12 +179,6 @@ void drawText(DrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnV
 
 int main(int argc, char** argv)
 {
-	if (argc < 2)
-	{
-		printf("No input file given, please include a path to a .ttf font file\n");
-		return -1;
-	}
-
 	// [Create Context]
 	// create the context to load the library
 
@@ -357,7 +351,7 @@ int main(int argc, char** argv)
 
 
 	// [Create texture]
-	LvnFont font = lvn::loadFontFromFileTTF(argv[1], 16, {32, 126});
+	LvnFont font = lvn::loadFontFromFileTTF("res/JetBrainsMonoNerdFont-Regular.ttf", 16, {32, 126});
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};

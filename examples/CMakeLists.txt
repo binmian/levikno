@@ -1,110 +1,19 @@
-# basic scene
-set(LVN_BASIC_SCENE_SRC
+file(COPY res DESTINATION .)
+
+set(LVN_SOURCES
 	basicScene/src/Main.cpp
+	pong.cpp
+	simpleMatrix.cpp
+	simpleText.cpp
+	simpleTexture.cpp
+	simpleTriangle.cpp
 )
 
-add_executable(basicScene ${LVN_BASIC_SCENE_SRC})
+foreach(LVN_SRC ${LVN_SOURCES})
+	get_filename_component(LVN_SRC_NAME ${LVN_SRC} NAME)
+	string(REPLACE ".cpp" "" LVN_SRC_NAME ${LVN_SRC_NAME})
 
-target_include_directories(basicScene 
-		PRIVATE
-		${PROJECT_SOURCE_DIR}/basicScene
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(basicScene
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT basicScene)
-endif()
-
-# pong
-add_executable(pong pong.cpp)
-
-target_include_directories(pong 
-	PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(pong
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pong)
-endif()
-
-
-# simple matrix
-add_executable(simpleMatrix simpleMatrix.cpp)
-
-target_include_directories(simpleMatrix 
-	PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(simpleMatrix
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleMatrix)
-endif()
-
-
-# simple text
-add_executable(simpleText simpleText.cpp)
-
-target_include_directories(simpleText 
-	PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(simpleText
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleText)
-endif()
-
-
-# simple texture
-add_executable(simpleTexture simpleTexture.cpp)
-
-target_include_directories(simpleTexture 
-	PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(simpleTexture
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleTexture)
-endif()
-
-
-# simple triangle
-add_executable(simpleTriangle simpleTriangle.cpp)
-
-target_include_directories(simpleTriangle 
-	PRIVATE
-		${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(simpleTriangle
-	PRIVATE
-		levikno
-)
-
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT simpleTriangle)
-endif()
+	add_executable(${LVN_SRC_NAME} ${LVN_SRC})
+	target_include_directories(${LVN_SRC_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
+	target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno)
+endforeach()

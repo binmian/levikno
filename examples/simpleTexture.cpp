@@ -50,12 +50,6 @@ struct UniformData
 
 int main(int argc, char** argv)
 {
-	if (argc < 2)
-	{
-		printf("No input file given, please include a path to an image file\n");
-		return -1;
-	}
-
 	// [Create Context]
 	// create the context to load the library
 
@@ -112,7 +106,7 @@ int main(int argc, char** argv)
 
 	// [Create texture]
 	// load image data
-	LvnImageData imageData = lvn::loadImageData(argv[1], 4); // NOTE: image data is loaded as an argument
+	LvnImageData imageData = lvn::loadImageData("res/debug.png", 4); // NOTE: image data is loaded as an argument
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
