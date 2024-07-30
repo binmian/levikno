@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 
 	// window create info struct
 	LvnWindowCreateInfo windowInfo{};
-	windowInfo.title = "simpleTexture";
+	windowInfo.title = "simpleMatrix";
 	windowInfo.width = 800;
 	windowInfo.height = 600;
 	windowInfo.minWidth = 300;
@@ -266,7 +266,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
-		// draw triangle
+		// draw sqaure
 		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices)); // number of elements in indices array (6)
 
 		// end render pass and submit rendering

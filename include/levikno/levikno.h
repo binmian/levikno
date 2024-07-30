@@ -1160,7 +1160,7 @@ namespace lvn
 
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
 
-	LVN_API const LvnTexture*           cubemapGetTextureData(LvnCubemap* cubemap);                                                                       // get the cubemap texture from the cubemap
+	LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);                   // update the data stored in a uniform or storage buffer
 	LVN_API void                        updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);           // update the descriptor content within a descroptor set
@@ -1175,7 +1175,7 @@ namespace lvn
 	LVN_API void                        meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix);
 	LVN_API LvnBufferCreateInfo         meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
 
-	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0);
+	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 
 	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
 	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                       // destroy mesh object

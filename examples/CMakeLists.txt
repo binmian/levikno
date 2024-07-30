@@ -2,11 +2,13 @@ file(COPY res DESTINATION .)
 
 set(LVN_SOURCES
 	basicScene/src/Main.cpp
+	cubemap.cpp
 	pong.cpp
 	simpleMatrix.cpp
 	simpleText.cpp
 	simpleTexture.cpp
 	simpleTriangle.cpp
+	simpleWindow.cpp
 )
 
 foreach(LVN_SRC ${LVN_SOURCES})

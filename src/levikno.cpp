@@ -2043,7 +2043,7 @@ void bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
 	lvn::getContext()->graphicsContext.bufferResizeIndexBuffer(buffer, size);
 }
 
-const LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
+LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 {
 	return &cubemap->textureData;
 }
@@ -2123,7 +2123,7 @@ LvnBufferCreateInfo meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, ui
 	return bufferCreateInfo;
 }
 
-LvnImageData loadImageData(const char* filepath, int forceChannels)
+LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVertically)
 {
 	if (filepath == nullptr)
 	{
@@ -2142,10 +2142,9 @@ LvnImageData loadImageData(const char* filepath, int forceChannels)
 		return {};
 	}
 
-	stbi_set_flip_vertically_on_load(true);
+	stbi_set_flip_vertically_on_load(flipVertically);
 	int imageWidth, imageHeight, imageChannels;
 	stbi_uc* pixels = stbi_load(filepath, &imageWidth, &imageHeight, &imageChannels, forceChannels);
-	stbi_set_flip_vertically_on_load(false);
 
 	if (!pixels)
 	{
