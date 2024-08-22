@@ -565,7 +565,44 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 
 LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo)
 {
-	
+	uint32_t id;
+	glGenTextures(1, &id);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, id);
+
+	const LvnImageData* texImages[6] = { &createInfo->posx, &createInfo->negx, &createInfo->posy, &createInfo->negy, &createInfo->posz, &createInfo->negz };
+
+	for(uint32_t i = 0; i < 6; i++)
+	{
+		GLenum texFormat = GL_RGBA;
+		switch (texImages[i]->channels)
+		{
+			case 1: { texFormat = GL_RED; break; }
+			case 2: { texFormat = GL_RG; break; }
+			case 3: { texFormat = GL_RGB; break; }
+			case 4: { texFormat = GL_RGBA; break; }
+
+			default:
+			{
+				LVN_CORE_ERROR("[opengl]: invalid texture channel format (%u) when creating texture for cubemap (%p)", texImages[i]->channels, cubemap);
+				return Lvn_Result_Failure;
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, texFormat, texImages[i]->width, texImages[i]->height, 0, texFormat, GL_UNSIGNED_BYTE, texImages[i]->pixels.data());
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	LvnTexture texData{};
+	texData.id = id;
+
+	cubemap->textureData = texData;
+
+	return Lvn_Result_Success;
 }
 
 
@@ -621,7 +658,7 @@ void oglsImplDestroyTexture(LvnTexture* texture)
 
 void oglsImplDestroyCubemap(LvnCubemap* cubemap)
 {
-	
+	glDeleteTextures(1, &cubemap->textureData.id);
 }
 
 

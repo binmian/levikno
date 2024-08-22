@@ -230,13 +230,13 @@ float s_AngleX = LVN_PI * 1.5f;
 void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 {
 	if (lvn::keyPressed(window, Lvn_KeyCode_W))
-		camera->position += (camera->orientation * s_CameraSpeed) * dt;
+		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_A))
 		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_S))
-		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
+		camera->position += (camera->orientation * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_D))
 		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
@@ -249,23 +249,23 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Left))
 	{
-		s_AngleX += dt;
+		s_AngleX -= dt;
 		camera->orientation.x = cos(s_AngleX);
 		camera->orientation.z = sin(s_AngleX);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Right))
 	{
-		s_AngleX -= dt;
+		s_AngleX += dt;
 		camera->orientation.x = cos(s_AngleX);
 		camera->orientation.z = sin(s_AngleX);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Up))
 	{
-		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
+		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Down))
 	{
-		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
+		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
 	}
 }
 
@@ -721,7 +721,7 @@ int main()
 	LvnCameraCreateInfo cameraCreateInfo{};
 	cameraCreateInfo.width = lvn::windowGetSize(window).width;
 	cameraCreateInfo.height = lvn::windowGetSize(window).height;
-	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, 2.0f);
+	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, -1.0f);
 	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, -1.0f);
 	cameraCreateInfo.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
 	cameraCreateInfo.fovDeg = 60.0f;
@@ -730,7 +730,7 @@ int main()
 	LvnCamera camera = lvn::cameraConfigInit(&cameraCreateInfo);
 
 
-	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/WaterBottle/WaterBottle.gltf");
+	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/gameboy/scene.gltf");
 
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
@@ -803,6 +803,8 @@ int main()
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(1.01f)); // * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+
+		LVN_INFO("x:%f, y:%f, z:%f", camera.orientation.x, camera.orientation.y, camera.orientation.z);
 
 		camera.width = width;
 		camera.height = height;

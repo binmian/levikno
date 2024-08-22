@@ -561,7 +561,7 @@ namespace vks
 	{
 		for (uint32_t i = 0; i < count; i++)
 		{
-			if (pAvailableFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM && pAvailableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			if (pAvailableFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB && pAvailableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 			{
 				return pAvailableFormats[i];
 			}

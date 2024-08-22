@@ -1393,8 +1393,8 @@ namespace lvn
 		LvnMat4x4_t<T> matrix(0);
 		matrix[0][0] = static_cast<T>(1) / (aspect * halfTanFovy);
 		matrix[1][1] = static_cast<T>(1) / (halfTanFovy);
-		matrix[2][2] = zFar / (zNear - zFar);
-		matrix[2][3] = -1;
+		matrix[2][2] = zFar / (zFar - zNear);
+		matrix[2][3] = 1;
 		matrix[3][2] = - (zFar * zNear) / (zFar - zNear);
 
 		return matrix;
@@ -1407,7 +1407,7 @@ namespace lvn
 		LvnVec3_t<T> s(lvn::normalize(lvn::cross(f, up)));
 		LvnVec3_t<T> u(lvn::cross(s, f));
 
-		LvnMat4x4_t<T> matrix(1);
+		LvnMat4x4_t<T> matrix(static_cast<T>(1));
 		matrix[0][0] = s.x;
 		matrix[1][0] = s.y;
 		matrix[2][0] = s.z;
