@@ -1501,6 +1501,7 @@ struct LvnContextCreateInfo
 	bool                      enableLogging;
 	LvnLogLevel               coreLogLevel;
 	bool                      enableVulkanValidationLayers;
+	LvnTextureFormat          frameBufferColorFormat;
 };
 
 /* [Logging] */

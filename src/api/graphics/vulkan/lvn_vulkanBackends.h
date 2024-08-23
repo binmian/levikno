@@ -126,6 +126,7 @@ namespace lvn
 		LvnPipelineSpecification            defaultPipelineSpecification;
 		bool                                gammaCorrect;
 		uint32_t                            maxFramesInFlight;
+		VkFormat                            frameBufferColorFormat;
 	};
 
 	VulkanBackends* getVulkanBackends();

@@ -102,6 +102,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
 	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->enableVulkanValidationLayers;
+	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
 
 	// logging
 	if (createInfo->enableLogging) { logInit(); }

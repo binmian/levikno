@@ -58,7 +58,7 @@ namespace vks
 	static bool                                 hasStencilComponent(VkFormat format);
 	static LvnResult                            createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
 	static void                                 createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format);
-	static VkSurfaceFormatKHR                   chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
+	static VkSurfaceFormatKHR                   chooseSwapSurfaceFormat(VulkanBackends* vkBackends, const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
 	static VkPresentModeKHR                     chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count);
 	static VkExtent2D                           chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities);
 	static void                                 createSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VulkanSwapChainSupportDetails swapChainSupport, VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode, VkExtent2D extent);
@@ -557,11 +557,11 @@ namespace vks
 		return details;
 	}
 
-	static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count)
+	static VkSurfaceFormatKHR chooseSwapSurfaceFormat(VulkanBackends* vkBackends, const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count)
 	{
 		for (uint32_t i = 0; i < count; i++)
 		{
-			if (pAvailableFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB && pAvailableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			if (pAvailableFormats[i].format == vkBackends->frameBufferColorFormat && pAvailableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 			{
 				return pAvailableFormats[i];
 			}
@@ -957,7 +957,7 @@ namespace vks
 		VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData->surface, vkBackends->physicalDevice);
 		LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "vulkan - physical device does not have swap chain support formats or present modes!");
 
-		VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(swapChainSupport.formats.data(), swapChainSupport.formats.size());
+		VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
 		VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
 		VkExtent2D extent = vks::chooseSwapExtent(glfwWin, &swapChainSupport.capabilities);
 
@@ -1966,7 +1966,7 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData.surface, vkBackends->physicalDevice);
 	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] device does not have supported swap chain formats or present modes");
 
-	VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(swapChainSupport.formats.data(), swapChainSupport.formats.size());
+	VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
 	VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
 	VkExtent2D extent = vks::chooseSwapExtent(glfwWindow, &swapChainSupport.capabilities);
 
@@ -2059,6 +2059,18 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	LvnContext* lvnctx = lvn::getContext();
 
 	vkBackends->enableValidationLayers = graphicsContext->enableValidationLayers;
+
+	switch (graphicsContext->frameBufferColorFormat)
+	{
+		case Lvn_TextureFormat_Unorm: { vkBackends->frameBufferColorFormat = VK_FORMAT_B8G8R8A8_UNORM; break; }
+		case Lvn_TextureFormat_Srgb: { vkBackends->frameBufferColorFormat = VK_FORMAT_B8G8R8A8_SRGB; break; }
+
+		default:
+		{
+			LVN_CORE_ERROR("[vulkan]: invalid framebuffer color format for swapchain surface creation: (%u)", graphicsContext->frameBufferColorFormat);
+			return Lvn_Result_Failure;
+		}
+	}
 
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
 	graphicsContext->checkPhysicalDeviceSupport = vksImplCheckPhysicalDeviceSupport;

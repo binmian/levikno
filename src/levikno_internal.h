@@ -229,6 +229,7 @@ struct LvnGraphicsContext
 {
 	LvnGraphicsApi              graphicsapi;
 	bool                        enableValidationLayers;
+	LvnTextureFormat            frameBufferColorFormat;
 
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
 	LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
