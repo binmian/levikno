@@ -143,7 +143,7 @@ void terminateContext()
 	if (s_LvnContext->objectMemoryAllocations.pipelines > 0) { LVN_CORE_WARN("not all pipelines objects have been destroyed, number of pipelines objects remaining: %zu", s_LvnContext->objectMemoryAllocations.pipelines); }
 	if (s_LvnContext->objectMemoryAllocations.buffers > 0) { LVN_CORE_WARN("not all buffer objects have been destroyed, number of buffer objects remaining: %zu", s_LvnContext->objectMemoryAllocations.buffers); }
 	if (s_LvnContext->objectMemoryAllocations.uniformBuffers > 0) { LVN_CORE_WARN("not all uniform buffer objects have been destroyed, number of uniform buffer objects remaining: %zu", s_LvnContext->objectMemoryAllocations.uniformBuffers); }
-	if (s_LvnContext->objectMemoryAllocations.textures > 0) { LVN_CORE_WARN("not all window texture have been destroyed, number of texture objects remaining: %zu", s_LvnContext->objectMemoryAllocations.textures); }
+	if (s_LvnContext->objectMemoryAllocations.textures > 0) { LVN_CORE_WARN("not all texture have been destroyed, number of texture objects remaining: %zu", s_LvnContext->objectMemoryAllocations.textures); }
 	if (s_LvnContext->objectMemoryAllocations.cubemaps > 0) { LVN_CORE_WARN("not all cubemap objects have been destroyed, number of cubemap objects remaining: %zu", s_LvnContext->objectMemoryAllocations.cubemaps); }
 	if (s_LvnContext->objectMemoryAllocations.sounds > 0) { LVN_CORE_WARN("not all sound objects have been destroyed, number of sound objects remaining: %zu", s_LvnContext->objectMemoryAllocations.sounds); }
 	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
@@ -464,12 +464,14 @@ void* memAlloc(size_t size)
 	void* allocmem = calloc(1, size);
 	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
 	if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
+	memset(allocmem, 0, size);
 	return allocmem;
 }
 
 void memFree(void* ptr)
 {
 	free(ptr);
+	ptr = nullptr;
 	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
 }
 
@@ -1529,21 +1531,37 @@ void renderClearColor(LvnWindow* window, float r, float g, float b, float a)
 
 void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdDraw(window, vertexCount);
 }
 
 void renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdDrawIndexed(window, indexCount);
 }
 
 void renderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdDrawInstanced(window, vertexCount, instanceCount, firstInstance);
 }
 
 void renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdDrawIndexedInstanced(window, indexCount, instanceCount, firstInstance);
 }
 
@@ -1559,61 +1577,109 @@ void renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 
 void renderBeginNextFrame(LvnWindow* window)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderBeginNextFrame(window);
 }
 
 void renderDrawSubmit(LvnWindow* window)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderDrawSubmit(window);
 }
 
 void renderBeginCommandRecording(LvnWindow* window)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderBeginCommandRecording(window);
 }
 
 void renderEndCommandRecording(LvnWindow* window)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderEndCommandRecording(window);
 }
 
 void renderCmdBeginRenderPass(LvnWindow* window)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdBeginRenderPass(window);
 }
 
 void renderCmdEndRenderPass(LvnWindow* window)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdEndRenderPass(window);
 }
 
 void renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdBindPipeline(window, pipeline);
 }
 
 void renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdBindVertexBuffer(window, buffer);
 }
 
 void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
 }
 
 void renderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdBindDescriptorSets(window, pipeline, firstSetIndex, descriptorSetCount, pDescriptorSets);
 }
 
 void renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdBeginFrameBuffer(window, frameBuffer);
 }
 
 void renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
+	int width, height;
+	lvn::windowGetSize(window, &width, &height);
+	if (width * height <= 0) { return; }
+
 	lvn::getContext()->graphicsContext.renderCmdEndFrameBuffer(window, frameBuffer);
 }
 
@@ -2061,22 +2127,22 @@ void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdat
 
 LvnTexture* frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
 {
-	return lvn::getContext()->graphicsContext.getFrameBufferImage(frameBuffer, attachmentIndex);
+	return lvn::getContext()->graphicsContext.frameBufferGetImage(frameBuffer, attachmentIndex);
 }
 
 LvnRenderPass* frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
 {
-	return lvn::getContext()->graphicsContext.getFrameBufferRenderPass(frameBuffer);
+	return lvn::getContext()->graphicsContext.frameBufferGetRenderPass(frameBuffer);
 }
 
 void frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
 {
-	return lvn::getContext()->graphicsContext.updateFrameBuffer(frameBuffer, width, height);
+	return lvn::getContext()->graphicsContext.framebufferResize(frameBuffer, width, height);
 }
 
 void frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
-	return lvn::getContext()->graphicsContext.setFrameBufferClearColor(frameBuffer, attachmentIndex, r, g, b, a);
+	return lvn::getContext()->graphicsContext.frameBufferSetClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
 LvnBuffer* meshGetBuffer(LvnMesh* mesh)
@@ -2403,19 +2469,19 @@ void soundSetLooping(LvnSound* sound, bool looping)
 	ma_sound_set_looping(pSound, looping);
 }
 
-void soundSetPlayStart(LvnSound* sound)
+void soundPlayStart(LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	ma_sound_start(pSound);
 }
 
-void soundSetPlayStop(LvnSound* sound)
+void soundPlayStop(LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	ma_sound_stop(pSound);
 }
 
-void soundSetPlayPause(LvnSound* sound)
+void soundTogglePause(LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	if (ma_sound_is_playing(pSound)) { ma_sound_stop(pSound); }

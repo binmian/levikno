@@ -59,10 +59,12 @@ namespace lvn
 	void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size);
 	void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 	void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
-	LvnTexture* oglsImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex);
-	LvnRenderPass* oglsImplGetFrameBufferRenderPass(LvnFrameBuffer* frameBuffer);
-	void oglsImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
-	void oglsImplSetFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
+	LvnTexture* oglsImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
+	LvnRenderPass* oglsImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);
+	void oglsImplFrameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
+	void oglsImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
+
+	void setOglWindowContextValues();
 
 	struct OglDescriptorBinding
 	{
@@ -80,6 +82,28 @@ namespace lvn
 		uint32_t textureCount;
 	};
 
+	struct OglPipelineEnums
+	{
+		bool enableDepth;
+	};
+
+	struct OglFramebufferData
+	{
+		uint32_t id, msaaId;
+		uint32_t x, y, width, height;
+		LvnTextureFilter textureFilter;
+		LvnTextureMode textureMode;
+		LvnSampleCount sampleCount;
+
+		LvnVector<LvnFrameBufferColorAttachment> colorAttachmentSpecifications;
+		LvnFrameBufferDepthAttachment depthAttachmentSpecification;
+		LvnVector<uint32_t> colorAttachments, msaaColorAttachments;
+		uint32_t depthAttachment, msaaDepthAttachment;
+		bool multisampling, hasDepth;
+
+		LvnVector<LvnTexture> colorAttachmentTextures;
+	};
+
 	struct OglBackends
 	{
 		const char* deviceName;
@@ -89,6 +113,7 @@ namespace lvn
 		LvnPipelineSpecification defaultOglPipelineSpecification;
 
 		int maxTextureUnitSlots;
+		bool framebufferColorFormatSrgb;
 	};
 }
 

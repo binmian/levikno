@@ -103,7 +103,7 @@ bool keyTyped(LvnKeyTypedEvent* e, void* userData)
 
 	if (e->key == 'p')
 	{
-		lvn::soundSetPlayPause(sndData->sound);
+		lvn::soundTogglePause(sndData->sound);
 	}
 
 	if (e->key == 'j')
@@ -230,16 +230,16 @@ float s_AngleX = LVN_PI * 1.5f;
 void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 {
 	if (lvn::keyPressed(window, Lvn_KeyCode_W))
-		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
-
-	if (lvn::keyPressed(window, Lvn_KeyCode_A))
-		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
-
-	if (lvn::keyPressed(window, Lvn_KeyCode_S))
 		camera->position += (camera->orientation * s_CameraSpeed) * dt;
 
-	if (lvn::keyPressed(window, Lvn_KeyCode_D))
+	if (lvn::keyPressed(window, Lvn_KeyCode_A))
 		camera->position += (-lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_S))
+		camera->position += (-camera->orientation * s_CameraSpeed) * dt;
+
+	if (lvn::keyPressed(window, Lvn_KeyCode_D))
+		camera->position += (lvn::normalize(lvn::cross(camera->orientation, camera->upVector)) * s_CameraSpeed) * dt;
 
 	if (lvn::keyPressed(window, Lvn_KeyCode_Space))
 		camera->position += (camera->upVector * s_CameraSpeed) * dt;
@@ -261,11 +261,11 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Up))
 	{
-		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
+		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
 	}
 	if (lvn::keyPressed(window, Lvn_KeyCode_Down))
 	{
-		camera->orientation.y = lvn::clamp(camera->orientation.y + dt, -1.0f, 1.0f);
+		camera->orientation.y = lvn::clamp(camera->orientation.y - dt, -1.0f, 1.0f);
 	}
 }
 
@@ -289,6 +289,7 @@ int main()
 	lvnCreateInfo.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+	lvnCreateInfo.frameBufferColorFormat = Lvn_TextureFormat_Srgb;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -722,7 +723,7 @@ int main()
 	cameraCreateInfo.width = lvn::windowGetSize(window).width;
 	cameraCreateInfo.height = lvn::windowGetSize(window).height;
 	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, -1.0f);
-	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, -1.0f);
+	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, 1.0f);
 	cameraCreateInfo.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
 	cameraCreateInfo.fovDeg = 60.0f;
 	cameraCreateInfo.nearPlane = 0.1f;
@@ -773,7 +774,7 @@ int main()
 	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/JetBrainsMonoNerdFont-Regular.ttf", 32, { 32, 126 });
 
 
-	lvn::soundSetPlayStart(sound);
+	lvn::soundPlayStart(sound);
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 

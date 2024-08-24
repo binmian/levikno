@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include "lvn_vulkanBackends.h"
+#include "lvn_opengl.h"
 
 namespace lvn
 {
@@ -33,6 +34,7 @@ namespace lvn
 			case Lvn_GraphicsApi_opengl:
 			{
 				glfwMakeContextCurrent(static_cast<GLFWwindow*>(window->nativeWindow));
+				setOglWindowContextValues();
 				return Lvn_Result_Success;
 			}
 

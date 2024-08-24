@@ -257,7 +257,7 @@ struct LvnGraphicsContext
 	void                        (*destroyTexture)(LvnTexture*);
 	void                        (*destroyCubemap)(LvnCubemap*);
 
-	void                        (*renderClearColor)(LvnWindow* window, float r, float g, float b, float a);
+	void                        (*renderClearColor)(LvnWindow*, float r, float g, float b, float a);
 	void                        (*renderBeginNextFrame)(LvnWindow*);
 	void                        (*renderDrawSubmit)(LvnWindow*);
 	void                        (*renderBeginCommandRecording)(LvnWindow*);
@@ -283,10 +283,10 @@ struct LvnGraphicsContext
 	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint32_t);
 	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
 	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
-	LvnTexture*                 (*getFrameBufferImage)(LvnFrameBuffer*, uint32_t);
-	LvnRenderPass*              (*getFrameBufferRenderPass)(LvnFrameBuffer*);
-	void                        (*updateFrameBuffer)(LvnFrameBuffer*, uint32_t, uint32_t);
-	void                        (*setFrameBufferClearColor)(LvnFrameBuffer*, uint32_t, float, float, float, float);
+	LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
+	LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);
+	void                        (*framebufferResize)(LvnFrameBuffer*, uint32_t, uint32_t);
+	void                        (*frameBufferSetClearColor)(LvnFrameBuffer*, uint32_t, float, float, float, float);
 };
 
 struct LvnPhysicalDevice

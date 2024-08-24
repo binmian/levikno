@@ -613,7 +613,7 @@ int main(int argc, char** argv)
 		{
 			ball.pos.y = -halfHeight;
 			ball.angle *= -1;
-			lvn::soundSetPlayStart(sound);
+			lvn::soundPlayStart(sound);
 		}
 
 		// hit top side
@@ -621,7 +621,7 @@ int main(int argc, char** argv)
 		{
 			ball.pos.y = halfHeight - ball.size.y;
 			ball.angle *= -1;
-			lvn::soundSetPlayStart(sound);
+			lvn::soundPlayStart(sound);
 		}
 
 		// hit left side
@@ -631,7 +631,7 @@ int main(int argc, char** argv)
 			ball.angle = (rand() % 61) - 30.0f;
 			ballSide = false;
 			ballSpeed = 500.0f;
-			lvn::soundSetPlayStart(soundWin);
+			lvn::soundPlayStart(soundWin);
 			rscore++;
 		}
 
@@ -642,7 +642,7 @@ int main(int argc, char** argv)
 			ball.angle = 180.0f - ((rand() % 61) - 30.0f);
 			ballSide = true;
 			ballSpeed = 500.0f;
-			lvn::soundSetPlayStart(soundWin);
+			lvn::soundPlayStart(soundWin);
 			lscore++;
 		}
 
@@ -658,7 +658,7 @@ int main(int argc, char** argv)
 			ballSpeed += 10.0f;
 			lvn::clamp(ballSpeed, 500.0f, 1500.0f);
 			ballSide = false;
-			lvn::soundSetPlayStart(sound);
+			lvn::soundPlayStart(sound);
 		}
 
 		// hit right paddle
@@ -670,7 +670,7 @@ int main(int argc, char** argv)
 			ballSpeed += 10.0f;
 			lvn::clamp(ballSpeed, 500.0f, 1500.0f);
 			ballSide = true;
-			lvn::soundSetPlayStart(sound);
+			lvn::soundPlayStart(sound);
 		}
 
 

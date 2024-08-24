@@ -1,6 +1,4 @@
 #include "lvn_vulkan.h"
-#include "levikno.h"
-#include "vulkan/vulkan_core.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -2123,10 +2121,10 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->bufferResizeIndexBuffer = vksImplBufferResizeIndexBuffer;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 	graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
-	graphicsContext->getFrameBufferImage = vksImplGetFrameBufferImage;
-	graphicsContext->getFrameBufferRenderPass = vksImplGetFrameBufferRenderPass;
-	graphicsContext->updateFrameBuffer = vksImplUpdateFrameBuffer;
-	graphicsContext->setFrameBufferClearColor = vksImplSetFrameBufferClearColor;
+	graphicsContext->frameBufferGetImage = vksImplFrameBufferGetImage;
+	graphicsContext->frameBufferGetRenderPass = vksImplFrameBufferGetRenderPass;
+	graphicsContext->framebufferResize = vksImplFrameBufferResize;
+	graphicsContext->frameBufferSetClearColor = vksImplFrameBufferSetClearColor;
 
 	// Create Vulkan Instance
 	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableValidationLayers) != Lvn_Result_Success)
@@ -2836,8 +2834,9 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	frameBuffer->frameBufferData = new VulkanFrameBufferData();
+	frameBuffer->frameBufferData = lvn::memAlloc(sizeof(VulkanFrameBufferData));
 	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+
 	frameBufferData->width = createInfo->width;
 	frameBufferData->height = createInfo->height;
 
@@ -3456,7 +3455,7 @@ void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 	vkDestroySampler(vkBackends->device, frameBufferData->sampler, nullptr);
 	vkDestroyFramebuffer(vkBackends->device, frameBufferData->framebuffer, nullptr);
 
-	delete frameBufferData;
+	lvn::memFree(frameBufferData);
 }
 
 void vksImplDestroyBuffer(LvnBuffer* buffer)
@@ -3612,6 +3611,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorSet->descriptorSets;
+
 	vkDeviceWaitIdle(vkBackends->device);
 
 	for (uint32_t i = 0; i < count; i++)
@@ -3654,21 +3654,21 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 	}
 }
 
-LvnTexture* vksImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex)
+LvnTexture* vksImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
 {
-	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(framebuffer->frameBufferData);
-	LVN_CORE_ASSERT(attachmentIndex < frameBufferData->totalAttachmentCount, "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->totalAttachmentCount, framebuffer);
+	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
+	LVN_CORE_ASSERT(attachmentIndex < frameBufferData->totalAttachmentCount, "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->totalAttachmentCount, frameBuffer);
 
 	return &frameBufferData->frameBufferImages[attachmentIndex];
 }
 
-LvnRenderPass* vksImplGetFrameBufferRenderPass(LvnFrameBuffer* frameBuffer)
+LvnRenderPass* vksImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
 {
 	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 	return &frameBufferData->frameBufferRenderPass;
 }
 
-void vksImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
+void vksImplFrameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 	vkDeviceWaitIdle(vkBackends->device);
@@ -3706,7 +3706,7 @@ void vksImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint3
 	vks::createOffscreenFrameBuffer(vkBackends, frameBuffer);
 }
 
-void vksImplSetFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
+void vksImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
 	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 	LVN_CORE_ASSERT(attachmentIndex < frameBufferData->totalAttachmentCount, "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->totalAttachmentCount, frameBuffer);

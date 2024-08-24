@@ -59,10 +59,10 @@ namespace lvn
 	void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size);
 	void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
 	void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
-	LvnTexture* vksImplGetFrameBufferImage(LvnFrameBuffer* framebuffer, uint32_t attachmentIndex);
-	LvnRenderPass* vksImplGetFrameBufferRenderPass(LvnFrameBuffer* frameBuffer);
-	void vksImplUpdateFrameBuffer(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
-	void vksImplSetFrameBufferClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
+	LvnTexture* vksImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
+	LvnRenderPass* vksImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);
+	void vksImplFrameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);
+	void vksImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 }
 
 #endif

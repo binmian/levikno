@@ -1207,9 +1207,9 @@ namespace lvn
 	LVN_API void                        soundSetPan(LvnSound* sound, float pan);
 	LVN_API void                        soundSetPitch(LvnSound* sound, float pitch);
 	LVN_API void                        soundSetLooping(LvnSound* sound, bool looping);
-	LVN_API void                        soundSetPlayStart(LvnSound* sound);
-	LVN_API void                        soundSetPlayStop(LvnSound* sound);
-	LVN_API void                        soundSetPlayPause(LvnSound* sound);
+	LVN_API void                        soundPlayStart(LvnSound* sound);
+	LVN_API void                        soundPlayStop(LvnSound* sound);
+	LVN_API void                        soundTogglePause(LvnSound* sound);
 
 
 	/* [Math] */
@@ -1404,8 +1404,8 @@ namespace lvn
 	LVN_API LvnMat4x4_t<T> lookAt(const LvnVec3_t<T>& eye, const LvnVec3_t<T>& center, const LvnVec3_t<T>& up)
 	{
 		LvnVec3_t<T> f(lvn::normalize(center - eye));
-		LvnVec3_t<T> s(lvn::normalize(lvn::cross(f, up)));
-		LvnVec3_t<T> u(lvn::cross(s, f));
+		LvnVec3_t<T> s(lvn::normalize(lvn::cross(up, f)));
+		LvnVec3_t<T> u(lvn::cross(f, s));
 
 		LvnMat4x4_t<T> matrix(static_cast<T>(1));
 		matrix[0][0] = s.x;
@@ -1414,12 +1414,12 @@ namespace lvn
 		matrix[0][1] = u.x;
 		matrix[1][1] = u.y;
 		matrix[2][1] = u.z;
-		matrix[0][2] = -f.x;
-		matrix[1][2] = -f.y;
-		matrix[2][2] = -f.z;
+		matrix[0][2] = f.x;
+		matrix[1][2] = f.y;
+		matrix[2][2] = f.z;
 		matrix[3][0] = -lvn::dot(s, eye);
 		matrix[3][1] = -lvn::dot(u, eye);
-		matrix[3][2] = lvn::dot(f, eye);
+		matrix[3][2] = -lvn::dot(f, eye);
 		return matrix;
 	}
 

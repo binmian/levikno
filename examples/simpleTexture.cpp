@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 
 	// [Create texture]
 	// load image data
-	LvnImageData imageData = lvn::loadImageData("res/debug.png", 4, true); // NOTE: image data is loaded as an argument
+	LvnImageData imageData = lvn::loadImageData("res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
@@ -308,8 +308,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
-		// draw triangle
-		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(indices)); // number of elements in indices array (6)
+		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(indices));
 
 		// end render pass and submit rendering
 		lvn::renderCmdEndRenderPass(window);

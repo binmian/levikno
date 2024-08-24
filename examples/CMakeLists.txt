@@ -1,8 +1,10 @@
 file(COPY res DESTINATION .)
 
 set(LVN_SOURCES
+	antiAliasing.cpp
 	basicScene/src/Main.cpp
 	cubemap.cpp
+	framebuffer.cpp
 	pong.cpp
 	simpleMatrix.cpp
 	simpleText.cpp
