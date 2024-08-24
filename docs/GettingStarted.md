@@ -1,5 +1,3 @@
-
-
 # Levikno Guide
 The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document is a tutorial on how to use and integrate Levikno to your project. Before beginning this guide, it is advised that you have prior experience in understanding C++ and how graphics APIs work such as [Vulkan](https://vulkan-tutorial.com/Introduction) and [OpenGL](https://learnopengl.com/Introduction). I will not be going too in depth with how graphics APIs work so it is expected that you know the general terminology for the graphics APIs presented in this tutorial.
 
@@ -84,9 +82,9 @@ int main()
 {
     LvnContextCreateInfo lvnCreateInfo{};
     lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-### Logging
-	lvn::createContext(&lvnCreateInfo);
+    lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+
+    lvn::createContext(&lvnCreateInfo);
 }
 ```
 The ```LvnContextCreateInfo``` struct is used for initializing and to choose what window and graphics API to use when creating windows and rendering to them. Pass the createInfo st### Loggingruct into ```lvn::createContext(&lvnCreateInfo)``` to create the levikno context.
@@ -156,7 +154,7 @@ After a suitable physical device has been found, attach it to the ```LvnRenderIn
 
 	lvn::renderInit(&renderInfo);
 ```
-Levikno has the function ```checkPhysicalDeviceSupport``` to check if a physical device is supported by checking if the device has the required extensions. In the example above, we iterate through the list of physical devices until a physical device is found that is supported. Note that if a physical device is not suitable or a requirement is missing from the physical device such as an extension or feature, Levikno will return on failure. 
+The function ```checkPhysicalDeviceSupport``` checks if a physical device is supported, if the device has the required extensions the function will return on success. In the example above, we iterate through the list of physical devices until a physical device is found that is supported. Note that if a physical device is not suitable or a requirement is missing from the physical device such as an extension or feature, the function will return on failure. 
 
 ### Creating Window
 Like creating any other object, we first declare the create info struct:

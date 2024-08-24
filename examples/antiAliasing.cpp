@@ -516,6 +516,7 @@ int main(int argc, char** argv)
 		// end framebuffer recording
 		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
 
+
 		// set background color and begin render pass
 		lvn::renderClearColor(window, 0.0f, 0.0f, 0.0f, 1.0f);
 		lvn::renderCmdBeginRenderPass(window);
