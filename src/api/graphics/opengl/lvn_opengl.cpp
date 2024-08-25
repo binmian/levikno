@@ -641,7 +641,7 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 	glCompileShader(vertexShader);
 	if (ogls::checkShaderError(vertexShader, GL_VERTEX_SHADER, createInfo->vertexSrc) != Lvn_Result_Success)
 	{
-		LVN_CORE_ERROR("[opengl] failed to create [vertex] shader module (id:%u) when creating shader (%p)", vertexShader, shader);
+		LVN_CORE_ERROR("[opengl] failed to create vertex shader module (id:%u) when creating shader (%p)", vertexShader, shader);
 		return Lvn_Result_Failure;
 	}
 
@@ -652,7 +652,7 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 	glCompileShader(fragmentShader);
 	if (ogls::checkShaderError(fragmentShader, GL_FRAGMENT_SHADER, createInfo->fragmentSrc) != Lvn_Result_Success)
 	{
-		LVN_CORE_ERROR("[opengl] failed to create [fragment] shader module (id:%u) when creating shader (%p)", fragmentShader, shader);
+		LVN_CORE_ERROR("[opengl] failed to create fragment shader module (id:%u) when creating shader (%p)", fragmentShader, shader);
 		return Lvn_Result_Failure;
 	}
 
@@ -663,12 +663,85 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 
 LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
 {
-	
+	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc);
+	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc);
+
+	const char* vertSrc = fileVertSrc.c_str();
+	const char* fragSrc = fileFragSrc.c_str();
+
+	uint32_t vertexShader, fragmentShader;
+
+	vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertexShader, 1, &vertSrc, NULL);
+	glCompileShader(vertexShader);
+	if (ogls::checkShaderError(vertexShader, GL_VERTEX_SHADER, vertSrc) != Lvn_Result_Success)
+	{
+		LVN_CORE_ERROR("[opengl] failed to create vertex shader module (id:%u) when creating shader (%p)", vertexShader, shader);
+		return Lvn_Result_Failure;
+	}
+
+	shader->vertexShaderId = vertexShader;
+
+	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragmentShader, 1, &fragSrc, NULL);
+	glCompileShader(fragmentShader);
+	if (ogls::checkShaderError(fragmentShader, GL_FRAGMENT_SHADER, fragSrc) != Lvn_Result_Success)
+	{
+		LVN_CORE_ERROR("[opengl] failed to create fragment shader module (id:%u) when creating shader (%p)", fragmentShader, shader);
+		return Lvn_Result_Failure;
+	}
+
+	shader->fragmentShaderId = fragmentShader;
+
+	return Lvn_Result_Success;
 }
 
 LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo)
 {
-	
+	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc);
+	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc);
+
+	uint32_t vertexShader, fragmentShader;
+
+	vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderBinary(1, &vertexShader, GL_SHADER_BINARY_FORMAT_SPIR_V, vertbin.data(), vertbin.size());
+	glSpecializeShader(vertexShader, "main", 0, nullptr, nullptr);
+
+	int compiled = 0;
+	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &compiled);
+	if (compiled == GL_FALSE)
+	{
+		int maxLength = 0;
+		glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &maxLength);
+
+		std::string infoLog; infoLog.resize(maxLength);
+		glGetShaderInfoLog(vertexShader, maxLength, &maxLength, &infoLog[0]);
+
+		LVN_CORE_ERROR("[opengl] failed to load vertex shader module from binary file, id: (%u), error: %s", vertexShader, infoLog.c_str());
+		glDeleteShader(vertexShader);
+		return Lvn_Result_Failure;
+	}
+
+	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderBinary(1, &fragmentShader, GL_SHADER_BINARY_FORMAT_SPIR_V, fragbin.data(), fragbin.size());
+	glSpecializeShader(fragmentShader, "main", 0, nullptr, nullptr);
+
+	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &compiled);
+	if (compiled == GL_FALSE)
+	{
+		int maxLength = 0;
+		glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &maxLength);
+
+		std::string infoLog; infoLog.resize(maxLength);
+		glGetShaderInfoLog(fragmentShader, maxLength, &maxLength, &infoLog[0]);
+
+		LVN_CORE_ERROR("[opengl] failed to load fragment shader module from binary file, id: (%u), error: %s", vertexShader, infoLog.c_str());
+		glDeleteShader(fragmentShader);
+		glDeleteShader(vertexShader);
+		return Lvn_Result_Failure;
+	}
+
+	return Lvn_Result_Success;
 }
 
 LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)

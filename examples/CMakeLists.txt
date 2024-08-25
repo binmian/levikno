@@ -6,7 +6,9 @@ set(LVN_SOURCES
 	cubemap.cpp
 	framebuffer.cpp
 	pong.cpp
+	shaderLoading.cpp
 	simpleMatrix.cpp
+	simpleSound.cpp
 	simpleText.cpp
 	simpleTexture.cpp
 	simpleTriangle.cpp

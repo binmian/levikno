@@ -1211,6 +1211,10 @@ namespace lvn
 	LVN_API void                        soundPlayStop(LvnSound* sound);
 	LVN_API void                        soundTogglePause(LvnSound* sound);
 
+	LVN_API bool                        soundIsPlaying(LvnSound* sound);
+	LVN_API uint64_t                    soundGetTimeMiliseconds(LvnSound* sound);
+	LVN_API float                       soundGetLengthSeconds(LvnSound* sound);
+
 
 	/* [Math] */
 	template <typename T>

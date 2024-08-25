@@ -106,6 +106,7 @@ namespace lvn
 
 	struct VulkanBackends
 	{
+		bool                                renderInit;
 		bool                                enableValidationLayers;
 		VkInstance                          instance;
 		VkDebugUtilsMessengerEXT            debugMessenger;

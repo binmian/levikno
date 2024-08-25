@@ -500,12 +500,12 @@ int main(int argc, char** argv)
 	lvn::updateDescriptorSetData(fontDescriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
 
 	// sound
-	LvnSoundCreateInfo soundCreateInfo = lvn::soundConfigInit("res/beep.wav");
+	LvnSoundCreateInfo soundCreateInfo = lvn::soundConfigInit("res/audio/beep.wav");
 
 	LvnSound* sound;
 	lvn::createSoundFromFile(&sound, &soundCreateInfo);
 
-	LvnSoundCreateInfo soundWinCreateInfo = lvn::soundConfigInit("res/winBeep.wav");
+	LvnSoundCreateInfo soundWinCreateInfo = lvn::soundConfigInit("res/audio/winBeep.wav");
 
 	LvnSound* soundWin;
 	lvn::createSoundFromFile(&soundWin, &soundWinCreateInfo);

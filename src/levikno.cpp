@@ -2488,6 +2488,26 @@ void soundTogglePause(LvnSound* sound)
 	else { ma_sound_start(pSound); }
 }
 
+bool soundIsPlaying(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	return ma_sound_is_playing(pSound);
+}
+
+uint64_t soundGetTimeMiliseconds(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	return ma_sound_get_time_in_milliseconds(pSound);
+}
+
+float soundGetLengthSeconds(LvnSound* sound)
+{
+	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	float length;
+	ma_sound_get_length_in_seconds(pSound, &length);
+
+	return length;
+}
 
 // [SECTION]: Math
 

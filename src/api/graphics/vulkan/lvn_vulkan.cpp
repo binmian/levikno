@@ -2141,19 +2141,22 @@ void vksImplTerminateContext()
 	VulkanBackends* vkBackends = s_VkBackends;
 	LvnContext* lvnctx = getContext();
 
-	vkDeviceWaitIdle(vkBackends->device);
+	if (vkBackends->renderInit)
+	{
+		vkDeviceWaitIdle(vkBackends->device);
 
-	vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
+		vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
 
-	// VmaAllocator
-	vmaDestroyAllocator(vkBackends->vmaAllocator);
+		// VmaAllocator
+		vmaDestroyAllocator(vkBackends->vmaAllocator);
 
-	// logical device
-	vkDestroyDevice(vkBackends->device, nullptr);
+		// logical device
+		vkDestroyDevice(vkBackends->device, nullptr);
 
-	// debug validation layers
-	if (vkBackends->enableValidationLayers)
-		vks::destroyDebugUtilsMessengerEXT(vkBackends->instance, vkBackends->debugMessenger, nullptr);
+		// debug validation layers
+		if (vkBackends->enableValidationLayers)
+			vks::destroyDebugUtilsMessengerEXT(vkBackends->instance, vkBackends->debugMessenger, nullptr);
+	}
 
 	// instance
 	vkDestroyInstance(vkBackends->instance, nullptr);
@@ -2247,6 +2250,7 @@ LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	vkBackends->renderInit = true;
 	vkBackends->defaultPipelineSpecification = lvn::pipelineSpecificationGetConfig();
 
 	vkBackends->physicalDevice = static_cast<VkPhysicalDevice>(renderInfo->physicalDevice->device);
