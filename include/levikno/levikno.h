@@ -506,18 +506,18 @@ enum LvnColorBlendOperation
 
 enum LvnColorImageFormat
 {
-	Lvn_ImageFormat_None = 0,
-	Lvn_ImageFormat_RGB,
-	Lvn_ImageFormat_RGBA,
-	Lvn_ImageFormat_RGBA8,
-	Lvn_ImageFormat_RGBA16F,
-	Lvn_ImageFormat_RGBA32F,
-	Lvn_ImageFormat_SRGB,
-	Lvn_ImageFormat_SRGBA,
-	Lvn_ImageFormat_SRGBA8,
-	Lvn_ImageFormat_SRGBA16F,
-	Lvn_ImageFormat_SRGBA32F,
-	Lvn_ImageFormat_RedInt,
+	Lvn_ColorImageFormat_None = 0,
+	Lvn_ColorImageFormat_RGB,
+	Lvn_ColorImageFormat_RGBA,
+	Lvn_ColorImageFormat_RGBA8,
+	Lvn_ColorImageFormat_RGBA16F,
+	Lvn_ColorImageFormat_RGBA32F,
+	Lvn_ColorImageFormat_SRGB,
+	Lvn_ColorImageFormat_SRGBA,
+	Lvn_ColorImageFormat_SRGBA8,
+	Lvn_ColorImageFormat_SRGBA16F,
+	Lvn_ColorImageFormat_SRGBA32F,
+	Lvn_ColorImageFormat_RedInt,
 };
 
 enum LvnCompareOperation
@@ -534,9 +534,10 @@ enum LvnCompareOperation
 
 enum LvnDepthImageFormat
 {
-	Lvn_ImageFormat_DepthComponent,
-	Lvn_ImageFormat_Depth24Stencil8,
-	Lvn_ImageFormat_Depth32Stencil8,
+	Lvn_DepthImageFormat_Depth16,
+	Lvn_DepthImageFormat_Depth32,
+	Lvn_DepthImageFormat_Depth24Stencil8,
+	Lvn_DepthImageFormat_Depth32Stencil8,
 };
 
 enum LvnDescriptorType
@@ -693,6 +694,7 @@ struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
 struct LvnKeyTypedEvent;
 struct LvnLogger;
+struct LvnLoggerCreateInfo;
 struct LvnLogMessage;
 struct LvnLogPattern;
 struct LvnMaterial;
@@ -1022,7 +1024,8 @@ namespace lvn
 	//     Which could output: "[04-06-2025] [14:25:11] [\x1b[0;32minfo\x1b[0m] CORE: some informational message\n"
 
 	LVN_API LvnResult                   logInit();                                                          // initiates logging
-	LVN_API void                        logTerminate();                                                     // terminate logginh
+	LVN_API void                        logEnable(bool enable);                                             // enable or disable logging
+	LVN_API void                        logEnableCoreLogging(bool enable);                                  // enable or disable logging from the core logger
 	LVN_API void                        logSetLevel(LvnLogger* logger, LvnLogLevel level);                  // sets the log level of logger, will only print messages with set log level and higher
 	LVN_API bool                        logCheckLevel(LvnLogger* logger, LvnLogLevel level);                // checks level with loger, returns true if level is the same or higher level than the level of the logger
 	LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);               // renames the name of the logger
@@ -1039,6 +1042,9 @@ namespace lvn
 	LVN_API const char*                 logGetANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string
 	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);     // set the log pattern of the logger; messages outputed from that logger will be in this format
 	LVN_API LvnResult                   logAddPattern(LvnLogPattern* logPattern);
+
+	LVN_API LvnResult                   createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo);
+	LVN_API void                        destroyLogger(LvnLogger* logger);
 
 
 	/* [Events] */
@@ -1169,6 +1175,8 @@ namespace lvn
 	LVN_API LvnRenderPass*              frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);                                                                    // get the render pass from the framebuffer
 	LVN_API void                        frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);                                          // update the width and height of the new framebuffer (updates the image data dimensions), Note: call only when the image dimensions need to be changed
 	LVN_API void                        frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);      // set the background color for the framebuffer for offscreen rendering
+
+	LVN_API LvnDepthImageFormat         findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count);
 
 	LVN_API LvnBuffer*                  meshGetBuffer(LvnMesh* mesh);
 	LVN_API LvnMat4                     meshGetMatrix(LvnMesh* mesh);
@@ -1500,15 +1508,24 @@ namespace lvn
 
 struct LvnContextCreateInfo
 {
+	const char*               applicationName;
 	LvnWindowApi              windowapi;
 	LvnGraphicsApi            graphicsapi;
 	bool                      enableLogging;
+	bool                      disableCoreLogging;
 	LvnLogLevel               coreLogLevel;
 	bool                      enableVulkanValidationLayers;
 	LvnTextureFormat          frameBufferColorFormat;
 };
 
 /* [Logging] */
+struct LvnLoggerCreateInfo
+{
+	const char* loggerName;
+	const char* logPatternFormat;
+	LvnLogLevel logLevel;
+};
+
 struct LvnLogMessage
 {
 	const char *msg, *loggerName;

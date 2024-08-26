@@ -179,9 +179,17 @@ int main(int argc, char** argv)
 
 
 	// [Create frame buffer]
+	// find supported depth format
+	LvnDepthImageFormat depthFormats[] =
+	{
+		Lvn_DepthImageFormat_Depth32Stencil8, Lvn_DepthImageFormat_Depth24Stencil8, Lvn_DepthImageFormat_Depth32, Lvn_DepthImageFormat_Depth16,
+	};
+
+	LvnDepthImageFormat supportedDepthFormat = lvn::findSupportedDepthImageFormat(depthFormats, ARRAY_LEN(depthFormats));
+
 	// frame buffer attachments
-	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ImageFormat_RGBA32F };
-	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, Lvn_ImageFormat_Depth32Stencil8 };
+	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ColorImageFormat_RGBA32F };
+	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, supportedDepthFormat }; // pass the supported format into the depth attachment
 
 	LvnFrameBufferCreateInfo frameBufferCreateInfo{};
 	frameBufferCreateInfo.width = 800;

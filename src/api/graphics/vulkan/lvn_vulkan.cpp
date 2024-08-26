@@ -1017,18 +1017,18 @@ namespace vks
 	{
 		switch (format)
 		{
-			case Lvn_ImageFormat_None: { return VK_FORMAT_UNDEFINED; }
-			case Lvn_ImageFormat_RGB: { return VK_FORMAT_R8G8B8_UNORM; }
-			case Lvn_ImageFormat_RGBA: { return VK_FORMAT_R8G8B8A8_UNORM; }
-			case Lvn_ImageFormat_RGBA8: { return VK_FORMAT_R8G8B8A8_UNORM; }
-			case Lvn_ImageFormat_RGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
-			case Lvn_ImageFormat_RGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
-			case Lvn_ImageFormat_SRGB: { return VK_FORMAT_R8G8B8_SRGB; }
-			case Lvn_ImageFormat_SRGBA: { return VK_FORMAT_R8G8B8A8_SRGB; }
-			case Lvn_ImageFormat_SRGBA8: { return VK_FORMAT_R8G8B8A8_SRGB; }
-			case Lvn_ImageFormat_SRGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
-			case Lvn_ImageFormat_SRGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
-			case Lvn_ImageFormat_RedInt: { return VK_FORMAT_R8_SINT; }
+			case Lvn_ColorImageFormat_None: { return VK_FORMAT_UNDEFINED; }
+			case Lvn_ColorImageFormat_RGB: { return VK_FORMAT_R8G8B8_UNORM; }
+			case Lvn_ColorImageFormat_RGBA: { return VK_FORMAT_R8G8B8A8_UNORM; }
+			case Lvn_ColorImageFormat_RGBA8: { return VK_FORMAT_R8G8B8A8_UNORM; }
+			case Lvn_ColorImageFormat_RGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+			case Lvn_ColorImageFormat_RGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+			case Lvn_ColorImageFormat_SRGB: { return VK_FORMAT_R8G8B8_SRGB; }
+			case Lvn_ColorImageFormat_SRGBA: { return VK_FORMAT_R8G8B8A8_SRGB; }
+			case Lvn_ColorImageFormat_SRGBA8: { return VK_FORMAT_R8G8B8A8_SRGB; }
+			case Lvn_ColorImageFormat_SRGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+			case Lvn_ColorImageFormat_SRGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+			case Lvn_ColorImageFormat_RedInt: { return VK_FORMAT_R8_SINT; }
 
 			default:
 			{
@@ -1042,8 +1042,10 @@ namespace vks
 	{
 		switch (format)
 		{
-			case Lvn_ImageFormat_Depth24Stencil8: { return VK_FORMAT_D24_UNORM_S8_UINT; }
-			case Lvn_ImageFormat_Depth32Stencil8: { return VK_FORMAT_D32_SFLOAT_S8_UINT; }
+			case Lvn_DepthImageFormat_Depth16: { return VK_FORMAT_D16_UNORM; }
+			case Lvn_DepthImageFormat_Depth32: { return VK_FORMAT_D32_SFLOAT; }
+			case Lvn_DepthImageFormat_Depth24Stencil8: { return VK_FORMAT_D24_UNORM_S8_UINT; }
+			case Lvn_DepthImageFormat_Depth32Stencil8: { return VK_FORMAT_D32_SFLOAT_S8_UINT; }
 
 			default:
 			{
@@ -2125,6 +2127,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->frameBufferGetRenderPass = vksImplFrameBufferGetRenderPass;
 	graphicsContext->framebufferResize = vksImplFrameBufferResize;
 	graphicsContext->frameBufferSetClearColor = vksImplFrameBufferSetClearColor;
+	graphicsContext->findSupportedDepthImageFormat = vksImplFindSupportedDepthImageFormat;
 
 	// Create Vulkan Instance
 	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableValidationLayers) != Lvn_Result_Success)
@@ -3716,6 +3719,39 @@ void vksImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attac
 	LVN_CORE_ASSERT(attachmentIndex < frameBufferData->totalAttachmentCount, "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->totalAttachmentCount, frameBuffer);
 
 	frameBufferData->clearValues[attachmentIndex].color = {{ r, g, b, a }};
+}
+
+LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+	
+	VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+	VkFormatFeatureFlagBits features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+	LvnVector<VkFormat> candidates(count);
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		candidates[i] = vks::getVulkanDepthFormatEnum(pDepthImageFormats[i]);
+	}
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(vkBackends->physicalDevice, candidates[i], &props);
+
+		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+		{
+			return pDepthImageFormats[i];
+		}
+		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+		{
+			return pDepthImageFormats[i];
+		}
+	}
+
+	LVN_CORE_ERROR("failed to find supported depth format");
+	return pDepthImageFormats[0];
 }
 
 } /* namespace lvn */

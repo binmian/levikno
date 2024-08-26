@@ -11,16 +11,17 @@ static OglBackends* s_OglBackends = nullptr;
 
 namespace ogls
 {
-	static LvnResult checkErrorCode();
-	static LvnResult checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
-	static uint32_t getVertexAttributeSizeEnum(LvnVertexDataType type);
-	static GLenum getVertexAttributeFormatEnum(LvnVertexDataType type);
-	static GLenum getTextureFilterEnum(LvnTextureFilter filter);
-	static GLenum getTextureWrapModeEnum(LvnTextureMode mode);
-	static uint32_t getSampleCountEnum(LvnSampleCount samples);
-	static GLenum getColorFormat(LvnColorImageFormat texFormat);
-	static GLenum getDataFormat(LvnColorImageFormat texFormat);
-	static LvnResult updateFrameBuffer(OglFramebufferData* frameBufferData);
+	static LvnResult          checkErrorCode();
+	static LvnResult          checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
+	static uint32_t           getVertexAttributeSizeEnum(LvnVertexDataType type);
+	static GLenum             getVertexAttributeFormatEnum(LvnVertexDataType type);
+	static GLenum             getTextureFilterEnum(LvnTextureFilter filter);
+	static GLenum             getTextureWrapModeEnum(LvnTextureMode mode);
+	static uint32_t           getSampleCountEnum(LvnSampleCount samples);
+	static GLenum             getColorFormat(LvnColorImageFormat texFormat);
+	static GLenum             getDataFormat(LvnColorImageFormat texFormat);
+	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
+	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
 
 	static LvnResult checkErrorCode()
 	{
@@ -194,13 +195,13 @@ namespace ogls
 	{
 		switch (texFormat)
 		{
-			case Lvn_ImageFormat_None: { return GL_NONE; }
-			case Lvn_ImageFormat_RedInt: { return GL_R32I; }
-			case Lvn_ImageFormat_RGB: { return GL_RGB; }
-			case Lvn_ImageFormat_RGBA: { return GL_RGBA; }
-			case Lvn_ImageFormat_RGBA8: { return GL_RGBA8; }
-			case Lvn_ImageFormat_RGBA16F: { return GL_RGBA16F; }
-			case Lvn_ImageFormat_RGBA32F: { return GL_RGBA32F; }
+			case Lvn_ColorImageFormat_None: { return GL_NONE; }
+			case Lvn_ColorImageFormat_RedInt: { return GL_R32I; }
+			case Lvn_ColorImageFormat_RGB: { return GL_RGB; }
+			case Lvn_ColorImageFormat_RGBA: { return GL_RGBA; }
+			case Lvn_ColorImageFormat_RGBA8: { return GL_RGBA8; }
+			case Lvn_ColorImageFormat_RGBA16F: { return GL_RGBA16F; }
+			case Lvn_ColorImageFormat_RGBA32F: { return GL_RGBA32F; }
 
 			default:
 			{
@@ -214,19 +215,30 @@ namespace ogls
 	{
 		switch (texFormat)
 		{
-			case Lvn_ImageFormat_None: { return GL_NONE; }
-			case Lvn_ImageFormat_RedInt: { return GL_RED; }
-			case Lvn_ImageFormat_RGB: { return GL_RGB; }
-			case Lvn_ImageFormat_RGBA: { return GL_RGBA; }
-			case Lvn_ImageFormat_RGBA8: { return GL_RGBA; }
-			case Lvn_ImageFormat_RGBA16F: { return GL_RGBA; }
-			case Lvn_ImageFormat_RGBA32F: { return GL_RGBA; }
+			case Lvn_ColorImageFormat_None: { return GL_NONE; }
+			case Lvn_ColorImageFormat_RedInt: { return GL_RED; }
+			case Lvn_ColorImageFormat_RGB: { return GL_RGB; }
+			case Lvn_ColorImageFormat_RGBA: { return GL_RGBA; }
+			case Lvn_ColorImageFormat_RGBA8: { return GL_RGBA; }
+			case Lvn_ColorImageFormat_RGBA16F: { return GL_RGBA; }
+			case Lvn_ColorImageFormat_RGBA32F: { return GL_RGBA; }
 
 			default:
 			{
 				LVN_CORE_WARN("invalid color data image format, setting data image format to GL_RGBA");
 				return GL_RGBA;
 			}
+		}
+	}
+
+	static void getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType)
+	{
+		switch (texFormat)
+		{
+			case Lvn_DepthImageFormat_Depth16: { *format = GL_DEPTH_COMPONENT16; *attachmentType = GL_DEPTH_ATTACHMENT; break; }
+			case Lvn_DepthImageFormat_Depth32: { *format = GL_DEPTH_COMPONENT32F; *attachmentType = GL_DEPTH_ATTACHMENT; break; }
+			case Lvn_DepthImageFormat_Depth24Stencil8: { *format = GL_DEPTH24_STENCIL8; *attachmentType = GL_DEPTH_STENCIL_ATTACHMENT; break; }
+			case Lvn_DepthImageFormat_Depth32Stencil8: { *format = GL_DEPTH32F_STENCIL8; *attachmentType = GL_DEPTH_STENCIL_ATTACHMENT; break; }
 		}
 	}
 
@@ -282,28 +294,7 @@ namespace ogls
 			glBindTexture(texType, frameBufferData->depthAttachment);
 
 			GLenum format = GL_DEPTH_COMPONENT, attachmentType = GL_DEPTH_ATTACHMENT;
-			
-			switch (frameBufferData->depthAttachmentSpecification.format)
-			{
-				case Lvn_ImageFormat_DepthComponent:
-				{
-					format = GL_DEPTH_COMPONENT;
-					attachmentType = GL_DEPTH_ATTACHMENT;
-					break;
-				}
-				case Lvn_ImageFormat_Depth24Stencil8:
-				{
-					format = GL_DEPTH24_STENCIL8;
-					attachmentType = GL_DEPTH_STENCIL_ATTACHMENT;
-					break;
-				}
-				case Lvn_ImageFormat_Depth32Stencil8:
-				{
-					format = GL_DEPTH24_STENCIL8;
-					attachmentType = GL_DEPTH_STENCIL_ATTACHMENT;
-					break;
-				}
-			}
+			ogls::getDepthFormat(frameBufferData->depthAttachmentSpecification.format, &format, &attachmentType);
 
 			if (frameBufferData->multisampling)
 			{
@@ -400,28 +391,7 @@ namespace ogls
 				glBindTexture(GL_TEXTURE_2D, frameBufferData->msaaDepthAttachment);
 
 				GLenum format = GL_DEPTH_COMPONENT, attachmentType = GL_DEPTH_ATTACHMENT;
-
-				switch (frameBufferData->depthAttachmentSpecification.format)
-				{
-					case Lvn_ImageFormat_DepthComponent:
-					{
-						format = GL_DEPTH_COMPONENT;
-						attachmentType = GL_DEPTH_ATTACHMENT;
-						break;
-					}
-					case Lvn_ImageFormat_Depth24Stencil8:
-					{
-						format = GL_DEPTH24_STENCIL8;
-						attachmentType = GL_DEPTH_STENCIL_ATTACHMENT;
-						break;
-					}
-					case Lvn_ImageFormat_Depth32Stencil8:
-					{
-						format = GL_DEPTH24_STENCIL8;
-						attachmentType = GL_DEPTH_STENCIL_ATTACHMENT;
-						break;
-					}
-				}
+				ogls::getDepthFormat(frameBufferData->depthAttachmentSpecification.format, &format, &attachmentType);
 
 				glTexStorage2D(GL_TEXTURE_2D, 1, format, frameBufferData->width, frameBufferData->height);
 
@@ -559,6 +529,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->frameBufferGetRenderPass = oglsImplFrameBufferGetRenderPass;
 	graphicsContext->framebufferResize = oglsImplFrameBufferResize;
 	graphicsContext->frameBufferSetClearColor = oglsImplFrameBufferSetClearColor;
+	graphicsContext->findSupportedDepthImageFormat = oglsImplFindSupportedDepthImageFormat;
 
 
 	// NOTE: opengl does not support any enumerated physical devices so we just create a dummy device
@@ -1358,6 +1329,11 @@ void oglsImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t atta
 {
 	glClearColor(r, g, b, a);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+LvnDepthImageFormat oglsImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
+{
+	return pDepthImageFormats[0];
 }
 
 void setOglWindowContextValues()

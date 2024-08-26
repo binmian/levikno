@@ -349,8 +349,8 @@ int main()
 	lvn::createWindow(&window, &windowInfo);
 
 
-	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ImageFormat_RGBA32F };
-	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, Lvn_ImageFormat_Depth32Stencil8 };
+	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ColorImageFormat_RGBA32F };
+	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, Lvn_DepthImageFormat_Depth32Stencil8 };
 
 	LvnFrameBufferCreateInfo frameBufferCreateInfo{};
 	frameBufferCreateInfo.width = 800;

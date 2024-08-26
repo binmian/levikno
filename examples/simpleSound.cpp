@@ -1,20 +1,13 @@
 #include <levikno/levikno.h>
 
-// INFO: this program plays sound from an external sound file,
-//       note that we do not need to search for a physical device
-//       or initialize rendering since we are not using anything
-//       related to rendering in this program
+// INFO: this program plays sound from an external sound file
 
 int main(int argc, char** argv)
 {
 	// [Create Context]
 	// create the context to load the library
-
 	LvnContextCreateInfo lvnCreateInfo{};
 	lvnCreateInfo.enableLogging = true;
-	lvnCreateInfo.enableVulkanValidationLayers = true;
-	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
 

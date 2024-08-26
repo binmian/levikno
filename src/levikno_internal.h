@@ -287,6 +287,8 @@ struct LvnGraphicsContext
 	LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);
 	void                        (*framebufferResize)(LvnFrameBuffer*, uint32_t, uint32_t);
 	void                        (*frameBufferSetClearColor)(LvnFrameBuffer*, uint32_t, float, float, float, float);
+
+	LvnDepthImageFormat         (*findSupportedDepthImageFormat)(LvnDepthImageFormat*, uint32_t);
 };
 
 struct LvnPhysicalDevice
@@ -418,9 +420,11 @@ struct LvnContext
 	void*                       audioEngineContextPtr;
 
 	bool                        logging;
+	bool                        enableCoreLogging;
 	LvnLogger                   coreLogger;
 	LvnLogger                   clientLogger;
 	LvnVector<LvnLogPattern>    userLogPatterns;
+	const char*                 appName;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 

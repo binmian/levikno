@@ -189,10 +189,20 @@ int main(int argc, char** argv)
 
 
 	// [Create frame buffer]
-	// frame buffer attachments
-	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ImageFormat_RGBA32F };
-	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, Lvn_ImageFormat_Depth32Stencil8 };
+	// find supported depth format
+	LvnDepthImageFormat depthFormats[] =
+	{
+		Lvn_DepthImageFormat_Depth32Stencil8, Lvn_DepthImageFormat_Depth24Stencil8, Lvn_DepthImageFormat_Depth32, Lvn_DepthImageFormat_Depth16,
+	};
 
+	// NOTE: formats earlier in the array will have higher priority and will be checked first in that order
+	LvnDepthImageFormat supportedDepthFormat = lvn::findSupportedDepthImageFormat(depthFormats, ARRAY_LEN(depthFormats));
+
+	// frame buffer attachments
+	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ColorImageFormat_RGBA32F };
+	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, supportedDepthFormat }; // pass the supported format into the depth attachment
+
+	// frame buffer create info struct
 	LvnFrameBufferCreateInfo frameBufferCreateInfo{};
 	frameBufferCreateInfo.width = 800;
 	frameBufferCreateInfo.height = 600;
@@ -203,6 +213,7 @@ int main(int argc, char** argv)
 	frameBufferCreateInfo.textureMode = Lvn_TextureMode_ClampToEdge;
 	frameBufferCreateInfo.textureFilter = Lvn_TextureFilter_Linear;
 
+	// create framebuffer
 	LvnFrameBuffer* frameBuffer;
 	lvn::createFrameBuffer(&frameBuffer, &frameBufferCreateInfo);
 

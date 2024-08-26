@@ -99,10 +99,12 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
 	s_LvnContext = new LvnContext();
 
+	s_LvnContext->appName = createInfo->applicationName;
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
 	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->enableVulkanValidationLayers;
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
+	s_LvnContext->enableCoreLogging = !createInfo->disableCoreLogging;
 
 	// logging
 	if (createInfo->enableLogging) { logInit(); }
@@ -148,7 +150,7 @@ void terminateContext()
 	if (s_LvnContext->objectMemoryAllocations.sounds > 0) { LVN_CORE_WARN("not all sound objects have been destroyed, number of sound objects remaining: %zu", s_LvnContext->objectMemoryAllocations.sounds); }
 	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
 	
-	logTerminate();
+	logEnable(false);
 
 	delete s_LvnContext;
 	s_LvnContext = nullptr;
@@ -551,12 +553,14 @@ LvnResult logInit()
 		lvnctx->logging = true;
 
 		lvnctx->coreLogger.loggerName = "CORE";
-		lvnctx->clientLogger.loggerName = "CLIENT";
-		lvnctx->coreLogger.logLevel = Lvn_LogLevel_None;
-		lvnctx->clientLogger.logLevel = Lvn_LogLevel_None;
-		lvnctx->coreLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
-		lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
 
+		if (lvnctx->appName != nullptr && strcmp(lvnctx->appName, LVN_EMPTY_STR) != 0)
+			lvnctx->clientLogger.loggerName = lvnctx->appName;
+		else
+			lvnctx->clientLogger.loggerName = "CLIENT";
+
+		lvnctx->coreLogger.logLevel = lvnctx->clientLogger.logLevel = Lvn_LogLevel_None;
+		lvnctx->coreLogger.logPatternFormat = lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
 		lvnctx->coreLogger.logPatterns = lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
 
 		#ifdef LVN_PLATFORM_WINDOWS 
@@ -569,14 +573,14 @@ LvnResult logInit()
 	return Lvn_Result_AlreadyCalled;
 }
 
-void logTerminate()
+void logEnable(bool enable)
 {
-	LvnContext* lvnctx = lvn::getContext();
+	lvn::getContext()->logging = enable;
+}
 
-	if (lvnctx->logging)
-	{
-		lvnctx->logging = false;
-	}
+void logEnableCoreLogging(bool enable)
+{
+	lvn::getContext()->enableCoreLogging = enable;
 }
 
 void logSetLevel(LvnLogger* logger, LvnLogLevel level)
@@ -632,6 +636,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
 	LvnVector<char> buff;
@@ -652,6 +657,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
 
 	LvnVector<char> buff;
@@ -672,6 +678,7 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
 	LvnVector<char> buff;
@@ -692,6 +699,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
 	LvnVector<char> buff;
@@ -712,6 +720,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
 	LvnVector<char> buff;
@@ -732,6 +741,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
+	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
 
 	LvnVector<char> buff;
@@ -799,6 +809,31 @@ LvnResult logAddPattern(LvnLogPattern* logPattern)
 	lvn::getContext()->userLogPatterns.push_back(*logPattern);
 
 	return Lvn_Result_Success;
+}
+
+LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	*logger = new LvnLogger();
+	LvnLogger* loggerPtr = *logger;
+
+	loggerPtr->loggerName = loggerCreateInfo->loggerName;
+	loggerPtr->logPatternFormat = loggerCreateInfo->logPatternFormat;
+	loggerPtr->logLevel = loggerCreateInfo->logLevel;
+	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->logPatternFormat);
+
+	lvnctx->objectMemoryAllocations.loggers++;
+	LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName);
+	return Lvn_Result_Success;
+}
+
+void destroyLogger(LvnLogger* logger)
+{
+	LvnContext* lvnctx = lvn::getContext();
+	delete logger;
+	logger = nullptr;
+	lvnctx->objectMemoryAllocations.loggers--;
 }
 
 // [SECTION]: Events
@@ -1083,8 +1118,8 @@ static LvnResult setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi)
 	{
 		case Lvn_WindowApi_None:
 		{
-			result = Lvn_Result_Failure;
-			break;
+			LVN_CORE_TRACE("no window context selected, window related function calls will not be used");
+			return Lvn_Result_Success;
 		}
 		case Lvn_WindowApi_glfw:
 		{
@@ -1113,7 +1148,7 @@ static void terminateWindowContext(LvnContext* lvnctx)
 	{
 		case Lvn_WindowApi_None:
 		{
-			LVN_CORE_WARN("no window API Initialized! Cannot terminate window API!");
+			LVN_CORE_TRACE("no window api selected, no window context to terminate");
 			return;
 		}
 		case Lvn_WindowApi_glfw:
@@ -1127,7 +1162,7 @@ static void terminateWindowContext(LvnContext* lvnctx)
 		// }
 		default:
 		{
-			LVN_CORE_ERROR("unknown Windows API selected! Cannot terminate window API!");
+			LVN_CORE_ERROR("unknown windows api selected, cannot terminate window context");
 			return;
 		}
 	}
@@ -1331,8 +1366,8 @@ static LvnResult setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsa
 	{
 		case Lvn_GraphicsApi_None:
 		{
-			result = Lvn_Result_Failure;
-			break;
+			LVN_CORE_TRACE("no graphics context selected, graphics related function calls will not be used");
+			return Lvn_Result_Success;
 		}
 		case Lvn_GraphicsApi_vulkan:
 		{
@@ -1362,7 +1397,7 @@ static void terminateGraphicsContext(LvnContext* lvnctx)
 	{
 		case Lvn_GraphicsApi_None:
 		{
-			LVN_CORE_WARN("no Graphics API Initialized! Cannot terminate Graphics API!");
+			LVN_CORE_TRACE("no graphics api selected, no graphics context to terminate");
 			return;
 		}
 		case Lvn_GraphicsApi_vulkan:
@@ -1379,7 +1414,7 @@ static void terminateGraphicsContext(LvnContext* lvnctx)
 		}
 		default:
 		{
-			LVN_CORE_ERROR("unknown Graphics API selected! Cannot terminate Graphics API!");
+			LVN_CORE_ERROR("unknown graphics api selected, cannot terminate graphics context");
 		}
 	}
 
@@ -1398,6 +1433,7 @@ static LvnResult initAudioContext(LvnContext* lvnctx)
 
 	lvnctx->audioEngineContextPtr = pEngine;
 
+	LVN_CORE_TRACE("audio context initialized");
 	return Lvn_Result_Success;
 }
 
@@ -1408,6 +1444,8 @@ static void terminateAudioContext(LvnContext* lvnctx)
 		ma_engine_uninit(static_cast<ma_engine*>(lvnctx->audioEngineContextPtr));
 		lvn::memFree(lvnctx->audioEngineContextPtr);
 	}
+
+	LVN_CORE_TRACE("audio context terminated");
 }
 
 static void initStandardPipelineSpecification(LvnContext* lvnctx)
@@ -2143,6 +2181,17 @@ void frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t hei
 void frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
 	return lvn::getContext()->graphicsContext.frameBufferSetClearColor(frameBuffer, attachmentIndex, r, g, b, a);
+}
+
+LvnDepthImageFormat findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
+{
+	if (pDepthImageFormats == nullptr)
+	{
+		LVN_CORE_ERROR("cannot find supported depth image format, no depth image candidates given");
+		return (LvnDepthImageFormat)(0);
+	}
+
+	return lvn::getContext()->graphicsContext.findSupportedDepthImageFormat(pDepthImageFormats, count);
 }
 
 LvnBuffer* meshGetBuffer(LvnMesh* mesh)

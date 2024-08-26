@@ -5,6 +5,7 @@ set(LVN_SOURCES
 	basicScene/src/Main.cpp
 	cubemap.cpp
 	framebuffer.cpp
+	logging.cpp
 	pong.cpp
 	shaderLoading.cpp
 	simpleMatrix.cpp
