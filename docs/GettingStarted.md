@@ -602,6 +602,7 @@ return 0;
 ```
 
 Now build and run the program, you should now see your triangle appear.
+
 ![simpleTriangleExample](https://github.com/bokidawok/Levikno/blob/main/.github/simpleTriangleExample.png)
 
 The [source](examples/simpleTriangle.cpp) code for this section can be found in the examples folder
