@@ -601,4 +601,7 @@ lvn::terminateContext();
 return 0;
 ```
 
-Now build and run the program, you should see your triangle appear.
+Now build and run the program, you should now see your triangle appear.
+![simpleTriangleExample](.github/simpleTriangleExample.png)
+
+The [source](examples/simpleTriangle.cpp) code for this section can be found in the examples folder
