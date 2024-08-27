@@ -1,10 +1,8 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
-#include <cmath>
-#include <cstdint>
-#include <stdarg.h>
-#include <time.h>
+#include <cstdarg>
+#include <ctime>
 
 #include "stb_image.h"
 #include "miniaudio.h"
@@ -2584,7 +2582,7 @@ float clampAngleDeg(float deg)
 	return angle;
 }
 
-float inverseSqrt(float num)
+float invSqrt(float num)
 {
 	union
 	{
@@ -2604,37 +2602,37 @@ float inverseSqrt(float num)
 
 LvnVec2f normalize(LvnVec2f v)
 {
-	float u = inverseSqrt(v.x * v.x + v.y * v.y);
+	float u = invSqrt(v.x * v.x + v.y * v.y);
 	return { v.x * u, v.y * u };
 }
 
 LvnVec2d normalize(LvnVec2d v)
 {
-	double u = inverseSqrt(static_cast<float>(v.x * v.x + v.y * v.y));
+	double u = invSqrt(static_cast<float>(v.x * v.x + v.y * v.y));
 	return { v.x * u, v.y * u };
 }
 
 LvnVec3f normalize(LvnVec3f v)
 {
-	float u = inverseSqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	float u = invSqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 	return { v.x * u, v.y * u, v.z * u };
 }
 
 LvnVec3d normalize(LvnVec3d v)
 {
-	double u = inverseSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z));
+	double u = invSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z));
 	return { v.x * u, v.y * u, v.z * u };
 }
 
 LvnVec4f normalize(LvnVec4f v)
 {
-	float u = inverseSqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
+	float u = invSqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
 	return { v.x * u, v.y * u, v.z * u, v.w * u };
 }
 
 LvnVec4d normalize(LvnVec4d v)
 {
-	double u = inverseSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w));
+	double u = invSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w));
 	return { v.x * u, v.y * u, v.z * u, v.w * u };
 }
 

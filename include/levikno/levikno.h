@@ -2,7 +2,6 @@
 #define HG_LEVIKNO_H
 
 // Platform
-#include <cstdint>
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__) 
 	#ifndef LVN_PLATFORM_WINDOWS
 		#define LVN_PLATFORM_WINDOWS
@@ -70,7 +69,7 @@
 #if defined (LVN_DISABLE_ASSERTS)
 	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); } }
 	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); } }
-#elif defined(LVN_ENABLE_ASSERTS)
+#elif defined (LVN_ENABLE_ASSERTS)
 	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
@@ -99,13 +98,36 @@
 #define LVN_PI_EXACT (static_cast<double>(22.0/7.0)) /* 3.1415... */
 
 
-#include <stdlib.h> // malloc, free
-#include <stdint.h> // uint8_t, uint16_t, uint32_t, uint64_t
-#include <string.h> // strlen
-#include <math.h>
+#include <cstdlib> // malloc, free
+#include <cstdint> // uint8_t, uint16_t, uint32_t, uint64_t
+#include <cstring> // strlen
+#include <cmath>
 
 #include <string>
 
+using std::abs;
+using std::acos;
+using std::asin;
+using std::atan;
+using std::atan2;
+using std::cos;
+using std::sin;
+using std::tan;
+using std::cosh;
+using std::sinh;
+using std::tanh;
+using std::exp;
+using std::frexp;
+using std::ldexp;
+using std::log;
+using std::log10;
+using std::modf;
+using std::pow;
+using std::sqrt;
+using std::ceil;
+using std::fabs;
+using std::floor;
+using std::fmod;
 
 /* [Vectors & Matrices] */
 
@@ -1250,7 +1272,7 @@ namespace lvn
 	LVN_API float degrees(float rad);          // convert radians to degrees
 	LVN_API float clampAngle(float rad);       // clamps the given angle in radians to the translated angle between 0 and 2 PI
 	LVN_API float clampAngleDeg(float deg);    // clamps the given angle in degrees to the translated angle between 0 and 2 PI
-	LVN_API float inverseSqrt(float num);
+	LVN_API float invSqrt(float num);
 
 	LVN_API LvnVec2f normalize(LvnVec2f v);
 	LVN_API LvnVec2d normalize(LvnVec2d v);

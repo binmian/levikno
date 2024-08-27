@@ -44,7 +44,7 @@ namespace vks
 	static LvnVector<const char*>               getRequiredExtensions(VulkanBackends* vkBackends);
 	static VkResult                             createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 	static void                                 destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
-	static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
 	static void                                 setupDebugMessenger(VulkanBackends* vkBackends);
 	static LvnPhysicalDeviceType                getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type);
 	static bool                                 checkDeviceExtensionSupport(VkPhysicalDevice device);
@@ -119,15 +119,15 @@ namespace vks
 		createInfo.enabledExtensionCount = extensions.size();
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+
 		if (enableValidationLayers)
 		{
-			VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-
 			createInfo.enabledLayerCount = ARRAY_LEN(s_ValidationLayers);
 			createInfo.ppEnabledLayerNames = s_ValidationLayers;
 
-			vks::fillVulkanDebugMessengerCreateInfo(debugCreateInfo);
-			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+			vks::fillVulkanDebugMessengerCreateInfo(&debugCreateInfo);
+			createInfo.pNext = &debugCreateInfo;
 		}
 
 		// Create Instance
@@ -233,19 +233,18 @@ namespace vks
 			func(instance, debugMessenger, pAllocator);
 	}
 
-	static void fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	static void fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo)
 	{
-		createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		createInfo.messageSeverity = 
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | 
+		createInfo->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		createInfo->messageSeverity =
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		createInfo.messageType = 
-			VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT	   | 
-			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
+		createInfo->messageType =
+			VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT     |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT  |
 			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		createInfo.pfnUserCallback = debugCallback;
+		createInfo->pfnUserCallback = debugCallback;
 	}
 
 	static void setupDebugMessenger(VulkanBackends* vkBackends)
@@ -253,7 +252,7 @@ namespace vks
 		if (!vkBackends->enableValidationLayers) return;
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-		fillVulkanDebugMessengerCreateInfo(createInfo);
+		fillVulkanDebugMessengerCreateInfo(&createInfo);
 
 		LVN_CORE_CALL_ASSERT(createDebugUtilsMessengerEXT(vkBackends->instance, &createInfo, nullptr, &vkBackends->debugMessenger) == VK_SUCCESS, "vulkan - failed to set up debug messenger!");
 	}

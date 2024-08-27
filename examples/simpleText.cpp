@@ -1,4 +1,3 @@
-#include <cmath>
 #include <levikno/levikno.h>
 
 #include <sstream>
