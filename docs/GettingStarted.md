@@ -603,6 +603,8 @@ return 0;
 
 Now build and run the program, you should now see your triangle appear.
 
-![simpleTriangleExample](https://github.com/brokima/Levikno/blob/main/.github/simpleTriangleExample.png)
+<p align="center">
+    <img src="https://github.com/brokima/Levikno/blob/main/.github/simpleTriangleExample.png">
+</p>
 
 The [source](https://github.com/brokima/Levikno/blob/main/examples/simpleTriangle.cpp) code for this section can be found in the examples folder
