@@ -30,7 +30,7 @@ sudo pacman -S vulkan-devel
 
 Now copy the github repository:
 ```
-git clone https://github.com/bokidawok/Levikno.git levikno
+git clone https://github.com/brokima/Levikno.git levikno
 cd levikno
 ```
 
@@ -44,7 +44,7 @@ make
 ### Windows
 Copy the github repository:
 ```
-git clone https://github.com/bokidawok/Levikno.git levikno
+git clone https://github.com/brokima/Levikno.git levikno
 cd levikno
 ```
 
