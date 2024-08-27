@@ -107,8 +107,8 @@ struct LvnDuoPair
 struct LvnLogger
 {
 	const char* loggerName;
-	LvnLogLevel logLevel;
 	const char* logPatternFormat;
+	LvnLogLevel logLevel;
 	LvnVector<LvnLogPattern> logPatterns;
 };
 

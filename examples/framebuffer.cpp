@@ -138,8 +138,8 @@ int main(int argc, char** argv)
 	// create the context to load the library
 
 	LvnContextCreateInfo lvnCreateInfo{};
-	lvnCreateInfo.enableLogging = true;
-	lvnCreateInfo.enableVulkanValidationLayers = true;
+	lvnCreateInfo.logging.enableLogging = true;
+	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 

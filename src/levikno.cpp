@@ -100,14 +100,14 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	s_LvnContext->appName = createInfo->applicationName;
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
-	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->enableVulkanValidationLayers;
+
+	s_LvnContext->enableCoreLogging = !createInfo->logging.disableCoreLogging;
+
+	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
-	s_LvnContext->enableCoreLogging = !createInfo->disableCoreLogging;
 
 	// logging
-	if (createInfo->enableLogging) { logInit(); }
-
-	s_LvnContext->coreLogger.logLevel = createInfo->coreLogLevel;
+	if (createInfo->logging.enableLogging) { logInit(); }
 
 	// window context
 	LvnResult result = setWindowContext(s_LvnContext, createInfo->windowapi);

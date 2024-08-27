@@ -101,8 +101,8 @@ To enable logging and Vulkan validation layers, add the new lines to the code:
 LvnContextCreateInfo lvnCreateInfo{};
 lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-lvnCreateInfo.enableLogging = true;
-lvnCreateInfo.enableVulkanValidationLayers = true;
+lvnCreateInfo.logging.enableLogging = true;
+lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	
 lvn::createContext(&lvnCreateInfo);
 ```

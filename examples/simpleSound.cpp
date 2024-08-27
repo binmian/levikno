@@ -7,7 +7,7 @@ int main(int argc, char** argv)
 	// [Create Context]
 	// create the context to load the library
 	LvnContextCreateInfo lvnCreateInfo{};
-	lvnCreateInfo.enableLogging = true;
+	lvnCreateInfo.logging.enableLogging = true;
 
 	lvn::createContext(&lvnCreateInfo);
 

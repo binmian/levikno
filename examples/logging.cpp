@@ -9,8 +9,8 @@ int main(int argc, char** argv)
 	// [Create Context]
 	// create the context to load the library
 	LvnContextCreateInfo lvnCreateInfo{};
-	lvnCreateInfo.enableLogging = true; // enable logging before initializing context
-	lvnCreateInfo.disableCoreLogging = true;
+	lvnCreateInfo.logging.enableLogging = true; // enable logging before initializing context
+	lvnCreateInfo.logging.disableCoreLogging = true;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -137,6 +137,24 @@ int main(int argc, char** argv)
 	lvn::logSetPatternFormat(logger, "[%T] [%#%l%^]: %v%$");
 
 	lvn::logMessageWarn(logger, "log message with color");
+
+
+	// we can also add our own custom log patters as well, make sure that your log pattern does not have the same symbol as one of the default log patterns
+	// - this log pattern used the symbol '>' which is tied to a function that returns a string '>>>'
+	//   this means when ever the log pattern '%>' is used, it will be replaced with '>>>' in our log message
+	// - the parameter 'func' takes in a function with LvnLogPattern* as a parameter and a return type of std::string,
+	//   here we use a lambda function for convenience
+	LvnLogPattern logPattern{};
+	logPattern.symbol = '>';
+	logPattern.func = [](LvnLogMessage* msg) -> std::string { return ">>>"; };
+
+	// log pattern will be added to the library
+	lvn::logAddPattern(&logPattern);
+
+	// now we can use our new log pattern
+	lvn::logSetPatternFormat(logger, "[%T] [%#%l%^] %> %v%$");
+
+	lvn::logMessageDebug(logger, "log message with our own log pattern");
 
 	printf("\n");
 

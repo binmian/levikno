@@ -246,8 +246,8 @@ int main(int argc, char** argv)
 {
 	// create contex and render init
 	LvnContextCreateInfo lvnCreateInfo{};
-	lvnCreateInfo.enableLogging = true;
-	lvnCreateInfo.enableVulkanValidationLayers = true;
+	lvnCreateInfo.logging.enableLogging = true;
+	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 

@@ -285,8 +285,8 @@ LvnDescriptorBinding textureBinding(uint32_t binding, uint32_t maxAllocations)
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
-	lvnCreateInfo.enableLogging = true;
-	lvnCreateInfo.enableVulkanValidationLayers = true;
+	lvnCreateInfo.logging.enableLogging = true;
+	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 	lvnCreateInfo.frameBufferColorFormat = Lvn_TextureFormat_Srgb;

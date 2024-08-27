@@ -1530,14 +1530,18 @@ namespace lvn
 
 struct LvnContextCreateInfo
 {
-	const char*               applicationName;
-	LvnWindowApi              windowapi;
-	LvnGraphicsApi            graphicsapi;
-	bool                      enableLogging;
-	bool                      disableCoreLogging;
-	LvnLogLevel               coreLogLevel;
-	bool                      enableVulkanValidationLayers;
-	LvnTextureFormat          frameBufferColorFormat;
+	const char*               applicationName;               // name of application or program
+	LvnWindowApi              windowapi;                     // window api to use when creating windows
+	LvnGraphicsApi            graphicsapi;                   // graphics api to use when rendering (eg. vulkan, opengl)
+
+	struct
+	{
+		bool                  enableLogging;                 // enable or diable logging
+		bool                  disableCoreLogging;            // whether to disable core logging in the library
+		bool                  enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
+	} logging;
+
+	LvnTextureFormat          frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
 };
 
 /* [Logging] */
