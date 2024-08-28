@@ -154,7 +154,7 @@ int main(int argc, char** argv)
 	// now we can use our new log pattern
 	lvn::logSetPatternFormat(logger, "[%T] [%#%l%^] %> %v%$");
 
-	lvn::logMessageDebug(logger, "log message with our own log pattern");
+	lvn::logMessageDebug(logger, "log message with our own custom log pattern");
 
 	printf("\n");
 

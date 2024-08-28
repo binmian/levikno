@@ -146,6 +146,7 @@ void terminateContext()
 	if (s_LvnContext->objectMemoryAllocations.textures > 0) { LVN_CORE_WARN("not all texture have been destroyed, number of texture objects remaining: %zu", s_LvnContext->objectMemoryAllocations.textures); }
 	if (s_LvnContext->objectMemoryAllocations.cubemaps > 0) { LVN_CORE_WARN("not all cubemap objects have been destroyed, number of cubemap objects remaining: %zu", s_LvnContext->objectMemoryAllocations.cubemaps); }
 	if (s_LvnContext->objectMemoryAllocations.sounds > 0) { LVN_CORE_WARN("not all sound objects have been destroyed, number of sound objects remaining: %zu", s_LvnContext->objectMemoryAllocations.sounds); }
+	if (s_LvnContext->objectMemoryAllocations.soundBoards > 0) { LVN_CORE_WARN("not all sound board objects have been destroyed, number of sound board objects remaining: %zu", s_LvnContext->objectMemoryAllocations.soundBoards); }
 	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
 	
 	logEnable(false);
@@ -828,6 +829,7 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 
 void destroyLogger(LvnLogger* logger)
 {
+	if (logger == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 	delete logger;
 	logger = nullptr;
@@ -1204,6 +1206,7 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 
 void destroyWindow(LvnWindow* window)
 {
+	if (window == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 	lvnctx->windowContext.destroyWindow(window);
 	delete window;
@@ -2020,6 +2023,7 @@ LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
 
 void destroyShader(LvnShader* shader)
 {
+	if (shader == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyShader(shader);
@@ -2030,6 +2034,7 @@ void destroyShader(LvnShader* shader)
 
 void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
+	if (descriptorLayout == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyDescriptorLayout(descriptorLayout);
@@ -2040,6 +2045,7 @@ void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 
 void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 {
+	if (descriptorSet == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
@@ -2050,6 +2056,7 @@ void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 
 void destroyPipeline(LvnPipeline* pipeline)
 {
+	if (pipeline == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyPipeline(pipeline);
@@ -2060,6 +2067,7 @@ void destroyPipeline(LvnPipeline* pipeline)
 
 void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
+	if (frameBuffer == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyFrameBuffer(frameBuffer);
@@ -2070,6 +2078,7 @@ void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 
 void destroyBuffer(LvnBuffer* buffer)
 {
+	if (buffer == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyBuffer(buffer);
@@ -2080,6 +2089,7 @@ void destroyBuffer(LvnBuffer* buffer)
 
 void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
+	if (uniformBuffer == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyUniformBuffer(uniformBuffer);
@@ -2090,6 +2100,7 @@ void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 
 void destroyTexture(LvnTexture* texture)
 {
+	if (texture == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyTexture(texture);
@@ -2100,6 +2111,7 @@ void destroyTexture(LvnTexture* texture)
 
 void destroyCubemap(LvnCubemap* cubemap)
 {
+	if (cubemap == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyCubemap(cubemap);
@@ -2461,13 +2473,16 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	soundPtr->pos = createInfo->pos;
 	soundPtr->looping = createInfo->looping;
 	soundPtr->soundPtr = pSound;
+	soundPtr->soundBoard = nullptr;
 
 	lvnctx->objectMemoryAllocations.sounds++;
+	LVN_CORE_TRACE("created sound: (%p), volume: %.2f, pan: %.2f, pitch: %.2f", *sound, createInfo->volume, createInfo->pan, createInfo->pitch);
 	return Lvn_Result_Success;
 }
 
 void destroySound(LvnSound* sound)
 {
+	if (sound == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
@@ -2476,6 +2491,7 @@ void destroySound(LvnSound* sound)
 	lvn::memFree(pSound);
 
 	delete sound;
+	sound = nullptr;
 	lvnctx->objectMemoryAllocations.sounds--;
 }
 
@@ -2492,68 +2508,179 @@ LvnSoundCreateInfo soundConfigInit(const char* filepath)
 	return soundInit;
 }
 
-void soundSetVolume(LvnSound* sound, float volume)
+void soundSetVolume(const LvnSound* sound, float volume)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	if (sound->soundBoard != nullptr) { volume *= sound->soundBoard->masterVolume; }
+
 	ma_sound_set_volume(pSound, volume);
 }
 
-void soundSetPan(LvnSound* sound, float pan)
+void soundSetPan(const LvnSound* sound, float pan)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	if (sound->soundBoard != nullptr) { pan *= sound->soundBoard->masterPan; }
+
 	ma_sound_set_pan(pSound, pan);
 }
 
-void soundSetPitch(LvnSound* sound, float pitch)
+void soundSetPitch(const LvnSound* sound, float pitch)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
+	if (sound->soundBoard != nullptr) { pitch *= sound->soundBoard->masterPitch; }
+
 	ma_sound_set_pitch(pSound, pitch);
 }
 
-void soundSetLooping(LvnSound* sound, bool looping)
+void soundSetLooping(const LvnSound* sound, bool looping)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	ma_sound_set_looping(pSound, looping);
 }
 
-void soundPlayStart(LvnSound* sound)
+void soundPlayStart(const LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	ma_sound_start(pSound);
 }
 
-void soundPlayStop(LvnSound* sound)
+void soundPlayStop(const LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	ma_sound_stop(pSound);
 }
 
-void soundTogglePause(LvnSound* sound)
+void soundTogglePause(const LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	if (ma_sound_is_playing(pSound)) { ma_sound_stop(pSound); }
 	else { ma_sound_start(pSound); }
 }
 
-bool soundIsPlaying(LvnSound* sound)
+bool soundIsPlaying(const LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	return ma_sound_is_playing(pSound);
 }
 
-uint64_t soundGetTimeMiliseconds(LvnSound* sound)
+uint64_t soundGetTimeMiliseconds(const LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	return ma_sound_get_time_in_milliseconds(pSound);
 }
 
-float soundGetLengthSeconds(LvnSound* sound)
+float soundGetLengthSeconds(const LvnSound* sound)
 {
 	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	float length;
 	ma_sound_get_length_in_seconds(pSound, &length);
 
 	return length;
+}
+
+bool soundIsAttachedToSoundBoard(const LvnSound* sound)
+{
+	return sound->soundBoard != nullptr;
+}
+
+LvnResult createSoundBoard(LvnSoundBoard** soundBoard)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	*soundBoard = new LvnSoundBoard();
+	LvnSoundBoard* soundBoardPtr = *soundBoard;
+	soundBoardPtr->masterVolume = 1.0f;
+	soundBoardPtr->masterPan = 0.0f;
+	soundBoardPtr->masterPitch = 1.0f;
+
+	lvnctx->objectMemoryAllocations.soundBoards++;
+	LVN_CORE_TRACE("created sound board: (%p)", *soundBoard);
+	return Lvn_Result_Success;
+}
+
+void destroySoundBoard(LvnSoundBoard* soundBoard)
+{
+	if (soundBoard == nullptr) { return; }
+	LvnContext* lvnctx = lvn::getContext();
+
+	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
+	{
+		lvn::memFree(soundBoard->sounds[i].p2.soundPtr);
+	}
+
+	delete soundBoard;
+	soundBoard = nullptr;
+	lvnctx->objectMemoryAllocations.soundBoards--;
+}
+
+LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	if (soundInfo->filepath == nullptr)
+	{
+		LVN_CORE_ERROR("cannot add sound to sound board (%p), soundInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file", soundBoard);
+		return Lvn_Result_Failure;
+	}
+
+	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
+	{
+		if (soundBoard->sounds[i].p1 == id)
+		{
+			LVN_CORE_ERROR("cannot add sound to sound board (%p), sound board already has a sound with the given id: %u", soundBoard, id);
+			return Lvn_Result_Failure;
+		}
+	}
+
+	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
+
+	ma_sound* pSound = (ma_sound*)lvn::memAlloc(sizeof(ma_sound));
+	if (ma_sound_init_from_file(pEngine, soundInfo->filepath, 0, NULL, NULL, pSound) != MA_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create sound object when adding sound to sound board (%p)", soundBoard);
+		return Lvn_Result_Failure;
+	}
+
+	ma_sound_set_volume(pSound, soundInfo->volume);
+	ma_sound_set_pan(pSound, soundInfo->pan);
+	ma_sound_set_pitch(pSound, soundInfo->pitch);
+	ma_sound_set_looping(pSound, soundInfo->looping);
+
+	LvnSound sound{};
+	sound.pan = soundInfo->pan;
+	sound.pitch = soundInfo->pitch;
+	sound.pos = soundInfo->pos;
+	sound.looping = soundInfo->looping;
+	sound.soundPtr = pSound;
+	sound.soundBoard = soundBoard;
+
+	soundBoard->sounds.push_back({ id, sound });
+	return Lvn_Result_Success;
+}
+
+void soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id)
+{
+	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
+	{
+		if (soundBoard->sounds[i].p1 == id)
+		{
+			soundBoard->sounds.remove(i);
+			return;
+		}
+	}
+}
+
+const LvnSound* soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id)
+{
+	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
+	{
+		if (soundBoard->sounds[i].p1 == id)
+		{
+			return &soundBoard->sounds[i].p2;
+		}
+	}
+
+	return nullptr;
 }
 
 // [SECTION]: Math

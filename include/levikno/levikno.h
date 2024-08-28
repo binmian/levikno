@@ -748,6 +748,7 @@ struct LvnRenderPass;
 struct LvnShader;
 struct LvnShaderCreateInfo;
 struct LvnSound;
+struct LvnSoundBoard;
 struct LvnSoundCreateInfo;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
@@ -775,6 +776,9 @@ class LvnData;
 
 template<typename T>
 struct LvnPair;
+
+template<typename T1, typename T2>
+struct LvnDoublePair;
 
 /* [Vectors] */
 template<typename T>
@@ -1232,18 +1236,23 @@ namespace lvn
 	LVN_API void                        destroySound(LvnSound* sound);
 	LVN_API LvnSoundCreateInfo          soundConfigInit(const char* filepath);
 
+	LVN_API void                        soundSetVolume(const LvnSound* sound, float volume);
+	LVN_API void                        soundSetPan(const LvnSound* sound, float pan);
+	LVN_API void                        soundSetPitch(const LvnSound* sound, float pitch);
+	LVN_API void                        soundSetLooping(const LvnSound* sound, bool looping);
+	LVN_API void                        soundPlayStart(const LvnSound* sound);
+	LVN_API void                        soundPlayStop(const LvnSound* sound);
+	LVN_API void                        soundTogglePause(const LvnSound* sound);
+	LVN_API bool                        soundIsPlaying(const LvnSound* sound);
+	LVN_API uint64_t                    soundGetTimeMiliseconds(const LvnSound* sound);
+	LVN_API float                       soundGetLengthSeconds(const LvnSound* sound);
+	LVN_API bool                        soundIsAttachedToSoundBoard(const LvnSound* sound);
 
-	LVN_API void                        soundSetVolume(LvnSound* sound, float volume);
-	LVN_API void                        soundSetPan(LvnSound* sound, float pan);
-	LVN_API void                        soundSetPitch(LvnSound* sound, float pitch);
-	LVN_API void                        soundSetLooping(LvnSound* sound, bool looping);
-	LVN_API void                        soundPlayStart(LvnSound* sound);
-	LVN_API void                        soundPlayStop(LvnSound* sound);
-	LVN_API void                        soundTogglePause(LvnSound* sound);
-
-	LVN_API bool                        soundIsPlaying(LvnSound* sound);
-	LVN_API uint64_t                    soundGetTimeMiliseconds(LvnSound* sound);
-	LVN_API float                       soundGetLengthSeconds(LvnSound* sound);
+	LVN_API LvnResult                   createSoundBoard(LvnSoundBoard** soundBoard);
+	LVN_API void                        destroySoundBoard(LvnSoundBoard* soundBoard);
+	LVN_API LvnResult                   soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id);
+	LVN_API void                        soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id);
+	LVN_API const LvnSound*             soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id);
 
 
 	/* [Math] */
@@ -1823,6 +1832,12 @@ struct LvnPair
 	union { T p2, y, height; };
 };
 
+template<typename T1, typename T2>
+struct LvnDoublePair
+{
+	union { T1 p1, x, width; };
+	union { T2 p2, y, height; };
+};
 
 // ---------------------------------------------
 // [SECTION]: Vectors & Matrices

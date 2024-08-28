@@ -8,12 +8,14 @@
 // [SECTION]: Data Type Structures
 // ------------------------------------------------------------
 template <typename T>
-struct LvnVector
+class LvnVector
 {
+private:
 	T* m_Data;            // pointer array to data
 	uint32_t m_Size;      // number of elements that are in this vector; size of vector
 	uint32_t m_Capacity;  // max number of elements allocated/reserved for this vector; note that m_Size can be less than or equal to the capacity
 
+public:
 	LvnVector()
 		: m_Data((T*)lvn::memAlloc(0)), m_Size(0), m_Capacity(0) {}
 
@@ -91,13 +93,6 @@ struct LvnVector
 
 	T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
 	uint32_t    find_index(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; uint32_t i = 0; while (begin < end) { if (*begin == e) break; begin++; i++; } return i; } // NOTE: find_index acts similar to find function; if no value was found, returns the index one greater than the last index in the vector (m_Size)
-};
-
-template <typename P1, typename P2>
-struct LvnDuoPair
-{
-	P1 p1;
-	P2 p2;
 };
 
 // ------------------------------------------------------------
@@ -392,8 +387,17 @@ struct LvnSound
 	LvnVec3 pos;
 
 	void* soundPtr;
+	LvnSoundBoard* soundBoard;
 };
 
+struct LvnSoundBoard
+{
+	float masterVolume;
+	float masterPan;
+	float masterPitch;
+
+	LvnVector<LvnDoublePair<uint32_t, LvnSound>> sounds;
+};
 
 struct LvnObjectMemAllocCount
 {
@@ -409,6 +413,7 @@ struct LvnObjectMemAllocCount
 	uint64_t textures;
 	uint64_t cubemaps;
 	uint64_t sounds;
+	uint64_t soundBoards;
 };
 
 struct LvnContext
