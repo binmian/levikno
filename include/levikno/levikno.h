@@ -246,6 +246,20 @@ enum LvnStructureType
 	Lvn_Stype_Mesh,
 };
 
+enum LvnClipRegion
+{
+	Lvn_ClipRegion_ApiSpecific,
+	Lvn_ClipRegion_LeftHandZeroToOne,
+	Lvn_ClipRegion_LeftHandNegOneToOne,
+	Lvn_ClipRegion_RightHandZeroToOne,
+	Lvn_ClipRegion_RightHandNegOneToOne,
+
+	Lvn_ClipRegion_LHZO = Lvn_ClipRegion_LeftHandZeroToOne,
+	Lvn_ClipRegion_LHNO = Lvn_ClipRegion_LeftHandNegOneToOne,
+	Lvn_ClipRegion_RHZO = Lvn_ClipRegion_RightHandZeroToOne,
+	Lvn_ClipRegion_RHNO = Lvn_ClipRegion_RightHandNegOneToOne,
+};
+
 /* Key Codes */
 enum LvnKeyCodes
 {
@@ -1138,6 +1152,7 @@ namespace lvn
 	LVN_API LvnPhysicalDeviceInfo       getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult                   checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult                   renderInit(LvnRenderInitInfo* renderInfo);
+	LVN_API LvnClipRegion               getRenderClipRegionEnum();
 
 	LVN_API void                        renderClearColor(LvnWindow* window, float r, float g, float b, float a);
 	LVN_API void                        renderCmdDraw(LvnWindow* window, uint32_t vertexCount);
@@ -1414,7 +1429,33 @@ namespace lvn
 	}
 
 	template <typename T>
-	LVN_API LvnMat4x4_t<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar)
+	LVN_API LvnMat4x4_t<T> orthoRHZO(T left, T right, T bottom, T top, T zNear, T zFar)
+	{
+		LvnMat4x4_t<T> matrix(static_cast<T>(1));
+		matrix[0][0] = static_cast<T>(2) / (right - left);
+		matrix[1][1] = static_cast<T>(2) / (top - bottom);
+		matrix[2][2] = - static_cast<T>(2) / (zFar - zNear);
+		matrix[3][0] = - (right + left)  / (right - left);
+		matrix[3][1] = - (top + bottom)  / (top - bottom);
+		matrix[3][2] = - (zFar + zNear) / (zFar - zNear);
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> orthoRHNO(T left, T right, T bottom, T top, T zNear, T zFar)
+	{
+		LvnMat4x4_t<T> matrix(static_cast<T>(1));
+		matrix[0][0] = static_cast<T>(2) / (right - left);
+		matrix[1][1] = static_cast<T>(2) / (top - bottom);
+		matrix[2][2] = - static_cast<T>(2) / (zFar - zNear);
+		matrix[3][0] = - (right + left)  / (right - left);
+		matrix[3][1] = - (top + bottom)  / (top - bottom);
+		matrix[3][2] = - zNear / (zFar - zNear);
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> orthoLHZO(T left, T right, T bottom, T top, T zNear, T zFar)
 	{
 		LvnMat4x4_t<T> matrix(static_cast<T>(1));
 		matrix[0][0] = static_cast<T>(2) / (right - left);
@@ -1427,24 +1468,139 @@ namespace lvn
 	}
 
 	template <typename T>
-	LVN_API LvnMat4x4_t<T> perspective(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	LVN_API LvnMat4x4_t<T> orthoLHNO(T left, T right, T bottom, T top, T zNear, T zFar)
 	{
-		LVN_CORE_ASSERT(aspect > 0, "aspect ratio cannot be negative");
+		LvnMat4x4_t<T> matrix(static_cast<T>(1));
+		matrix[0][0] = static_cast<T>(2) / (right - left);
+		matrix[1][1] = static_cast<T>(2) / (top - bottom);
+		matrix[2][2] = static_cast<T>(2) / (zFar - zNear);
+		matrix[3][0] = - (right + left)  / (right - left);
+		matrix[3][1] = - (top + bottom)  / (top - bottom);
+		matrix[3][2] = - (zFar + zNear) / (zFar - zNear);
+		return matrix;
+	}
 
-		T halfTanFovy = static_cast<T>(tan(fovy / 2));
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar)
+	{
+		switch (lvn::getRenderClipRegionEnum())
+		{
+			case Lvn_ClipRegion_RHZO: { return lvn::orthoRHZO(left, right, bottom, top, zNear, zFar); }
+			case Lvn_ClipRegion_RHNO: { return lvn::orthoRHNO(left, right, bottom, top, zNear, zFar); }
+			case Lvn_ClipRegion_LHZO: { return lvn::orthoLHZO(left, right, bottom, top, zNear, zFar); }
+			case Lvn_ClipRegion_LHNO: { return lvn::orthoLHNO(left, right, bottom, top, zNear, zFar); }
+
+			default: { return lvn::orthoRHNO(left, right, bottom, top, zNear, zFar); } // opengl default
+		}
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> perspectiveRHZO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	{
+		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
+
+		T tanHalfFov = static_cast<T>(tan(fovy / 2));
 
 		LvnMat4x4_t<T> matrix(0);
-		matrix[0][0] = static_cast<T>(1) / (aspect * halfTanFovy);
-		matrix[1][1] = static_cast<T>(1) / (halfTanFovy);
-		matrix[2][2] = zFar / (zFar - zNear);
-		matrix[2][3] = 1;
+		matrix[0][0] = static_cast<T>(1) / (aspect * tanHalfFov);
+		matrix[1][1] = static_cast<T>(1) / (tanHalfFov);
+		matrix[2][2] = zFar / (zNear - zFar);
+		matrix[2][3] = static_cast<T>(1);
 		matrix[3][2] = - (zFar * zNear) / (zFar - zNear);
 
 		return matrix;
 	}
 
 	template <typename T>
-	LVN_API LvnMat4x4_t<T> lookAt(const LvnVec3_t<T>& eye, const LvnVec3_t<T>& center, const LvnVec3_t<T>& up)
+	LVN_API LvnMat4x4_t<T> perspectiveRHNO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	{
+		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
+
+		T tanHalfFov = static_cast<T>(tan(fovy / 2));
+
+		LvnMat4x4_t<T> matrix(0);
+		matrix[0][0] = static_cast<T>(1) / (aspect * tanHalfFov);
+		matrix[1][1] = static_cast<T>(1) / (tanHalfFov);
+		matrix[2][2] = - (zFar + zNear) / (zFar - zNear);
+		matrix[2][3] = - static_cast<T>(1);
+		matrix[3][2] = - (static_cast<T>(2) * zFar * zNear) / (zFar - zNear);
+
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> perspectiveLHZO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	{
+		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
+
+		T tanHalfFov = static_cast<T>(tan(fovy / 2));
+
+		LvnMat4x4_t<T> matrix(0);
+		matrix[0][0] = static_cast<T>(1) / (aspect * tanHalfFov);
+		matrix[1][1] = static_cast<T>(1) / (tanHalfFov);
+		matrix[2][2] = zFar / (zFar - zNear);
+		matrix[2][3] = static_cast<T>(1);
+		matrix[3][2] = - (zFar * zNear) / (zFar - zNear);
+
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> perspectiveLHNO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	{
+		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
+
+		T tanHalfFov = static_cast<T>(tan(fovy / 2));
+
+		LvnMat4x4_t<T> matrix(0);
+		matrix[0][0] = static_cast<T>(1) / (aspect * tanHalfFov);
+		matrix[1][1] = static_cast<T>(1) / (tanHalfFov);
+		matrix[2][2] = (zFar + zNear) / (zFar - zNear);
+		matrix[2][3] = static_cast<T>(1);
+		matrix[3][2] = - (static_cast<T>(2) * zFar * zNear) / (zFar - zNear);
+
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> perspective(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
+	{
+		switch (lvn::getRenderClipRegionEnum())
+		{
+			case Lvn_ClipRegion_RHZO: { return lvn::perspectiveRHZO(fovy, aspect, zNear, zFar); }
+			case Lvn_ClipRegion_RHNO: { return lvn::perspectiveRHNO(fovy, aspect, zNear, zFar); }
+			case Lvn_ClipRegion_LHZO: { return lvn::perspectiveLHZO(fovy, aspect, zNear, zFar); }
+			case Lvn_ClipRegion_LHNO: { return lvn::perspectiveLHNO(fovy, aspect, zNear, zFar); }
+
+			default: { return lvn::perspectiveRHNO(fovy, aspect, zNear, zFar); } // opengl default
+		}
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> lookAtRH(const LvnVec3_t<T>& eye, const LvnVec3_t<T>& center, const LvnVec3_t<T>& up)
+	{
+		LvnVec3_t<T> f(lvn::normalize(center - eye));
+		LvnVec3_t<T> s(lvn::normalize(lvn::cross(f, up)));
+		LvnVec3_t<T> u(lvn::cross(s, f));
+
+		LvnMat4x4_t<T> matrix(static_cast<T>(1));
+		matrix[0][0] =  s.x;
+		matrix[1][0] =  s.y;
+		matrix[2][0] =  s.z;
+		matrix[0][1] =  u.x;
+		matrix[1][1] =  u.y;
+		matrix[2][1] =  u.z;
+		matrix[0][2] = -f.x;
+		matrix[1][2] = -f.y;
+		matrix[2][2] = -f.z;
+		matrix[3][0] = -lvn::dot(s, eye);
+		matrix[3][1] = -lvn::dot(u, eye);
+		matrix[3][2] =  lvn::dot(f, eye);
+		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> lookAtLH(const LvnVec3_t<T>& eye, const LvnVec3_t<T>& center, const LvnVec3_t<T>& up)
 	{
 		LvnVec3_t<T> f(lvn::normalize(center - eye));
 		LvnVec3_t<T> s(lvn::normalize(lvn::cross(up, f)));
@@ -1464,6 +1620,20 @@ namespace lvn
 		matrix[3][1] = -lvn::dot(u, eye);
 		matrix[3][2] = -lvn::dot(f, eye);
 		return matrix;
+	}
+
+	template <typename T>
+	LVN_API LvnMat4x4_t<T> lookAt(const LvnVec3_t<T>& eye, const LvnVec3_t<T>& center, const LvnVec3_t<T>& up)
+	{
+		switch (lvn::getRenderClipRegionEnum())
+		{
+			case Lvn_ClipRegion_RHZO: { return lvn::lookAtRH(eye, center, up); }
+			case Lvn_ClipRegion_RHNO: { return lvn::lookAtRH(eye, center, up); }
+			case Lvn_ClipRegion_LHZO: { return lvn::lookAtLH(eye, center, up); }
+			case Lvn_ClipRegion_LHNO: { return lvn::lookAtLH(eye, center, up); }
+
+			default: { return lvn::lookAtRH(eye, center, up); } // opengl default
+		}
 	}
 
 	template <typename T>
@@ -1551,6 +1721,7 @@ struct LvnContextCreateInfo
 	} logging;
 
 	LvnTextureFormat          frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
+	LvnClipRegion             matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
 };
 
 /* [Logging] */

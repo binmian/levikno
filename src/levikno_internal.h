@@ -423,6 +423,7 @@ struct LvnContext
 	LvnGraphicsApi              graphicsapi;
 	LvnGraphicsContext          graphicsContext;
 	void*                       audioEngineContextPtr;
+	LvnClipRegion               matrixClipRegion;
 
 	bool                        logging;
 	bool                        enableCoreLogging;

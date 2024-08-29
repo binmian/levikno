@@ -123,6 +123,25 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	// config
 	initStandardPipelineSpecification(s_LvnContext);
 
+	if (createInfo->matrixClipRegion == Lvn_ClipRegion_ApiSpecific)
+	{
+		switch(createInfo->graphicsapi)
+		{
+			case Lvn_GraphicsApi_opengl:
+			{
+				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_RHNO;
+				break;
+			}
+			case Lvn_GraphicsApi_vulkan:
+			{
+				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_LHZO;
+				break;
+			}
+
+			default: { break; }
+		}
+	}
+
 	return Lvn_Result_Success;
 }
 
@@ -1561,6 +1580,11 @@ LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 {
 	return lvn::getContext()->graphicsContext.renderInit(renderInfo);
+}
+
+LvnClipRegion getRenderClipRegionEnum()
+{
+	return lvn::getContext()->matrixClipRegion;
 }
 
 void renderClearColor(LvnWindow* window, float r, float g, float b, float a)
