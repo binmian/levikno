@@ -4,6 +4,7 @@ set(LVN_SOURCES
 	antiAliasing.cpp
 	basicScene/src/Main.cpp
 	cubemap.cpp
+	events.cpp
 	framebuffer.cpp
 	loadingModel.cpp
 	logging.cpp

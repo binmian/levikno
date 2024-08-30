@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <cstdint>
-#include <chrono>
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
@@ -232,8 +231,6 @@ int main(int argc, char** argv)
 
 	UniformData uniformData{};
 
-	auto startTime = std::chrono::high_resolution_clock::now();
-
 	// [Main Render Loop]
 	while (lvn::windowOpen(window))
 	{
@@ -242,14 +239,10 @@ int main(int argc, char** argv)
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);
 
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
 		// update matrix
 		LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-		LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, -2.0f), LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(0.0f, 1.0f, 0.0f));
-		LvnMat4 model = lvn::translate(LvnMat4(1.0f), LvnVec3(sin(time), 0.0f, 0.0f));
-		LvnMat4 camera = proj * view * model;
+		LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, 2.0f), LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(0.0f, 1.0f, 0.0f));
+		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;
 		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
