@@ -129,7 +129,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 		{
 			case Lvn_GraphicsApi_opengl:
 			{
-				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_RHNO;
+				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_LHNO;
 				break;
 			}
 			case Lvn_GraphicsApi_vulkan:
@@ -2243,22 +2243,24 @@ void meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix)
 	mesh->modelMatrix = matrix;
 }
 
+LvnVertexBindingDescription meshVertexBindingDescroption =
+{
+	.binding = 0,
+	.stride = sizeof(LvnVertex),
+};
+
+LvnVertexAttribute meshVertexAttributes[] = 
+{
+	{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
+	{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
+	{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
+	{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
+	{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
+	{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
+};
+
 LvnBufferCreateInfo meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
 {
-	LvnVertexBindingDescription meshVertexBindingDescroption{};
-	meshVertexBindingDescroption.stride = sizeof(LvnVertex);
-	meshVertexBindingDescroption.binding = 0;
-
-	LvnVertexAttribute meshVertexAttributes[] = 
-	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
-		{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
-		{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
-		{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
-		{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
-		{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
-	};
-
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
 	bufferCreateInfo.pVertexBindingDescriptions = &meshVertexBindingDescroption;

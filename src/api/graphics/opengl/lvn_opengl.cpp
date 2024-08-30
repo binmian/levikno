@@ -103,7 +103,7 @@ namespace ogls
 			case Lvn_VertexDataType_Vec4d: { return 4; }
 			default:
 			{
-				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", type);
+				LVN_CORE_WARN("unknown vertex attribute format type enum (%d)", type);
 				return 0;
 			}
 		}
