@@ -41,7 +41,7 @@ namespace vks
 	static LvnResult                            createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers);
 	static VKAPI_ATTR VkBool32 VKAPI_CALL       debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 	static bool                                 checkValidationLayerSupport();
-	static LvnVector<const char*>               getRequiredExtensions(VulkanBackends* vkBackends);
+	static std::vector<const char*>             getRequiredExtensions(VulkanBackends* vkBackends);
 	static VkResult                             createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 	static void                                 destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
@@ -92,7 +92,7 @@ namespace vks
 	static VkSamplerAddressMode                 getTextureWrapModeEnum(LvnTextureMode mode);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
 	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
-	static LvnResult                            compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, LvnVector<uint8_t>& bin);
+	static LvnResult                            compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, std::vector<uint8_t>& bin);
 	static LvnResult                            createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
 	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
 	static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage);
@@ -115,7 +115,7 @@ namespace vks
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		LvnVector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
+		std::vector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
 		createInfo.enabledExtensionCount = extensions.size();
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -182,7 +182,7 @@ namespace vks
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
-		LvnVector<VkLayerProperties> availableLayers(layerCount);
+		std::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
 		for (const char* layerName : s_ValidationLayers)
@@ -196,13 +196,13 @@ namespace vks
 		return false;
 	}
 
-	static LvnVector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
+	static std::vector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
 	{
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-		LvnVector<const char*> extensions(glfwExtensions, glfwExtensionCount);
+		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
 		if (vkBackends->enableValidationLayers)
 			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -254,7 +254,7 @@ namespace vks
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
 		fillVulkanDebugMessengerCreateInfo(&createInfo);
 
-		LVN_CORE_CALL_ASSERT(createDebugUtilsMessengerEXT(vkBackends->instance, &createInfo, nullptr, &vkBackends->debugMessenger) == VK_SUCCESS, "vulkan - failed to set up debug messenger!");
+		LVN_CORE_CALL_ASSERT(createDebugUtilsMessengerEXT(vkBackends->instance, &createInfo, nullptr, &vkBackends->debugMessenger) == VK_SUCCESS, "[vulkan] failed to set up debug messenger!");
 	}
 
 	static LvnPhysicalDeviceType getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type)
@@ -269,7 +269,7 @@ namespace vks
 			default: { break; }
 		}
 
-		LVN_CORE_WARN("vulkan - No physical device matches type");
+		LVN_CORE_WARN("[vulkan] No physical device matches type");
 		return Lvn_PhysicalDeviceType_Unknown;
 	}
 
@@ -280,7 +280,7 @@ namespace vks
 		uint32_t queueFamilyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
-		LvnVector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
 		int i = 0;
@@ -379,7 +379,7 @@ namespace vks
 		}
 
 		float queuePriority = 1.0f;
-		LvnVector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		VkDeviceQueueCreateInfo queuePresentCreateInfo{};
 		queuePresentCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queuePresentCreateInfo.queueFamilyIndex = queueIndices.presentIndex;
@@ -491,7 +491,7 @@ namespace vks
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		LVN_CORE_CALL_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &surfaceData->renderPass) == VK_SUCCESS, "vulkan - failed to create render pass!");
+		LVN_CORE_CALL_ASSERT(vkCreateRenderPass(vkBackends->device, &renderPassInfo, nullptr, &surfaceData->renderPass) == VK_SUCCESS, "[vulkan] failed to create render pass!");
 	}
 
 	static bool checkDeviceExtensionSupport(VkPhysicalDevice device)
@@ -499,10 +499,10 @@ namespace vks
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
-		LvnVector<VkExtensionProperties> availableExtensions(extensionCount);
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		LvnVector<const char*> requiredExtensions(s_DeviceExtensions, ARRAY_LEN(s_DeviceExtensions));
+		std::vector<const char*> requiredExtensions(s_DeviceExtensions, s_DeviceExtensions + ARRAY_LEN(s_DeviceExtensions));
 
 		for (uint32_t i = 0; i < requiredExtensions.size(); i++)
 		{
@@ -638,12 +638,11 @@ namespace vks
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		LVN_CORE_CALL_ASSERT(vkCreateSwapchainKHR(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChain) == VK_SUCCESS, "vulkan - failed to create swap chain!");
+		LVN_CORE_CALL_ASSERT(vkCreateSwapchainKHR(vkBackends->device, &createInfo, nullptr, &surfaceData->swapChain) == VK_SUCCESS, "[vulkan] failed to create swap chain!");
 
 		vkGetSwapchainImagesKHR(vkBackends->device, surfaceData->swapChain, &imageCount, nullptr);
-		surfaceData->swapChainImages = (VkImage*)lvn::memAlloc(imageCount * sizeof(VkImage));
-		surfaceData->swapChainImageCount = imageCount;
-		vkGetSwapchainImagesKHR(vkBackends->device, surfaceData->swapChain, &imageCount, surfaceData->swapChainImages);
+		surfaceData->swapChainImages.resize(imageCount);
+		vkGetSwapchainImagesKHR(vkBackends->device, surfaceData->swapChain, &imageCount, surfaceData->swapChainImages.data());
 
 		surfaceData->swapChainImageFormat = surfaceFormat.format;
 		surfaceData->swapChainExtent = extent;
@@ -674,10 +673,9 @@ namespace vks
 
 	static void createImageViews(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
-		surfaceData->swapChainImageViews = (VkImageView*)lvn::memAlloc(surfaceData->swapChainImageCount * sizeof(VkImageView));
-		surfaceData->swapChainImageViewCount = surfaceData->swapChainImageCount;
+		surfaceData->swapChainImageViews.resize(surfaceData->swapChainImages.size());
 
-		for (size_t i = 0; i < surfaceData->swapChainImageCount; i++)
+		for (size_t i = 0; i < surfaceData->swapChainImageViews.size(); i++)
 		{
 			surfaceData->swapChainImageViews[i] = vks::createImageView(vkBackends->device, surfaceData->swapChainImages[i], surfaceData->swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
@@ -695,10 +693,9 @@ namespace vks
 
 	static void createFrameBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
-		surfaceData->frameBuffers = (VkFramebuffer*)lvn::memAlloc(surfaceData->swapChainImageViewCount * sizeof(VkFramebuffer));
-		surfaceData->frameBufferCount = surfaceData->swapChainImageViewCount;
+		surfaceData->frameBuffers.resize(surfaceData->swapChainImages.size());
 
-		for (size_t i = 0; i < surfaceData->frameBufferCount; i++)
+		for (size_t i = 0; i < surfaceData->frameBuffers.size(); i++)
 		{
 			VkImageView attachments[] =
 			{
@@ -715,7 +712,7 @@ namespace vks
 			framebufferInfo.height = surfaceData->swapChainExtent.height;
 			framebufferInfo.layers = 1;
 
-			LVN_CORE_CALL_ASSERT(vkCreateFramebuffer(vkBackends->device, &framebufferInfo, nullptr, &surfaceData->frameBuffers[i]) == VK_SUCCESS, "vulkan - failed to create framebuffer!");
+			LVN_CORE_CALL_ASSERT(vkCreateFramebuffer(vkBackends->device, &framebufferInfo, nullptr, &surfaceData->frameBuffers[i]) == VK_SUCCESS, "[vulkan] failed to create framebuffer!");
 		}
 	}
 
@@ -727,8 +724,8 @@ namespace vks
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = vkBackends->maxFramesInFlight;
 
-		surfaceData->commandBuffers = (VkCommandBuffer*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkCommandBuffer));
-		LVN_CORE_CALL_ASSERT(vkAllocateCommandBuffers(vkBackends->device, &allocInfo, surfaceData->commandBuffers) == VK_SUCCESS, "vulkan - failed to allocate command buffers!");
+		surfaceData->commandBuffers.resize(vkBackends->maxFramesInFlight);
+		LVN_CORE_CALL_ASSERT(vkAllocateCommandBuffers(vkBackends->device, &allocInfo, surfaceData->commandBuffers.data()) == VK_SUCCESS, "[vulkan] failed to allocate command buffers!");
 	}
 
 	static void createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
@@ -740,15 +737,15 @@ namespace vks
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-		surfaceData->imageAvailableSemaphores = (VkSemaphore*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkSemaphore));
-		surfaceData->renderFinishedSemaphores = (VkSemaphore*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkSemaphore));
-		surfaceData->inFlightFences = (VkFence*)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkFence));
+		surfaceData->imageAvailableSemaphores.resize(vkBackends->maxFramesInFlight);
+		surfaceData->renderFinishedSemaphores.resize(vkBackends->maxFramesInFlight);
+		surfaceData->inFlightFences.resize(vkBackends->maxFramesInFlight);
 
 		for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
 		{
-			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->imageAvailableSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
-			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->renderFinishedSemaphores[i]) == VK_SUCCESS, "vulkan - failed to create semaphore");
-			LVN_CORE_CALL_ASSERT(vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &surfaceData->inFlightFences[i]) == VK_SUCCESS, "vulkan - failed to create fence");
+			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->imageAvailableSemaphores[i]) == VK_SUCCESS, "[vulkan] failed to create semaphore");
+			LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->renderFinishedSemaphores[i]) == VK_SUCCESS, "[vulkan] failed to create semaphore");
+			LVN_CORE_CALL_ASSERT(vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &surfaceData->inFlightFences[i]) == VK_SUCCESS, "[vulkan] failed to create fence");
 		}
 	}
 
@@ -757,7 +754,7 @@ namespace vks
 		VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 		frameBufferData->frameBufferImages.resize(frameBufferData->totalAttachmentCount);
 
-		LvnVector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
+		std::vector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
 
 		for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
 		{
@@ -914,9 +911,9 @@ namespace vks
 	static void cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
 		// swap chain images
-		for (uint32_t j = 0; j < surfaceData->swapChainImageViewCount; j++)
+		for (uint32_t i = 0; i < surfaceData->swapChainImageViews.size(); i++)
 		{
-			vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[j], nullptr);
+			vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[i], nullptr);
 		}
 
 		vkDestroyImageView(vkBackends->device, surfaceData->depthImageView, nullptr);
@@ -924,19 +921,10 @@ namespace vks
 		vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
 
 		// frame buffers
-		for (uint32_t j = 0; j < surfaceData->frameBufferCount; j++)
+		for (uint32_t i = 0; i < surfaceData->frameBuffers.size(); i++)
 		{
-			vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[j], nullptr);
+			vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[i], nullptr);
 		}
-
-		if (surfaceData->frameBuffers)
-			lvn::memFree(surfaceData->frameBuffers);
-
-		if (surfaceData->swapChainImageViews)
-			lvn::memFree(surfaceData->swapChainImageViews);
-
-		if (surfaceData->swapChainImages)
-			lvn::memFree(surfaceData->swapChainImages);
 
 		// swap chain
 		vkDestroySwapchainKHR(vkBackends->device, surfaceData->swapChain, nullptr);
@@ -952,7 +940,7 @@ namespace vks
 		vks::cleanSwapChain(vkBackends, surfaceData);
 
 		VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData->surface, vkBackends->physicalDevice);
-		LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "vulkan - physical device does not have swap chain support formats or present modes!");
+		LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] physical device does not have swap chain support formats or present modes!");
 
 		VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
 		VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
@@ -1379,7 +1367,7 @@ namespace vks
 		scissor.extent.width = pipelineSpecification->scissor.extent.width;
 		scissor.extent.height = pipelineSpecification->scissor.extent.height;
 
-		LvnVector<VkDynamicState> dynamicStates;
+		std::vector<VkDynamicState> dynamicStates;
 		dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 		dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
@@ -1422,7 +1410,7 @@ namespace vks
 		multisampling.alphaToCoverageEnable = pipelineSpecification->multisampling.alphaToCoverageEnable; // Optional
 		multisampling.alphaToOneEnable = pipelineSpecification->multisampling.alphaToOneEnable; // Optional
 
-		LvnVector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+		std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
 		
 		if (pipelineSpecification->colorBlend.colorBlendAttachmentCount == 0 || pipelineSpecification->colorBlend.pColorBlendAttachments == nullptr)
 		{
@@ -1502,7 +1490,7 @@ namespace vks
 			pipelineLayoutInfo.pPushConstantRanges = nullptr;
 		}
 
-		LVN_CORE_CALL_ASSERT(vkCreatePipelineLayout(vkBackends->device, &pipelineLayoutInfo, nullptr, &pipeline.pipelineLayout) == VK_SUCCESS, "vulkan - failed to create pipeline layout!");
+		LVN_CORE_CALL_ASSERT(vkCreatePipelineLayout(vkBackends->device, &pipelineLayoutInfo, nullptr, &pipeline.pipelineLayout) == VK_SUCCESS, "[vulkan] failed to create pipeline layout!");
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1522,7 +1510,7 @@ namespace vks
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
 
-		LVN_CORE_CALL_ASSERT(vkCreateGraphicsPipelines(vkBackends->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.pipeline) == VK_SUCCESS, "vulkan - failed to create graphics pipeline!");
+		LVN_CORE_CALL_ASSERT(vkCreateGraphicsPipelines(vkBackends->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.pipeline) == VK_SUCCESS, "[vulkan] failed to create graphics pipeline!");
 
 		return pipeline;
 	}
@@ -1535,12 +1523,12 @@ namespace vks
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(code);
 		
 		VkShaderModule shaderModule;
-		LVN_CORE_CALL_ASSERT(vkCreateShaderModule(vkBackends->device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "vulkan - failed to create shader module!");
+		LVN_CORE_CALL_ASSERT(vkCreateShaderModule(vkBackends->device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "[vulkan] failed to create shader module!");
 
 		return shaderModule;
 	}
 
-	static LvnResult compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, LvnVector<uint8_t>& bin)
+	static LvnResult compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, std::vector<uint8_t>& bin)
 	{
 		glslang_initialize_process();
 
@@ -1958,29 +1946,28 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
-	VulkanWindowSurfaceData surfaceData{};
-	LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surfaceData.surface) == VK_SUCCESS, "[vulkan] failed to create temporary window surface at (%p)", surfaceData.surface);
+	window->apiData = new VulkanFrameBufferData();
+	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+
+	LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surfaceData->surface) == VK_SUCCESS, "[vulkan] failed to create temporary window surface at (%p)", surfaceData->surface);
 
 	// get and check swap chain specs
-	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData.surface, vkBackends->physicalDevice);
+	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData->surface, vkBackends->physicalDevice);
 	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] device does not have supported swap chain formats or present modes");
 
 	VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
 	VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
 	VkExtent2D extent = vks::chooseSwapExtent(glfwWindow, &swapChainSupport.capabilities);
 
-	vks::createSwapChain(vkBackends, &surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
-	vks::createImageViews(vkBackends, &surfaceData);
-	vks::createDepthResources(vkBackends, &surfaceData);
-	vks::createRenderPass(vkBackends, &surfaceData, surfaceFormat.format);
-	vks::createFrameBuffers(vkBackends, &surfaceData);
-	vks::createCommandBuffers(vkBackends, &surfaceData);
-	vks::createSyncObjects(vkBackends, &surfaceData);
+	vks::createSwapChain(vkBackends, surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
+	vks::createImageViews(vkBackends, surfaceData);
+	vks::createDepthResources(vkBackends, surfaceData);
+	vks::createRenderPass(vkBackends, surfaceData, surfaceFormat.format);
+	vks::createFrameBuffers(vkBackends, surfaceData);
+	vks::createCommandBuffers(vkBackends, surfaceData);
+	vks::createSyncObjects(vkBackends, surfaceData);
 
-	surfaceData.clearColor = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
-
-	window->apiData = lvn::memAlloc(sizeof(VulkanWindowSurfaceData));
-	memcpy(window->apiData, &surfaceData, sizeof(VulkanWindowSurfaceData));
+	surfaceData->clearColor = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
 
 	window->renderPass.nativeRenderPass = static_cast<VulkanWindowSurfaceData*>(window->apiData)->renderPass;
 }
@@ -2002,12 +1989,8 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 		vkDestroyFence(vkBackends->device, surfaceData->inFlightFences[i], nullptr);
 	}
 
-	lvn::memFree(surfaceData->renderFinishedSemaphores);
-	lvn::memFree(surfaceData->imageAvailableSemaphores);
-	lvn::memFree(surfaceData->inFlightFences);
-
 	// swap chain images
-	for (uint32_t i = 0; i < surfaceData->swapChainImageViewCount; i++)
+	for (uint32_t i = 0; i < surfaceData->swapChainImageViews.size(); i++)
 	{
 		vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[i], nullptr);
 	}
@@ -2017,22 +2000,10 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
 
 	// frame buffers
-	for (uint32_t i = 0; i < surfaceData->frameBufferCount; i++)
+	for (uint32_t i = 0; i < surfaceData->frameBuffers.size(); i++)
 	{
 		vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[i], nullptr);
 	}
-
-	if (surfaceData->commandBuffers)
-		lvn::memFree(surfaceData->commandBuffers);
-
-	if (surfaceData->frameBuffers)
-		lvn::memFree(surfaceData->frameBuffers);
-
-	if (surfaceData->swapChainImageViews)
-		lvn::memFree(surfaceData->swapChainImageViews);
-
-	if (surfaceData->swapChainImages)
-		lvn::memFree(surfaceData->swapChainImages);
 
 	// swap chain
 	vkDestroySwapchainKHR(vkBackends->device, surfaceData->swapChain, nullptr);
@@ -2043,7 +2014,7 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	// window surface
 	vkDestroySurfaceKHR(vkBackends->instance, surfaceData->surface, nullptr);
 
-	lvn::memFree(window->apiData);
+	delete static_cast<VulkanWindowSurfaceData*>(window->apiData);
 }
 
 
@@ -2088,7 +2059,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
-	graphicsContext->destroyDescriptorSet = vksImplDestroyDescriptorSet;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
@@ -2301,7 +2271,7 @@ LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
 	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	poolInfo.queueFamilyIndex = vkBackends->deviceIndices.graphicsIndex;
 
-	LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "vulkan - failed to create command pool!");
+	LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "[vulkan] failed to create command pool!");
 
 
 	// create VmaAllocator
@@ -2384,7 +2354,7 @@ void vksImplRenderBeginNextFrame(LvnWindow* window)
 		vks::recreateSwapChain(vkBackends, window);
 		return;
 	}
-	LVN_CORE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR, "vulkan - failed to acquire swap chain image!");
+	LVN_CORE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR, "[vulkan] failed to acquire swap chain image!");
 
 	vkResetFences(vkBackends->device, 1, &surfaceData->inFlightFences[surfaceData->currentFrame]);
 
@@ -2416,7 +2386,7 @@ void vksImplRenderDrawSubmit(LvnWindow* window)
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	LVN_CORE_CALL_ASSERT(vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, surfaceData->inFlightFences[surfaceData->currentFrame]) == VK_SUCCESS, "vulkan - failed to submit draw command buffer!");
+	LVN_CORE_CALL_ASSERT(vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, surfaceData->inFlightFences[surfaceData->currentFrame]) == VK_SUCCESS, "[vulkan] failed to submit draw command buffer!");
 
 
 	VkPresentInfoKHR presentInfo{};
@@ -2440,7 +2410,7 @@ void vksImplRenderDrawSubmit(LvnWindow* window)
 	}
 	else
 	{
-		LVN_CORE_ASSERT(result == VK_SUCCESS, "vulkan - failed to present swap chain image");
+		LVN_CORE_ASSERT(result == VK_SUCCESS, "[vulkan] failed to present swap chain image");
 	}
 
 	// advance to next frame in flight
@@ -2456,13 +2426,13 @@ void vksImplRenderBeginCommandRecording(LvnWindow* window)
 
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 	vkResetCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], 0);
-	LVN_CORE_CALL_ASSERT(vkBeginCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], &beginInfo) == VK_SUCCESS, "vulkan - failed to begin recording command buffer!");
+	LVN_CORE_CALL_ASSERT(vkBeginCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], &beginInfo) == VK_SUCCESS, "[vulkan] failed to begin recording command buffer!");
 }
 
 void vksImplRenderEndCommandRecording(LvnWindow* window)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	LVN_CORE_CALL_ASSERT(vkEndCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame]) == VK_SUCCESS, "vulkan - failed to record command buffer!");
+	LVN_CORE_CALL_ASSERT(vkEndCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame]) == VK_SUCCESS, "[vulkan] failed to record command buffer!");
 }
 
 void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
@@ -2540,7 +2510,7 @@ void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 	VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
 
-	LvnVector<VkDescriptorSet> descriptorSets(descriptorSetCount);
+	std::vector<VkDescriptorSet> descriptorSets(descriptorSetCount);
 	for (uint32_t i = 0; i < descriptorSetCount; i++)
 	{
 		descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorSets[i]->descriptorSets[surfaceData->currentFrame]);
@@ -2594,8 +2564,8 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cre
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnVector<uint8_t> vertData;
-	LvnVector<uint8_t> fragData;
+	std::vector<uint8_t> vertData;
+	std::vector<uint8_t> fragData;
 
 	if (vks::compileShaderToSPIRV(GLSLANG_STAGE_VERTEX, createInfo->vertexSrc, vertData) == Lvn_Result_Failure)
 	{
@@ -2625,8 +2595,8 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo*
 	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc);
 	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc);
 
-	LvnVector<uint8_t> vertData;
-	LvnVector<uint8_t> fragData;
+	std::vector<uint8_t> vertData;
+	std::vector<uint8_t> fragData;
 
 	if (vks::compileShaderToSPIRV(GLSLANG_STAGE_VERTEX, fileVertSrc.c_str(), vertData) == Lvn_Result_Failure)
 	{
@@ -2669,8 +2639,8 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnVector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
-	LvnVector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
+	std::vector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
 
 	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
 	{
@@ -2725,7 +2695,7 @@ LvnResult vksImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescrip
 	VkDescriptorSetLayout vkDescriptorLayout = static_cast<VkDescriptorSetLayout>(descriptorLayout->descriptorLayout);
 	VkDescriptorPool descriptorPool = static_cast<VkDescriptorPool>(descriptorLayout->descriptorPool);
 
-	LvnVector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
+	std::vector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
 
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2733,11 +2703,11 @@ LvnResult vksImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescrip
 	allocInfo.descriptorSetCount = vkBackends->maxFramesInFlight;
 	allocInfo.pSetLayouts = layouts.data();
 
-	descriptorSet->descriptorSets = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(VkDescriptorSet));
+	descriptorSet->descriptorSets.resize(vkBackends->maxFramesInFlight);
 
-	if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorSet->descriptorSets) != VK_SUCCESS)
+	if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorSet->descriptorSets.data()) != VK_SUCCESS)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet> at (%p)", descriptorSet->descriptorSets);
+		LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet> at (%p)", descriptorSet->descriptorSets.data());
 		return Lvn_Result_Failure;
 	}
 
@@ -2764,8 +2734,8 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
 	// vertex binding descriptions & attributes
-	LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
-	LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
+	std::vector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+	std::vector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
 
 	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
 	{
@@ -2807,7 +2777,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	}
 
 	// descriptor layouts
-	LvnVector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
+	std::vector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
 	for (uint32_t i = 0; i < createInfo->descriptorLayoutCount; i++)
 	{
 		VkDescriptorSetLayout descriptorLayout = static_cast<VkDescriptorSetLayout>(createInfo->pDescriptorLayouts[i]->descriptorLayout);
@@ -2840,13 +2810,13 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	frameBuffer->frameBufferData = lvn::memAlloc(sizeof(VulkanFrameBufferData));
+	frameBuffer->frameBufferData = new VulkanFrameBufferData();
 	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 
 	frameBufferData->width = createInfo->width;
 	frameBufferData->height = createInfo->height;
 
-	frameBufferData->colorAttachments = LvnVector<LvnFrameBufferColorAttachment>(createInfo->pColorAttachments, createInfo->colorAttachmentCount);
+	frameBufferData->colorAttachments = std::vector<LvnFrameBufferColorAttachment>(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
 	frameBufferData->colorImages.resize(createInfo->colorAttachmentCount);
 	frameBufferData->colorImageMemory.resize(createInfo->colorAttachmentCount);
 	frameBufferData->colorImageViews.resize(createInfo->colorAttachmentCount);
@@ -2860,9 +2830,9 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	frameBufferData->totalAttachmentCount = createInfo->colorAttachmentCount + (frameBufferData->hasDepth ? 1 : 0);
 	frameBufferData->clearValues.resize(frameBufferData->totalAttachmentCount);
 
-	LvnVector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
+	std::vector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
 
-	LvnVector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
+	std::vector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
 	VkAttachmentReference depthReference;
 
 	// Color attachments
@@ -2907,7 +2877,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	}
 
 	// Multisample
-	LvnVector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
+	std::vector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
 
 	if (frameBufferData->multisampling)
 	{
@@ -3132,7 +3102,7 @@ LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniform
 
 	uniformBuffer->uniformBuffer = vkUniformBuffer;
 	uniformBuffer->uniformBufferMemory = uniformBufferMemory;
-	uniformBuffer->uniformBufferMapped = (void**)lvn::memAlloc(vkBackends->maxFramesInFlight * sizeof(void*));
+	uniformBuffer->uniformBufferMapped.resize(vkBackends->maxFramesInFlight);
 	uniformBuffer->size = createInfo->size;
 
 	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
@@ -3274,7 +3244,7 @@ LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* create
 	VkDeviceSize imageSize = layerSize * 6; // size of total combinded 6 images of cubemap
 
 	const uint8_t* texImages[6] = { createInfo->posx.pixels.data(), createInfo->negx.pixels.data(), createInfo->posy.pixels.data(), createInfo->negy.pixels.data(), createInfo->posz.pixels.data(), createInfo->negz.pixels.data() };
-	LvnVector<uint8_t> texData(imageSize);
+	std::vector<uint8_t> texData(imageSize);
 
 	for (uint32_t i = 0; i < 6; i++)
 	{
@@ -3409,11 +3379,6 @@ void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 	vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
 }
 
-void vksImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
-{
-	if (descriptorSet->descriptorSets) { lvn::memFree(descriptorSet->descriptorSets); }
-}
-
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
@@ -3461,7 +3426,7 @@ void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 	vkDestroySampler(vkBackends->device, frameBufferData->sampler, nullptr);
 	vkDestroyFramebuffer(vkBackends->device, frameBufferData->framebuffer, nullptr);
 
-	lvn::memFree(frameBufferData);
+	delete frameBufferData;
 }
 
 void vksImplDestroyBuffer(LvnBuffer* buffer)
@@ -3503,9 +3468,6 @@ void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 	vkDestroyBuffer(vkBackends->device, vkUniformBuffer, nullptr);
 	vmaUnmapMemory(vkBackends->vmaAllocator, uniformBufferMemory);
 	vmaFreeMemory(vkBackends->vmaAllocator, uniformBufferMemory);
-
-	if (uniformBuffer->uniformBufferMapped)
-		lvn::memFree(uniformBuffer->uniformBufferMapped);
 }
 
 void vksImplDestroyTexture(LvnTexture* texture)
@@ -3616,7 +3578,7 @@ void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniform
 void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
-	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorSet->descriptorSets;
+	VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorSet->descriptorSets.data();
 
 	vkDeviceWaitIdle(vkBackends->device);
 
@@ -3727,7 +3689,7 @@ LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pD
 	VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 	VkFormatFeatureFlagBits features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-	LvnVector<VkFormat> candidates(count);
+	std::vector<VkFormat> candidates(count);
 
 	for (uint32_t i = 0; i < count; i++)
 	{

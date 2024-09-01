@@ -22,20 +22,20 @@ namespace gltfs
 		nlm::json JSON;
 		std::string filepath;
 		LvnData<uint8_t> binData;
-		LvnVector<LvnMesh> meshes;
-		LvnVector<LvnTextureIndexData> textureData;
-		LvnVector<LvnTexture*> textures;
+		std::vector<LvnMesh> meshes;
+		std::vector<LvnTextureIndexData> textureData;
+		std::vector<LvnTexture*> textures;
 	};
 
-	static void                  traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
-	static void                  loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
-	static LvnData<uint8_t>      getData(nlm::json JSON, const char* filepath);
-	static LvnVector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
-	static LvnVec4               getColors(nlm::json material);
-	static LvnVector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
-	static LvnMaterial           getMaterial(gltfLoadData* gltfData, nlm::json accessor);
-	static LvnTextureFilter      getTexFilter(uint32_t filter);
-	static LvnVector<LvnVec3>    calculateBitangents(const LvnVector<LvnVec3>& normals, const LvnVector<LvnVec4>& tangents);
+	static void                    traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
+	static void                    loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
+	static LvnData<uint8_t>        getData(nlm::json JSON, const char* filepath);
+	static std::vector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnVec4                 getColors(nlm::json material);
+	static std::vector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnMaterial             getMaterial(gltfLoadData* gltfData, nlm::json accessor);
+	static LvnTextureFilter        getTexFilter(uint32_t filter);
+	static std::vector<LvnVec3>    calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents);
 
 	static void traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix)
 	{
@@ -111,59 +111,56 @@ namespace gltfs
 			int meshMaterialIndex = JSON["meshes"][meshIndex]["primitives"][i]["material"];
 
 			// get Pos mesh data
-			LvnVector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
-			LvnVector<LvnVec3> position(posRaw.size() / 3);
-			memcpy(&position[0], &posRaw[0], position.memsize());
+			std::vector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
+			std::vector<LvnVec3> position(posRaw.size() / 3);
+			memcpy(position.data(), posRaw.data(), posRaw.size() * sizeof(float));
 			
 			// get color data, assuming each vertex of the mesh primitive has the same color
 			LvnVec4 colors = getColors(JSON["materials"][meshMaterialIndex]);
 
 			// get texUV mesh data
-			LvnVector<LvnVec2> texCoord;
+			std::vector<LvnVec2> texCoord;
 			if (meshTexIndex >= 0)
 			{
-				LvnVector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
+				std::vector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
 				texCoord.resize(texCoordRaw.size() / 2);
-				memcpy(&texCoord[0], &texCoordRaw[0], texCoord.memsize());
+				memcpy(texCoord.data(), texCoordRaw.data(), texCoordRaw.size() * sizeof(float));
 			}
 			else
 			{
-				texCoord.resize(position.size());
-				memset(&texCoord[0], 0, texCoord.memsize());
+				texCoord.resize(position.size(), 0);
 			}
 
 			// get normal mesh data
-			LvnVector<LvnVec3> normals;
+			std::vector<LvnVec3> normals;
 			if (meshNormalIndex >= 0)
 			{
-				LvnVector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
+				std::vector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
 				normals.resize(normalsRaw.size() / 3);
-				memcpy(&normals[0], &normalsRaw[0], normals.memsize());
+				memcpy(normals.data(), normalsRaw.data(), normalsRaw.size() * sizeof(float));
 			}
 			else // mesh has no normals
 			{
-				normals.resize(position.size());
-				memset(&normals[0], 0, normals.memsize());
+				normals.resize(position.size(), 0);
 			}
 
-			LvnVector<LvnVec4> tangents;
+			std::vector<LvnVec4> tangents;
 			if (meshTangentIndex >= 0)
 			{
-				LvnVector<float> tangentsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTangentIndex]);
+				std::vector<float> tangentsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTangentIndex]);
 				tangents.resize(tangentsRaw.size() / 4);
-				memcpy(&tangents[0], &tangentsRaw[0], tangents.memsize());
+				memcpy(tangents.data(), tangentsRaw.data(), tangentsRaw.size() * sizeof(float));
 			}
 			else // mesh has no tangents
 			{
-				tangents.resize(position.size());
-				memset(&tangents[0], 0, tangents.memsize());
+				tangents.resize(position.size(), 0);
 			}
 
 			// get Mesh Indices
-			LvnVector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
+			std::vector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
 
 			// bitangents
-			LvnVector<LvnVec3> bitangents;
+			std::vector<LvnVec3> bitangents;
 			if (meshNormalIndex >= 0 && meshTangentIndex >= 0)
 			{
 				bitangents = gltfs::calculateBitangents(normals, tangents);
@@ -175,7 +172,7 @@ namespace gltfs
 			}
 
 			// combine all mesh data and Get Model data
-			LvnVector<LvnVertex> vertices;
+			std::vector<LvnVertex> vertices;
 			vertices.reserve(position.size());
 
 			for (uint32_t j = 0; j < position.size(); j++)
@@ -226,7 +223,7 @@ namespace gltfs
 		return lvn::loadFileSrcBin(pathbin.c_str());
 	}
 
-	static LvnVector<float> getFloats(gltfLoadData* gltfData, nlm::json accessor)
+	static std::vector<float> getFloats(gltfLoadData* gltfData, nlm::json accessor)
 	{
 		nlm::json JSON = gltfData->JSON;
 
@@ -248,7 +245,7 @@ namespace gltfs
 		uint32_t beginningOfData = accByteOffset + BVbyteOffset;
 		uint32_t lengthOfData = count * typeNum; // number of floats, count * number of components in vec type
 
-		LvnVector<float> floatValues(lengthOfData);
+		std::vector<float> floatValues(lengthOfData);
 		memcpy(floatValues.data(), &gltfData->binData[beginningOfData], lengthOfData * sizeof(float)); // HACK: convert bin data to float values by copy and implicit casting, Note: 1 float = 4 bytes
 		return floatValues;
 	}
@@ -267,7 +264,7 @@ namespace gltfs
 		return LvnVec4(1.0f, 1.0f, 1.0f, 1.0f); // if no color factor found, return white color
 	}
 
-	static LvnVector<uint32_t> getIndices(gltfLoadData* gltfData, nlm::json accessor)
+	static std::vector<uint32_t> getIndices(gltfLoadData* gltfData, nlm::json accessor)
 	{
 		nlm::json JSON = gltfData->JSON;
 
@@ -281,7 +278,7 @@ namespace gltfs
 
 		uint32_t beginningOfData = bufferViewByteOffset + accByteOffset;
 
-		LvnVector<uint32_t> indices;
+		std::vector<uint32_t> indices;
 		indices.reserve(count);
 
 		if (componentType == 5125) // UNSIGNED_INT = 5125
@@ -581,9 +578,9 @@ namespace gltfs
 		}
 	}
 
-	static LvnVector<LvnVec3> calculateBitangents(const LvnVector<LvnVec3>& normals, const LvnVector<LvnVec4>& tangents)
+	static std::vector<LvnVec3> calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents)
 	{
-		LvnVector<LvnVec3> bitangents(normals.size());
+		std::vector<LvnVec3> bitangents(normals.size());
 		for (uint32_t i = 0; i < normals.size(); i++)
 		{
 			bitangents[i] = lvn::normalize(lvn::cross(normals[i], tangents[i]) * tangents[i].w);
@@ -599,6 +596,39 @@ LvnModel loadGltfModel(const char* filepath)
 	std::string jsonText = lvn::loadFileSrc(filepath);
 	gltfData.JSON = nlm::json::parse(jsonText);
 	gltfData.binData = gltfs::getData(gltfData.JSON, filepath);
+	gltfData.filepath = filepath;
+
+	nlm::json JSON = gltfData.JSON;
+
+	for (uint32_t i = 0; i < JSON["scenes"][0]["nodes"].size(); i++) // curent impl only supports loading first scene
+		gltfs::traverseNode(&gltfData, JSON["scenes"][0]["nodes"][i], LvnMat4(1.0f));
+
+	LvnModel model{};
+	model.meshes = LvnData(gltfData.meshes.data(), gltfData.meshes.size());
+	model.textures = LvnData(gltfData.textures.data(), gltfData.textures.size());
+	model.modelMatrix = LvnMat4(1.0f);
+
+	return model;
+}
+
+LvnModel loadGlbModel(const char* filepath)
+{
+	LvnBin binData = lvn::loadFileSrcBin(filepath);
+
+	// chunk 0 (JSON)
+	uint32_t chunkLengthJson = 0;
+	memcpy(&chunkLengthJson, &binData[12], sizeof(uint32_t));
+	std::vector<uint8_t> chunkDataJson(&binData[20], &binData[20] + chunkLengthJson);
+
+	// chunk 1 (Buffer)
+	uint32_t chunkLengthBuffer = 0;
+	memcpy(&chunkLengthBuffer, &binData[20 + chunkLengthJson], sizeof(uint32_t));
+	std::vector<uint8_t> chunkDataBuffer(&binData[28 + chunkLengthJson], &binData[28 + chunkLengthJson] + chunkLengthBuffer);
+
+	gltfs::gltfLoadData gltfData{};
+	std::string jsonText = std::string(chunkDataJson.begin(), chunkDataJson.end());
+	gltfData.JSON = nlm::json::parse(jsonText);
+	gltfData.binData = LvnBin(chunkDataBuffer.data(), chunkDataBuffer.size());
 	gltfData.filepath = filepath;
 
 	nlm::json JSON = gltfData.JSON;

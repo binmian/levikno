@@ -170,7 +170,6 @@ int main(int argc, char** argv)
 	// destroy the shader after creating the pipeline
 	lvn::destroyShader(shader);
 
-
 	// [Main Render Loop]
 	while (lvn::windowOpen(window))
 	{

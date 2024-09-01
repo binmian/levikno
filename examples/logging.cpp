@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 	logPattern.func = [](LvnLogMessage* msg) -> std::string { return ">>>"; };
 
 	// log pattern will be added to the library
-	lvn::logAddPattern(&logPattern);
+	lvn::logAddPatterns(&logPattern, 1);
 
 	// now we can use our new log pattern
 	lvn::logSetPatternFormat(logger, "[%T] [%#%l%^] %> %v%$");

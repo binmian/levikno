@@ -6,6 +6,7 @@
 namespace lvn
 {
 	LvnModel loadGltfModel(const char* filepath);
+	LvnModel loadGlbModel(const char* filepath);
 }
 
 #endif

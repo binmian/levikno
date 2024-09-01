@@ -104,6 +104,8 @@
 #include <cmath>
 
 #include <string>
+#include <chrono>
+#include <thread>
 
 using std::abs;
 using std::acos;
@@ -896,6 +898,8 @@ typedef LvnQuat_t<unsigned int>         LvnQuatui;
 typedef LvnQuat_t<float>                LvnQuatf;
 typedef LvnQuat_t<double>               LvnQuatd;
 
+typedef LvnData<uint8_t>                LvnBin;
+
 // ---------------------------------------------
 // [SECTION]: Functions
 // ---------------------------------------------
@@ -983,15 +987,15 @@ namespace lvn
 	LVN_API LvnResult               createContext(LvnContextCreateInfo* createInfo);
 	LVN_API void                    terminateContext();
 
-	LVN_API int                     dateGetYear();                                      // gets the year number (eg. 2025)
-	LVN_API int                     dateGetYear02d();                                   // gets the last two digits of the year number (eg. 25)
-	LVN_API int                     dateGetMonth();                                     // gets the month number (1...12)
-	LVN_API int                     dateGetDay();                                       // gets the date number (1...31)
-	LVN_API int                     dateGetHour();                                      // gets the hour of the current day in 24 hour format (0...24)
-	LVN_API int                     dateGetHour12();                                    // gets the hour of the current day in 12 hour format (0...12)
-	LVN_API int                     dateGetMinute();                                    // gets the minute of the current day (0...60)
-	LVN_API int                     dateGetSecond();                                    // gets the second of the current dat (0...60)
-	LVN_API long long               dateGetSecondsSinceEpoch();                         // gets the time in seconds since 00::00:00 UTC 1 January 1970
+	LVN_API int                     dateGetYear();                                      // get the year number (eg. 2025)
+	LVN_API int                     dateGetYear02d();                                   // get the last two digits of the year number (eg. 25)
+	LVN_API int                     dateGetMonth();                                     // get the month number (1...12)
+	LVN_API int                     dateGetDay();                                       // get the date number (1...31)
+	LVN_API int                     dateGetHour();                                      // get the hour of the current day in 24 hour format (0...24)
+	LVN_API int                     dateGetHour12();                                    // get the hour of the current day in 12 hour format (0...12)
+	LVN_API int                     dateGetMinute();                                    // get the minute of the current day (0...60)
+	LVN_API int                     dateGetSecond();                                    // get the second of the current dat (0...60)
+	LVN_API long long               dateGetSecondsSinceEpoch();                         // get the time in seconds since 00::00:00 UTC 1 January 1970
 
 	LVN_API const char*             dateGetMonthName();                                 // get the current month name (eg. January, April)
 	LVN_API const char*             dateGetMonthNameShort();                            // get the current month shortened name (eg. Jan, Apr)
@@ -1011,9 +1015,10 @@ namespace lvn
 	LVN_API std::string             dateGetMinuteNumStr();                              // get the current minute as a string
 	LVN_API std::string             dateGetSecondNumStr();                              // get the current second as a string
 
+	LVN_API float                   getContextTime();                                   // get time in seconds since context creation
 
 	LVN_API std::string             loadFileSrc(const char* filepath);                                     // get the src contents from a text file format, filepath must be a valid path to a text file
-	LVN_API LvnData<uint8_t>        loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
+	LVN_API LvnBin                  loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
 
 	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
 	LVN_API LvnFontGlyph            fontGetGlyph(LvnFont* font, int8_t codepoint);
@@ -1021,6 +1026,7 @@ namespace lvn
 
 	LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
 	LVN_API void                    memFree(void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
+	LVN_API void*                   memRealloc(void* ptr, size_t size);                 // custom memory realloc function
 
 	/* [Logging] */
 
@@ -1081,7 +1087,7 @@ namespace lvn
 	LVN_API LvnLogger*                  logGetClientLogger();
 	LVN_API const char*                 logGetANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string
 	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);     // set the log pattern of the logger; messages outputed from that logger will be in this format
-	LVN_API LvnResult                   logAddPattern(LvnLogPattern* logPattern);
+	LVN_API LvnResult                   logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);        // add user defined log patterns to the library
 
 	LVN_API LvnResult                   createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo);
 	LVN_API void                        destroyLogger(LvnLogger* logger);
@@ -1089,8 +1095,6 @@ namespace lvn
 
 	/* [Events] */
 	// Use these function within the call back function of LvnWindow (if set)
-	LVN_API bool                        dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*, void*));
-	LVN_API bool                        dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*, void*));
 	LVN_API bool                        dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*, void*));
 	LVN_API bool                        dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*, void*));
 	LVN_API bool                        dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*, void*));
@@ -1746,22 +1750,6 @@ struct LvnLogPattern
 };
 
 /* [Events] */
-struct LvnAppRenderEvent
-{
-	LvnEventType type;
-	int category;
-	const char* name;
-	bool handled;
-};
-
-struct LvnAppTickEvent
-{
-	LvnEventType type;
-	int category;
-	const char* name;
-	bool handled;
-};
-
 struct LvnKeyHoldEvent
 {
 	LvnEventType type;
@@ -1994,6 +1982,26 @@ public:
 	const T* const data() const { return m_Data; }
 	const size_t size() const { return m_Size; }
 	const size_t memsize() const { return m_MemSize; }
+
+	const T* const begin() const { return &m_Data[0]; }
+	const T* const end() const { return &m_Data[m_Size - 1]; }
+};
+
+class LvnTimer
+{
+public:
+	LvnTimer() : m_Start(std::chrono::high_resolution_clock::now()), m_Now(std::chrono::high_resolution_clock::now()), m_Pause(false) {}
+
+	void     begin() { m_Start = std::chrono::high_resolution_clock::now(); }
+	void     reset() { m_Start = std::chrono::high_resolution_clock::now(); m_Pause = false; }
+	void     pause(bool pause) { m_Pause = pause; }
+
+	float    elapsed() { if (!m_Pause) { m_Now = std::chrono::high_resolution_clock::now(); } return std::chrono::duration_cast<std::chrono::nanoseconds>(m_Now - m_Start).count() * 0.001f * 0.001f * 0.001f; }
+	float    elapsedms() { return elapsed() * 1000.0f; }
+
+private:
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_Start, m_Now;
+	bool m_Pause;
 };
 
 template<typename T>

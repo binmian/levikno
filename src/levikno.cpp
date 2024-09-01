@@ -12,7 +12,7 @@
 	#include <windows.h>
 #endif
 
-#define LVN_ABORT abort()
+#define LVN_ABORT throw std::bad_alloc{};
 #define LVN_EMPTY_STR "\0"
 #define LVN_DEFAULT_LOG_PATTERN "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 
@@ -28,11 +28,12 @@
 
 static LvnContext* s_LvnContext = nullptr;
 
+
 namespace lvn
 {
 
 static void                         enableLogANSIcodeColors();
-static LvnVector<LvnLogPattern>     logParseFormat(const char* fmt);
+static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
 static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
@@ -105,6 +106,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
+	s_LvnContext->contexTime.reset();
 
 	// logging
 	if (createInfo->logging.enableLogging) { logInit(); }
@@ -167,8 +169,6 @@ void terminateContext()
 	if (s_LvnContext->objectMemoryAllocations.sounds > 0) { LVN_CORE_WARN("not all sound objects have been destroyed, number of sound objects remaining: %zu", s_LvnContext->objectMemoryAllocations.sounds); }
 	if (s_LvnContext->objectMemoryAllocations.soundBoards > 0) { LVN_CORE_WARN("not all sound board objects have been destroyed, number of sound board objects remaining: %zu", s_LvnContext->objectMemoryAllocations.soundBoards); }
 	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
-	
-	logEnable(false);
 
 	delete s_LvnContext;
 	s_LvnContext = nullptr;
@@ -180,12 +180,67 @@ LvnContext* getContext()
 	return s_LvnContext;
 }
 
+// [SECTION]: Date Time Functions
+
+int dateGetYear()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return tm.tm_year + 1900;
+}
+int dateGetYear02d()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return (tm.tm_year + 1900) % 100;
+}
+int dateGetMonth()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return tm.tm_mon + 1;
+}
+int dateGetDay()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return tm.tm_mday;
+}
+int dateGetHour()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return tm.tm_hour;
+}
+int dateGetHour12()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return ((tm.tm_hour + 11) % 12) + 1;
+}
+int dateGetMinute()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return tm.tm_min;
+}
+int dateGetSecond()
+{
+	time_t t = time(NULL);
+	struct tm tm = *localtime(&t);
+	return tm.tm_sec;
+}
+
+long long dateGetSecondsSinceEpoch()
+{
+	return time(NULL);
+}
+
 static const char* const s_MonthName[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 static const char* const s_MonthNameShort[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 static const char* const s_WeekDayName[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
 static const char* const s_WeekDayNameShort[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
-/* Date Time Functions */
 const char* dateGetMonthName()
 {
 	time_t t = time(NULL);
@@ -294,59 +349,6 @@ std::string dateGetSecondNumStr()
 	return std::string(buff);
 }
 
-int dateGetYear()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return tm.tm_year + 1900;
-}
-int dateGetYear02d()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return (tm.tm_year + 1900) % 100;
-}
-int dateGetMonth()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return tm.tm_mon + 1;
-}
-int dateGetDay()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return tm.tm_mday;
-}
-int dateGetHour()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return tm.tm_hour;
-}
-int dateGetHour12()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return ((tm.tm_hour + 11) % 12) + 1;
-}
-int dateGetMinute()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return tm.tm_min;
-}
-int dateGetSecond()
-{
-	time_t t = time(NULL);
-	struct tm tm = *localtime(&t);
-	return tm.tm_sec;
-}
-
-long long dateGetSecondsSinceEpoch()
-{
-	return time(NULL);
-}
 
 std::string loadFileSrc(const char* filepath)
 {
@@ -357,11 +359,16 @@ std::string loadFileSrc(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 	
-	LvnVector<char> src(size);
+	std::vector<char> src(size);
 	fread(src.data(), sizeof(char), size, fileptr);
 	fclose(fileptr);
 
 	return std::string(src.data(), src.data() + src.size());
+}
+
+float getContextTime()
+{
+	return lvn::getContext()->contexTime.elapsed();
 }
 
 LvnData<uint8_t> loadFileSrcBin(const char* filepath)
@@ -373,7 +380,7 @@ LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
 
-	LvnVector<uint8_t> bin(size);
+	std::vector<uint8_t> bin(size);
 	fread(bin.data(), sizeof(uint8_t), size, fileptr);
 	fclose(fileptr);
 
@@ -385,7 +392,7 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 	LvnFont font{};
 
 	LvnData<uint8_t> fontData = lvn::loadFileSrcBin(filepath);
-	LvnVector<uint8_t> fontBuffer(fontData.data(), fontData.size());
+	std::vector<uint8_t> fontBuffer(fontData.data(), fontData.data() + fontData.size());
 
 	FT_Library ft;
 	FT_Face face;
@@ -412,10 +419,10 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 	int height = width;
 
 	// render glyphs to atlas
-	LvnVector<uint8_t> pixels(width * height);
+	std::vector<uint8_t> pixels(width * height);
 	int penx = 0, peny = 0;
 
-	LvnVector<LvnFontGlyph> glyphs(charset.last - charset.first + 1);
+	std::vector<LvnFontGlyph> glyphs(charset.last - charset.first + 1);
 
 	for (int8_t i = charset.first; i <= charset.last; i++)
 	{
@@ -481,18 +488,26 @@ LvnFontGlyph fontGetGlyph(LvnFont* font, int8_t codepoint)
 
 void* memAlloc(size_t size)
 {
+	if (size == 0) { return nullptr; }
 	void* allocmem = calloc(1, size);
 	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
 	if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
-	memset(allocmem, 0, size);
 	return allocmem;
 }
 
 void memFree(void* ptr)
 {
+	if (ptr == nullptr) { return; }
 	free(ptr);
 	ptr = nullptr;
 	if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
+}
+
+void* memRealloc(void* ptr, size_t size)
+{
+	void* allocmem = realloc(ptr, size);
+	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
+	return allocmem;
 }
 
 /* [Logging] */
@@ -523,11 +538,11 @@ const static LvnLogPattern s_LogPatterns[] =
 	{ 'p', [](LvnLogMessage* msg) -> std::string { return dateGetTimeMeridiemLower(); }},
 };
 
-static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
+static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
 {
 	if (!fmt || fmt[0] == '\0') { return {}; }
 
-	LvnVector<LvnLogPattern> patterns;
+	std::vector<LvnLogPattern> patterns;
 
 	for (uint32_t i = 0; i < strlen(fmt) - 1; i++)
 	{
@@ -580,6 +595,7 @@ LvnResult logInit()
 		lvnctx->coreLogger.logLevel = lvnctx->clientLogger.logLevel = Lvn_LogLevel_None;
 		lvnctx->coreLogger.logPatternFormat = lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
 		lvnctx->coreLogger.logPatterns = lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
+
 
 		#ifdef LVN_PLATFORM_WINDOWS 
 		enableLogANSIcodeColors();
@@ -657,7 +673,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
-	LvnVector<char> buff;
+	std::vector<char> buff;
 
 	va_list argptr, argcopy;
 	va_start(argptr, fmt);
@@ -678,7 +694,7 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
 
-	LvnVector<char> buff;
+	std::vector<char> buff;
 
 	va_list argptr, argcopy;
 	va_start(argptr, fmt);
@@ -699,7 +715,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
-	LvnVector<char> buff;
+	std::vector<char> buff;
 
 	va_list argptr, argcopy;
 	va_start(argptr, fmt);
@@ -720,7 +736,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
-	LvnVector<char> buff;
+	std::vector<char> buff;
 
 	va_list argptr, argcopy;
 	va_start(argptr, fmt);
@@ -741,7 +757,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
-	LvnVector<char> buff;
+	std::vector<char> buff;
 
 	va_list argptr, argcopy;
 	va_start(argptr, fmt);
@@ -762,7 +778,7 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
 	if (!logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
 
-	LvnVector<char> buff;
+	std::vector<char> buff;
 
 	va_list argptr, argcopy;
 	va_start(argptr, fmt);
@@ -809,22 +825,27 @@ LvnResult logSetPatternFormat(LvnLogger* logger, const char* patternfmt)
 	if (!patternfmt || patternfmt[0] == '\0') { return Lvn_Result_Failure; }
 
 	logger->logPatternFormat = patternfmt;
+
 	logger->logPatterns = lvn::logParseFormat(patternfmt);
 
 	return Lvn_Result_Success;
 }
 
-LvnResult logAddPattern(LvnLogPattern* logPattern)
+LvnResult logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count)
 {
-	if (!logPattern) { return Lvn_Result_Failure; }
-	if (logPattern->symbol == '\0') { return Lvn_Result_Failure; }
+	if (!pLogPatterns) { return Lvn_Result_Failure; }
+	if (pLogPatterns->symbol == '\0') { return Lvn_Result_Failure; }
 
 	for (uint32_t i = 0; i < sizeof(s_LogPatterns) / sizeof(LvnLogPattern); i++)
 	{
-		if (s_LogPatterns[i].symbol == logPattern->symbol) { return Lvn_Result_Failure; }
+		for (uint32_t j = 0; j < count; j++)
+		{
+			if (pLogPatterns[j].symbol == s_LogPatterns[i].symbol) { return Lvn_Result_Failure; }
+		}
 	}
 
-	lvn::getContext()->userLogPatterns.push_back(*logPattern);
+	LvnContext* lvnctx = lvn::getContext();
+	lvnctx->userLogPatterns.insert(lvnctx->userLogPatterns.end(), pLogPatterns, pLogPatterns + count);
 
 	return Lvn_Result_Success;
 }
@@ -839,6 +860,7 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 	loggerPtr->loggerName = loggerCreateInfo->loggerName;
 	loggerPtr->logPatternFormat = loggerCreateInfo->logPatternFormat;
 	loggerPtr->logLevel = loggerCreateInfo->logLevel;
+
 	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->logPatternFormat);
 
 	lvnctx->objectMemoryAllocations.loggers++;
@@ -856,36 +878,6 @@ void destroyLogger(LvnLogger* logger)
 }
 
 // [SECTION]: Events
-bool dispatchLvnAppRenderEvent(LvnEvent* event, bool(*func)(LvnAppRenderEvent*, void*))
-{
-	if (event->type == Lvn_EventType_AppRender)
-	{
-		LvnAppRenderEvent eventType{};
-		eventType.type = Lvn_EventType_AppRender;
-		eventType.category = Lvn_EventCategory_Application;
-		eventType.name = "LvnAppRenderEvent";
-		eventType.handled = false;
-
-		return func(&eventType, event->userData);
-	}
-
-	return false;
-}
-bool dispatchLvnAppTickEvent(LvnEvent* event, bool(*func)(LvnAppTickEvent*, void*))
-{
-	if (event->type == Lvn_EventType_AppTick)
-	{
-		LvnAppTickEvent eventType{};
-		eventType.type = Lvn_EventType_AppTick;
-		eventType.category = Lvn_EventCategory_Application;
-		eventType.name = "LvnAppTickEvent";
-		eventType.handled = false;
-
-		return func(&eventType, event->userData);
-	}
-
-	return false;
-}
 bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*, void*))
 {
 	if (event->type == Lvn_EventType_KeyHold)
@@ -2072,7 +2064,6 @@ void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 	if (descriptorSet == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
-	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
 	delete descriptorSet;
 	descriptorSet = nullptr;
 	lvnctx->objectMemoryAllocations.descriptorSets--;
@@ -2326,6 +2317,10 @@ LvnModel loadModel(const char* filepath)
 	if (extensionType == "gltf")
 	{
 		return lvn::loadGltfModel(filepath);
+	}
+	else if (extensionType == "glb")
+	{
+		return lvn::loadGlbModel(filepath);
 	}
 
 	LVN_CORE_WARN("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
@@ -2690,7 +2685,7 @@ void soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id)
 	{
 		if (soundBoard->sounds[i].p1 == id)
 		{
-			soundBoard->sounds.remove(i);
+			soundBoard->sounds.erase(soundBoard->sounds.begin() + i);
 			return;
 		}
 	}

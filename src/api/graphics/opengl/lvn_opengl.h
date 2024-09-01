@@ -25,7 +25,6 @@ namespace lvn
 
 	void oglsImplDestroyShader(LvnShader* shader);
 	void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
-	void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet);
 	void oglsImplDestroyPipeline(LvnPipeline* pipeline);
 	void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void oglsImplDestroyBuffer(LvnBuffer* buffer);
@@ -78,11 +77,8 @@ namespace lvn
 
 	struct OglDescriptorSet
 	{
-		OglDescriptorBinding* uniformBuffers;
-		OglDescriptorBinding* textures;
-
-		uint32_t uniformBufferCount;
-		uint32_t textureCount;
+		std::vector<OglDescriptorBinding> uniformBuffers;
+		std::vector<OglDescriptorBinding> textures;
 	};
 
 	struct OglPipelineEnums
@@ -98,13 +94,13 @@ namespace lvn
 		LvnTextureMode textureMode;
 		LvnSampleCount sampleCount;
 
-		LvnVector<LvnFrameBufferColorAttachment> colorAttachmentSpecifications;
+		std::vector<LvnFrameBufferColorAttachment> colorAttachmentSpecifications;
 		LvnFrameBufferDepthAttachment depthAttachmentSpecification;
-		LvnVector<uint32_t> colorAttachments, msaaColorAttachments;
+		std::vector<uint32_t> colorAttachments, msaaColorAttachments;
 		uint32_t depthAttachment, msaaDepthAttachment;
 		bool multisampling, hasDepth;
 
-		LvnVector<LvnTexture> colorAttachmentTextures;
+		std::vector<LvnTexture> colorAttachmentTextures;
 	};
 
 	struct OglBackends

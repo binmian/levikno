@@ -313,7 +313,7 @@ int main(int argc, char** argv)
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 
-		LvnVec3 camPos = { 5.0f, 3.0f, -5.0f };
+		LvnVec3 camPos = { 3.0f, 3.0f, -3.0f };
 
 		// update matrix
 		LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);

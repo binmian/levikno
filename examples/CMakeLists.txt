@@ -7,9 +7,9 @@ set(LVN_SOURCES
 	events.cpp
 	framebuffer.cpp
 	loadingModel.cpp
+	loadingShader.cpp
 	logging.cpp
 	pong.cpp
-	shaderLoading.cpp
 	simpleMatrix.cpp
 	simpleSound.cpp
 	simpleText.cpp

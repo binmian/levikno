@@ -3,97 +3,7 @@
 
 #include "levikno.h"
 
-
-// ------------------------------------------------------------
-// [SECTION]: Data Type Structures
-// ------------------------------------------------------------
-template <typename T>
-class LvnVector
-{
-private:
-	T* m_Data;            // pointer array to data
-	uint32_t m_Size;      // number of elements that are in this vector; size of vector
-	uint32_t m_Capacity;  // max number of elements allocated/reserved for this vector; note that m_Size can be less than or equal to the capacity
-
-public:
-	LvnVector()
-		: m_Data((T*)lvn::memAlloc(0)), m_Size(0), m_Capacity(0) {}
-
-	~LvnVector() { lvn::memFree(m_Data); }
-
-	LvnVector(uint32_t size)
-	{
-		m_Size = size;
-		m_Capacity = size;
-		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
-	}
-	LvnVector(const T* data, uint32_t size)
-	{
-		m_Size = size;
-		m_Capacity = size;
-		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
-		memcpy(m_Data, data, size * sizeof(T));
-	}
-	LvnVector(uint32_t size, const T& data)
-	{
-		m_Size = size;
-		m_Capacity = size;
-		m_Data = (T*)lvn::memAlloc(size * sizeof(T));
-		for (uint32_t i = 0; i < size; i++)
-			memcpy(&m_Data[i], &data, sizeof(T));
-	}
-	LvnVector(const LvnVector<T>& lvnvec)
-	{
-		m_Size = lvnvec.m_Size;
-		m_Capacity = lvnvec.m_Size;
-		m_Data = (T*)lvn::memAlloc(m_Size * sizeof(T));
-		memcpy(m_Data, lvnvec.m_Data, m_Size * sizeof(T));
-	}
-	LvnVector<T>& operator=(const LvnVector<T>& lvnvec)
-	{
-		resize(lvnvec.m_Size);
-		memcpy(m_Data, lvnvec.m_Data, m_Size * sizeof(T));
-		return *this;
-	}
-	T& operator[](uint32_t i)
-	{
-		LVN_CORE_ASSERT(i < m_Size, "index out of vector size range");
-		return m_Data[i];
-	}
-	const T& operator[](uint32_t i) const
-	{
-		LVN_CORE_ASSERT(i < m_Size, "index out of vector size range");
-		return m_Data[i];
-	}
-
-	T*          begin() { return m_Data; }
-	const T*    begin() const { return m_Data; }
-	T*          end() { return m_Data + m_Size; }
-	const T*    end() const { return m_Data + m_Size; }
-	T&          front() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
-	const T&    front() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
-	T&          back() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
-	const T&    back() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
-
-
-	bool        empty() { return m_Size == 0; }
-	void        clear() { if (m_Data) { memset(m_Data, 0, m_Size * sizeof(T)); } m_Size = 0; }
-	void        clear_free() { if (m_Data) { lvn::memFree(m_Data); m_Size = 0; m_Capacity = 0; m_Data = nullptr; } }
-	void        erase(const T* it) { LVN_CORE_ASSERT(it >= m_Data && it < m_Data + m_Size, "element not within vector index!"); size_t off = it - m_Data; memmove(m_Data + off, m_Data + off + 1, (m_Size - off - 1) * sizeof(T)); m_Size--; }
-	T*          data() { return m_Data; }
-	uint32_t    size() const { return m_Size; }
-	uint32_t    memsize() { return m_Size * sizeof(T); }
-	uint32_t    memcap() { return m_Capacity * sizeof(T); }
-	void        resize(uint32_t size) { if (size > m_Capacity) { reserve(size); } m_Size = size; }
-	void        reserve(uint32_t size) { if (size <= m_Size) return; T* newsize = (T*)lvn::memAlloc(size * sizeof(T)); memcpy(newsize, m_Data, m_Size * sizeof(T)); lvn::memFree(m_Data); m_Data = newsize; m_Capacity = size; }
-
-	void        push_back(const T& e) { resize(m_Size + 1); memcpy(&m_Data[m_Size - 1], &e, sizeof(T)); }
-	void        copy_back(T* data, uint32_t size) { resize(m_Size + size); memcpy(&m_Data[m_Size - size], data, size * sizeof(T)); }
-	void        remove(uint32_t index) { LVN_CORE_ASSERT(index < m_Size, "index out of vector size range"); uint32_t aftIndex = m_Size - index - 1; if (aftIndex != 0) { memcpy(&m_Data[index], &m_Data[index + 1], aftIndex * sizeof(T)); } resize(--m_Size); }
-
-	T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
-	uint32_t    find_index(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; uint32_t i = 0; while (begin < end) { if (*begin == e) break; begin++; i++; } return i; } // NOTE: find_index acts similar to find function; if no value was found, returns the index one greater than the last index in the vector (m_Size)
-};
+#include <vector>
 
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
@@ -104,7 +14,7 @@ struct LvnLogger
 	const char* loggerName;
 	const char* logPatternFormat;
 	LvnLogLevel logLevel;
-	LvnVector<LvnLogPattern> logPatterns;
+	std::vector<LvnLogPattern> logPatterns;
 };
 
 
@@ -244,7 +154,6 @@ struct LvnGraphicsContext
 
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
-	void                        (*destroyDescriptorSet)(LvnDescriptorSet*);
 	void                        (*destroyPipeline)(LvnPipeline*);
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
@@ -311,9 +220,7 @@ struct LvnDescriptorLayout
 
 struct LvnDescriptorSet
 {
-	void** descriptorSets;
-	uint32_t descriptorCount;
-
+	std::vector<void*> descriptorSets;
 	void* singleSet;
 };
 
@@ -345,7 +252,7 @@ struct LvnUniformBuffer
 {
 	void* uniformBuffer;
 	void* uniformBufferMemory;
-	void** uniformBufferMapped;
+	std::vector<void*> uniformBufferMapped;
 	uint64_t size;
 
 	uint32_t id;
@@ -396,7 +303,7 @@ struct LvnSoundBoard
 	float masterPan;
 	float masterPitch;
 
-	LvnVector<LvnDoublePair<uint32_t, LvnSound>> sounds;
+	std::vector<LvnDoublePair<uint32_t, LvnSound>> sounds;
 };
 
 struct LvnObjectMemAllocCount
@@ -429,13 +336,15 @@ struct LvnContext
 	bool                        enableCoreLogging;
 	LvnLogger                   coreLogger;
 	LvnLogger                   clientLogger;
-	LvnVector<LvnLogPattern>    userLogPatterns;
+	std::vector<LvnLogPattern>  userLogPatterns;
 	const char*                 appName;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
+	LvnTimer                    contexTime;
 
 	size_t                      numMemoryAllocations;
 	LvnObjectMemAllocCount      objectMemoryAllocations;
 };
+
 
 #endif

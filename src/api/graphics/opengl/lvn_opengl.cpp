@@ -491,7 +491,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	
 	graphicsContext->destroyShader = oglsImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = oglsImplDestroyDescriptorLayout;
-	graphicsContext->destroyDescriptorSet = oglsImplDestroyDescriptorSet;
 	graphicsContext->destroyPipeline = oglsImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = oglsImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = oglsImplDestroyBuffer;
@@ -719,7 +718,7 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 {
 	OglDescriptorSet descriptorSetLayout{};
 
-	LvnVector<OglDescriptorBinding> uniformDescriptorBindings, textureDescriptorBindings;
+	std::vector<OglDescriptorBinding> uniformDescriptorBindings, textureDescriptorBindings;
 
 	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
 	{
@@ -741,14 +740,8 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 		}
 	}
 
-	descriptorSetLayout.uniformBufferCount = uniformDescriptorBindings.size();
-	descriptorSetLayout.textureCount = textureDescriptorBindings.size();
-
-	descriptorSetLayout.uniformBuffers = (OglDescriptorBinding*)lvn::memAlloc(descriptorSetLayout.uniformBufferCount * sizeof(OglDescriptorBinding));
-	descriptorSetLayout.textures = (OglDescriptorBinding*)lvn::memAlloc(descriptorSetLayout.textureCount * sizeof(OglDescriptorBinding));
-
-	memcpy(descriptorSetLayout.uniformBuffers, uniformDescriptorBindings.data(), uniformDescriptorBindings.memsize());
-	memcpy(descriptorSetLayout.textures, textureDescriptorBindings.data(), textureDescriptorBindings.memsize());
+	descriptorSetLayout.uniformBuffers = std::vector<OglDescriptorBinding>(uniformDescriptorBindings.data(), uniformDescriptorBindings.data() + uniformDescriptorBindings.size());
+	descriptorSetLayout.textures = std::vector<OglDescriptorBinding>(textureDescriptorBindings.data(), textureDescriptorBindings.data() + textureDescriptorBindings.size());
 
 	descriptorLayout->descriptorPool = nullptr;
 	descriptorLayout->descriptorLayout = lvn::memAlloc(sizeof(OglDescriptorSet));
@@ -761,8 +754,6 @@ LvnResult oglsImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescri
 {
 	descriptorSet->singleSet = lvn::memAlloc(sizeof(OglDescriptorSet));
 	memcpy(descriptorSet->singleSet, descriptorLayout->descriptorLayout, sizeof(OglDescriptorSet));
-
-	descriptorSet->descriptorCount = 1;
 
 	return Lvn_Result_Success;
 }
@@ -802,7 +793,7 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferC
 	frameBufferData->multisampling = createInfo->sampleCount != Lvn_SampleCount_1_Bit;
 	frameBufferData->hasDepth = createInfo->depthAttachment != nullptr;
 	frameBufferData->sampleCount = createInfo->sampleCount;
-	frameBufferData->colorAttachmentSpecifications = LvnVector(createInfo->pColorAttachments, createInfo->colorAttachmentCount);
+	frameBufferData->colorAttachmentSpecifications = std::vector(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
 	if (frameBufferData->hasDepth) { frameBufferData->depthAttachmentSpecification = *createInfo->depthAttachment; }
 
 	if (ogls::updateFrameBuffer(frameBufferData) == Lvn_Result_Failure)
@@ -1004,15 +995,7 @@ void oglsImplDestroyShader(LvnShader* shader)
 void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
 	OglDescriptorSet* descriptorSetLayout = static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
-	lvn::memFree(descriptorSetLayout->uniformBuffers);
-	lvn::memFree(descriptorSetLayout->textures);
-
 	lvn::memFree(descriptorLayout->descriptorLayout);
-}
-
-void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
-{
-	lvn::memFree(descriptorSet->descriptorSets);
 }
 
 void oglsImplDestroyPipeline(LvnPipeline* pipeline)
@@ -1172,7 +1155,7 @@ void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipelin
 	{
 		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(pDescriptorSet[i]->singleSet);
 
-		for (uint32_t j = 0; j < descriptorSetPtr->textureCount; j++)
+		for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 		{
 			LVN_CORE_ASSERT(texCount < oglBackends->maxTextureUnitSlots, "maximum texture unit slots exceeded");
 
@@ -1252,7 +1235,7 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 		// uniform buffer
 		if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
 		{
-			for (uint32_t j = 0; j < descriptorSetPtr->uniformBufferCount; j++)
+			for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
 			{
 				if (descriptorSetPtr->uniformBuffers[j].binding == pUpdateInfo[i].binding)
 				{
@@ -1265,7 +1248,7 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 		// texture image
 		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
 		{
-			for (uint32_t j = 0; j < descriptorSetPtr->textureCount; j++)
+			for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 			{
 				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
 				{
