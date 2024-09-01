@@ -1,4 +1,5 @@
 #include "lvn_opengl.h"
+#include "levikno.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -491,6 +492,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	
 	graphicsContext->destroyShader = oglsImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = oglsImplDestroyDescriptorLayout;
+	graphicsContext->destroyDescriptorSet = oglsImplDestroyDescriptorSet;
 	graphicsContext->destroyPipeline = oglsImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = oglsImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = oglsImplDestroyBuffer;
@@ -716,7 +718,9 @@ LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo
 
 LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
 {
-	OglDescriptorSet descriptorSetLayout{};
+	descriptorLayout->descriptorPool = nullptr;
+	descriptorLayout->descriptorLayout = new OglDescriptorSet();
+	OglDescriptorSet* descriptorSetLayout = static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
 
 	std::vector<OglDescriptorBinding> uniformDescriptorBindings, textureDescriptorBindings;
 
@@ -740,12 +744,8 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 		}
 	}
 
-	descriptorSetLayout.uniformBuffers = std::vector<OglDescriptorBinding>(uniformDescriptorBindings.data(), uniformDescriptorBindings.data() + uniformDescriptorBindings.size());
-	descriptorSetLayout.textures = std::vector<OglDescriptorBinding>(textureDescriptorBindings.data(), textureDescriptorBindings.data() + textureDescriptorBindings.size());
-
-	descriptorLayout->descriptorPool = nullptr;
-	descriptorLayout->descriptorLayout = lvn::memAlloc(sizeof(OglDescriptorSet));
-	memcpy(descriptorLayout->descriptorLayout, &descriptorSetLayout, sizeof(OglDescriptorSet));
+	descriptorSetLayout->uniformBuffers = std::vector<OglDescriptorBinding>(uniformDescriptorBindings.data(), uniformDescriptorBindings.data() + uniformDescriptorBindings.size());
+	descriptorSetLayout->textures = std::vector<OglDescriptorBinding>(textureDescriptorBindings.data(), textureDescriptorBindings.data() + textureDescriptorBindings.size());
 
 	return Lvn_Result_Success;
 }
@@ -783,7 +783,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 
 LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo)
 {
-	frameBuffer->frameBufferData = lvn::memAlloc(sizeof(OglFramebufferData));
+	frameBuffer->frameBufferData = new OglFramebufferData();
 	OglFramebufferData* frameBufferData = static_cast<OglFramebufferData*>(frameBuffer->frameBufferData);
 
 	frameBufferData->width = createInfo->width;
@@ -994,8 +994,13 @@ void oglsImplDestroyShader(LvnShader* shader)
 
 void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
-	OglDescriptorSet* descriptorSetLayout = static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
-	lvn::memFree(descriptorLayout->descriptorLayout);
+	delete static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
+}
+
+void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
+{
+	OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(descriptorSet->singleSet);
+	lvn::memFree(descriptorSetPtr);
 }
 
 void oglsImplDestroyPipeline(LvnPipeline* pipeline)
@@ -1020,7 +1025,7 @@ void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 		glDeleteTextures(1, &frameBufferData->msaaDepthAttachment);
 	}
 
-	lvn::memFree(frameBuffer->frameBufferData);
+	delete frameBufferData;
 }
 
 void oglsImplDestroyBuffer(LvnBuffer* buffer)

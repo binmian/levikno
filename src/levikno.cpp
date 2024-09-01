@@ -2064,6 +2064,7 @@ void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 	if (descriptorSet == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
+	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
 	delete descriptorSet;
 	descriptorSet = nullptr;
 	lvnctx->objectMemoryAllocations.descriptorSets--;

@@ -25,6 +25,7 @@ namespace lvn
 
 	void oglsImplDestroyShader(LvnShader* shader);
 	void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
+	void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet);
 	void oglsImplDestroyPipeline(LvnPipeline* pipeline);
 	void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void oglsImplDestroyBuffer(LvnBuffer* buffer);

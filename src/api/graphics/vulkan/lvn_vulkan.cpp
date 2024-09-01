@@ -2059,6 +2059,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
+	graphicsContext->destroyDescriptorSet = vksImplDestroyDescriptorSet;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
@@ -3377,6 +3378,11 @@ void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 
 	vkDestroyDescriptorPool(vkBackends->device, descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
+}
+
+void vksImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
+{
+
 }
 
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
