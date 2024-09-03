@@ -105,7 +105,10 @@
 
 #include <string>
 #include <chrono>
+#include <queue>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 using std::abs;
 using std::acos;
@@ -788,13 +791,16 @@ struct LvnWindowResizeEvent;
 
 
 template<typename T>
-class LvnData;
-
-template<typename T>
 struct LvnPair;
 
 template<typename T1, typename T2>
 struct LvnDoublePair;
+
+template<typename T>
+class LvnData;
+
+class LvnTimer;
+class LvnThreadPool;
 
 /* [Vectors] */
 template<typename T>
@@ -1229,6 +1235,7 @@ namespace lvn
 	LVN_API LvnBufferCreateInfo         meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
+	LVN_API LvnImageData                loadImageDataMemory(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
 
 	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
 	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                       // destroy mesh object
@@ -1925,6 +1932,20 @@ struct LvnWindowCreateInfo
 // [SECTION]: Data Structures
 // ---------------------------------------------
 // - Basic data structures for use of allocating or handling data
+template<typename T>
+struct LvnPair
+{
+	union { T p1, x, width; };
+	union { T p2, y, height; };
+};
+
+template<typename T1, typename T2>
+struct LvnDoublePair
+{
+	union { T1 p1, x, width; };
+	union { T2 p2, y, height; };
+};
+
 
 template<typename T>
 class LvnData
@@ -2004,19 +2025,88 @@ private:
 	bool m_Pause;
 };
 
-template<typename T>
-struct LvnPair
+class LvnThreadPool
 {
-	union { T p1, x, width; };
-	union { T p2, y, height; };
+private:
+	using LvnTaskFnPtr = void (*)();
+
+	std::vector<std::thread> m_Workers;
+	std::queue<LvnTaskFnPtr> m_Tasks;
+	std::mutex m_QueueMutex;
+	std::condition_variable m_QueueCondition;
+	bool m_Terminate;
+
+	void ThreadFunc()
+	{
+		while (true)
+		{
+			LvnTaskFnPtr fnPtr;
+
+			std::unique_lock<std::mutex> lock(m_QueueMutex);
+			m_QueueCondition.wait(lock, [this]() { return !m_Tasks.empty() || m_Terminate; });
+
+			if (m_Terminate) { return; }
+
+			if (!m_Tasks.empty())
+			{
+				fnPtr = m_Tasks.front();
+				m_Tasks.pop();
+
+				lock.unlock();
+				fnPtr();
+			}
+		}
+	}
+
+public:
+	LvnThreadPool()
+		: m_Workers(1), m_Tasks(), m_QueueMutex(), m_QueueCondition(), m_Terminate(false)
+	{
+		for (uint32_t i = 0; i < m_Workers.size(); i++)
+			m_Workers[i] = (std::thread(&LvnThreadPool::ThreadFunc, this));
+	}
+
+	LvnThreadPool(uint32_t workerCount)
+		: m_Tasks(), m_QueueMutex(), m_QueueCondition(), m_Terminate(false)
+	{
+		m_Workers.resize(workerCount > 0 ? workerCount : 1);
+
+		for (uint32_t i = 0; i < m_Workers.size(); i++)
+			m_Workers[i] = (std::thread(&LvnThreadPool::ThreadFunc, this));
+	}
+
+	~LvnThreadPool()
+	{
+		m_QueueMutex.lock();
+		m_Terminate = true;
+		m_QueueMutex.unlock();
+
+		m_QueueCondition.notify_all();
+		for (uint32_t i = 0; i < m_Workers.size(); i++)
+			m_Workers[i].join();
+
+		m_Workers.clear();
+	}
+
+	void add_task(LvnTaskFnPtr fnPtr)
+	{
+		std::lock_guard<std::mutex> lock(m_QueueMutex);
+		m_Tasks.push(fnPtr);
+		m_QueueCondition.notify_one();
+	}
+
+	bool busy()
+	{
+		std::lock_guard<std::mutex> lock(m_QueueMutex);
+		return !m_Tasks.empty();
+	}
+
+	void wait()
+	{
+		while (LvnThreadPool::busy()) {}
+	}
 };
 
-template<typename T1, typename T2>
-struct LvnDoublePair
-{
-	union { T1 p1, x, width; };
-	union { T2 p2, y, height; };
-};
 
 // ---------------------------------------------
 // [SECTION]: Vectors & Matrices
@@ -2279,7 +2369,7 @@ struct LvnVec4_t
 	LvnVec4_t(const T& n_x, const LvnVec3_t<T>& n_yzw)
 		: x(n_x), y(n_yzw.y), z(n_yzw.z), w(n_yzw.w) {}
 	LvnVec4_t(const LvnVec2_t<T>& n_xy)
-		: x(n_xy.x), y(n_xy.y), z(0.0f), w(T(0)) {}
+		: x(n_xy.x), y(n_xy.y), z(0), w(T(0)) {}
 	LvnVec4_t(const LvnVec3_t<T>& n_xyz)
 		: x(n_xyz.x), y(n_xyz.y), z(n_xyz.z), w(T(0)) {}
 

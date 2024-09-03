@@ -2271,18 +2271,18 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 {
 	if (filepath == nullptr)
 	{
-		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | invalid filepath, filepath must not be nullptr");
+		LVN_CORE_ERROR("loadImageData(const char*) | invalid filepath, filepath must not be nullptr");
 		return {};
 	}
 
 	if (forceChannels < 0)
 	{
-		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | forceChannels < 0, channels cannot be negative");
+		LVN_CORE_ERROR("loadImageData(const char*) | forceChannels < 0, channels cannot be negative");
 		return {};
 	}
 	else if (forceChannels > 4)
 	{
-		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*, int) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		LVN_CORE_ERROR("loadImageData(const char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
 		return {};
 	}
 
@@ -2292,7 +2292,7 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 
 	if (!pixels)
 	{
-		LVN_CORE_ERROR("loadImageData(LvnImageData*, const char*) | failed to load image pixel data from file: %s", filepath);
+		LVN_CORE_ERROR("loadImageData(const char*) | failed to load image pixel data from file: %s", filepath);
 		return {};
 	}
 
@@ -2304,6 +2304,49 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 	imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
 
 	LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath);
+
+	stbi_image_free(pixels);
+
+	return imageData;
+}
+
+LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChannels, bool flipVertically)
+{
+	if (data == nullptr)
+	{
+		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | invalid filepath, filepath must not be nullptr");
+		return {};
+	}
+
+	if (forceChannels < 0)
+	{
+		LVN_CORE_ERROR("loadImageDataMemory(conts unsigned char*) | forceChannels < 0, channels cannot be negative");
+		return {};
+	}
+	else if (forceChannels > 4)
+	{
+		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		return {};
+	}
+
+	stbi_set_flip_vertically_on_load(flipVertically);
+	int imageWidth, imageHeight, imageChannels;
+	stbi_uc* pixels = stbi_load_from_memory(data, length, &imageWidth, &imageHeight, &imageChannels, forceChannels);
+
+	if (!pixels)
+	{
+		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | failed to load image pixel data from memory: %p", data);
+		return {};
+	}
+
+	LvnImageData imageData{};
+	imageData.width = imageWidth;
+	imageData.height = imageHeight;
+	imageData.channels = forceChannels ? forceChannels : imageChannels;
+	imageData.size = imageData.width * imageData.height * imageData.channels;
+	imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+
+	LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imageData.size);
 
 	stbi_image_free(pixels);
 
@@ -2627,7 +2670,7 @@ void destroySoundBoard(LvnSoundBoard* soundBoard)
 
 	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
 	{
-		lvn::memFree(soundBoard->sounds[i].p2.soundPtr);
+		lvn::memFree(soundBoard->sounds[i].soundPtr);
 	}
 
 	delete soundBoard;
@@ -2645,13 +2688,10 @@ LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soun
 		return Lvn_Result_Failure;
 	}
 
-	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
+	if (soundBoard->sounds.find(id) != soundBoard->sounds.end())
 	{
-		if (soundBoard->sounds[i].p1 == id)
-		{
-			LVN_CORE_ERROR("cannot add sound to sound board (%p), sound board already has a sound with the given id: %u", soundBoard, id);
-			return Lvn_Result_Failure;
-		}
+		LVN_CORE_ERROR("cannot add sound to sound board (%p), sound board already has a sound with the given id: %u", soundBoard, id);
+		return Lvn_Result_Failure;
 	}
 
 	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
@@ -2676,33 +2716,20 @@ LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soun
 	sound.soundPtr = pSound;
 	sound.soundBoard = soundBoard;
 
-	soundBoard->sounds.push_back({ id, sound });
+	soundBoard->sounds[id] = sound;
 	return Lvn_Result_Success;
 }
 
 void soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id)
 {
-	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
-	{
-		if (soundBoard->sounds[i].p1 == id)
-		{
-			soundBoard->sounds.erase(soundBoard->sounds.begin() + i);
-			return;
-		}
-	}
+	soundBoard->sounds.erase(id);
 }
 
 const LvnSound* soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id)
 {
-	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
-	{
-		if (soundBoard->sounds[i].p1 == id)
-		{
-			return &soundBoard->sounds[i].p2;
-		}
-	}
+	if (soundBoard->sounds.find(id) == soundBoard->sounds.end()) { return nullptr; }
 
-	return nullptr;
+	return &soundBoard->sounds[id];
 }
 
 // [SECTION]: Math

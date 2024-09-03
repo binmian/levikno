@@ -1,10 +1,14 @@
 #include "lvn_loadModel.h"
 
 #include "json.h"
-#include "levikno.h"
-#include "levikno_internal.h"
-#include <cstdint>
+
 namespace nlm = nlohmann;
+
+enum LvnFileType
+{
+	Lvn_FileType_Gltf,
+	Lvn_FileType_Glb,
+};
 
 namespace lvn
 {
@@ -21,6 +25,7 @@ namespace gltfs
 	{
 		nlm::json JSON;
 		std::string filepath;
+		LvnFileType filetype;
 		LvnData<uint8_t> binData;
 		std::vector<LvnMesh> meshes;
 		std::vector<LvnTextureIndexData> textureData;
@@ -30,7 +35,7 @@ namespace gltfs
 	static void                    traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
 	static void                    loadMesh(gltfLoadData* gltfData, uint32_t meshIndex, lvn::mat4 matrix);
 	static LvnData<uint8_t>        getData(nlm::json JSON, const char* filepath);
-	static std::vector<float>      getFloats(gltfLoadData* gltfData, nlm::json accessor);
+	static void                    getFloats(gltfLoadData* gltfData, nlm::json accessor, uint32_t* beginningOfData, uint32_t* count, uint32_t* numType);
 	static LvnVec4                 getColors(nlm::json material);
 	static std::vector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
 	static LvnMaterial             getMaterial(gltfLoadData* gltfData, nlm::json accessor);
@@ -110,11 +115,41 @@ namespace gltfs
 			int meshIndicesIndex = JSON["meshes"][meshIndex]["primitives"][i]["indices"];
 			int meshMaterialIndex = JSON["meshes"][meshIndex]["primitives"][i]["material"];
 
+
 			// get Pos mesh data
-			std::vector<float> posRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex]);
-			std::vector<LvnVec3> position(posRaw.size() / 3);
-			memcpy(position.data(), posRaw.data(), posRaw.size() * sizeof(float));
-			
+			uint32_t beginningOfData, count, numType;
+			gltfs::getFloats(gltfData, JSON["accessors"][meshPosIndex], &beginningOfData, &count, &numType);
+
+			std::vector<LvnVec3> position(count);
+
+			switch (numType)
+			{
+				case 1:
+				{
+					for (uint32_t i = 0; i < count; i++)
+						position[i] = LvnVec3(*(float*)(&gltfData->binData[beginningOfData] + i * numType * sizeof(float)), 0.0f, 0.0f);
+					break;
+				}
+				case 2:
+				{
+					for (uint32_t i = 0; i < count; i++)
+						position[i] = LvnVec3(*(LvnVec2*)(&gltfData->binData[beginningOfData] + i * numType * sizeof(float)), 0.0f);
+					break;
+				}
+				case 3:
+				{
+					for (uint32_t i = 0; i < count; i++)
+						position[i] = *(LvnVec3*)(&gltfData->binData[beginningOfData] + i * numType * sizeof(float));
+					break;
+				}
+				case 4:
+				{
+					for (uint32_t i = 0; i < count; i++)
+						position[i] = LvnVec3(*(LvnVec4*)(&gltfData->binData[beginningOfData] + i * numType * sizeof(float)));
+					break;
+				}
+			}
+
 			// get color data, assuming each vertex of the mesh primitive has the same color
 			LvnVec4 colors = getColors(JSON["materials"][meshMaterialIndex]);
 
@@ -122,9 +157,9 @@ namespace gltfs
 			std::vector<LvnVec2> texCoord;
 			if (meshTexIndex >= 0)
 			{
-				std::vector<float> texCoordRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex]);
-				texCoord.resize(texCoordRaw.size() / 2);
-				memcpy(texCoord.data(), texCoordRaw.data(), texCoordRaw.size() * sizeof(float));
+				gltfs::getFloats(gltfData, JSON["accessors"][meshTexIndex], &beginningOfData, &count, &numType);
+				texCoord.resize(count);
+				memcpy(texCoord.data(), &gltfData->binData[beginningOfData], count * numType * sizeof(float));
 			}
 			else
 			{
@@ -135,9 +170,9 @@ namespace gltfs
 			std::vector<LvnVec3> normals;
 			if (meshNormalIndex >= 0)
 			{
-				std::vector<float> normalsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex]);
-				normals.resize(normalsRaw.size() / 3);
-				memcpy(normals.data(), normalsRaw.data(), normalsRaw.size() * sizeof(float));
+				gltfs::getFloats(gltfData, JSON["accessors"][meshNormalIndex], &beginningOfData, &count, &numType);
+				normals.resize(count);
+				memcpy(normals.data(), &gltfData->binData[beginningOfData], count * numType * sizeof(float));
 			}
 			else // mesh has no normals
 			{
@@ -147,17 +182,14 @@ namespace gltfs
 			std::vector<LvnVec4> tangents;
 			if (meshTangentIndex >= 0)
 			{
-				std::vector<float> tangentsRaw = gltfs::getFloats(gltfData, JSON["accessors"][meshTangentIndex]);
-				tangents.resize(tangentsRaw.size() / 4);
-				memcpy(tangents.data(), tangentsRaw.data(), tangentsRaw.size() * sizeof(float));
+				gltfs::getFloats(gltfData, JSON["accessors"][meshTangentIndex], &beginningOfData, &count, &numType);
+				tangents.resize(count);
+				memcpy(tangents.data(), &gltfData->binData[beginningOfData], count * numType * sizeof(float));
 			}
 			else // mesh has no tangents
 			{
 				tangents.resize(position.size(), 0);
 			}
-
-			// get Mesh Indices
-			std::vector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
 
 			// bitangents
 			std::vector<LvnVec3> bitangents;
@@ -167,9 +199,11 @@ namespace gltfs
 			}
 			else
 			{
-				bitangents.resize(position.size());
-				memset(&bitangents[0], 0, bitangents.size());
+				bitangents.resize(position.size(), 0);
 			}
+
+			// get Mesh Indices
+			std::vector<uint32_t> indices = gltfs::getIndices(gltfData, JSON["accessors"][meshIndicesIndex]);
 
 			// combine all mesh data and Get Model data
 			std::vector<LvnVertex> vertices;
@@ -194,8 +228,6 @@ namespace gltfs
 			// Get Textures
 			LvnMaterial material = gltfs::getMaterial(gltfData, JSON["materials"][meshMaterialIndex]);
 
-			// Create Mesh
-			// lvn::computeTangents(vertices.data(), vertices.size(), indices.data(), indices.size());
 
 			LvnMeshCreateInfo meshCreateInfo{};
 
@@ -223,31 +255,27 @@ namespace gltfs
 		return lvn::loadFileSrcBin(pathbin.c_str());
 	}
 
-	static std::vector<float> getFloats(gltfLoadData* gltfData, nlm::json accessor)
+	static void getFloats(gltfLoadData* gltfData, nlm::json accessor, uint32_t* beginningOfData, uint32_t* count, uint32_t* numType)
 	{
+		LVN_CORE_ASSERT(gltfData != nullptr && beginningOfData != nullptr && count != nullptr && numType != nullptr, "getFloats function has nullptr parameters");
+
 		nlm::json JSON = gltfData->JSON;
 
 		uint32_t bufferViewIndex = accessor.value("bufferView", 0);
-		uint32_t count = accessor["count"];
 		uint32_t accByteOffset = accessor.value("byteOffset", 0);
 		std::string type = accessor["type"];
 
 		nlm::json bufferView = JSON["bufferViews"][bufferViewIndex];
 		uint32_t BVbyteOffset = bufferView.value("byteOffset", 0);
 
-		uint32_t typeNum = 0;
-		if (type == "SCALAR") { typeNum = 1; }
-		else if (type == "VEC2") { typeNum = 2; }
-		else if (type == "VEC3") { typeNum = 3; }
-		else if (type == "VEC4") { typeNum = 4; }
-		else { LVN_CORE_ERROR("unkown float type, type (%s) does not match with one of the following: VEC2, VEC3, VEC4, SCALER", type.c_str()); return {}; }
+		if (type == "SCALAR") { *numType = 1; }
+		else if (type == "VEC2") { *numType = 2; }
+		else if (type == "VEC3") { *numType = 3; }
+		else if (type == "VEC4") { *numType = 4; }
+		else { LVN_CORE_ERROR("unkown float type, type (%s) does not match with one of the following: VEC2, VEC3, VEC4, SCALER", type.c_str()); return; }
 
-		uint32_t beginningOfData = accByteOffset + BVbyteOffset;
-		uint32_t lengthOfData = count * typeNum; // number of floats, count * number of components in vec type
-
-		std::vector<float> floatValues(lengthOfData);
-		memcpy(floatValues.data(), &gltfData->binData[beginningOfData], lengthOfData * sizeof(float)); // HACK: convert bin data to float values by copy and implicit casting, Note: 1 float = 4 bytes
-		return floatValues;
+		*beginningOfData = accByteOffset + BVbyteOffset;
+		*count = accessor["count"];
 	}
 
 	static LvnVec4 getColors(nlm::json material)
@@ -289,7 +317,7 @@ namespace gltfs
 			{
 				uint8_t bytes[] = { data[i], data[i + 1], data[i + 2], data[i + 3] };
 				uint32_t value;
-				std::memcpy(&value, bytes, sizeof(uint32_t));
+				memcpy(&value, bytes, sizeof(uint32_t));
 				indices.push_back(value);
 			}
 		}
@@ -301,7 +329,7 @@ namespace gltfs
 			{
 				uint8_t bytes[] = { data[i], data[i + 1] };
 				uint16_t value;
-				std::memcpy(&value, bytes, sizeof(uint16_t));
+				memcpy(&value, bytes, sizeof(uint16_t));
 				indices.push_back((uint32_t)value);
 			}
 		}
@@ -313,7 +341,7 @@ namespace gltfs
 			{
 				uint8_t bytes[] = { data[i], data[i + 1] };
 				int16_t value;
-				std::memcpy(&value, bytes, sizeof(int16_t));
+				memcpy(&value, bytes, sizeof(int16_t));
 				indices.push_back((uint32_t)value);
 			}
 		}
@@ -330,11 +358,10 @@ namespace gltfs
 	{
 		nlm::json JSON = gltfData->JSON;
 
-		LvnContext* lvnctx = lvn::getContext();
-
 		LvnMaterial material{};
 
-		std::string fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1);
+		std::string fileDirectory;
+		if (gltfData->filetype == Lvn_FileType_Gltf) { fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1); }
 
 		uint32_t texSource;
 		std::string texPath;
@@ -344,7 +371,7 @@ namespace gltfs
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["baseColorTexture"]["index"]];
 			texSource = texInd["source"];
-			texPath = JSON["images"][texSource]["uri"];
+			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
 
 			bool skip = false;
 			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
@@ -361,15 +388,27 @@ namespace gltfs
 				int texSamplerIndex = texInd.value("sampler", -1);
 
 				LvnTextureCreateInfo textureCreateInfo{};
-				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				if (gltfData->filetype == Lvn_FileType_Gltf)
+				{
+					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				}
+				else if (gltfData->filetype == Lvn_FileType_Glb)
+				{
+					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
+					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
+					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
+					uint32_t bvByteLength = bufferview.value("byteLength", 0);
+
+					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
+				}
 
 				// model has samplers
 				if (texSamplerIndex >= 0)
 				{
 					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
 					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = getTexFilter(minFilter);
-					textureCreateInfo.magFilter = getTexFilter(magFilter);
+					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
+					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
 				}
 				else // default to nearest if no sampler found
 				{
@@ -418,7 +457,7 @@ namespace gltfs
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"]];
 			texSource = texInd["source"];
-			texPath = JSON["images"][texSource]["uri"];
+			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
 
 			bool skip = false;
 			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
@@ -435,15 +474,27 @@ namespace gltfs
 				int texSamplerIndex = texInd.value("sampler", -1);
 
 				LvnTextureCreateInfo textureCreateInfo{};
-				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				if (gltfData->filetype == Lvn_FileType_Gltf)
+				{
+					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				}
+				else if (gltfData->filetype == Lvn_FileType_Glb)
+				{
+					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
+					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
+					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
+					uint32_t bvByteLength = bufferview.value("byteLength", 0);
+
+					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
+				}
 
 				// model has samplers
 				if (texSamplerIndex >= 0)
 				{
 					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
 					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = getTexFilter(minFilter);
-					textureCreateInfo.magFilter = getTexFilter(magFilter);
+					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
+					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
 				}
 				else // default to nearest if no sampler found
 				{
@@ -492,7 +543,7 @@ namespace gltfs
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["normalTexture"]["index"]];
 			texSource = texInd["source"];
-			texPath = JSON["images"][texSource]["uri"];
+			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
 
 			bool skip = false;
 			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
@@ -509,15 +560,27 @@ namespace gltfs
 				int texSamplerIndex = texInd.value("sampler", -1);
 
 				LvnTextureCreateInfo textureCreateInfo{};
-				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				if (gltfData->filetype == Lvn_FileType_Gltf)
+				{
+					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				}
+				else if (gltfData->filetype == Lvn_FileType_Glb)
+				{
+					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
+					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
+					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
+					uint32_t bvByteLength = bufferview.value("byteLength", 0);
+
+					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
+				}
 
 				// model has samplers
 				if (texSamplerIndex >= 0)
 				{
 					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
 					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = getTexFilter(minFilter);
-					textureCreateInfo.magFilter = getTexFilter(magFilter);
+					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
+					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
 				}
 				else // default to nearest if no sampler found
 				{
@@ -539,7 +602,7 @@ namespace gltfs
 		}
 		else // default normal texture if no texture was found; creates a 1x1 texture, 4 channels (0x7f7fffff)
 		{
-			uint8_t normalTextureData[4] = { 0x7f, 0x7f, 0xff, 0xff };
+			uint8_t normalTextureData[4] = { 0x80, 0x80, 0xff, 0xff };
 			LvnImageData imageData;
 			imageData.pixels = LvnData<uint8_t>(normalTextureData, sizeof(normalTextureData) / sizeof(uint8_t));
 			imageData.width = 1;
@@ -597,10 +660,13 @@ LvnModel loadGltfModel(const char* filepath)
 	gltfData.JSON = nlm::json::parse(jsonText);
 	gltfData.binData = gltfs::getData(gltfData.JSON, filepath);
 	gltfData.filepath = filepath;
+	gltfData.filetype = Lvn_FileType_Gltf;
 
 	nlm::json JSON = gltfData.JSON;
 
-	for (uint32_t i = 0; i < JSON["scenes"][0]["nodes"].size(); i++) // curent impl only supports loading first scene
+	uint32_t scene = JSON.value("scene", 0);
+
+	for (uint32_t i = 0; i < JSON["scenes"][scene]["nodes"].size(); i++) // curent impl only supports loading first scene
 		gltfs::traverseNode(&gltfData, JSON["scenes"][0]["nodes"][i], LvnMat4(1.0f));
 
 	LvnModel model{};
@@ -630,6 +696,7 @@ LvnModel loadGlbModel(const char* filepath)
 	gltfData.JSON = nlm::json::parse(jsonText);
 	gltfData.binData = LvnBin(chunkDataBuffer.data(), chunkDataBuffer.size());
 	gltfData.filepath = filepath;
+	gltfData.filetype = Lvn_FileType_Glb;
 
 	nlm::json JSON = gltfData.JSON;
 

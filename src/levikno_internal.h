@@ -4,6 +4,7 @@
 #include "levikno.h"
 
 #include <vector>
+#include <unordered_map>
 
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
@@ -304,7 +305,7 @@ struct LvnSoundBoard
 	float masterPan;
 	float masterPitch;
 
-	std::vector<LvnDoublePair<uint32_t, LvnSound>> sounds;
+	std::unordered_map<uint32_t, LvnSound> sounds;
 };
 
 struct LvnObjectMemAllocCount
