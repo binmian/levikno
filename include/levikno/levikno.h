@@ -104,6 +104,7 @@
 #include <cmath>
 
 #include <string>
+#include <vector>
 #include <chrono>
 #include <queue>
 #include <thread>
@@ -241,14 +242,24 @@ enum LvnStructureType
 	Lvn_Stype_Undefined = 0,
 	Lvn_Stype_Window,
 	Lvn_Stype_Logger,
-	Lvn_Stype_RenderPass,
 	Lvn_Stype_FrameBuffer,
 	Lvn_Stype_Shader,
+	Lvn_Stype_DescriptorLayout,
+	Lvn_Stype_DescriptorSet,
 	Lvn_Stype_Pipeline,
 	Lvn_Stype_Buffer,
 	Lvn_Stype_UniformBuffer,
 	Lvn_Stype_Texture,
-	Lvn_Stype_Mesh,
+	Lvn_Stype_Sound,
+	Lvn_Stype_SoundBoard,
+
+	Lvn_Stype_MaxType,
+};
+
+enum LvnMemAllocMode
+{
+	Lvn_MemAllocMode_Individual,
+	Lvn_MemAllocMode_MemPool,
 };
 
 enum LvnClipRegion
@@ -739,6 +750,7 @@ struct LvnLoggerCreateInfo;
 struct LvnLogMessage;
 struct LvnLogPattern;
 struct LvnMaterial;
+struct LvnMemAllocStructInfo;
 struct LvnMesh;
 struct LvnMeshCreateInfo;
 struct LvnMeshTextureBindings;
@@ -747,6 +759,8 @@ struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
 struct LvnMouseMovedEvent;
 struct LvnMouseScrolledEvent;
+struct LvnNetworkMessage;
+struct LvnNetworkMessageHeader;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
 struct LvnPipeline;
@@ -1142,8 +1156,6 @@ namespace lvn
 	LVN_API bool                        mouseButtonPressed(LvnWindow* window, int button);
 	LVN_API bool                        mouseButtonReleased(LvnWindow* window, int button);
 
-	LVN_API void                        mouseSetPos(LvnWindow* window, float x, float y);
-
 	LVN_API LvnPair<float>              mouseGetPos(LvnWindow* window);
 	LVN_API void                        mouseGetPos(LvnWindow* window, float* xpos, float* ypos);
 	LVN_API float                       mouseGetX(LvnWindow* window);
@@ -1279,6 +1291,10 @@ namespace lvn
 	LVN_API LvnResult                   soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id);
 	LVN_API void                        soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id);
 	LVN_API const LvnSound*             soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id);
+
+
+	/* [Networking] */
+	LVN_API LvnResult                   createSocket();
 
 
 	/* [Math] */
@@ -1718,6 +1734,12 @@ namespace lvn
 
 /* [Core Struct Implementaion] */
 
+struct LvnMemAllocStructInfo
+{
+	LvnStructureType sType;
+	uint64_t count;
+};
+
 struct LvnContextCreateInfo
 {
 	const char*               applicationName;               // name of application or program
@@ -1726,13 +1748,22 @@ struct LvnContextCreateInfo
 
 	struct
 	{
-		bool                  enableLogging;                 // enable or diable logging
-		bool                  disableCoreLogging;            // whether to disable core logging in the library
-		bool                  enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
-	} logging;
+		bool                      enableLogging;                 // enable or diable logging
+		bool                      disableCoreLogging;            // whether to disable core logging in the library
+		bool                      enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
+	}                         logging;
 
 	LvnTextureFormat          frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
 	LvnClipRegion             matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
+	
+	struct
+	{
+		LvnMemAllocMode           memAllocMode;                  // memory allocation mode, how memory should be allocated when creating new object
+		LvnMemAllocStructInfo*    memAllocStructInfos;           // array of object alloc info structs to tell how many objects of each type to allocate if using memory pool
+		uint32_t                  memAllocStructInfoCount;       // number of object alloc inso structs;
+		LvnMemAllocStructInfo*    blockMemAllocStructInfos;      // array of objects alloc info structs of each type to allocate for further memory blocks in case if the first block is full
+		uint32_t                  blockMemAllocStructInfoCount;  // number of block object alloc info structs
+	}                          memoryInfo;
 };
 
 /* [Logging] */
@@ -4854,6 +4885,18 @@ struct LvnSoundCreateInfo
 	bool looping;              // sound source loops when reaches end of track
 
 	LvnVec3 pos;
+};
+
+struct LvnNetworkMessageHeader
+{
+	int id;
+	uint64_t size;
+};
+
+struct LvnNetworkMessage
+{
+	LvnNetworkMessageHeader header;
+	uint8_t* body;
 };
 
 #endif

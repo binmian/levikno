@@ -62,6 +62,7 @@ int main(int argc, char** argv)
 	{
 		lvn::windowUpdate(window);
 
+
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);

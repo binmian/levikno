@@ -45,6 +45,10 @@ static void                         terminateGraphicsContext(LvnContext* lvnctx)
 static LvnResult                    initAudioContext(LvnContext* lvnctx);
 static void                         terminateAudioContext(LvnContext* lvnctx);
 static void                         initStandardPipelineSpecification(LvnContext* lvnctx);
+static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
+static uint64_t                     getStructTypeSize(LvnStructureType sType);
+static void                         setStructMemoryBlock(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount);
+static void                         createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
 
 
 static void enableLogANSIcodeColors()
@@ -108,8 +112,12 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
 	s_LvnContext->contexTime.reset();
 
+	lvn::setDefaultStructTypeMemAllocInfos(s_LvnContext);
+
 	// logging
 	if (createInfo->logging.enableLogging) { logInit(); }
+
+	lvn::createContextMemoryPool(s_LvnContext, createInfo);
 
 	// window context
 	LvnResult result = setWindowContext(s_LvnContext, createInfo->windowapi);
@@ -1209,7 +1217,10 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 		return Lvn_Result_Failure;
 	}
 
-	*window = new LvnWindow();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *window = new LvnWindow(); }
+	else if (Lvn_MemAllocMode_MemPool) { *window = &lvnctx->memoryPool.windows.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.windows++;
 	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title, createInfo->width, createInfo->height);
 	return lvnctx->windowContext.createWindow(*window, createInfo);
@@ -1220,7 +1231,7 @@ void destroyWindow(LvnWindow* window)
 	if (window == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 	lvnctx->windowContext.destroyWindow(window);
-	delete window;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete window; }
 	window = nullptr;
 	lvnctx->objectMemoryAllocations.windows--;
 }
@@ -1310,11 +1321,6 @@ bool mouseButtonPressed(LvnWindow* window, int button)
 bool mouseButtonReleased(LvnWindow* window, int button)
 {
 	return lvn::getContext()->windowContext.mouseButtonReleased(window, button);
-}
-
-void mouseSetPos(LvnWindow* window, float x, float y)
-{
-	lvn::getContext()->windowContext.setMousePos(window, x, y);
 }
 
 LvnPair<float> mouseGetPos(LvnWindow* window)
@@ -1523,6 +1529,167 @@ static void initStandardPipelineSpecification(LvnContext* lvnctx)
 	pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
 
 	lvnctx->defaultPipelineSpecification = pipelineSpecification;
+}
+
+static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
+{
+	auto& stInfos = lvnctx->sTypeMemAllocInfos;
+
+	stInfos.resize(Lvn_Stype_MaxType);
+
+	stInfos[Lvn_Stype_Undefined]        = { Lvn_Stype_Undefined, 0, 0 };
+	stInfos[Lvn_Stype_Window]           = { Lvn_Stype_Window, sizeof(LvnWindow), 8 };
+	stInfos[Lvn_Stype_Logger]           = { Lvn_Stype_Logger, sizeof(LvnLogger), 8 };
+	stInfos[Lvn_Stype_FrameBuffer]      = { Lvn_Stype_FrameBuffer, sizeof(LvnFrameBuffer), 16 };
+	stInfos[Lvn_Stype_Shader]           = { Lvn_Stype_Shader, sizeof(LvnShader), 32 };
+	stInfos[Lvn_Stype_DescriptorLayout] = { Lvn_Stype_DescriptorLayout, sizeof(LvnDescriptorLayout), 64 };
+	stInfos[Lvn_Stype_DescriptorSet]    = { Lvn_Stype_DescriptorSet, sizeof(LvnDescriptorSet), 64 };
+	stInfos[Lvn_Stype_Pipeline]         = { Lvn_Stype_Pipeline, sizeof(LvnPipeline), 64 };
+	stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
+	stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
+	stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
+	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
+	stInfos[Lvn_Stype_SoundBoard]       = { Lvn_Stype_SoundBoard, sizeof(LvnSoundBoard), 128 };
+}
+
+static uint64_t getStructTypeSize(LvnStructureType sType)
+{
+	return lvn::getContext()->sTypeMemAllocInfos[sType].size;
+}
+
+static void setStructMemoryBlock(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount)
+{
+	uint64_t memIndex = 0;
+
+	for (uint32_t i = 0; i < structInfoCount; i++)
+	{
+		switch (pStructInfos[i].sType)
+		{
+			case Lvn_Stype_Window:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->windows = LvnMemoryBinding<LvnWindow>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Logger:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->loggers = LvnMemoryBinding<LvnLogger>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_FrameBuffer:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->frameBuffers = LvnMemoryBinding<LvnFrameBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Shader:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->shaders = LvnMemoryBinding<LvnShader>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_DescriptorLayout:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->descriptorLayouts = LvnMemoryBinding<LvnDescriptorLayout>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_DescriptorSet:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->descriptorSets = LvnMemoryBinding<LvnDescriptorSet>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Pipeline:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->pipelines = LvnMemoryBinding<LvnPipeline>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Buffer:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->buffers = LvnMemoryBinding<LvnBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_UniformBuffer:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->uniformBuffers = LvnMemoryBinding<LvnUniformBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Texture:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->textures = LvnMemoryBinding<LvnTexture>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Sound:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->sounds = LvnMemoryBinding<LvnSound>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_SoundBoard:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->soundBoards = LvnMemoryBinding<LvnSoundBoard>(memPool->memBlocks[blockIndex][memIndex], memSize);
+				memIndex += memSize;
+				break;
+			}
+
+			case Lvn_Stype_Undefined: { break; }
+
+			default:
+			{
+				LVN_CORE_ASSERT(false, "unknown structure type enum (%u) when getting type size", pStructInfos[i].sType);
+				break;
+			}
+		}
+	}
+}
+
+static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo)
+{
+	lvnctx->memoryMode = createInfo->memoryInfo.memAllocMode;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { return; }
+
+	// set struct memory configs
+	auto structTypes = lvnctx->sTypeMemAllocInfos;
+	for (uint64_t i = 0; i < createInfo->memoryInfo.memAllocStructInfoCount; i++)
+		structTypes[createInfo->memoryInfo.memAllocStructInfos[i].sType].count = createInfo->memoryInfo.memAllocStructInfos[i].count;
+
+	// get total memory in bytes for memory pool
+	uint64_t memSize = 0;
+	for (uint64_t i = 0; i < structTypes.size(); i++)
+		memSize += lvn::getStructTypeSize(structTypes[i].sType) * structTypes[i].count;
+
+	// create the first memory block
+	LvnMemoryPool* memPool = &lvnctx->memoryPool;
+	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
+
+	lvn::setStructMemoryBlock(memPool, 0, structTypes.data(), structTypes.size());
+
+
+	// set struct block memory configs
+	lvnctx->blockMemAllocInfos = lvnctx->sTypeMemAllocInfos;
+	for (uint64_t i = 0; i < createInfo->memoryInfo.blockMemAllocStructInfoCount; i++)
+		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.blockMemAllocStructInfos[i].sType].count = createInfo->memoryInfo.blockMemAllocStructInfos[i].count;
+
+
+	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom memory bindings created, total memory block size: %zu bytes", createInfo->memoryInfo.memAllocStructInfoCount, memSize);
 }
 
 LvnGraphicsApi getGraphicsApi()
@@ -1754,7 +1921,10 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 		return Lvn_Result_Failure;
 	}
 
-	*shader = new LvnShader();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
+	else if (Lvn_MemAllocMode_MemPool) { *shader = &lvnctx->memoryPool.shaders.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source): (%p)", *shader);
 	return lvnctx->graphicsContext.createShaderFromSrc(*shader, createInfo);
@@ -1776,7 +1946,10 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 		return Lvn_Result_Failure;
 	}
 
-	*shader = new LvnShader();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
+	else if (Lvn_MemAllocMode_MemPool) { *shader = &lvnctx->memoryPool.shaders.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
 	return lvnctx->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
@@ -1798,7 +1971,10 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 		return Lvn_Result_Failure;
 	}
 
-	*shader = new LvnShader();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
+	else if (Lvn_MemAllocMode_MemPool) { *shader = &lvnctx->memoryPool.shaders.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
 	return lvnctx->graphicsContext.createShaderFromFileBin(*shader, createInfo);
@@ -1820,7 +1996,10 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 		return Lvn_Result_Failure;
 	}
 
-	*descriptorLayout = new LvnDescriptorLayout();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *descriptorLayout = new LvnDescriptorLayout(); }
+	else if (Lvn_MemAllocMode_MemPool) { *descriptorLayout = &lvnctx->memoryPool.descriptorLayouts.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.descriptorLayouts++;
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
 	return lvnctx->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
@@ -1830,7 +2009,10 @@ LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLay
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	*descriptorSet = new LvnDescriptorSet();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *descriptorSet = new LvnDescriptorSet(); }
+	else if (Lvn_MemAllocMode_MemPool) { *descriptorSet = &lvnctx->memoryPool.descriptorSets.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.descriptorSets++;
 	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
 	return lvnctx->graphicsContext.createDescriptorSet(*descriptorSet, descriptorLayout);
@@ -1840,7 +2022,10 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	*pipeline = new LvnPipeline();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *pipeline = new LvnPipeline(); }
+	else if (Lvn_MemAllocMode_MemPool) { *pipeline = &lvnctx->memoryPool.pipelines.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.pipelines++;
 	LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
 	return lvnctx->graphicsContext.createPipeline(*pipeline, createInfo);
@@ -1881,7 +2066,10 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 		}
 	}
 
-	*frameBuffer = new LvnFrameBuffer();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *frameBuffer = new LvnFrameBuffer(); }
+	else if (Lvn_MemAllocMode_MemPool) { *frameBuffer = &lvnctx->memoryPool.frameBuffers.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.frameBuffers++;
 	LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
 	return lvnctx->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
@@ -1936,7 +2124,10 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 		}
 	}
 
-	*buffer = new LvnBuffer();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *buffer = new LvnBuffer(); }
+	else if (Lvn_MemAllocMode_MemPool) { *buffer = &lvnctx->memoryPool.buffers.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.buffers++;
 	LVN_CORE_TRACE("created buffer: (%p)", *buffer);
 	return lvnctx->graphicsContext.createBuffer(*buffer, createInfo);
@@ -1958,7 +2149,10 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 		return Lvn_Result_Failure;
 	}
 
-	*uniformBuffer = new LvnUniformBuffer();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *uniformBuffer = new LvnUniformBuffer(); }
+	else if (Lvn_MemAllocMode_MemPool) { *uniformBuffer = &lvnctx->memoryPool.uniformBuffers.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.uniformBuffers++;
 	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
 	return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
@@ -1968,7 +2162,10 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	*texture = new LvnTexture();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *texture = new LvnTexture(); }
+	else if (Lvn_MemAllocMode_MemPool) { *texture = &lvnctx->memoryPool.textures.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.textures++;
 	LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize());
 	return lvnctx->graphicsContext.createTexture(*texture, createInfo);
@@ -2020,7 +2217,10 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	// 	return Lvn_Result_Failure;
 	// }
 
-	*cubemap = new LvnCubemap();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *cubemap = new LvnCubemap(); }
+	else if (Lvn_MemAllocMode_MemPool) { *cubemap = &lvnctx->memoryPool.cubemaps.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	lvnctx->objectMemoryAllocations.cubemaps++;
 	LVN_CORE_TRACE("created cubemap: (%p)", *cubemap);
 	return lvnctx->graphicsContext.createCubemap(*cubemap, createInfo);
@@ -2043,7 +2243,7 @@ void destroyShader(LvnShader* shader)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyShader(shader);
-	delete shader;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete shader; }
 	shader = nullptr;
 	lvnctx->objectMemoryAllocations.shaders--;
 }
@@ -2054,7 +2254,7 @@ void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyDescriptorLayout(descriptorLayout);
-	delete descriptorLayout;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete descriptorLayout; }
 	descriptorLayout = nullptr;
 	lvnctx->objectMemoryAllocations.descriptorLayouts--;
 }
@@ -2065,7 +2265,7 @@ void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
-	delete descriptorSet;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete descriptorSet; }
 	descriptorSet = nullptr;
 	lvnctx->objectMemoryAllocations.descriptorSets--;
 }
@@ -2076,7 +2276,7 @@ void destroyPipeline(LvnPipeline* pipeline)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyPipeline(pipeline);
-	delete pipeline;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete pipeline; }
 	pipeline = nullptr;
 	lvnctx->objectMemoryAllocations.pipelines--;
 }
@@ -2087,7 +2287,7 @@ void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyFrameBuffer(frameBuffer);
-	delete frameBuffer;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete frameBuffer; }
 	frameBuffer = nullptr;
 	lvnctx->objectMemoryAllocations.frameBuffers--;
 }
@@ -2098,7 +2298,7 @@ void destroyBuffer(LvnBuffer* buffer)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyBuffer(buffer);
-	delete buffer;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete buffer; }
 	buffer = nullptr;
 	lvnctx->objectMemoryAllocations.buffers--;
 }
@@ -2109,7 +2309,7 @@ void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyUniformBuffer(uniformBuffer);
-	delete uniformBuffer;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete uniformBuffer; }
 	uniformBuffer = nullptr;
 	lvnctx->objectMemoryAllocations.uniformBuffers--;
 }
@@ -2120,7 +2320,7 @@ void destroyTexture(LvnTexture* texture)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyTexture(texture);
-	delete texture;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete texture; }
 	texture = nullptr;
 	lvnctx->objectMemoryAllocations.textures--;
 }
@@ -2131,7 +2331,7 @@ void destroyCubemap(LvnCubemap* cubemap)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyCubemap(cubemap);
-	delete cubemap;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete cubemap; }
 	cubemap = nullptr;
 	lvnctx->objectMemoryAllocations.cubemaps--;
 }
@@ -2530,7 +2730,10 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	ma_sound_set_pitch(pSound, createInfo->pitch);
 	ma_sound_set_looping(pSound, createInfo->looping);
 
-	*sound = new LvnSound();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *sound = new LvnSound(); }
+	else if (Lvn_MemAllocMode_MemPool) { *sound = &lvnctx->memoryPool.sounds.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	LvnSound* soundPtr = *sound;
 	soundPtr->volume = createInfo->volume;
 	soundPtr->pan = createInfo->pan;
@@ -2555,7 +2758,7 @@ void destroySound(LvnSound* sound)
 	ma_sound_uninit(pSound);
 	lvn::memFree(pSound);
 
-	delete sound;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete sound; }
 	sound = nullptr;
 	lvnctx->objectMemoryAllocations.sounds--;
 }
@@ -2652,7 +2855,10 @@ LvnResult createSoundBoard(LvnSoundBoard** soundBoard)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	*soundBoard = new LvnSoundBoard();
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *soundBoard = new LvnSoundBoard(); }
+	else if (Lvn_MemAllocMode_MemPool) { *soundBoard = &lvnctx->memoryPool.soundBoards.take_next(); }
+	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+
 	LvnSoundBoard* soundBoardPtr = *soundBoard;
 	soundBoardPtr->masterVolume = 1.0f;
 	soundBoardPtr->masterPan = 0.0f;
@@ -2673,7 +2879,7 @@ void destroySoundBoard(LvnSoundBoard* soundBoard)
 		lvn::memFree(soundBoard->sounds[i].soundPtr);
 	}
 
-	delete soundBoard;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete soundBoard; }
 	soundBoard = nullptr;
 	lvnctx->objectMemoryAllocations.soundBoards--;
 }

@@ -26,8 +26,6 @@ namespace lvn
 	bool glfwImplMouseButtonPressed(LvnWindow* window, int button);
 	bool glfwImplMouseButtonReleased(LvnWindow* window, int button);
 
-	void glfwImplSetMousePos(LvnWindow* window, float x, float y);
-
 	LvnPair<float> glfwImplGetMousePos(LvnWindow* window);
 	void glfwImplGetMousePosPtr(LvnWindow* window, float* xpos, float* ypos);
 	float glfwImplGetMouseX(LvnWindow* window);

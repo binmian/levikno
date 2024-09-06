@@ -93,8 +93,6 @@ namespace lvn
 		windowContext->mouseButtonPressed = glfwImplMouseButtonPressed;
 		windowContext->mouseButtonReleased = glfwImplMouseButtonReleased;
 
-		windowContext->setMousePos = glfwImplSetMousePos;
-
 		windowContext->getMousePos = glfwImplGetMousePos;
 		windowContext->getMousePosPtr = glfwImplGetMousePosPtr;
 		windowContext->getMouseX = glfwImplGetMouseX;
@@ -507,12 +505,6 @@ namespace lvn
 		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
 		int state = glfwGetMouseButton(glfwWin, button);
 		return state == GLFW_RELEASE;
-	}
-
-	void glfwImplSetMousePos(LvnWindow* window, float x, float y)
-	{
-		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
-		glfwSetCursorPos(glfwWin, (double)x, (double)y);
 	}
 
 	LvnPair<float> glfwImplGetMousePos(LvnWindow* window)

@@ -3,8 +3,226 @@
 
 #include "levikno.h"
 
-#include <vector>
 #include <unordered_map>
+
+
+template <typename T>
+struct LvnNode
+{
+	T data;
+	LvnNode* next;
+	LvnNode* prev;
+};
+
+template <typename T>
+class LvnList
+{
+private:
+	LvnNode<T>* m_Head;
+	LvnNode<T>* m_Tail;
+	uint32_t m_Size;
+
+public:
+	LvnList() : m_Head(nullptr), m_Tail(nullptr), m_Size(0) {}
+
+	~LvnList()
+	{
+		while (m_Head != nullptr)
+		{
+			LvnNode<T>* node = m_Head;
+			m_Head = node->next;
+			delete node;
+		}
+	}
+
+	T& operator [](uint32_t index)
+	{
+		LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+
+		LvnNode<T>* node = m_Head;
+
+		for (uint32_t i = 0; i < index; i++)
+		{
+			node = node->next;
+		}
+
+		return node->data;
+	}
+	const T& operator [](uint32_t index) const
+	{
+		LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+
+		LvnNode<T>* node = m_Head;
+
+		for (uint32_t i = 0; i < index; i++)
+		{
+			node = node->next;
+		}
+
+		return node->data;
+	}
+
+	uint32_t    size() { return m_Size; }
+	bool        empty() { return m_Size == 0; }
+
+	T&          front() { return m_Head->data; }
+	const T&    front() const { return m_Head->data; }
+
+	T&          back() { return m_Tail->data; }
+	const T&    back() const { return m_Tail->data; }
+
+	void push_back(const T& data)
+	{
+		if (!m_Size)
+		{
+			m_Head = new LvnNode<T>();
+			m_Head->data = data;
+			m_Tail = m_Head;
+			m_Size++;
+			return;
+		}
+
+		LvnNode<T>* node = m_Tail;
+		node->next = new LvnNode<T>();
+		m_Tail = node->next;
+		m_Tail->data = data;
+		m_Tail->prev = node;
+		m_Size++;
+	}
+
+	void push_front(const T& data)
+	{
+		if (!m_Size)
+		{
+			m_Head = new LvnNode<T>();
+			m_Head->data = data;
+			m_Tail = m_Head;
+			m_Size++;
+			return;
+		}
+
+		LvnNode<T>* node = new LvnNode<T>();
+		node->data = data;
+		node->next = m_Head;
+		m_Head->prev = node;
+		m_Head = node;
+		m_Size++;
+	}
+
+	void pop_back()
+	{
+		if (!m_Size) { return; }
+		if (m_Size == 1) { delete m_Tail; m_Tail = m_Head = nullptr; m_Size--; return; }
+
+		LvnNode<T>* node = m_Tail->prev;
+		node->next = nullptr;
+		delete m_Tail;
+		m_Tail = node;
+		m_Size--;
+	}
+
+	void pop_front()
+	{
+		if (!m_Size) { return; }
+		if (m_Size == 1) { delete m_Head; m_Head = m_Tail = nullptr; m_Size--; return; }
+
+		LvnNode<T>* node = m_Head->next;
+		node->prev = nullptr;
+		delete m_Head;
+		m_Head = node;
+		m_Size--;
+	}
+};
+
+template <typename T>
+class LvnMemoryBinding
+{
+private:
+	T* m_Data;
+	uint64_t m_Size, m_Capacity;
+
+public:
+	LvnMemoryBinding() : m_Data(nullptr), m_Size(0), m_Capacity(0) {}
+	LvnMemoryBinding(void* data, uint64_t count) : m_Data(static_cast<T*>(data)), m_Size(0), m_Capacity(count) {}
+
+	LvnMemoryBinding(const LvnMemoryBinding& other)
+	{
+		m_Data = other.m_Data;
+		m_Size = other.m_Size;
+		m_Capacity = other.m_Capacity;
+	}
+
+	LvnMemoryBinding& operator =(const LvnMemoryBinding& other)
+	{
+		m_Data = other.m_Data;
+		m_Size = other.m_Size;
+		m_Capacity = other.m_Capacity;
+
+		return *this;
+	}
+
+	bool full() { return m_Size == m_Capacity; }
+
+	T& take_next()
+	{
+		LVN_CORE_ASSERT(!full(), "cannot take next index, memory binding is full")
+
+		uint64_t index = m_Size;
+		m_Size++;
+		return m_Data[index];
+	}
+};
+
+class LvnMemoryBlock
+{
+private:
+	void* m_Memory;
+	uint64_t m_Size;
+
+public:
+	LvnMemoryBlock() : m_Memory(nullptr), m_Size(0) {}
+
+	LvnMemoryBlock(uint64_t memsize)
+		: m_Size(memsize)
+	{
+		void* memptr = calloc(1, memsize);
+		LVN_CORE_ASSERT(memptr, "malloc failure when allocating memory block");
+		m_Memory = memptr;
+	}
+
+	LvnMemoryBlock(const LvnMemoryBlock& other)
+	{
+		m_Size = other.m_Size;
+		void* memptr = calloc(1, m_Size);
+		LVN_CORE_ASSERT(memptr, "malloc failure when allocating memory block");
+		m_Memory = memptr;
+	}
+
+	LvnMemoryBlock& operator =(const LvnMemoryBlock& other)
+	{
+		m_Size = other.m_Size;
+		void* memptr = calloc(1, m_Size);
+		LVN_CORE_ASSERT(memptr, "malloc failure when allocating memory block");
+		m_Memory = memptr;
+
+		return *this;
+	}
+
+	~LvnMemoryBlock()
+	{
+		free(m_Memory);
+	}
+
+	void* operator [](uint64_t bytes)
+	{
+		LVN_CORE_ASSERT(bytes < m_Size, "memory block byte index out of range");
+
+		return (void*)((uint8_t*)m_Memory + bytes);
+	}
+
+	uint64_t size() { return m_Size; }
+};
+
 
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
@@ -112,8 +330,6 @@ struct LvnWindowContext
 	bool                (*keyReleased)(LvnWindow*, int);
 	bool                (*mouseButtonPressed)(LvnWindow*, int);
 	bool                (*mouseButtonReleased)(LvnWindow*, int);
-
-	void                (*setMousePos)(LvnWindow*, float, float);
 
 	LvnPair<float>      (*getMousePos)(LvnWindow*);
 	void                (*getMousePosPtr)(LvnWindow*, float*, float*);
@@ -308,6 +524,26 @@ struct LvnSoundBoard
 	std::unordered_map<uint32_t, LvnSound> sounds;
 };
 
+struct LvnMemoryPool
+{
+	LvnList<LvnMemoryBlock> memBlocks;
+
+	LvnMemoryBinding<LvnWindow> windows;
+	LvnMemoryBinding<LvnLogger> loggers;
+	LvnMemoryBinding<LvnFrameBuffer> frameBuffers;
+	LvnMemoryBinding<LvnShader> shaders;
+	LvnMemoryBinding<LvnDescriptorLayout> descriptorLayouts;
+	LvnMemoryBinding<LvnDescriptorSet> descriptorSets;
+	LvnMemoryBinding<LvnPipeline> pipelines;
+	LvnMemoryBinding<LvnBuffer> buffers;
+	LvnMemoryBinding<LvnUniformBuffer> uniformBuffers;
+	LvnMemoryBinding<LvnTexture> textures;
+	LvnMemoryBinding<LvnCubemap> cubemaps;
+	LvnMemoryBinding<LvnSound> sounds;
+	LvnMemoryBinding<LvnSoundBoard> soundBoards;
+};
+
+
 struct LvnObjectMemAllocCount
 {
 	uint64_t windows;
@@ -323,6 +559,13 @@ struct LvnObjectMemAllocCount
 	uint64_t cubemaps;
 	uint64_t sounds;
 	uint64_t soundBoards;
+};
+
+struct LvnStructureTypeInfo
+{
+	LvnStructureType sType;
+	uint64_t size;
+	uint64_t count;
 };
 
 struct LvnContext
@@ -343,6 +586,10 @@ struct LvnContext
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	LvnTimer                    contexTime;
+	LvnMemAllocMode             memoryMode;
+	LvnMemoryPool               memoryPool;
+	std::vector<LvnStructureTypeInfo> sTypeMemAllocInfos;
+	std::vector<LvnStructureTypeInfo> blockMemAllocInfos;
 
 	size_t                      numMemoryAllocations;
 	LvnObjectMemAllocCount      objectMemoryAllocations;
