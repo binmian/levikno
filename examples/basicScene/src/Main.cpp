@@ -805,8 +805,6 @@ int main()
 
 		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(1.01f)); // * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 
-		LVN_INFO("x:%f, y:%f, z:%f", camera.orientation.x, camera.orientation.y, camera.orientation.z);
-
 		camera.width = width;
 		camera.height = height;
 

@@ -7,6 +7,9 @@ project(Levikno)
 
 option(LVN_BUILD_EXAMPLES "Build example programs" ON)
 
+# output dirs
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Architecture
 set(LVN_ARCHITEXTURE_TYPE x64)
@@ -29,21 +32,9 @@ else()
 endif()
 
 
-# Subdirectories ---------------------------------------- /
-
-# GLFW
-# set(GLFW_BUILD_WAYLAND 1)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
-
-# freetype
-add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/freetype)
-
 
 # Find VulkanSDK
-set(MIN_VULKAN_VERSION 1.3)
+set(MIN_VULKAN_VERSION 1.2)
 find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
 
 if(Vulkan_FOUND)
@@ -99,7 +90,6 @@ set(LVN_SOURCES
 	src/api/window/glfw/lvn_glfw.h
 
 	# vma
-	src/external/vk_mem_alloc.cpp
 	src/external/vk_mem_alloc.h
 
 	# stb
@@ -116,7 +106,22 @@ set(LVN_SOURCES
 	${LVN_GRAPHICS_SRC}
 )
 
+# library
 add_library(levikno STATIC ${LVN_SOURCES})
+
+if (MSVC)
+	target_compile_options(levikno PRIVATE "/W2")
+elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
+	target_compile_options(levikno PRIVATE "-w")
+endif()
+
+# Subdirectories ---------------------------------------- /
+# GLFW
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
+
+# freetype
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/freetype)
+
 
 target_include_directories(levikno
 	PRIVATE

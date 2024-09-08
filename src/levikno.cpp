@@ -437,15 +437,15 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 		FT_Load_Char(face, i, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT);
 		FT_Bitmap* bmp = &face->glyph->bitmap;
 
-		if (penx + bmp->width >= width)
+		if (penx + bmp->width >= (uint32_t)width)
 		{
 			penx = 0;
 			peny += ((face->size->metrics.height >> 6) + 1);
 		}
 
-		for (unsigned int row = 0; row < bmp->rows; row++)
+		for (uint32_t row = 0; row < bmp->rows; row++)
 		{
-			for (unsigned int col = 0; col < bmp->width; col++)
+			for (uint32_t col = 0; col < bmp->width; col++)
 			{
 				int x = penx + col;
 				int y = peny + row;

@@ -8,6 +8,12 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 
+
+#ifdef LVN_CONFIG_DEBUG
+	#define VMA_ASSERT(expr) (static_cast<bool>(expr) ? void(0) : LVN_CORE_ERROR("[VMA]: " #expr))
+#endif
+
+#define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 #include "lvn_vulkanBackends.h"
 
@@ -58,7 +64,7 @@ namespace vks
 	static LvnResult                            createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
 	static void                                 createRenderPass(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VkFormat format);
 	static VkSurfaceFormatKHR                   chooseSwapSurfaceFormat(VulkanBackends* vkBackends, const VkSurfaceFormatKHR* pAvailableFormats, uint32_t count);
-	static VkPresentModeKHR                     chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count);
+	static VkPresentModeKHR                     chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count, bool vSync);
 	static VkExtent2D                           chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities);
 	static void                                 createSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData, VulkanSwapChainSupportDetails swapChainSupport, VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode, VkExtent2D extent);
 	static VkImageView                          createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
@@ -568,11 +574,13 @@ namespace vks
 		return pAvailableFormats[0];
 	}
 
-	static VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count)
+	static VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR* pAvailablePresentModes, uint32_t count, bool vSync)
 	{
+		VkPresentModeKHR presentMode = vSync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+
 		for (uint32_t i = 0; i < count; i++)
 		{
-			if (pAvailablePresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+			if (pAvailablePresentModes[i] == presentMode)
 			{
 				return pAvailablePresentModes[i];
 			}
@@ -937,6 +945,7 @@ namespace vks
 
 		VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		bool vSync = window->data.vSync;
 
 		vks::cleanSwapChain(vkBackends, surfaceData);
 
@@ -944,7 +953,7 @@ namespace vks
 		LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] physical device does not have swap chain support formats or present modes!");
 
 		VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
-		VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
+		VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size(), vSync);
 		VkExtent2D extent = vks::chooseSwapExtent(glfwWin, &swapChainSupport.capabilities);
 
 		vks::createSwapChain(vkBackends, surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
@@ -1353,20 +1362,6 @@ namespace vks
 		
 		inputAssembly.topology = vks::getVulkanTopologyTypeEnum(pipelineSpecification->inputAssembly.topology);
 		inputAssembly.primitiveRestartEnable = pipelineSpecification->inputAssembly.primitiveRestartEnable;
-		
-		VkViewport viewport{};
-		viewport.x = pipelineSpecification->viewport.x;
-		viewport.y = pipelineSpecification->viewport.y;
-		viewport.width = pipelineSpecification->viewport.width;
-		viewport.height = pipelineSpecification->viewport.height;
-		viewport.minDepth = pipelineSpecification->viewport.minDepth;
-		viewport.maxDepth = pipelineSpecification->viewport.maxDepth;
-
-		VkRect2D scissor{};
-		scissor.offset.x = pipelineSpecification->scissor.offset.x;
-		scissor.offset.y = pipelineSpecification->scissor.offset.y;
-		scissor.extent.width = pipelineSpecification->scissor.extent.width;
-		scissor.extent.height = pipelineSpecification->scissor.extent.height;
 
 		std::vector<VkDynamicState> dynamicStates;
 		dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
@@ -1654,8 +1649,7 @@ namespace vks
 		EShMessages message = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
 		if (!shader.parse(&builtInResources, 100, false, message))
 		{
-			LVN_CORE_ERROR("[glsl] %s", shader.getInfoLog());
-			LVN_CORE_ERROR("[glsl] %s", shader.getInfoDebugLog());
+			LVN_CORE_ERROR("[glsl] %s\nsource code:\n%s", shader.getInfoLog(), shaderSource);
 			return Lvn_Result_Failure;
 		}
 
@@ -1664,8 +1658,7 @@ namespace vks
 
 		if (!program.link(message))
 		{
-			LVN_CORE_ERROR("[glsl] %s", program.getInfoLog());
-			LVN_CORE_ERROR("[glsl] %s", program.getInfoDebugLog());
+			LVN_CORE_ERROR("[glsl] %s\nsource code:\n%s", program.getInfoLog(), shaderSource);
 			return Lvn_Result_Failure;
 		}
 
@@ -1916,8 +1909,9 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
-	window->apiData = new VulkanFrameBufferData();
+	window->apiData = new VulkanWindowSurfaceData();
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+	bool vSync = window->data.vSync;
 
 	LVN_CORE_CALL_ASSERT(glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surfaceData->surface) == VK_SUCCESS, "[vulkan] failed to create temporary window surface at (%p)", surfaceData->surface);
 
@@ -1926,7 +1920,7 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] device does not have supported swap chain formats or present modes");
 
 	VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
-	VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size());
+	VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size(), vSync);
 	VkExtent2D extent = vks::chooseSwapExtent(glfwWindow, &swapChainSupport.capabilities);
 
 	vks::createSwapChain(vkBackends, surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
@@ -1996,7 +1990,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	}
 
 	VulkanBackends* vkBackends = s_VkBackends;
-	LvnContext* lvnctx = lvn::getContext();
 
 	vkBackends->enableValidationLayers = graphicsContext->enableValidationLayers;
 
@@ -2082,7 +2075,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 void vksImplTerminateContext()
 {
 	VulkanBackends* vkBackends = s_VkBackends;
-	LvnContext* lvnctx = getContext();
 
 	if (vkBackends->renderInit)
 	{
@@ -2408,7 +2400,6 @@ void vksImplRenderEndCommandRecording(LvnWindow* window)
 
 void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 {
-	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
 	VkRenderPassBeginInfo renderPassInfo{};
@@ -2440,14 +2431,11 @@ void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 	scissor.offset = {0, 0};
 	scissor.extent = surfaceData->swapChainExtent;
 	vkCmdSetScissor(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &scissor);
-
 }
 
 void vksImplRenderCmdEndRenderPass(LvnWindow* window)
 {
-	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-
 	vkCmdEndRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame]);
 }
 
@@ -2526,8 +2514,6 @@ void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBu
 void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
-
 	vkCmdEndRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame]);
 }
 
@@ -2540,13 +2526,13 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cre
 
 	if (vks::compileShaderToSPIRV(EShLangVertex, createInfo->vertexSrc, vertData) == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p)\nsrc code:\n%s", shader, createInfo->vertexSrc);
+		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p)", shader);
 		return Lvn_Result_Failure;
 	}
 
 	if (vks::compileShaderToSPIRV(EShLangFragment, createInfo->fragmentSrc, fragData) == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p),\nsrc code:\n%s", shader, createInfo->fragmentSrc);
+		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p)", shader);
 		return Lvn_Result_Failure;
 	}
 
@@ -2571,13 +2557,13 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo*
 
 	if (vks::compileShaderToSPIRV(EShLangVertex, fileVertSrc.c_str(), vertData) == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p), filepath: %s\nsrc code:\n%s", shader, createInfo->vertexSrc, fileVertSrc.c_str());
+		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p), filepath: %s", shader, createInfo->vertexSrc);
 		return Lvn_Result_Failure;
 	}
 
 	if (vks::compileShaderToSPIRV(EShLangFragment, fileFragSrc.c_str(), fragData) == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p), filepath: %s\nsrc code:\n%s", shader, createInfo->fragmentSrc, fileFragSrc.c_str());
+		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p), filepath: %s", shader, createInfo->fragmentSrc);
 		return Lvn_Result_Failure;
 	}
 
@@ -3486,8 +3472,6 @@ void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t s
 
 	VulkanBackends* vkBackends = s_VkBackends;
 	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
-
-	VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
 	VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
 
 	void* data;
@@ -3502,8 +3486,6 @@ void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t
 
 	VulkanBackends* vkBackends = s_VkBackends;
 	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
-
-	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
 	VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
 
 	void* data;

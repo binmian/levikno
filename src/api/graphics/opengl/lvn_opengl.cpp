@@ -568,8 +568,7 @@ void oglsImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* 
 		return;
 	}
 
-	LvnPhysicalDevice* physicalDevice = *pPhysicalDevices;
-	physicalDevice = &oglBackends->physicalDevice;
+	*pPhysicalDevices = &oglBackends->physicalDevice;
 }
 
 LvnResult oglsImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
@@ -579,8 +578,6 @@ LvnResult oglsImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 
 LvnResult oglsImplRenderInit(LvnRenderInitInfo* renderBackends)
 {
-	OglBackends* oglBackends = s_OglBackends;
-
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);

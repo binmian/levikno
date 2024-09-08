@@ -5,7 +5,7 @@
 
 bool keyHold(LvnKeyHoldEvent* event, void* userData)
 {
-	LVN_INFO("%s, key: %d, repeat: %b", event->name, event->keyCode, event->repeat);
+	LVN_INFO("%s, key: %d, repeat: %s", event->name, event->keyCode, event->repeat ? "true" : "false");
 	return true;
 }
 
