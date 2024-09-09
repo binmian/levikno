@@ -158,6 +158,7 @@ int main(int argc, char** argv)
 	LvnShader* shader;
 	lvn::createShaderFromSrc(&shader, &shaderCreateInfo); // NOTE: shader is loaded directly from source, the shader source code is taken in as parameter
 
+
 	// load shader from source file
 	LvnShaderCreateInfo shaderFileCreateInfo{};                           // NOTE: filepath to shader source file is taken in as string
 	shaderFileCreateInfo.vertexSrc = "res/shaders/shaderLoading.vert";
@@ -167,6 +168,15 @@ int main(int argc, char** argv)
 	LvnShader* shaderFile;
 	lvn::createShaderFromFileSrc(&shaderFile, &shaderFileCreateInfo);     // NOTE: shader is loaded from external file source, the shader filepath is taken in as parameter
 
+
+	// load shader from binary file
+	LvnShaderCreateInfo shaderBinCreateInfo{};
+	shaderBinCreateInfo.vertexSrc = "res/shaders/shaderLoadingVert.spv";
+	shaderBinCreateInfo.fragmentSrc = "res/shaders/shaderLoadingFrag.spv";
+
+	// create shader from source
+	LvnShader* shaderBin;
+	lvn::createShaderFromFileBin(&shaderBin, &shaderBinCreateInfo);
 
 	// get the render pass from the window to pass into the pipeline
 	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
@@ -181,7 +191,7 @@ int main(int argc, char** argv)
 	pipelineCreateInfo.vertexAttributeCount = 2;
 	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-	pipelineCreateInfo.shader = shader;  // INFO: switch between shader and shaderFile when passing into the pipeline
+	pipelineCreateInfo.shader = shader;  // INFO: switch between shader, shaderFile, or shaderBin when passing into the pipeline
 	pipelineCreateInfo.renderPass = renderPass;
 
 	// create pipeline
@@ -191,6 +201,7 @@ int main(int argc, char** argv)
 	// destroy the shader after creating the pipeline
 	lvn::destroyShader(shader);
 	lvn::destroyShader(shaderFile);
+	lvn::destroyShader(shaderBin);
 
 
 	// [Main Render Loop]

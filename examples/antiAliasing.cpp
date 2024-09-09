@@ -132,6 +132,7 @@ int main(int argc, char** argv)
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+	lvnCreateInfo.memoryInfo.memAllocMode = Lvn_MemAllocMode_MemPool;
 
 	lvn::createContext(&lvnCreateInfo);
 

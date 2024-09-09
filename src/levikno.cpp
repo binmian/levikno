@@ -36,8 +36,8 @@ static void                         enableLogANSIcodeColors();
 static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
-static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
 static const char*                  getWindowApiNameEnum(LvnWindowApi api);
+static const char*                  getGraphicsApiNameEnum(LvnGraphicsApi api);
 static LvnResult                    setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi);
 static void                         terminateWindowContext(LvnContext* lvnctx);
 static LvnResult                    setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsapi);
@@ -47,7 +47,7 @@ static void                         terminateAudioContext(LvnContext* lvnctx);
 static void                         initStandardPipelineSpecification(LvnContext* lvnctx);
 static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
 static uint64_t                     getStructTypeSize(LvnStructureType sType);
-static void                         setStructMemoryBlock(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount);
+static void                         setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount);
 static void                         createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
 
 
@@ -93,6 +93,418 @@ static const char* getLogLevelName(LvnLogLevel level)
 	}
 
 	return nullptr;
+}
+
+static const char* getWindowApiNameEnum(LvnWindowApi api)
+{
+	switch (api)
+	{
+		case Lvn_WindowApi_None:  { return "None";  }
+		case Lvn_WindowApi_glfw:  { return "glfw";  }
+		// case Lvn_WindowApi_win32: { return "win32"; }
+	}
+
+	return LVN_EMPTY_STR;
+}
+
+static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
+{
+	switch (api)
+	{
+		case Lvn_GraphicsApi_None:   { return "None";   }
+		case Lvn_GraphicsApi_vulkan: { return "vulkan"; }
+		case Lvn_GraphicsApi_opengl: { return "opengl"; }
+	}
+
+	return LVN_EMPTY_STR;
+}
+
+static LvnResult setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi)
+{
+	LvnResult result = Lvn_Result_Failure;
+	switch (windowapi)
+	{
+		case Lvn_WindowApi_None:
+		{
+			LVN_CORE_TRACE("no window context selected, window related function calls will not be used");
+			return Lvn_Result_Success;
+		}
+		case Lvn_WindowApi_glfw:
+		{
+			result = glfwImplInitWindowContext(&lvnctx->windowContext);
+			break;
+		}
+		// case Lvn_WindowApi_win32:
+		// {
+		// 	break;
+		// }
+	}
+
+	//windowInputInit();
+
+	if (result != Lvn_Result_Success)
+		LVN_CORE_ERROR("could not create window context for: %s", getWindowApiNameEnum(windowapi));
+	else
+		LVN_CORE_TRACE("window context set: %s", getWindowApiNameEnum(windowapi));
+
+	return result;
+}
+
+static void terminateWindowContext(LvnContext* lvnctx)
+{
+	switch (lvnctx->windowapi)
+	{
+		case Lvn_WindowApi_None:
+		{
+			LVN_CORE_TRACE("no window api selected, no window context to terminate");
+			return;
+		}
+		case Lvn_WindowApi_glfw:
+		{
+			glfwImplTerminateWindowContext();
+			break;
+		}
+		// case Lvn_WindowApi_win32:
+		// {
+		// 	break;
+		// }
+		default:
+		{
+			LVN_CORE_ERROR("unknown windows api selected, cannot terminate window context");
+			return;
+		}
+	}
+
+	LVN_CORE_TRACE("window context terminated: %s", getWindowApiNameEnum(lvnctx->windowapi));
+}
+
+static LvnResult setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsapi)
+{
+	LvnResult result = Lvn_Result_Failure;
+	switch (graphicsapi)
+	{
+		case Lvn_GraphicsApi_None:
+		{
+			LVN_CORE_TRACE("no graphics context selected, graphics related function calls will not be used");
+			return Lvn_Result_Success;
+		}
+		case Lvn_GraphicsApi_vulkan:
+		{
+		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
+			result = vksImplCreateContext(&lvnctx->graphicsContext);
+		#endif
+			break;
+		}
+		case Lvn_GraphicsApi_opengl:
+		{
+			result = oglsImplCreateContext(&lvnctx->graphicsContext);
+			break;
+		}
+	}
+
+	if (result != Lvn_Result_Success)
+		LVN_CORE_ERROR("could not create graphics context for: %s", getGraphicsApiNameEnum(graphicsapi));
+	else
+		LVN_CORE_TRACE("graphics context set: %s", getGraphicsApiNameEnum(graphicsapi));
+
+	return result;
+}
+
+static void terminateGraphicsContext(LvnContext* lvnctx)
+{
+	switch (lvnctx->graphicsapi)
+	{
+		case Lvn_GraphicsApi_None:
+		{
+			LVN_CORE_TRACE("no graphics api selected, no graphics context to terminate");
+			return;
+		}
+		case Lvn_GraphicsApi_vulkan:
+		{
+		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
+			vksImplTerminateContext();
+		#endif
+			break;
+		}
+		case Lvn_GraphicsApi_opengl:
+		{
+			oglsImplTerminateContext();
+			break;
+		}
+		default:
+		{
+			LVN_CORE_ERROR("unknown graphics api selected, cannot terminate graphics context");
+		}
+	}
+
+	LVN_CORE_TRACE("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
+}
+
+static LvnResult initAudioContext(LvnContext* lvnctx)
+{
+	ma_engine* pEngine = (ma_engine*)lvn::memAlloc(sizeof(ma_engine));
+
+	if (ma_engine_init(nullptr, pEngine) != MA_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to initialize audio engine context");
+		return Lvn_Result_Failure;
+	}
+
+	lvnctx->audioEngineContextPtr = pEngine;
+
+	LVN_CORE_TRACE("audio context initialized");
+	return Lvn_Result_Success;
+}
+
+static void terminateAudioContext(LvnContext* lvnctx)
+{
+	if (lvnctx->audioEngineContextPtr != nullptr)
+	{
+		ma_engine_uninit(static_cast<ma_engine*>(lvnctx->audioEngineContextPtr));
+		lvn::memFree(lvnctx->audioEngineContextPtr);
+	}
+
+	LVN_CORE_TRACE("audio context terminated");
+}
+
+static void initStandardPipelineSpecification(LvnContext* lvnctx)
+{
+	LvnPipelineSpecification pipelineSpecification{};
+
+	// Input Assembly
+	pipelineSpecification.inputAssembly.topology = Lvn_TopologyType_Triangle;
+	pipelineSpecification.inputAssembly.primitiveRestartEnable = false;
+
+	// Viewport
+	pipelineSpecification.viewport.x = 0.0f;
+	pipelineSpecification.viewport.y = 0.0f;
+	pipelineSpecification.viewport.width = 800.0f;
+	pipelineSpecification.viewport.height = 600.0f;
+	pipelineSpecification.viewport.minDepth = 0.0f;
+	pipelineSpecification.viewport.maxDepth = 1.0f;
+
+	// Scissor
+	pipelineSpecification.scissor.offset = { 0, 0 };
+	pipelineSpecification.scissor.extent = { 800, 600 };
+
+	// Rasterizer
+	pipelineSpecification.rasterizer.depthClampEnable = false;
+	pipelineSpecification.rasterizer.rasterizerDiscardEnable = false;
+	pipelineSpecification.rasterizer.lineWidth = 1.0f;
+	pipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
+	pipelineSpecification.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
+	pipelineSpecification.rasterizer.depthBiasEnable = false;
+	pipelineSpecification.rasterizer.depthBiasConstantFactor = 0.0f;
+	pipelineSpecification.rasterizer.depthBiasClamp = 0.0f;
+	pipelineSpecification.rasterizer.depthBiasSlopeFactor = 0.0f;
+
+	// MultiSampling
+	pipelineSpecification.multisampling.sampleShadingEnable = false;
+	pipelineSpecification.multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+	pipelineSpecification.multisampling.minSampleShading = 1.0f;
+	pipelineSpecification.multisampling.sampleMask = nullptr;
+	pipelineSpecification.multisampling.alphaToCoverageEnable = false;
+	pipelineSpecification.multisampling.alphaToOneEnable = false;
+
+	// Color Attachments
+	pipelineSpecification.colorBlend.colorBlendAttachmentCount = 0; // If no attachments are provided, an attachment will automatically be created
+	pipelineSpecification.colorBlend.pColorBlendAttachments = nullptr; 
+
+	// Color Blend
+	pipelineSpecification.colorBlend.logicOpEnable = false;
+	pipelineSpecification.colorBlend.blendConstants[0] = 0.0f;
+	pipelineSpecification.colorBlend.blendConstants[1] = 0.0f;
+	pipelineSpecification.colorBlend.blendConstants[2] = 0.0f;
+	pipelineSpecification.colorBlend.blendConstants[3] = 0.0f;
+
+	// Depth Stencil
+	pipelineSpecification.depthstencil.enableDepth = false;
+	pipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOperation_Never;
+	pipelineSpecification.depthstencil.enableStencil = false;
+	pipelineSpecification.depthstencil.stencil.compareMask = 0x00;
+	pipelineSpecification.depthstencil.stencil.writeMask = 0x00;
+	pipelineSpecification.depthstencil.stencil.reference = 0;
+	pipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOperation_Never;
+	pipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOperation_Keep;
+	pipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOperation_Keep;
+	pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
+
+	lvnctx->defaultPipelineSpecification = pipelineSpecification;
+}
+
+static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
+{
+	auto& stInfos = lvnctx->sTypeMemAllocInfos;
+
+	stInfos.resize(Lvn_Stype_MaxType);
+
+	stInfos[Lvn_Stype_Undefined]        = { Lvn_Stype_Undefined, 0, 0 };
+	stInfos[Lvn_Stype_Window]           = { Lvn_Stype_Window, sizeof(LvnWindow), 8 };
+	stInfos[Lvn_Stype_Logger]           = { Lvn_Stype_Logger, sizeof(LvnLogger), 8 };
+	stInfos[Lvn_Stype_FrameBuffer]      = { Lvn_Stype_FrameBuffer, sizeof(LvnFrameBuffer), 16 };
+	stInfos[Lvn_Stype_Shader]           = { Lvn_Stype_Shader, sizeof(LvnShader), 32 };
+	stInfos[Lvn_Stype_DescriptorLayout] = { Lvn_Stype_DescriptorLayout, sizeof(LvnDescriptorLayout), 64 };
+	stInfos[Lvn_Stype_DescriptorSet]    = { Lvn_Stype_DescriptorSet, sizeof(LvnDescriptorSet), 64 };
+	stInfos[Lvn_Stype_Pipeline]         = { Lvn_Stype_Pipeline, sizeof(LvnPipeline), 64 };
+	stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
+	stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
+	stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
+	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
+	stInfos[Lvn_Stype_SoundBoard]       = { Lvn_Stype_SoundBoard, sizeof(LvnSoundBoard), 128 };
+}
+
+static uint64_t getStructTypeSize(LvnStructureType sType)
+{
+	return lvn::getContext()->sTypeMemAllocInfos[sType].size;
+}
+
+static void setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount)
+{
+	uint64_t memIndex = 0;
+
+	for (uint32_t i = 0; i < structInfoCount; i++)
+	{
+		switch (pStructInfos[i].sType)
+		{
+			case Lvn_Stype_Window:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->windows.push_back(LvnMemoryBinding<LvnWindow>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Logger:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->loggers.push_back(LvnMemoryBinding<LvnLogger>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_FrameBuffer:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->frameBuffers.push_back(LvnMemoryBinding<LvnFrameBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Shader:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->shaders.push_back(LvnMemoryBinding<LvnShader>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_DescriptorLayout:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->descriptorLayouts.push_back(LvnMemoryBinding<LvnDescriptorLayout>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_DescriptorSet:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->descriptorSets.push_back(LvnMemoryBinding<LvnDescriptorSet>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Pipeline:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->pipelines.push_back(LvnMemoryBinding<LvnPipeline>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Buffer:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->buffers.push_back(LvnMemoryBinding<LvnBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_UniformBuffer:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->uniformBuffers.push_back(LvnMemoryBinding<LvnUniformBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Texture:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->textures.push_back(LvnMemoryBinding<LvnTexture>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_Sound:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->sounds.push_back(LvnMemoryBinding<LvnSound>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+			case Lvn_Stype_SoundBoard:
+			{
+				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
+				memPool->soundBoards.push_back(LvnMemoryBinding<LvnSoundBoard>(memPool->memBlocks[blockIndex][memIndex], memSize));
+				memIndex += memSize;
+				break;
+			}
+
+			case Lvn_Stype_Undefined: { break; }
+
+			default:
+			{
+				LVN_CORE_ASSERT(false, "unknown structure type enum (%u) when getting type size", pStructInfos[i].sType);
+				break;
+			}
+		}
+	}
+}
+
+static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo)
+{
+	lvnctx->memoryMode = createInfo->memoryInfo.memAllocMode;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { return; }
+
+	// set struct memory configs
+	auto structTypes = lvnctx->sTypeMemAllocInfos;
+	for (uint64_t i = 0; i < createInfo->memoryInfo.memAllocStructInfoCount; i++)
+		structTypes[createInfo->memoryInfo.memAllocStructInfos[i].sType].count = createInfo->memoryInfo.memAllocStructInfos[i].count;
+
+	// get total memory in bytes for memory pool
+	uint64_t memSize = 0;
+	for (uint64_t i = 0; i < structTypes.size(); i++)
+		memSize += lvn::getStructTypeSize(structTypes[i].sType) * structTypes[i].count;
+
+	// create the first memory block
+	LvnMemoryPool* memPool = &lvnctx->memoryPool;
+	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
+
+	lvn::setMemoryBlockBindings(memPool, 0, structTypes.data(), structTypes.size());
+
+
+	// set struct block memory configs
+	lvnctx->blockMemAllocInfos = lvnctx->sTypeMemAllocInfos;
+	for (uint64_t i = 0; i < createInfo->memoryInfo.blockMemAllocStructInfoCount; i++)
+		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.blockMemAllocStructInfos[i].sType].count = createInfo->memoryInfo.blockMemAllocStructInfos[i].count;
+
+
+	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom memory bindings created, total memory block size: %zu bytes", createInfo->memoryInfo.memAllocStructInfoCount, memSize);
+}
+
+static void createBlockMemoryPool(LvnContext* lvnctx)
+{
+	// get total memory in bytes for memory pool
+	uint64_t memSize = 0;
+	for (uint64_t i = 0; i < lvnctx->blockMemAllocInfos.size(); i++)
+		memSize += lvn::getStructTypeSize(lvnctx->blockMemAllocInfos[i].sType) * lvnctx->blockMemAllocInfos[i].count;
+
+	// create the next memory block
+	LvnMemoryPool* memPool = &lvnctx->memoryPool;
+	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
+
+
 }
 
 
@@ -1118,77 +1530,6 @@ bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent
 
 // [SECTION]: Window
 
-static const char* getWindowApiNameEnum(LvnWindowApi api)
-{
-	switch (api)
-	{
-		case Lvn_WindowApi_None:  { return "None";  }
-		case Lvn_WindowApi_glfw:  { return "glfw";  }
-		// case Lvn_WindowApi_win32: { return "win32"; }
-	}
-
-	return LVN_EMPTY_STR;
-}
-
-static LvnResult setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi)
-{
-	LvnResult result = Lvn_Result_Failure;
-	switch (windowapi)
-	{
-		case Lvn_WindowApi_None:
-		{
-			LVN_CORE_TRACE("no window context selected, window related function calls will not be used");
-			return Lvn_Result_Success;
-		}
-		case Lvn_WindowApi_glfw:
-		{
-			result = glfwImplInitWindowContext(&lvnctx->windowContext);
-			break;
-		}
-		// case Lvn_WindowApi_win32:
-		// {
-		// 	break;
-		// }
-	}
-
-	//windowInputInit();
-
-	if (result != Lvn_Result_Success)
-		LVN_CORE_ERROR("could not create window context for: %s", getWindowApiNameEnum(windowapi));
-	else
-		LVN_CORE_TRACE("window context set: %s", getWindowApiNameEnum(windowapi));
-
-	return result;
-}
-
-static void terminateWindowContext(LvnContext* lvnctx)
-{
-	switch (lvnctx->windowapi)
-	{
-		case Lvn_WindowApi_None:
-		{
-			LVN_CORE_TRACE("no window api selected, no window context to terminate");
-			return;
-		}
-		case Lvn_WindowApi_glfw:
-		{
-			glfwImplTerminateWindowContext();
-			break;
-		}
-		// case Lvn_WindowApi_win32:
-		// {
-		// 	break;
-		// }
-		default:
-		{
-			LVN_CORE_ERROR("unknown windows api selected, cannot terminate window context");
-			return;
-		}
-	}
-
-	LVN_CORE_TRACE("window context terminated: %s", getWindowApiNameEnum(lvnctx->windowapi));
-}
-
 LvnWindowApi getWindowApi()
 {
 	return lvn::getContext()->windowapi;
@@ -1218,7 +1559,7 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *window = new LvnWindow(); }
-	else if (Lvn_MemAllocMode_MemPool) { *window = &lvnctx->memoryPool.windows.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *window = lvnctx->memoryPool.windows[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.windows++;
@@ -1364,333 +1705,6 @@ void windowGetSize(LvnWindow* window, int* width, int* height)
 }
 
 // [SECTION]: Graphics
-
-static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
-{
-	switch (api)
-	{
-		case Lvn_GraphicsApi_None:   { return "None";   }
-		case Lvn_GraphicsApi_vulkan: { return "vulkan"; }
-		case Lvn_GraphicsApi_opengl: { return "opengl"; }
-	}
-
-	return LVN_EMPTY_STR;
-}
-
-static LvnResult setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsapi)
-{
-	LvnResult result = Lvn_Result_Failure;
-	switch (graphicsapi)
-	{
-		case Lvn_GraphicsApi_None:
-		{
-			LVN_CORE_TRACE("no graphics context selected, graphics related function calls will not be used");
-			return Lvn_Result_Success;
-		}
-		case Lvn_GraphicsApi_vulkan:
-		{
-		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-			result = vksImplCreateContext(&lvnctx->graphicsContext);
-		#endif
-			break;
-		}
-		case Lvn_GraphicsApi_opengl:
-		{
-			result = oglsImplCreateContext(&lvnctx->graphicsContext);
-			break;
-		}
-	}
-
-	if (result != Lvn_Result_Success)
-		LVN_CORE_ERROR("could not create graphics context for: %s", getGraphicsApiNameEnum(graphicsapi));
-	else
-		LVN_CORE_TRACE("graphics context set: %s", getGraphicsApiNameEnum(graphicsapi));
-
-	return result;
-}
-
-static void terminateGraphicsContext(LvnContext* lvnctx)
-{
-	switch (lvnctx->graphicsapi)
-	{
-		case Lvn_GraphicsApi_None:
-		{
-			LVN_CORE_TRACE("no graphics api selected, no graphics context to terminate");
-			return;
-		}
-		case Lvn_GraphicsApi_vulkan:
-		{
-		#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-			vksImplTerminateContext();
-		#endif
-			break;
-		}
-		case Lvn_GraphicsApi_opengl:
-		{
-			oglsImplTerminateContext();
-			break;
-		}
-		default:
-		{
-			LVN_CORE_ERROR("unknown graphics api selected, cannot terminate graphics context");
-		}
-	}
-
-	LVN_CORE_TRACE("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
-}
-
-static LvnResult initAudioContext(LvnContext* lvnctx)
-{
-	ma_engine* pEngine = (ma_engine*)lvn::memAlloc(sizeof(ma_engine));
-
-	if (ma_engine_init(nullptr, pEngine) != MA_SUCCESS)
-	{
-		LVN_CORE_ERROR("failed to initialize audio engine context");
-		return Lvn_Result_Failure;
-	}
-
-	lvnctx->audioEngineContextPtr = pEngine;
-
-	LVN_CORE_TRACE("audio context initialized");
-	return Lvn_Result_Success;
-}
-
-static void terminateAudioContext(LvnContext* lvnctx)
-{
-	if (lvnctx->audioEngineContextPtr != nullptr)
-	{
-		ma_engine_uninit(static_cast<ma_engine*>(lvnctx->audioEngineContextPtr));
-		lvn::memFree(lvnctx->audioEngineContextPtr);
-	}
-
-	LVN_CORE_TRACE("audio context terminated");
-}
-
-static void initStandardPipelineSpecification(LvnContext* lvnctx)
-{
-	LvnPipelineSpecification pipelineSpecification{};
-
-	// Input Assembly
-	pipelineSpecification.inputAssembly.topology = Lvn_TopologyType_Triangle;
-	pipelineSpecification.inputAssembly.primitiveRestartEnable = false;
-
-	// Viewport
-	pipelineSpecification.viewport.x = 0.0f;
-	pipelineSpecification.viewport.y = 0.0f;
-	pipelineSpecification.viewport.width = 800.0f;
-	pipelineSpecification.viewport.height = 600.0f;
-	pipelineSpecification.viewport.minDepth = 0.0f;
-	pipelineSpecification.viewport.maxDepth = 1.0f;
-
-	// Scissor
-	pipelineSpecification.scissor.offset = { 0, 0 };
-	pipelineSpecification.scissor.extent = { 800, 600 };
-
-	// Rasterizer
-	pipelineSpecification.rasterizer.depthClampEnable = false;
-	pipelineSpecification.rasterizer.rasterizerDiscardEnable = false;
-	pipelineSpecification.rasterizer.lineWidth = 1.0f;
-	pipelineSpecification.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
-	pipelineSpecification.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
-	pipelineSpecification.rasterizer.depthBiasEnable = false;
-	pipelineSpecification.rasterizer.depthBiasConstantFactor = 0.0f;
-	pipelineSpecification.rasterizer.depthBiasClamp = 0.0f;
-	pipelineSpecification.rasterizer.depthBiasSlopeFactor = 0.0f;
-
-	// MultiSampling
-	pipelineSpecification.multisampling.sampleShadingEnable = false;
-	pipelineSpecification.multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
-	pipelineSpecification.multisampling.minSampleShading = 1.0f;
-	pipelineSpecification.multisampling.sampleMask = nullptr;
-	pipelineSpecification.multisampling.alphaToCoverageEnable = false;
-	pipelineSpecification.multisampling.alphaToOneEnable = false;
-
-	// Color Attachments
-	pipelineSpecification.colorBlend.colorBlendAttachmentCount = 0; // If no attachments are provided, an attachment will automatically be created
-	pipelineSpecification.colorBlend.pColorBlendAttachments = nullptr; 
-
-	// Color Blend
-	pipelineSpecification.colorBlend.logicOpEnable = false;
-	pipelineSpecification.colorBlend.blendConstants[0] = 0.0f;
-	pipelineSpecification.colorBlend.blendConstants[1] = 0.0f;
-	pipelineSpecification.colorBlend.blendConstants[2] = 0.0f;
-	pipelineSpecification.colorBlend.blendConstants[3] = 0.0f;
-
-	// Depth Stencil
-	pipelineSpecification.depthstencil.enableDepth = false;
-	pipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOperation_Never;
-	pipelineSpecification.depthstencil.enableStencil = false;
-	pipelineSpecification.depthstencil.stencil.compareMask = 0x00;
-	pipelineSpecification.depthstencil.stencil.writeMask = 0x00;
-	pipelineSpecification.depthstencil.stencil.reference = 0;
-	pipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOperation_Never;
-	pipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOperation_Keep;
-	pipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOperation_Keep;
-	pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
-
-	lvnctx->defaultPipelineSpecification = pipelineSpecification;
-}
-
-static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
-{
-	auto& stInfos = lvnctx->sTypeMemAllocInfos;
-
-	stInfos.resize(Lvn_Stype_MaxType);
-
-	stInfos[Lvn_Stype_Undefined]        = { Lvn_Stype_Undefined, 0, 0 };
-	stInfos[Lvn_Stype_Window]           = { Lvn_Stype_Window, sizeof(LvnWindow), 8 };
-	stInfos[Lvn_Stype_Logger]           = { Lvn_Stype_Logger, sizeof(LvnLogger), 8 };
-	stInfos[Lvn_Stype_FrameBuffer]      = { Lvn_Stype_FrameBuffer, sizeof(LvnFrameBuffer), 16 };
-	stInfos[Lvn_Stype_Shader]           = { Lvn_Stype_Shader, sizeof(LvnShader), 32 };
-	stInfos[Lvn_Stype_DescriptorLayout] = { Lvn_Stype_DescriptorLayout, sizeof(LvnDescriptorLayout), 64 };
-	stInfos[Lvn_Stype_DescriptorSet]    = { Lvn_Stype_DescriptorSet, sizeof(LvnDescriptorSet), 64 };
-	stInfos[Lvn_Stype_Pipeline]         = { Lvn_Stype_Pipeline, sizeof(LvnPipeline), 64 };
-	stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
-	stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
-	stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
-	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
-	stInfos[Lvn_Stype_SoundBoard]       = { Lvn_Stype_SoundBoard, sizeof(LvnSoundBoard), 128 };
-}
-
-static uint64_t getStructTypeSize(LvnStructureType sType)
-{
-	return lvn::getContext()->sTypeMemAllocInfos[sType].size;
-}
-
-static void setStructMemoryBlock(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount)
-{
-	uint64_t memIndex = 0;
-
-	for (uint32_t i = 0; i < structInfoCount; i++)
-	{
-		switch (pStructInfos[i].sType)
-		{
-			case Lvn_Stype_Window:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->windows = LvnMemoryBinding<LvnWindow>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Logger:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->loggers = LvnMemoryBinding<LvnLogger>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_FrameBuffer:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->frameBuffers = LvnMemoryBinding<LvnFrameBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Shader:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->shaders = LvnMemoryBinding<LvnShader>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_DescriptorLayout:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->descriptorLayouts = LvnMemoryBinding<LvnDescriptorLayout>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_DescriptorSet:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->descriptorSets = LvnMemoryBinding<LvnDescriptorSet>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Pipeline:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->pipelines = LvnMemoryBinding<LvnPipeline>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Buffer:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->buffers = LvnMemoryBinding<LvnBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_UniformBuffer:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->uniformBuffers = LvnMemoryBinding<LvnUniformBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Texture:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->textures = LvnMemoryBinding<LvnTexture>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Sound:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->sounds = LvnMemoryBinding<LvnSound>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_SoundBoard:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->soundBoards = LvnMemoryBinding<LvnSoundBoard>(memPool->memBlocks[blockIndex][memIndex], memSize);
-				memIndex += memSize;
-				break;
-			}
-
-			case Lvn_Stype_Undefined: { break; }
-
-			default:
-			{
-				LVN_CORE_ASSERT(false, "unknown structure type enum (%u) when getting type size", pStructInfos[i].sType);
-				break;
-			}
-		}
-	}
-}
-
-static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo)
-{
-	lvnctx->memoryMode = createInfo->memoryInfo.memAllocMode;
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { return; }
-
-	// set struct memory configs
-	auto structTypes = lvnctx->sTypeMemAllocInfos;
-	for (uint64_t i = 0; i < createInfo->memoryInfo.memAllocStructInfoCount; i++)
-		structTypes[createInfo->memoryInfo.memAllocStructInfos[i].sType].count = createInfo->memoryInfo.memAllocStructInfos[i].count;
-
-	// get total memory in bytes for memory pool
-	uint64_t memSize = 0;
-	for (uint64_t i = 0; i < structTypes.size(); i++)
-		memSize += lvn::getStructTypeSize(structTypes[i].sType) * structTypes[i].count;
-
-	// create the first memory block
-	LvnMemoryPool* memPool = &lvnctx->memoryPool;
-	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
-
-	lvn::setStructMemoryBlock(memPool, 0, structTypes.data(), structTypes.size());
-
-
-	// set struct block memory configs
-	lvnctx->blockMemAllocInfos = lvnctx->sTypeMemAllocInfos;
-	for (uint64_t i = 0; i < createInfo->memoryInfo.blockMemAllocStructInfoCount; i++)
-		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.blockMemAllocStructInfos[i].sType].count = createInfo->memoryInfo.blockMemAllocStructInfos[i].count;
-
-
-	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom memory bindings created, total memory block size: %zu bytes", createInfo->memoryInfo.memAllocStructInfoCount, memSize);
-}
 
 LvnGraphicsApi getGraphicsApi()
 {
@@ -1922,7 +1936,7 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
-	else if (Lvn_MemAllocMode_MemPool) { *shader = &lvnctx->memoryPool.shaders.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *shader = lvnctx->memoryPool.shaders[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.shaders++;
@@ -1947,7 +1961,7 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
-	else if (Lvn_MemAllocMode_MemPool) { *shader = &lvnctx->memoryPool.shaders.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *shader = lvnctx->memoryPool.shaders[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.shaders++;
@@ -1972,7 +1986,7 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
-	else if (Lvn_MemAllocMode_MemPool) { *shader = &lvnctx->memoryPool.shaders.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *shader = lvnctx->memoryPool.shaders[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.shaders++;
@@ -1997,7 +2011,7 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *descriptorLayout = new LvnDescriptorLayout(); }
-	else if (Lvn_MemAllocMode_MemPool) { *descriptorLayout = &lvnctx->memoryPool.descriptorLayouts.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *descriptorLayout = lvnctx->memoryPool.descriptorLayouts[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.descriptorLayouts++;
@@ -2010,7 +2024,7 @@ LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLay
 	LvnContext* lvnctx = lvn::getContext();
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *descriptorSet = new LvnDescriptorSet(); }
-	else if (Lvn_MemAllocMode_MemPool) { *descriptorSet = &lvnctx->memoryPool.descriptorSets.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *descriptorSet = lvnctx->memoryPool.descriptorSets[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.descriptorSets++;
@@ -2023,7 +2037,7 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 	LvnContext* lvnctx = lvn::getContext();
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *pipeline = new LvnPipeline(); }
-	else if (Lvn_MemAllocMode_MemPool) { *pipeline = &lvnctx->memoryPool.pipelines.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *pipeline = lvnctx->memoryPool.pipelines[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.pipelines++;
@@ -2067,7 +2081,7 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *frameBuffer = new LvnFrameBuffer(); }
-	else if (Lvn_MemAllocMode_MemPool) { *frameBuffer = &lvnctx->memoryPool.frameBuffers.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *frameBuffer = lvnctx->memoryPool.frameBuffers[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.frameBuffers++;
@@ -2125,7 +2139,7 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *buffer = new LvnBuffer(); }
-	else if (Lvn_MemAllocMode_MemPool) { *buffer = &lvnctx->memoryPool.buffers.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *buffer = lvnctx->memoryPool.buffers[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.buffers++;
@@ -2150,7 +2164,7 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *uniformBuffer = new LvnUniformBuffer(); }
-	else if (Lvn_MemAllocMode_MemPool) { *uniformBuffer = &lvnctx->memoryPool.uniformBuffers.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *uniformBuffer = lvnctx->memoryPool.uniformBuffers[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.uniformBuffers++;
@@ -2163,7 +2177,7 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 	LvnContext* lvnctx = lvn::getContext();
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *texture = new LvnTexture(); }
-	else if (Lvn_MemAllocMode_MemPool) { *texture = &lvnctx->memoryPool.textures.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *texture = lvnctx->memoryPool.textures[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.textures++;
@@ -2218,7 +2232,7 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	// }
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *cubemap = new LvnCubemap(); }
-	else if (Lvn_MemAllocMode_MemPool) { *cubemap = &lvnctx->memoryPool.cubemaps.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *cubemap = lvnctx->memoryPool.cubemaps[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	lvnctx->objectMemoryAllocations.cubemaps++;
@@ -2731,7 +2745,7 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	ma_sound_set_looping(pSound, createInfo->looping);
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *sound = new LvnSound(); }
-	else if (Lvn_MemAllocMode_MemPool) { *sound = &lvnctx->memoryPool.sounds.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *sound = lvnctx->memoryPool.sounds[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	LvnSound* soundPtr = *sound;
@@ -2856,7 +2870,7 @@ LvnResult createSoundBoard(LvnSoundBoard** soundBoard)
 	LvnContext* lvnctx = lvn::getContext();
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *soundBoard = new LvnSoundBoard(); }
-	else if (Lvn_MemAllocMode_MemPool) { *soundBoard = &lvnctx->memoryPool.soundBoards.take_next(); }
+	else if (Lvn_MemAllocMode_MemPool) { *soundBoard = lvnctx->memoryPool.soundBoards[0].take_next(); }
 	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
 
 	LvnSoundBoard* soundBoardPtr = *soundBoard;

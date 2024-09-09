@@ -1515,7 +1515,7 @@ namespace vks
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = size * 4; // convert uint32_t to 4 * uint8_t (4 bytes per uint32_t)
+		createInfo.codeSize = size;
 		createInfo.pCode = code;
 		
 		VkShaderModule shaderModule;
@@ -2536,8 +2536,8 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cre
 		return Lvn_Result_Failure;
 	}
 
-	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size());
-	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size());
+	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size() * 4);
+	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size() * 4);
 
 	shader->nativeVertexShaderModule = vertShaderModule;
 	shader->nativeFragmentShaderModule = fragShaderModule;
@@ -2567,8 +2567,8 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo*
 		return Lvn_Result_Failure;
 	}
 
-	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size());
-	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size());
+	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size() * 4);
+	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size() * 4);
 
 	shader->nativeVertexShaderModule = vertShaderModule;
 	shader->nativeFragmentShaderModule = fragShaderModule;
@@ -2583,8 +2583,8 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo*
 	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc);
 	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc);
 
-	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, (uint32_t*)vertbin.data(), vertbin.size());
-	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, (uint32_t*)fragbin.data(), fragbin.size());
+	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, reinterpret_cast<const uint32_t*>(vertbin.data()), vertbin.size());
+	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, reinterpret_cast<const uint32_t*>(fragbin.data()), fragbin.size());
 
 	shader->nativeVertexShaderModule = vertShaderModule;
 	shader->nativeFragmentShaderModule = fragShaderModule;

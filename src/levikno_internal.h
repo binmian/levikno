@@ -134,44 +134,6 @@ public:
 	}
 };
 
-template <typename T>
-class LvnMemoryBinding
-{
-private:
-	T* m_Data;
-	uint64_t m_Size, m_Capacity;
-
-public:
-	LvnMemoryBinding() : m_Data(nullptr), m_Size(0), m_Capacity(0) {}
-	LvnMemoryBinding(void* data, uint64_t count) : m_Data(static_cast<T*>(data)), m_Size(0), m_Capacity(count) {}
-
-	LvnMemoryBinding(const LvnMemoryBinding& other)
-	{
-		m_Data = other.m_Data;
-		m_Size = other.m_Size;
-		m_Capacity = other.m_Capacity;
-	}
-
-	LvnMemoryBinding& operator =(const LvnMemoryBinding& other)
-	{
-		m_Data = other.m_Data;
-		m_Size = other.m_Size;
-		m_Capacity = other.m_Capacity;
-
-		return *this;
-	}
-
-	bool full() { return m_Size == m_Capacity; }
-
-	T& take_next()
-	{
-		LVN_CORE_ASSERT(!full(), "cannot take next index, memory binding is full")
-
-		uint64_t index = m_Size;
-		m_Size++;
-		return m_Data[index];
-	}
-};
 
 class LvnMemoryBlock
 {
@@ -221,6 +183,71 @@ public:
 	}
 
 	uint64_t size() { return m_Size; }
+};
+template <typename T>
+class LvnMemoryBinding
+{
+private:
+	T* m_Data;
+	uint64_t m_Size, m_Capacity;
+	std::queue<T*> m_Available;
+
+	LvnMemoryBinding* m_Next;
+
+public:
+	LvnMemoryBinding() : m_Data(nullptr), m_Size(0), m_Capacity(0), m_Next(nullptr) {}
+	LvnMemoryBinding(void* data, uint64_t count) : m_Data(static_cast<T*>(data)), m_Size(0), m_Capacity(count), m_Next(nullptr) {}
+
+	LvnMemoryBinding(const LvnMemoryBinding& other)
+	{
+		m_Data = other.m_Data;
+		m_Size = other.m_Size;
+		m_Capacity = other.m_Capacity;
+		m_Next = other.m_Next;
+	}
+
+	LvnMemoryBinding& operator =(const LvnMemoryBinding& other)
+	{
+		m_Data = other.m_Data;
+		m_Size = other.m_Size;
+		m_Capacity = other.m_Capacity;
+		m_Next = other.m_Next;
+
+		return *this;
+	}
+
+	void set_next_memory_binding(LvnMemoryBinding* next)
+	{
+		m_Next = next;
+	}
+
+	bool full() { return m_Size == m_Capacity; }
+
+	T* take_next()
+	{
+		if (full()) // current memory block is full, get next memory block
+		{
+			return m_Next->take_next();
+		}
+
+		if (!m_Available.empty())
+		{
+			m_Size++;
+			T* value = m_Available.front();
+			m_Available.pop();
+			return value;
+		}
+
+		uint64_t index = m_Size;
+		m_Size++;
+		return &m_Data[index];
+	}
+
+	void push_back(T* value)
+	{
+		m_Size--;
+		m_Available.push(value);
+	}
 };
 
 
@@ -528,19 +555,19 @@ struct LvnMemoryPool
 {
 	LvnList<LvnMemoryBlock> memBlocks;
 
-	LvnMemoryBinding<LvnWindow> windows;
-	LvnMemoryBinding<LvnLogger> loggers;
-	LvnMemoryBinding<LvnFrameBuffer> frameBuffers;
-	LvnMemoryBinding<LvnShader> shaders;
-	LvnMemoryBinding<LvnDescriptorLayout> descriptorLayouts;
-	LvnMemoryBinding<LvnDescriptorSet> descriptorSets;
-	LvnMemoryBinding<LvnPipeline> pipelines;
-	LvnMemoryBinding<LvnBuffer> buffers;
-	LvnMemoryBinding<LvnUniformBuffer> uniformBuffers;
-	LvnMemoryBinding<LvnTexture> textures;
-	LvnMemoryBinding<LvnCubemap> cubemaps;
-	LvnMemoryBinding<LvnSound> sounds;
-	LvnMemoryBinding<LvnSoundBoard> soundBoards;
+	LvnList<LvnMemoryBinding<LvnWindow>> windows;
+	LvnList<LvnMemoryBinding<LvnLogger>> loggers;
+	LvnList<LvnMemoryBinding<LvnFrameBuffer>> frameBuffers;
+	LvnList<LvnMemoryBinding<LvnShader>> shaders;
+	LvnList<LvnMemoryBinding<LvnDescriptorLayout>> descriptorLayouts;
+	LvnList<LvnMemoryBinding<LvnDescriptorSet>> descriptorSets;
+	LvnList<LvnMemoryBinding<LvnPipeline>> pipelines;
+	LvnList<LvnMemoryBinding<LvnBuffer>> buffers;
+	LvnList<LvnMemoryBinding<LvnUniformBuffer>> uniformBuffers;
+	LvnList<LvnMemoryBinding<LvnTexture>> textures;
+	LvnList<LvnMemoryBinding<LvnCubemap>> cubemaps;
+	LvnList<LvnMemoryBinding<LvnSound>> sounds;
+	LvnList<LvnMemoryBinding<LvnSoundBoard>> soundBoards;
 };
 
 
