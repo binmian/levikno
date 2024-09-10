@@ -132,7 +132,6 @@ int main(int argc, char** argv)
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-	lvnCreateInfo.memoryInfo.memAllocMode = Lvn_MemAllocMode_MemPool;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -208,7 +207,7 @@ int main(int argc, char** argv)
 
 	// [Create texture]
 	// load image data
-	LvnImageData imageData = lvn::loadImageData("res/images/woodBox.jpg", 4, true);
+	LvnImageData imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/woodBox.jpg", 4, true);
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};

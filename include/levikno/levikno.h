@@ -250,6 +250,7 @@ enum LvnStructureType
 	Lvn_Stype_Buffer,
 	Lvn_Stype_UniformBuffer,
 	Lvn_Stype_Texture,
+	Lvn_Stype_Cubemap,
 	Lvn_Stype_Sound,
 	Lvn_Stype_SoundBoard,
 
@@ -750,7 +751,7 @@ struct LvnLoggerCreateInfo;
 struct LvnLogMessage;
 struct LvnLogPattern;
 struct LvnMaterial;
-struct LvnMemAllocStructInfo;
+struct LvnMemoryBindingInfo;
 struct LvnMesh;
 struct LvnMeshCreateInfo;
 struct LvnMeshTextureBindings;
@@ -1734,7 +1735,7 @@ namespace lvn
 
 /* [Core Struct Implementaion] */
 
-struct LvnMemAllocStructInfo
+struct LvnMemoryBindingInfo
 {
 	LvnStructureType sType;
 	uint64_t count;
@@ -1742,28 +1743,28 @@ struct LvnMemAllocStructInfo
 
 struct LvnContextCreateInfo
 {
-	const char*               applicationName;               // name of application or program
-	LvnWindowApi              windowapi;                     // window api to use when creating windows
-	LvnGraphicsApi            graphicsapi;                   // graphics api to use when rendering (eg. vulkan, opengl)
+	const char*                   applicationName;               // name of application or program
+	LvnWindowApi                  windowapi;                     // window api to use when creating windows
+	LvnGraphicsApi                graphicsapi;                   // graphics api to use when rendering (eg. vulkan, opengl)
 
 	struct
 	{
 		bool                      enableLogging;                 // enable or diable logging
 		bool                      disableCoreLogging;            // whether to disable core logging in the library
 		bool                      enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
-	}                         logging;
+	}                             logging;
 
-	LvnTextureFormat          frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
-	LvnClipRegion             matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
+	LvnTextureFormat              frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
+	LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
 	
 	struct
 	{
 		LvnMemAllocMode           memAllocMode;                  // memory allocation mode, how memory should be allocated when creating new object
-		LvnMemAllocStructInfo*    memAllocStructInfos;           // array of object alloc info structs to tell how many objects of each type to allocate if using memory pool
-		uint32_t                  memAllocStructInfoCount;       // number of object alloc inso structs;
-		LvnMemAllocStructInfo*    blockMemAllocStructInfos;      // array of objects alloc info structs of each type to allocate for further memory blocks in case if the first block is full
-		uint32_t                  blockMemAllocStructInfoCount;  // number of block object alloc info structs
-	}                          memoryInfo;
+		LvnMemoryBindingInfo*     memoryBindings;                // array of object alloc info structs to tell how many objects of each type to allocate if using memory pool
+		uint32_t                  memoryBindingCount;            // number of object alloc inso structs;
+		LvnMemoryBindingInfo*     blockMemoryBindings;           // array of objects alloc info structs of each type to allocate for further memory blocks in case if the first block is full
+		uint32_t                  blockMemoryBindingCount;       // number of block object alloc info structs
+	}                             memoryInfo;
 };
 
 /* [Logging] */

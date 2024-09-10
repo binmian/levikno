@@ -184,46 +184,25 @@ public:
 
 	uint64_t size() { return m_Size; }
 };
-template <typename T>
+
 class LvnMemoryBinding
 {
 private:
-	T* m_Data;
-	uint64_t m_Size, m_Capacity;
-	std::queue<T*> m_Available;
+	void* m_Data;
+	uint64_t m_ObjSize, m_Size, m_Capacity;
+	std::queue<void*> m_Available;
 
 	LvnMemoryBinding* m_Next;
 
 public:
-	LvnMemoryBinding() : m_Data(nullptr), m_Size(0), m_Capacity(0), m_Next(nullptr) {}
-	LvnMemoryBinding(void* data, uint64_t count) : m_Data(static_cast<T*>(data)), m_Size(0), m_Capacity(count), m_Next(nullptr) {}
+	LvnMemoryBinding() : m_Data(nullptr), m_ObjSize(0), m_Size(0), m_Capacity(0), m_Next(nullptr) {}
+	LvnMemoryBinding(void* data, uint64_t objSize, uint64_t count) : m_Data(data), m_ObjSize(objSize), m_Size(0), m_Capacity(count), m_Next(nullptr) {}
 
-	LvnMemoryBinding(const LvnMemoryBinding& other)
-	{
-		m_Data = other.m_Data;
-		m_Size = other.m_Size;
-		m_Capacity = other.m_Capacity;
-		m_Next = other.m_Next;
-	}
+	void                 set_next_memory_binding(LvnMemoryBinding* next) { m_Next = next; }
+	LvnMemoryBinding*    get_next_memory_binding() { return m_Next; }
+	bool                 full() { return m_Size == m_Capacity; }
 
-	LvnMemoryBinding& operator =(const LvnMemoryBinding& other)
-	{
-		m_Data = other.m_Data;
-		m_Size = other.m_Size;
-		m_Capacity = other.m_Capacity;
-		m_Next = other.m_Next;
-
-		return *this;
-	}
-
-	void set_next_memory_binding(LvnMemoryBinding* next)
-	{
-		m_Next = next;
-	}
-
-	bool full() { return m_Size == m_Capacity; }
-
-	T* take_next()
+	void* take_next()
 	{
 		if (full()) // current memory block is full, get next memory block
 		{
@@ -233,17 +212,17 @@ public:
 		if (!m_Available.empty())
 		{
 			m_Size++;
-			T* value = m_Available.front();
+			void* value = m_Available.front();
 			m_Available.pop();
 			return value;
 		}
 
 		uint64_t index = m_Size;
 		m_Size++;
-		return &m_Data[index];
+		return &static_cast<uint8_t*>(m_Data)[index * m_ObjSize];
 	}
 
-	void push_back(T* value)
+	void push_back(void* value)
 	{
 		m_Size--;
 		m_Available.push(value);
@@ -555,19 +534,7 @@ struct LvnMemoryPool
 {
 	LvnList<LvnMemoryBlock> memBlocks;
 
-	LvnList<LvnMemoryBinding<LvnWindow>> windows;
-	LvnList<LvnMemoryBinding<LvnLogger>> loggers;
-	LvnList<LvnMemoryBinding<LvnFrameBuffer>> frameBuffers;
-	LvnList<LvnMemoryBinding<LvnShader>> shaders;
-	LvnList<LvnMemoryBinding<LvnDescriptorLayout>> descriptorLayouts;
-	LvnList<LvnMemoryBinding<LvnDescriptorSet>> descriptorSets;
-	LvnList<LvnMemoryBinding<LvnPipeline>> pipelines;
-	LvnList<LvnMemoryBinding<LvnBuffer>> buffers;
-	LvnList<LvnMemoryBinding<LvnUniformBuffer>> uniformBuffers;
-	LvnList<LvnMemoryBinding<LvnTexture>> textures;
-	LvnList<LvnMemoryBinding<LvnCubemap>> cubemaps;
-	LvnList<LvnMemoryBinding<LvnSound>> sounds;
-	LvnList<LvnMemoryBinding<LvnSoundBoard>> soundBoards;
+	std::vector<LvnList<LvnMemoryBinding>> memBindings;
 };
 
 
@@ -617,6 +584,7 @@ struct LvnContext
 	LvnMemoryPool               memoryPool;
 	std::vector<LvnStructureTypeInfo> sTypeMemAllocInfos;
 	std::vector<LvnStructureTypeInfo> blockMemAllocInfos;
+	uint64_t                    blockMemSize;
 
 	size_t                      numMemoryAllocations;
 	LvnObjectMemAllocCount      objectMemoryAllocations;

@@ -49,6 +49,10 @@ static void                         setDefaultStructTypeMemAllocInfos(LvnContext
 static uint64_t                     getStructTypeSize(LvnStructureType sType);
 static void                         setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount);
 static void                         createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
+static void                         createBlockMemoryPool(LvnContext* lvnctx);
+
+template <typename T>
+T* createObject(LvnContext* lvnctx, LvnStructureType sType);
 
 
 static void enableLogANSIcodeColors()
@@ -349,6 +353,7 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 	stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
 	stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
 	stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
+	stInfos[Lvn_Stype_Cubemap]          = { Lvn_Stype_Cubemap, sizeof(LvnCubemap), 256 };
 	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
 	stInfos[Lvn_Stype_SoundBoard]       = { Lvn_Stype_SoundBoard, sizeof(LvnSoundBoard), 128 };
 }
@@ -364,101 +369,18 @@ static void setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, 
 
 	for (uint32_t i = 0; i < structInfoCount; i++)
 	{
-		switch (pStructInfos[i].sType)
-		{
-			case Lvn_Stype_Window:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->windows.push_back(LvnMemoryBinding<LvnWindow>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Logger:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->loggers.push_back(LvnMemoryBinding<LvnLogger>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_FrameBuffer:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->frameBuffers.push_back(LvnMemoryBinding<LvnFrameBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Shader:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->shaders.push_back(LvnMemoryBinding<LvnShader>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_DescriptorLayout:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->descriptorLayouts.push_back(LvnMemoryBinding<LvnDescriptorLayout>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_DescriptorSet:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->descriptorSets.push_back(LvnMemoryBinding<LvnDescriptorSet>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Pipeline:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->pipelines.push_back(LvnMemoryBinding<LvnPipeline>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Buffer:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->buffers.push_back(LvnMemoryBinding<LvnBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_UniformBuffer:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->uniformBuffers.push_back(LvnMemoryBinding<LvnUniformBuffer>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Texture:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->textures.push_back(LvnMemoryBinding<LvnTexture>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_Sound:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->sounds.push_back(LvnMemoryBinding<LvnSound>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
-			case Lvn_Stype_SoundBoard:
-			{
-				uint64_t memSize = lvn::getStructTypeSize(pStructInfos[i].sType) * pStructInfos[i].count;
-				memPool->soundBoards.push_back(LvnMemoryBinding<LvnSoundBoard>(memPool->memBlocks[blockIndex][memIndex], memSize));
-				memIndex += memSize;
-				break;
-			}
+		auto& memBinding = memPool->memBindings[pStructInfos[i].sType];
 
-			case Lvn_Stype_Undefined: { break; }
+		LvnMemoryBinding* prevMemBinding = nullptr;
+		if (!memBinding.empty())
+			prevMemBinding = &memBinding.back();
 
-			default:
-			{
-				LVN_CORE_ASSERT(false, "unknown structure type enum (%u) when getting type size", pStructInfos[i].sType);
-				break;
-			}
-		}
+		uint64_t count = pStructInfos[i].count;
+		memBinding.push_back(LvnMemoryBinding(memPool->memBlocks[blockIndex][memIndex], pStructInfos[i].size, count));
+		memIndex += count * pStructInfos[i].size;
+
+		if (prevMemBinding != nullptr)
+			prevMemBinding->set_next_memory_binding(&memBinding.back());
 	}
 }
 
@@ -469,8 +391,8 @@ static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* cr
 
 	// set struct memory configs
 	auto structTypes = lvnctx->sTypeMemAllocInfos;
-	for (uint64_t i = 0; i < createInfo->memoryInfo.memAllocStructInfoCount; i++)
-		structTypes[createInfo->memoryInfo.memAllocStructInfos[i].sType].count = createInfo->memoryInfo.memAllocStructInfos[i].count;
+	for (uint64_t i = 0; i < createInfo->memoryInfo.memoryBindingCount; i++)
+		structTypes[createInfo->memoryInfo.memoryBindings[i].sType].count = createInfo->memoryInfo.memoryBindings[i].count;
 
 	// get total memory in bytes for memory pool
 	uint64_t memSize = 0;
@@ -481,32 +403,56 @@ static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* cr
 	LvnMemoryPool* memPool = &lvnctx->memoryPool;
 	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
 
+	memPool->memBindings.resize(Lvn_Stype_MaxType);
 	lvn::setMemoryBlockBindings(memPool, 0, structTypes.data(), structTypes.size());
 
 
 	// set struct block memory configs
 	lvnctx->blockMemAllocInfos = lvnctx->sTypeMemAllocInfos;
-	for (uint64_t i = 0; i < createInfo->memoryInfo.blockMemAllocStructInfoCount; i++)
-		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.blockMemAllocStructInfos[i].sType].count = createInfo->memoryInfo.blockMemAllocStructInfos[i].count;
+	for (uint64_t i = 0; i < createInfo->memoryInfo.blockMemoryBindingCount; i++)
+		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.blockMemoryBindings[i].sType].count = createInfo->memoryInfo.blockMemoryBindings[i].count;
+
+	// get total memory in bytes for memory pool
+	lvnctx->blockMemSize = 0;
+	for (uint64_t i = 0; i < lvnctx->blockMemAllocInfos.size(); i++)
+		lvnctx->blockMemSize += lvnctx->blockMemAllocInfos[i].size * lvnctx->blockMemAllocInfos[i].count;
 
 
-	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom memory bindings created, total memory block size: %zu bytes", createInfo->memoryInfo.memAllocStructInfoCount, memSize);
+	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom memory bindings created, total memory block size: %zu bytes", createInfo->memoryInfo.memoryBindingCount, memSize);
 }
 
 static void createBlockMemoryPool(LvnContext* lvnctx)
 {
-	// get total memory in bytes for memory pool
-	uint64_t memSize = 0;
-	for (uint64_t i = 0; i < lvnctx->blockMemAllocInfos.size(); i++)
-		memSize += lvn::getStructTypeSize(lvnctx->blockMemAllocInfos[i].sType) * lvnctx->blockMemAllocInfos[i].count;
-
 	// create the next memory block
 	LvnMemoryPool* memPool = &lvnctx->memoryPool;
-	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
+	memPool->memBlocks.push_back(LvnMemoryBlock(lvnctx->blockMemSize));
 
-
+	lvn::setMemoryBlockBindings(memPool, memPool->memBlocks.size() - 1, lvnctx->blockMemAllocInfos.data(), lvnctx->blockMemAllocInfos.size());
 }
 
+template <typename T>
+T* createObject(LvnContext* lvnctx, LvnStructureType sType)
+{
+	T* object;
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
+	{
+		object = new T();
+	}
+	else if (Lvn_MemAllocMode_MemPool)
+	{
+		auto& memBinding = lvnctx->memoryPool.memBindings[sType][0];
+		if (memBinding.full() && memBinding.get_next_memory_binding() == nullptr)
+			lvn::createBlockMemoryPool(lvnctx);
+
+		object = static_cast<T*>(memBinding.take_next());
+	}
+	else
+	{
+		LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return nullptr;
+	}
+
+	return object;
+}
 
 /* [SECTION]: Core */
 LvnResult createContext(LvnContextCreateInfo* createInfo)
@@ -1558,9 +1504,7 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 		return Lvn_Result_Failure;
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *window = new LvnWindow(); }
-	else if (Lvn_MemAllocMode_MemPool) { *window = lvnctx->memoryPool.windows[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*window = lvn::createObject<LvnWindow>(lvnctx, Lvn_Stype_Window);
 
 	lvnctx->objectMemoryAllocations.windows++;
 	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title, createInfo->width, createInfo->height);
@@ -1935,9 +1879,7 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 		return Lvn_Result_Failure;
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
-	else if (Lvn_MemAllocMode_MemPool) { *shader = lvnctx->memoryPool.shaders[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
 	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source): (%p)", *shader);
@@ -1960,9 +1902,7 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 		return Lvn_Result_Failure;
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
-	else if (Lvn_MemAllocMode_MemPool) { *shader = lvnctx->memoryPool.shaders[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
 	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
@@ -1985,9 +1925,7 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 		return Lvn_Result_Failure;
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *shader = new LvnShader(); }
-	else if (Lvn_MemAllocMode_MemPool) { *shader = lvnctx->memoryPool.shaders[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
 	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
@@ -2010,9 +1948,7 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 		return Lvn_Result_Failure;
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *descriptorLayout = new LvnDescriptorLayout(); }
-	else if (Lvn_MemAllocMode_MemPool) { *descriptorLayout = lvnctx->memoryPool.descriptorLayouts[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*descriptorLayout = lvn::createObject<LvnDescriptorLayout>(lvnctx, Lvn_Stype_DescriptorLayout);
 
 	lvnctx->objectMemoryAllocations.descriptorLayouts++;
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
@@ -2023,9 +1959,7 @@ LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLay
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *descriptorSet = new LvnDescriptorSet(); }
-	else if (Lvn_MemAllocMode_MemPool) { *descriptorSet = lvnctx->memoryPool.descriptorSets[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*descriptorSet = lvn::createObject<LvnDescriptorSet>(lvnctx, Lvn_Stype_DescriptorSet);
 
 	lvnctx->objectMemoryAllocations.descriptorSets++;
 	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
@@ -2036,9 +1970,7 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *pipeline = new LvnPipeline(); }
-	else if (Lvn_MemAllocMode_MemPool) { *pipeline = lvnctx->memoryPool.pipelines[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*pipeline = lvn::createObject<LvnPipeline>(lvnctx, Lvn_Stype_Pipeline);
 
 	lvnctx->objectMemoryAllocations.pipelines++;
 	LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
@@ -2080,9 +2012,7 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 		}
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *frameBuffer = new LvnFrameBuffer(); }
-	else if (Lvn_MemAllocMode_MemPool) { *frameBuffer = lvnctx->memoryPool.frameBuffers[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*frameBuffer = lvn::createObject<LvnFrameBuffer>(lvnctx, Lvn_Stype_FrameBuffer);
 
 	lvnctx->objectMemoryAllocations.frameBuffers++;
 	LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
@@ -2138,9 +2068,7 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 		}
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *buffer = new LvnBuffer(); }
-	else if (Lvn_MemAllocMode_MemPool) { *buffer = lvnctx->memoryPool.buffers[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*buffer = lvn::createObject<LvnBuffer>(lvnctx, Lvn_Stype_Buffer);
 
 	lvnctx->objectMemoryAllocations.buffers++;
 	LVN_CORE_TRACE("created buffer: (%p)", *buffer);
@@ -2163,9 +2091,7 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 		return Lvn_Result_Failure;
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *uniformBuffer = new LvnUniformBuffer(); }
-	else if (Lvn_MemAllocMode_MemPool) { *uniformBuffer = lvnctx->memoryPool.uniformBuffers[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*uniformBuffer = lvn::createObject<LvnUniformBuffer>(lvnctx, Lvn_Stype_UniformBuffer);
 
 	lvnctx->objectMemoryAllocations.uniformBuffers++;
 	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
@@ -2176,9 +2102,7 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *texture = new LvnTexture(); }
-	else if (Lvn_MemAllocMode_MemPool) { *texture = lvnctx->memoryPool.textures[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*texture = lvn::createObject<LvnTexture>(lvnctx, Lvn_Stype_Texture);
 
 	lvnctx->objectMemoryAllocations.textures++;
 	LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize());
@@ -2231,9 +2155,7 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	// 	return Lvn_Result_Failure;
 	// }
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *cubemap = new LvnCubemap(); }
-	else if (Lvn_MemAllocMode_MemPool) { *cubemap = lvnctx->memoryPool.cubemaps[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*cubemap = lvn::createObject<LvnCubemap>(lvnctx, Lvn_Stype_Cubemap);
 
 	lvnctx->objectMemoryAllocations.cubemaps++;
 	LVN_CORE_TRACE("created cubemap: (%p)", *cubemap);
@@ -2744,9 +2666,7 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	ma_sound_set_pitch(pSound, createInfo->pitch);
 	ma_sound_set_looping(pSound, createInfo->looping);
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *sound = new LvnSound(); }
-	else if (Lvn_MemAllocMode_MemPool) { *sound = lvnctx->memoryPool.sounds[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*sound = lvn::createObject<LvnSound>(lvnctx, Lvn_Stype_Sound);
 
 	LvnSound* soundPtr = *sound;
 	soundPtr->volume = createInfo->volume;
@@ -2869,9 +2789,7 @@ LvnResult createSoundBoard(LvnSoundBoard** soundBoard)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { *soundBoard = new LvnSoundBoard(); }
-	else if (Lvn_MemAllocMode_MemPool) { *soundBoard = lvnctx->memoryPool.soundBoards[0].take_next(); }
-	else { LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return Lvn_Result_Failure; }
+	*soundBoard = lvn::createObject<LvnSoundBoard>(lvnctx, Lvn_Stype_SoundBoard);
 
 	LvnSoundBoard* soundBoardPtr = *soundBoard;
 	soundBoardPtr->masterVolume = 1.0f;
