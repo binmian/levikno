@@ -11,6 +11,7 @@ set(LVN_SOURCES
 	loadingModel.cpp
 	loadingShader.cpp
 	logging.cpp
+	pbrScene.cpp
 	pong.cpp
 	simpleMatrix.cpp
 	simpleSound.cpp

@@ -350,7 +350,7 @@ int main(int argc, char** argv)
 
 
 	// [Create texture]
-	LvnFont font = lvn::loadFontFromFileTTF("res/JetBrainsMonoNerdFont-Regular.ttf", 16, {32, 126});
+	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/JetBrainsMonoNerdFont-Regular.ttf", 16, {32, 126});
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};

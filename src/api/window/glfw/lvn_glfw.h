@@ -30,6 +30,8 @@ namespace lvn
 	void glfwImplGetMousePosPtr(LvnWindow* window, float* xpos, float* ypos);
 	float glfwImplGetMouseX(LvnWindow* window);
 	float glfwImplGetMouseY(LvnWindow* window);
+	void glfwImplSetMouseCursor(LvnWindow* window, LvnMouseCursor cursor);
+	void glfwImplSetMouseInputMode(LvnWindow* window, LvnMouseInputMode mode);
 
 	LvnPair<int> glfwImplGetWindowPos(LvnWindow* window);
 	void glfwImplGetWindowPosPtr(LvnWindow* window, int* xpos, int* ypos);

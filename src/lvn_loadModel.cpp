@@ -624,6 +624,92 @@ namespace gltfs
 			gltfData->textures.push_back(texture);
 		}
 
+		// emissive
+		if (accessor.find("emissiveTexture") != accessor.end())
+		{
+			nlm::json texInd = JSON["textures"][(uint32_t)accessor["emissiveTexture"]["index"]];
+			texSource = texInd["source"];
+			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
+
+			bool skip = false;
+			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
+			{
+				if (gltfData->textureData[i].index == texSource)
+				{
+					material.normal = gltfData->textureData[i].texture;
+					skip = true;
+					break;
+				}
+			}
+			if (!skip)
+			{
+				int texSamplerIndex = texInd.value("sampler", -1);
+
+				LvnTextureCreateInfo textureCreateInfo{};
+				if (gltfData->filetype == Lvn_FileType_Gltf)
+				{
+					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+				}
+				else if (gltfData->filetype == Lvn_FileType_Glb)
+				{
+					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
+					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
+					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
+					uint32_t bvByteLength = bufferview.value("byteLength", 0);
+
+					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
+				}
+
+				// model has samplers
+				if (texSamplerIndex >= 0)
+				{
+					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
+					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
+				}
+				else // default to nearest if no sampler found
+				{
+					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+				}
+
+				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+				textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+
+				LvnTexture* texture;
+				lvn::createTexture(&texture, &textureCreateInfo);
+
+				LvnTextureIndexData textureIndexData = { texture, texSource };
+				gltfData->textureData.push_back(textureIndexData);
+				gltfData->textures.push_back(texture);
+				material.emissive = texture;
+			}
+		}
+		else // default emissive texture if no texture was found
+		{
+			uint8_t normalTextureData[4] = { 0x00, 0x00, 0x00, 0x00 };
+			LvnImageData imageData;
+			imageData.pixels = LvnData<uint8_t>(normalTextureData, sizeof(normalTextureData) / sizeof(uint8_t));
+			imageData.width = 1;
+			imageData.height = 1;
+			imageData.channels = 4;
+			imageData.size = 4;
+
+			LvnTextureCreateInfo textureCreateInfo{};
+			textureCreateInfo.imageData = imageData;
+			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+			textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+
+			LvnTexture* texture;
+			lvn::createTexture(&texture, &textureCreateInfo);
+
+			material.emissive = texture;
+			gltfData->textures.push_back(texture);
+		}
+
 		return material;
 	}
 

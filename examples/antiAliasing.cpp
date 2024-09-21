@@ -93,17 +93,16 @@ struct EventData
 {
 	LvnDescriptorSet* fbDescriptorSet;
 	LvnFrameBuffer* frameBuffer;
-	int *width, *height;
 };
 
 
 // NOTE: we update and resize the framebuffer when ever the window changes size through window events
 
-bool windowResize(LvnWindowResizeEvent* e, void* userData)
+bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 {
 	EventData* data = static_cast<EventData*>(userData);
 
-	lvn::frameBufferResize(data->frameBuffer, *data->width, *data->height);
+	lvn::frameBufferResize(data->frameBuffer, e->width, e->height);
 
 	LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
 
@@ -119,7 +118,7 @@ bool windowResize(LvnWindowResizeEvent* e, void* userData)
 
 void eventsCallbackFn(LvnEvent* e)
 {
-	lvn::dispatchWindowResizeEvent(e, windowResize);
+	lvn::dispatchWindowFramebufferResizeEvent(e, windowFrameBufferResize);
 }
 
 int main(int argc, char** argv)
@@ -477,8 +476,6 @@ int main(int argc, char** argv)
 	EventData eventData{};
 	eventData.fbDescriptorSet = fbDescriptorSet;
 	eventData.frameBuffer = frameBuffer;
-	eventData.width = &width;
-	eventData.height = &height;
 
 	lvn::windowSetEventCallback(window, eventsCallbackFn, &eventData);
 

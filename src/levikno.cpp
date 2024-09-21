@@ -340,7 +340,7 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 {
 	auto& stInfos = lvnctx->sTypeMemAllocInfos;
 
-	stInfos.resize(Lvn_Stype_MaxType);
+	stInfos.resize(Lvn_Stype_Max);
 
 	stInfos[Lvn_Stype_Undefined]        = { Lvn_Stype_Undefined, 0, 0 };
 	stInfos[Lvn_Stype_Window]           = { Lvn_Stype_Window, sizeof(LvnWindow), 8 };
@@ -403,7 +403,7 @@ static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* cr
 	LvnMemoryPool* memPool = &lvnctx->memoryPool;
 	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
 
-	memPool->memBindings.resize(Lvn_Stype_MaxType);
+	memPool->memBindings.resize(Lvn_Stype_Max);
 	lvn::setMemoryBlockBindings(memPool, 0, structTypes.data(), structTypes.size());
 
 
@@ -497,7 +497,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 		{
 			case Lvn_GraphicsApi_opengl:
 			{
-				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_LHNO;
+				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_RHNO;
 				break;
 			}
 			case Lvn_GraphicsApi_vulkan:
@@ -508,6 +508,10 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 			default: { break; }
 		}
+	}
+	else
+	{
+		s_LvnContext->matrixClipRegion = createInfo->matrixClipRegion;
 	}
 
 	return Lvn_Result_Success;
@@ -1628,6 +1632,16 @@ float mouseGetY(LvnWindow* window)
 	return lvn::getContext()->windowContext.getMouseY(window);
 }
 
+void mouseSetCursor(LvnWindow* window, LvnMouseCursor cursor)
+{
+	lvn::getContext()->windowContext.setMouseCursor(window, cursor);
+}
+
+void mouseSetInputMode(LvnWindow* window, LvnMouseInputMode mode)
+{
+	lvn::getContext()->windowContext.SetMouseInputMode(window, mode);
+}
+
 LvnPair<int> windowGetPos(LvnWindow* window)
 {
 	return lvn::getContext()->windowContext.getWindowPos(window);
@@ -2275,6 +2289,9 @@ void destroyCubemap(LvnCubemap* cubemap)
 void destroyMesh(LvnMesh* mesh)
 {
 	lvn::destroyBuffer(mesh->buffer);
+
+	if (mesh->descriptorSet != nullptr)
+		lvn::destroyDescriptorSet(mesh->descriptorSet);
 }
 
 void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification)
@@ -2912,42 +2929,6 @@ float invSqrt(float num)
 	conv.i = 0x5f3759df - (conv.i >> 1);
 	conv.f = conv.f * (threehalfs - (x2 * conv.f * conv.f));
 	return conv.f;
-}
-
-LvnVec2f normalize(LvnVec2f v)
-{
-	float u = invSqrt(v.x * v.x + v.y * v.y);
-	return { v.x * u, v.y * u };
-}
-
-LvnVec2d normalize(LvnVec2d v)
-{
-	double u = invSqrt(static_cast<float>(v.x * v.x + v.y * v.y));
-	return { v.x * u, v.y * u };
-}
-
-LvnVec3f normalize(LvnVec3f v)
-{
-	float u = invSqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-	return { v.x * u, v.y * u, v.z * u };
-}
-
-LvnVec3d normalize(LvnVec3d v)
-{
-	double u = invSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z));
-	return { v.x * u, v.y * u, v.z * u };
-}
-
-LvnVec4f normalize(LvnVec4f v)
-{
-	float u = invSqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
-	return { v.x * u, v.y * u, v.z * u, v.w * u };
-}
-
-LvnVec4d normalize(LvnVec4d v)
-{
-	double u = invSqrt(static_cast<float>(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w));
-	return { v.x * u, v.y * u, v.z * u, v.w * u };
 }
 
 LvnVec3f cross(LvnVec3f v1, LvnVec3f v2)

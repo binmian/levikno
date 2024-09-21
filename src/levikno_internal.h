@@ -341,6 +341,8 @@ struct LvnWindowContext
 	void                (*getMousePosPtr)(LvnWindow*, float*, float*);
 	float               (*getMouseX)(LvnWindow*);
 	float               (*getMouseY)(LvnWindow*);
+	void                (*setMouseCursor)(LvnWindow*, LvnMouseCursor);
+	void                (*SetMouseInputMode)(LvnWindow*, LvnMouseInputMode);
 
 	LvnPair<int>        (*getWindowPos)(LvnWindow*);
 	void                (*getWindowPosPtr)(LvnWindow*, int*, int*);

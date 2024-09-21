@@ -241,7 +241,7 @@ int main(int argc, char** argv)
 
 		// update matrix
 		LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-		LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, 2.0f), LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(0.0f, 1.0f, 0.0f));
+		LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, -2.0f), LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(0.0f, 1.0f, 0.0f));
 		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;

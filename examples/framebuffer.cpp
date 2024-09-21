@@ -103,17 +103,16 @@ struct EventData
 {
 	LvnDescriptorSet* fbDescriptorSet;
 	LvnFrameBuffer* frameBuffer;
-	int *width, *height;
 };
 
 
 // NOTE: we update and resize the framebuffer when ever the window changes size through window events
 
-bool windowResize(LvnWindowResizeEvent* e, void* userData)
+bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 {
 	EventData* data = static_cast<EventData*>(userData);
 
-	lvn::frameBufferResize(data->frameBuffer, *data->width, *data->height);
+	lvn::frameBufferResize(data->frameBuffer, e->width, e->height);
 
 	LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
 
@@ -129,7 +128,7 @@ bool windowResize(LvnWindowResizeEvent* e, void* userData)
 
 void eventsCallbackFn(LvnEvent* e)
 {
-	lvn::dispatchWindowResizeEvent(e, windowResize);
+	lvn::dispatchWindowFramebufferResizeEvent(e, windowFrameBufferResize);
 }
 
 int main(int argc, char** argv)
@@ -488,8 +487,6 @@ int main(int argc, char** argv)
 	EventData eventData{};
 	eventData.fbDescriptorSet = fbDescriptorSet;
 	eventData.frameBuffer = frameBuffer;
-	eventData.width = &width;
-	eventData.height = &height;
 
 	lvn::windowSetEventCallback(window, eventsCallbackFn, &eventData);
 
@@ -505,7 +502,7 @@ int main(int argc, char** argv)
 
 		// update matrix
 		LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 100.0f);
-		LvnMat4 view = lvn::lookAt(lvn::vec3(0.0f, 2.0f, 2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
+		LvnMat4 view = lvn::lookAt(lvn::vec3(0.0f, 2.0f, -2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
 		LvnMat4 model = lvn::rotate(LvnMat4(1.0f), lvn::radians(time * 10.0f), LvnVec3(0.0f, 1.0f, 0.0f));
 		LvnMat4 camera = proj * view * model;
 

@@ -254,7 +254,7 @@ enum LvnStructureType
 	Lvn_Stype_Sound,
 	Lvn_Stype_SoundBoard,
 
-	Lvn_Stype_MaxType,
+	Lvn_Stype_Max,
 };
 
 enum LvnMemAllocMode
@@ -422,22 +422,29 @@ enum LvnMouseButtonCodes
 };
 
 /* Mouse Mode Codes */
-enum LvnMouseCursorModes
+enum LvnMouseCursor
 {
-	Lvn_MouseCursor_Arrow           = 0,
-	Lvn_MouseCursor_Ibeam           = 1,
-	Lvn_MouseCursor_Crosshair       = 2,
-	Lvn_MouseCursor_PointingHand    = 3,
-	Lvn_MouseCursor_ResizeEW        = 4,
-	Lvn_MouseCursor_ResizeNS        = 5,
-	Lvn_MouseCursor_ResizeNWSE      = 6,
-	Lvn_MouseCursor_ResizeNESW      = 7,
-	Lvn_MouseCursor_ResizeAll       = 8,
-	Lvn_MouseCursor_NotAllowed      = 9,
+	Lvn_MouseCursor_Arrow,
+	Lvn_MouseCursor_Ibeam,
+	Lvn_MouseCursor_Crosshair,
+	Lvn_MouseCursor_PointingHand,
+	Lvn_MouseCursor_ResizeEW,
+	Lvn_MouseCursor_ResizeNS,
+	Lvn_MouseCursor_ResizeNWSE,
+	Lvn_MouseCursor_ResizeNESW,
+	Lvn_MouseCursor_ResizeAll,
+	Lvn_MouseCursor_NotAllowed,
 	Lvn_MouseCursor_HResize         = Lvn_MouseCursor_ResizeEW,
 	Lvn_MouseCursor_VRrsize         = Lvn_MouseCursor_ResizeNS,
 	Lvn_MouseCursor_Hand            = Lvn_MouseCursor_PointingHand,
-	Lvn_MouseCursor_Max             = 10,
+};
+
+enum LvnMouseInputMode
+{
+	Lvn_MouseInputMode_Normal,
+	Lvn_MouseInputMode_Disable,
+	Lvn_MouseInputMode_Hidden,
+	Lvn_MouseInputMode_Captured,
 };
 
 /* Logging Types */
@@ -1161,6 +1168,8 @@ namespace lvn
 	LVN_API void                        mouseGetPos(LvnWindow* window, float* xpos, float* ypos);
 	LVN_API float                       mouseGetX(LvnWindow* window);
 	LVN_API float                       mouseGetY(LvnWindow* window);
+	LVN_API void                        mouseSetCursor(LvnWindow* window, LvnMouseCursor);
+	LVN_API void                        mouseSetInputMode(LvnWindow* window, LvnMouseInputMode mode);
 
 	LVN_API LvnPair<int>                windowGetPos(LvnWindow* window);
 	LVN_API void                        windowGetPos(LvnWindow* window, int* xpos, int* ypos);
@@ -1326,15 +1335,51 @@ namespace lvn
 	LVN_API float clampAngleDeg(float deg);    // clamps the given angle in degrees to the translated angle between 0 and 2 PI
 	LVN_API float invSqrt(float num);
 
-	LVN_API LvnVec2f normalize(LvnVec2f v);
-	LVN_API LvnVec2d normalize(LvnVec2d v);
-	LVN_API LvnVec3f normalize(LvnVec3f v);
-	LVN_API LvnVec3d normalize(LvnVec3d v);
-	LVN_API LvnVec4f normalize(LvnVec4f v);
-	LVN_API LvnVec4d normalize(LvnVec4d v);
+	template <typename T>
+	LVN_API LvnVec2_t<T> normalize(const LvnVec2_t<T>& v)
+	{
+		T u = static_cast<T>(1) / sqrt(v.x * v.x + v.y * v.y);
+		return LvnVec2_t<T>(v.x * u, v.y * u);
+	}
+
+	template <typename T>
+	LVN_API LvnVec3_t<T> normalize(const LvnVec3_t<T>& v)
+	{
+		T u = static_cast<T>(1) / sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+		return LvnVec3_t<T>(v.x * u, v.y * u, v.z * u);
+	}
+
+	template <typename T>
+	LVN_API LvnVec4_t<T> normalize(const LvnVec4_t<T>& v)
+	{
+		T u = static_cast<T>(1) / sqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
+		return LvnVec4_t<T>(v.x * u, v.y * u, v.z * u, v.w * u);
+	}
+
+	template <typename T>
+	LVN_API LvnQuat_t<T> normalize(const LvnQuat_t<T>& quat)
+	{
+		const T qw = quat.w;
+		const T qx = quat.x;
+		const T qy = quat.y;
+		const T qz = quat.z;
+
+		const float n = static_cast<T>(1) / sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
+
+		return LvnQuat_t<T>(qw * n, qx * n, qy * n, qz * n);
+	}
 
 	LVN_API LvnVec3f cross(LvnVec3f v1, LvnVec3f v2);
 	LVN_API LvnVec3d cross(LvnVec3d v1, LvnVec3d v2);
+
+	template <typename T>
+	LVN_API LvnVec3_t<T> cross(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+	{
+		const T cx = v1.y * v2.z - v1.z * v2.y;
+		const T cy = v1.z * v2.x - v1.x * v2.z;
+		const T cz = v1.x * v2.y - v1.y * v2.x;
+		return LvnVec3_t<T>(cx, cy, cz);
+	}
 
 	template <typename T>
 	LVN_API T dot(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
@@ -1707,6 +1752,31 @@ namespace lvn
 		rotate[2][2] = c + axis.z * axis.z * nc;
 
 		return mat * rotate;
+	}
+
+	template <typename T>
+	LvnVec2_t<T> rotate(const LvnVec2_t<T>& v, const T& angle)
+	{
+		LvnVec2_t<T> result;
+		const T rcos(cos(angle));
+		const T rsin(sin(angle));
+
+		result.x = v.x * rcos - v.y * rsin;
+		result.y = v.x * rsin + v.y * rcos;
+		return result;
+	}
+
+	template <typename T>
+	LvnVec3_t<T> rotate(const LvnVec3_t<T>& v, const T& angle, const LvnVec3_t<T>& axis)
+	{
+		return LvnMat3x3_t<T>(lvn::rotate(LvnMat4x4_t<T>(static_cast<T>(1)), angle, axis)) * v;
+	}
+
+	template <typename T>
+	LVN_API LvnQuat_t<T> angleAxis(const T& angle, const LvnVec3_t<T>& axis)
+	{
+		const T s = sin(angle / 2);
+		return LvnQuat_t<T>(cos(angle / 2), axis.x * s, axis.y * s, axis.z * s);
 	}
 
 	template <typename T>
@@ -2166,46 +2236,6 @@ struct LvnVec2_t
 		this->y = v.y;
 	}
 
-	LvnVec2_t<T> operator+()
-	{
-		return { this->x, this->y };
-	}
-	LvnVec2_t<T> operator-()
-	{
-		return { -this->x, -this->y };
-	}
-	LvnVec2_t<T> operator+(LvnVec2_t<T>& v)
-	{
-		return { this->x + v.x, this->y + v.y };
-	}
-	LvnVec2_t<T> operator-(LvnVec2_t<T>& v)
-	{
-		return { this->x - v.x, this->y - v.y };
-	}
-	LvnVec2_t<T> operator*(LvnVec2_t<T>& v)
-	{
-		return { this->x * v.x, this->y * v.y };
-	}
-	LvnVec2_t<T> operator/(LvnVec2_t<T>& v)
-	{
-		return { this->x / v.x, this->y / v.y };
-	}
-	LvnVec2_t<T> operator+(const LvnVec2_t<T>& v) const
-	{
-		return { this->x + v.x, this->y + v.y };
-	}
-	LvnVec2_t<T> operator-(const LvnVec2_t<T>& v) const
-	{
-		return { this->x - v.x, this->y - v.y };
-	}
-	LvnVec2_t<T> operator*(const LvnVec2_t<T>& v) const
-	{
-		return { this->x * v.x, this->y * v.y };
-	}
-	LvnVec2_t<T> operator/(const LvnVec2_t<T>& v) const
-	{
-		return { this->x / v.x, this->y / v.y };
-	}
 
 	LvnVec2_t<T>& operator+=(const LvnVec2_t<T>& v)
 	{
@@ -2255,6 +2285,78 @@ struct LvnVec2_t
 	}
 };
 
+template <typename T>
+LvnVec2_t<T> operator+(const LvnVec2_t<T>& v)
+{
+	return LvnVec2_t<T>(v.x, v.y);
+}
+template <typename T>
+LvnVec2_t<T> operator-(const LvnVec2_t<T>& v)
+{
+	return LvnVec2_t(-v.x, -v.y);
+}
+template <typename T>
+LvnVec2_t<T> operator+(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
+{
+	return LvnVec2_t<T>(v1.x + v2.x, v1.y + v2.y);
+}
+template <typename T>
+LvnVec2_t<T> operator-(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
+{
+	return LvnVec2_t<T>(v1.x - v2.x, v1.y - v2.y);
+}
+template <typename T>
+LvnVec2_t<T> operator*(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
+{
+	return LvnVec2_t<T>(v1.x * v2.x, v1.y * v2.y);
+}
+template <typename T>
+LvnVec2_t<T> operator/(const LvnVec2_t<T>& v1, const LvnVec2_t<T>& v2)
+{
+	return LvnVec2_t<T>(v1.x / v2.x, v1.y / v2.y);
+}
+template <typename T>
+LvnVec2_t<T> operator+(const T& s, const LvnVec2_t<T>& v)
+{
+	return LvnVec2_t<T>(s + v.x, s + v.y);
+}
+template <typename T>
+LvnVec2_t<T> operator-(const T& s, const LvnVec2_t<T>& v)
+{
+	return LvnVec2_t<T>(s - v.x, s - v.y);
+}
+template <typename T>
+LvnVec2_t<T> operator*(const T& s, const LvnVec2_t<T>& v)
+{
+	return LvnVec2_t<T>(s * v.x, s * v.y);
+}
+template <typename T>
+LvnVec2_t<T> operator/(const T& s, const LvnVec2_t<T>& v)
+{
+	return LvnVec2_t<T>(s / v.x, s / v.y);
+}
+template <typename T>
+LvnVec2_t<T> operator+(const LvnVec2_t<T>& v, const T& s)
+{
+	return LvnVec2_t<T>(v.x + s, v.y + s);
+}
+template <typename T>
+LvnVec2_t<T> operator-(const LvnVec2_t<T>& v, const T& s)
+{
+	return LvnVec2_t<T>(v.x - s, v.y - s);
+}
+template <typename T>
+LvnVec2_t<T> operator*(const LvnVec2_t<T>& v, const T& s)
+{
+	return LvnVec2_t<T>(v.x * s, v.y * s);
+}
+template <typename T>
+LvnVec2_t<T> operator/(const LvnVec2_t<T>& v, const T& s)
+{
+	return LvnVec2_t<T>(v.x / s, v.y / s);
+}
+
+
 template<typename T>
 struct LvnVec3_t
 {
@@ -2278,47 +2380,6 @@ struct LvnVec3_t
 		this->x = v.x;
 		this->y = v.y;
 		this->z = v.z;
-	}
-
-	LvnVec3_t<T> operator+()
-	{
-		return { this->x, this->y, this->z };
-	}
-	LvnVec3_t<T> operator-()
-	{
-		return { -this->x, -this->y, -this->z };
-	}
-	LvnVec3_t<T> operator+(LvnVec3_t<T>& v)
-	{
-		return { this->x + v.x, this->y + v.y, this->z + v.z };
-	}
-	LvnVec3_t<T> operator-(LvnVec3_t<T>& v)
-	{
-		return { this->x - v.x, this->y - v.y, this->z - v.z };
-	}
-	LvnVec3_t<T> operator*(LvnVec3_t<T>& v)
-	{
-		return { this->x * v.x, this->y * v.y, this->z * v.z };
-	}
-	LvnVec3_t<T> operator/(LvnVec3_t<T>& v)
-	{
-		return { this->x / v.x, this->y / v.y, this->z / v.z };
-	}
-	LvnVec3_t<T> operator+(const LvnVec3_t<T>& v) const
-	{
-		return { this->x + v.x, this->y + v.y, this->z + v.z };
-	}
-	LvnVec3_t<T> operator-(const LvnVec3_t<T>& v) const
-	{
-		return { this->x - v.x, this->y - v.y, this->z - v.z };
-	}
-	LvnVec3_t<T> operator*(const LvnVec3_t<T>& v) const
-	{
-		return { this->x * v.x, this->y * v.y, this->z * v.z };
-	}
-	LvnVec3_t<T> operator/(const LvnVec3_t<T>& v) const
-	{
-		return { this->x / v.x, this->y / v.y, this->z / v.z };
 	}
 
 	LvnVec3_t<T>& operator+=(const LvnVec3_t<T>& v)
@@ -2376,6 +2437,78 @@ struct LvnVec3_t
 		}
 	}
 };
+
+template <typename T>
+LvnVec3_t<T> operator+(const LvnVec3_t<T>& v)
+{
+	return LvnVec3_t<T>(v.x, v.y, v.z);
+}
+template <typename T>
+LvnVec3_t<T> operator-(const LvnVec3_t<T>& v)
+{
+	return LvnVec3_t(-v.x, -v.y, -v.z);
+}
+template <typename T>
+LvnVec3_t<T> operator+(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+{
+	return LvnVec3_t<T>(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+}
+template <typename T>
+LvnVec3_t<T> operator-(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+{
+	return LvnVec3_t<T>(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+}
+template <typename T>
+LvnVec3_t<T> operator*(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+{
+	return LvnVec3_t<T>(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z);
+}
+template <typename T>
+LvnVec3_t<T> operator/(const LvnVec3_t<T>& v1, const LvnVec3_t<T>& v2)
+{
+	return LvnVec3_t<T>(v1.x / v2.x, v1.y / v2.y, v1.z / v2.z);
+}
+template <typename T>
+LvnVec3_t<T> operator+(const T& s, const LvnVec3_t<T>& v)
+{
+	return LvnVec3_t<T>(s + v.x, s + v.y, s + v.z);
+}
+template <typename T>
+LvnVec3_t<T> operator-(const T& s, const LvnVec3_t<T>& v)
+{
+	return LvnVec3_t<T>(s - v.x, s - v.y, s - v.z);
+}
+template <typename T>
+LvnVec3_t<T> operator*(const T& s, const LvnVec3_t<T>& v)
+{
+	return LvnVec3_t<T>(s * v.x, s * v.y, s * v.z);
+}
+template <typename T>
+LvnVec3_t<T> operator/(const T& s, const LvnVec3_t<T>& v)
+{
+	return LvnVec3_t<T>(s / v.x, s / v.y, s / v.z);
+}
+template <typename T>
+LvnVec3_t<T> operator+(const LvnVec3_t<T>& v, const T& s)
+{
+	return LvnVec3_t<T>(v.x + s, v.y + s, v.z + s);
+}
+template <typename T>
+LvnVec3_t<T> operator-(const LvnVec3_t<T>& v, const T& s)
+{
+	return LvnVec3_t<T>(v.x - s, v.y - s, v.z - s);
+}
+template <typename T>
+LvnVec3_t<T> operator*(const LvnVec3_t<T>& v, const T& s)
+{
+	return LvnVec3_t<T>(v.x * s, v.y * s, v.z * s);
+}
+template <typename T>
+LvnVec3_t<T> operator/(const LvnVec3_t<T>& v, const T& s)
+{
+	return LvnVec3_t<T>(v.x / s, v.y / s, v.z / s);
+}
+
 
 template<typename T>
 struct LvnVec4_t
@@ -2509,6 +2642,77 @@ struct LvnVec4_t
 		}
 	}
 };
+
+template <typename T>
+LvnVec4_t<T> operator+(const LvnVec4_t<T>& v)
+{
+	return LvnVec4_t<T>(v.x, v.y, v.z, v.w);
+}
+template <typename T>
+LvnVec4_t<T> operator-(const LvnVec4_t<T>& v)
+{
+	return LvnVec4_t(-v.x, -v.y, -v.z, -v.w);
+}
+template <typename T>
+LvnVec4_t<T> operator+(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
+{
+	return LvnVec4_t<T>(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w);
+}
+template <typename T>
+LvnVec4_t<T> operator-(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
+{
+	return LvnVec4_t<T>(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z, v1.w - v2.w);
+}
+template <typename T>
+LvnVec4_t<T> operator*(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
+{
+	return LvnVec4_t<T>(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z, v1.w * v2.w);
+}
+template <typename T>
+LvnVec4_t<T> operator/(const LvnVec4_t<T>& v1, const LvnVec4_t<T>& v2)
+{
+	return LvnVec4_t<T>(v1.x / v2.x, v1.y / v2.y, v1.z / v2.z, v1.w / v2.w);
+}
+template <typename T>
+LvnVec4_t<T> operator+(const T& s, const LvnVec4_t<T>& v)
+{
+	return LvnVec4_t<T>(s + v.x, s + v.y, s + v.z, s + v.w);
+}
+template <typename T>
+LvnVec4_t<T> operator-(const T& s, const LvnVec4_t<T>& v)
+{
+	return LvnVec4_t<T>(s - v.x, s - v.y, s - v.z, s - v.w);
+}
+template <typename T>
+LvnVec4_t<T> operator*(const T& s, const LvnVec4_t<T>& v)
+{
+	return LvnVec4_t<T>(s * v.x, s * v.y, s * v.z, s * v.w);
+}
+template <typename T>
+LvnVec4_t<T> operator/(const T& s, const LvnVec4_t<T>& v)
+{
+	return LvnVec4_t<T>(s / v.x, s / v.y, s / v.z, s / v.w);
+}
+template <typename T>
+LvnVec4_t<T> operator+(const LvnVec4_t<T>& v, const T& s)
+{
+	return LvnVec4_t<T>(v.x + s, v.y + s, v.z + s, v.w + s);
+}
+template <typename T>
+LvnVec4_t<T> operator-(const LvnVec4_t<T>& v, const T& s)
+{
+	return LvnVec4_t<T>(v.x - s, v.y - s, v.z - s, v.w - s);
+}
+template <typename T>
+LvnVec4_t<T> operator*(const LvnVec4_t<T>& v, const T& s)
+{
+	return LvnVec4_t<T>(v.x * s, v.y * s, v.z * s, v.w * s);
+}
+template <typename T>
+LvnVec4_t<T> operator/(const LvnVec4_t<T>& v, const T& s)
+{
+	return LvnVec4_t<T>(v.x / s, v.y / s, v.z / s, v.w / s);
+}
 
 
 template<typename T>
@@ -4791,6 +4995,7 @@ struct LvnMaterial
 struct LvnMesh
 {
 	LvnBuffer* buffer;    // single buffer that contains both vertex and index buffer
+	LvnDescriptorSet* descriptorSet;
 	LvnMaterial material; // material to hold shader and texture data
 	LvnMat4 modelMatrix;  // model matrix of mesh
 

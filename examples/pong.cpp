@@ -457,7 +457,7 @@ int main(int argc, char** argv)
 
 
 	// [Create font]
-	LvnFont font = lvn::loadFontFromFileTTF("res/PressStart2P.ttf", 32, {32, 126});
+	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/PressStart2P.ttf", 32, {32, 126});
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};

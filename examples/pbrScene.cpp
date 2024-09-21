@@ -1,8 +1,6 @@
-﻿#include <levikno/levikno.h>
+#include <levikno/levikno.h>
 
-#include <cstdint>
-#include <chrono>
-#include <vector>
+#define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
 const static float s_CubemapVertices[] =
 {
@@ -39,185 +37,295 @@ const static uint32_t s_CubemapIndices[] =
 	7, 2, 6
 };
 
-class Timer
+static float s_FbVertices[] =
 {
-private:
-	std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
+	/*    pos (x,y,z)   |      UV   */
+	-1.0f, -1.0f, 0.0f,    1.0f, 0.0f,
+	 1.0f, -1.0f, 0.0f,    0.0f, 0.0f,
+	 1.0f,  1.0f, 0.0f,    0.0f, 1.0f,
 
-public:
-	void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-	void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-	float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
-	float elapsedms() { return elapsed() * 1000.0f; }
+	-1.0f, -1.0f, 0.0f,    1.0f, 0.0f,
+	 1.0f,  1.0f, 0.0f,    0.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f,    1.0f, 1.0f,
 };
 
-struct SoundData
+// pbr shaders
+
+// vertex shader
+static const char* s_VertexShaderSrc = R"(
+#version 460
+
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in vec4 inColor;
+layout(location = 2) in vec2 inTexCoord;
+layout(location = 3) in vec3 inNormal;
+layout(location = 4) in vec3 inTangent;
+layout(location = 5) in vec3 inBitangent;
+
+layout(location = 0) out vec3 fragPos;
+layout(location = 1) out vec4 fragColor;
+layout(location = 2) out vec2 fragTexCoord;
+layout(location = 3) out vec3 fragLightPos;
+layout(location = 4) out vec3 fragViewPos;
+
+struct ObjectData
 {
-	LvnSound* sound;
-	float vol, pan, pitch;
+	mat4 u_Camera;
+	mat4 model;
 };
 
-bool windowMoved(LvnWindowMovedEvent* e, void* userData)
+layout(std140, binding = 1) readonly buffer UniformBufferObject
 {
-	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
-	return true;
+	ObjectData objects[];
+} ubo;
+
+layout(binding = 0) uniform ObjectBuffer
+{
+	vec3 camPos;
+	vec3 lightPos;
+	float metalic;
+	float roughness;
+	float ambientOcclusion;
+} pbrUbo;
+
+void main()
+{
+	ObjectData obj = ubo.objects[gl_BaseInstance];
+
+	mat3 normalMatrix = transpose(inverse(mat3(obj.model)));
+	vec3 T = normalize(normalMatrix * inTangent);
+	vec3 N = normalize(normalMatrix * inNormal);
+	T = normalize(T - dot(T, N) * N);
+	vec3 B = cross(N, T);
+
+	mat3 TBN = transpose(mat3(T, B, N));
+
+	fragPos = TBN * vec3(obj.model * vec4(inPos, 1.0));
+	fragColor = inColor;
+	fragTexCoord = inTexCoord;
+	fragLightPos = TBN * pbrUbo.lightPos;
+	fragViewPos = TBN * pbrUbo.camPos;
+
+	gl_Position = obj.u_Camera * obj.model * vec4(inPos, 1.0);
+}
+)";
+
+// fragment shader
+static const char* s_FragmentShaderSrc = R"(
+#version 460
+
+layout(location = 0) out vec4 outColor;
+
+layout(location = 0) in vec3 fragPos;
+layout(location = 1) in vec4 fragColor;
+layout(location = 2) in vec2 fragTexCoord;
+layout(location = 3) in vec3 fragLightPos;
+layout(location = 4) in vec3 fragViewPos;
+
+
+layout(binding = 0) uniform ObjectBuffer
+{
+	vec3 camPos;
+	vec3 lightPos;
+	float metalic;
+	float roughness;
+	float ambientOcclusion;
+} ubo;
+
+layout(binding = 2) uniform sampler2D albedoTex;
+layout(binding = 3) uniform sampler2D metalicRoughnessOcclusionTex;
+layout(binding = 4) uniform sampler2D normalTex;
+layout(binding = 5) uniform sampler2D emissiveTex;
+
+const float PI = 3.14159265;
+
+float DistributionGGX(vec3 N, vec3 H, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH * NdotH;
+
+	float num = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = PI * denom * denom;
+	denom = max(denom, 0.000001);
+
+	return num / denom;
 }
 
-bool windowResize(LvnWindowResizeEvent* e, void* userData)
+float GeometrySchlickGGX(float NdotX, float roughness)
 {
-	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->width, e->height);
-	return true;
+	float r = (roughness + 1.0);
+	float k = (r * r) / 8.0;
+
+	float num = NdotX;
+	float denom = NdotX * (1.0 - k) + k;
+
+	return num / denom;
 }
 
-bool mousePos(LvnMouseMovedEvent* e, void* userData)
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
-	LVN_TRACE("%s: (x:%d,y:%d)", e->name, e->x, e->y);
-	return true;
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2  = GeometrySchlickGGX(NdotV, roughness);
+	float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+
+	return ggx1 * ggx2;
 }
 
-bool keyPress(LvnKeyPressedEvent* e, void* userData)
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
-	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
-
-
-	return true;
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-bool keyRelease(LvnKeyReleasedEvent* e, void* userData)
+void main()
 {
-	LVN_TRACE("%s: code: %d", e->name, e->keyCode);
-	return true;
+	vec3 albedo = vec3(texture(albedoTex, fragTexCoord)) * vec3(fragColor);
+	// albedo = pow(albedo, vec3(2.2));
+	float metalic = texture(metalicRoughnessOcclusionTex, fragTexCoord).b;
+	float roughness = texture(metalicRoughnessOcclusionTex, fragTexCoord).g;
+	float ambientOcclusion = ubo.ambientOcclusion;
+	vec3 emissive = vec3(texture(emissiveTex, fragTexCoord));
+
+	vec3 normal = texture(normalTex, fragTexCoord).rgb;
+	normal = normalize(normal * 2.0 - 1.0);
+
+	vec3 camPos = fragViewPos;
+	vec3 lightPos = fragLightPos;
+	vec3 lightColors = vec3(1.0);
+	float lightStrength = 10.0;
+
+	vec3 N = normalize(normal);
+	vec3 V = normalize(camPos - fragPos);
+
+	vec3 L = normalize(lightPos - fragPos);
+    vec3 H = normalize(V + L);
+
+	float distance = length(lightPos - fragPos);
+	float attenuation = lightStrength / (distance * distance);
+	vec3 radiance = lightColors * attenuation;
+
+	vec3 F0 = vec3(0.2);
+	F0 = mix(F0, albedo, metalic);
+	vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+	float NDF = DistributionGGX(N, H, roughness);
+	float G = GeometrySmith(N, V, L, roughness);
+
+	vec3 kS = F;
+	vec3 kD = vec3(1.0) - kS;
+	kD *= 1.0 - metalic;
+
+	vec3 numerator = NDF * G * F;
+	float denominator = max(4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0), 0.0001);
+	vec3 specular = numerator / denominator;
+
+	float NdotL = max(dot(N, L), 0.0);
+	vec3 BRDF = (kD * albedo / PI + specular) * radiance * NdotL;
+
+	vec3 ambient = vec3(0.1) * albedo;
+	vec3 color = BRDF + emissive + ambient;
+
+	// color = color / (color + vec3(1.0));
+	// color = pow(color, vec3(1.0/2.2));
+
+	outColor = vec4(color, 1.0f);
 }
+)";
 
-bool keyHold(LvnKeyHoldEvent* e, void* userData)
+
+// cubemap shaders
+// vertex shader
+static const char* s_CubemapVertexShaderSrc = R"(
+#version 460
+
+layout (location = 0) in vec3 inPos;
+
+layout (location = 0) out vec3 fragTexCoord;
+
+layout (binding = 0) uniform ObjectBuffer 
 {
-	LVN_TRACE("%s: code: %d (%d)", e->name, e->keyCode, e->repeat);
-	return true;
+	mat4 matrix;
+	mat4 model;
+} ubo;
+
+void main()
+{
+	vec4 pos = ubo.matrix * vec4(inPos, 1.0);
+    gl_Position = pos.xyww;
+	fragTexCoord = vec3(inPos.x, inPos.y, inPos.z);
 }
+)";
 
-bool keyTyped(LvnKeyTypedEvent* e, void* userData)
+// fragment shader
+static const char* s_CubemapFragmentShaderSrc = R"(
+#version 460
+
+layout (location = 0) out vec4 outColor;
+
+layout (location = 0) in vec3 fragTexCoord;
+
+layout (binding = 1) uniform samplerCube samplerCubeMap;
+
+void main() 
 {
-	LVN_TRACE("%s: key: %c", e->name, e->key);
-
-	SoundData* sndData = (SoundData*)userData;
-
-	if (e->key == 'p')
-	{
-		lvn::soundTogglePause(sndData->sound);
-	}
-
-	if (e->key == 'j')
-	{
-		sndData->vol -= 0.05f;
-		if (sndData->vol < 0.0f) sndData->vol = 0.0f;
-		LVN_INFO("sound volume: %f", sndData->vol);
-
-		lvn::soundSetVolume(sndData->sound, sndData->vol);
-	}
-	if (e->key == 'k')
-	{
-		sndData->vol += 0.05f;
-		if (sndData->vol > 1.0f) sndData->vol = 1.0f;
-		LVN_INFO("sound volume: %f", sndData->vol);
-
-		lvn::soundSetVolume(sndData->sound, sndData->vol);
-
-	}
-	if (e->key == 'h')
-	{
-		sndData->pan -= 0.05f;
-		if (sndData->pan < -1.0f) sndData->pan = -1.0f;
-		LVN_INFO("sound pan: %f", sndData->pan);
-
-		lvn::soundSetPan(sndData->sound, sndData->pan);
-	}
-	if (e->key == 'l')
-	{
-		sndData->pan += 0.05f;
-		if (sndData->pan > 1.0f) sndData->pan = 1.0f;
-		LVN_INFO("sound pan: %f", sndData->pan);
-
-		lvn::soundSetPan(sndData->sound, sndData->pan);
-	}
-	if (e->key == 'u')
-	{
-		sndData->pitch -= 0.05f;
-		if (sndData->pitch < 0.0f) sndData->pitch = 0.0f;
-		LVN_INFO("sound pitch: %f", sndData->pitch);
-
-		lvn::soundSetPitch(sndData->sound, sndData->pitch);
-	}
-	if (e->key == 'i')
-	{
-		sndData->pitch += 0.05f;
-		LVN_INFO("sound pitch: %f", sndData->pitch);
-
-		lvn::soundSetPitch(sndData->sound, sndData->pitch);
-	}
-
-	return true;
+	outColor = texture(samplerCubeMap, fragTexCoord);
 }
+)";
 
-bool mousePress(LvnMouseButtonPressedEvent* e, void* userData)
+
+// framebuffer shaders
+// vertex shader
+static const char* s_FbVertexShaderSrc = R"(
+#version 460
+
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in vec2 inTexCoord;
+
+layout(location = 0) out vec2 fragTexCoord;
+
+void main()
 {
-	LVN_TRACE("%s: button: %d", e->name, e->buttonCode);
-	return true;
+	gl_Position = vec4(inPos, 1.0);
+	fragTexCoord = inTexCoord;
 }
+)";
 
-bool mouseScroll(LvnMouseScrolledEvent* e, void* userData)
+// fragment shader
+static const char* s_FbragmentShaderSrc = R"(
+#version 460
+
+layout(location = 0) out vec4 outColor;
+
+layout(location = 0) in vec2 fragTexCoord;
+
+layout(binding = 1) uniform sampler2D inTexture;
+
+void main()
 {
-	LVN_TRACE("%s: scroll: (x:%f, y:%f)", e->name, e->x, e->y);
-	return true;
+	outColor = texture(inTexture, fragTexCoord);
 }
+)";
 
-void eventsCallbackFn(LvnEvent* e)
-{
-	// lvn::dispatchKeyPressedEvent(e, keyPress);
-	// lvn::dispatchKeyHoldEvent(e, keyHold);
-	// lvn::dispatchKeyReleasedEvent(e, keyRelease);
-	// lvn::dispatchKeyTypedEvent(e, keyTyped);
-	// lvn::dispatchMouseMovedEvent(e, mousePos);
-	// lvn::dispatchMouseButtonPressedEvent(e, mousePress);
-	// lvn::dispatchMouseScrolledEvent(e, mouseScroll);
-}
 
-float vertices[] =
+struct EventData
 {
-	/*      pos        |       color     |   TexUV    */
-	-1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-	 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-	 1.0f,  1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-	-1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-};
-
-std::vector<LvnVertex> lvnVertices = 
-{
-	{ {-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
-	{ { 1.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
-	{ { 1.0f,  1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
-	{ {-1.0f,  1.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
-};
-
-uint32_t indices[] =
-{
-	0, 1, 2, 0, 2, 3,
+	LvnDescriptorSet* fbDescriptorSet;
+	LvnFrameBuffer* frameBuffer;
 };
 
 struct UniformData
 {
-	lvn::mat4 matrix;
-};
-
-struct PbrStorageData
-{
-	lvn::mat4 matrix;
-	lvn::mat4 model;
+	LvnMat4 matrix;
+	LvnMat4 model;
 };
 
 struct PbrUniformData
 {
-	lvn::vec3 campPos;
-	alignas(16) lvn::vec3 lightPos;
+	LvnVec3 campPos;
+	alignas(16) LvnVec3 lightPos;
 	float metalic;
 	float roughness;
 	float ambientOcclusion;
@@ -306,7 +414,6 @@ static LvnMat4 s_Model = LvnMat4(1.0f);
 void orbitMovment(LvnWindow* window, LvnCamera* camera, float dt)
 {
 	LvnMat4 view = camera->viewMatrix;
-	camera->position = LvnVec3(view[3][0], view[3][1], view[3][2]);
 
 	bool mouse1 = lvn::mouseButtonPressed(window, Lvn_MouseButton_1);
 	bool mouse2 = lvn::mouseButtonPressed(window, Lvn_MouseButton_2);
@@ -362,7 +469,7 @@ void orbitMovment(LvnWindow* window, LvnCamera* camera, float dt)
 		yoffset *= s_CameraSensitivity * dt;
 
 		s_AngleX -= xoffset;
-		s_AngleY -= yoffset;
+		s_AngleY += yoffset;
 	}
 
 	if (mouse2 && !mouse1)
@@ -402,6 +509,9 @@ void orbitMovment(LvnWindow* window, LvnCamera* camera, float dt)
 		* s_Model;
 
 	camera->matrix = camera->projectionMatrix * camera->viewMatrix;
+
+	LvnMat4 inverse = lvn::inverse(camera->viewMatrix);
+	camera->position = LvnVec3(inverse[3][0], inverse[3][1], inverse[3][2]);
 }
 
 LvnDescriptorBinding textureBinding(uint32_t binding, uint32_t maxAllocations)
@@ -416,6 +526,38 @@ LvnDescriptorBinding textureBinding(uint32_t binding, uint32_t maxAllocations)
 	return combinedImageDescriptorBinding;
 }
 
+bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
+{
+	EventData* data = static_cast<EventData*>(userData);
+
+	lvn::frameBufferResize(data->frameBuffer, e->width, e->height);
+
+	LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
+
+	fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	fbDescriptorUpdateInfo.binding = 1;
+	fbDescriptorUpdateInfo.descriptorCount = 1;
+	fbDescriptorUpdateInfo.textureInfo = lvn::frameBufferGetImage(data->frameBuffer, 0);
+
+	lvn::updateDescriptorSetData(data->fbDescriptorSet, &fbDescriptorUpdateInfo, 1);
+
+	return true;
+}
+
+bool mouseScroll(LvnMouseScrolledEvent* e, void* pUserData)
+{
+	s_Radius += -e->y * 0.5f;
+	s_Radius = lvn::max(s_Radius, 0.0f);
+
+	return true;
+}
+
+void eventsCallbackFn(LvnEvent* e)
+{
+	lvn::dispatchWindowFramebufferResizeEvent(e, windowFrameBufferResize);
+	lvn::dispatchMouseScrolledEvent(e, mouseScroll);
+}
+
 
 int main()
 {
@@ -428,12 +570,6 @@ int main()
 
 	lvn::createContext(&lvnCreateInfo);
 
-	LVN_TRACE("testing trace log");
-	LVN_DEBUG("testing debug log");
-	LVN_INFO("testing info log");
-	LVN_WARN("testing warn log");
-	LVN_ERROR("testing error log");
-	LVN_FATAL("testing fatal log");
 
 	uint32_t deviceCount = 0;
 	std::vector<LvnPhysicalDevice*> devices;
@@ -465,27 +601,33 @@ int main()
 	lvn::renderInit(&renderInfo);
 
 
+	// create window
 	LvnWindowCreateInfo windowInfo{};
+	windowInfo.title = "pbrScene";
 	windowInfo.width = 800;
 	windowInfo.height = 600;
-	windowInfo.title = "window";
-	windowInfo.fullscreen = false;
-	windowInfo.resizable = true;
 	windowInfo.minWidth = 300;
 	windowInfo.minHeight = 200;
-	windowInfo.maxWidth = -1;
-	windowInfo.maxHeight = -1;
-	windowInfo.pIcons = nullptr;
-	windowInfo.iconCount = 0;
-	windowInfo.eventCallBack = eventsCallbackFn;
-	windowInfo.userData = nullptr;
 
 	LvnWindow* window;
 	lvn::createWindow(&window, &windowInfo);
 
 
+	// load model
+	LvnModel lvnmodel = lvn::loadModel("res/models/teapot.gltf");
+
+
+	// create framebuffer
+	LvnDepthImageFormat depthFormats[] =
+	{
+		Lvn_DepthImageFormat_Depth32Stencil8, Lvn_DepthImageFormat_Depth24Stencil8, Lvn_DepthImageFormat_Depth32, Lvn_DepthImageFormat_Depth16,
+	};
+
+	LvnDepthImageFormat supportedDepthFormat = lvn::findSupportedDepthImageFormat(depthFormats, ARRAY_LEN(depthFormats));
+
+	// frame buffer attachments
 	LvnFrameBufferColorAttachment frameBufferColorAttachment = { 0, Lvn_ColorImageFormat_RGBA32F };
-	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, Lvn_DepthImageFormat_Depth32Stencil8 };
+	LvnFrameBufferDepthAttachment frameBufferDepthAttachment = { 1, supportedDepthFormat };
 
 	LvnFrameBufferCreateInfo frameBufferCreateInfo{};
 	frameBufferCreateInfo.width = 800;
@@ -495,35 +637,27 @@ int main()
 	frameBufferCreateInfo.colorAttachmentCount = 1;
 	frameBufferCreateInfo.depthAttachment = &frameBufferDepthAttachment;
 	frameBufferCreateInfo.textureMode = Lvn_TextureMode_ClampToEdge;
-	frameBufferCreateInfo.textureFilter = Lvn_TextureFilter_Linear;
+	frameBufferCreateInfo.textureFilter = Lvn_TextureFilter_Nearest;
 
 	LvnFrameBuffer* frameBuffer;
 	lvn::createFrameBuffer(&frameBuffer, &frameBufferCreateInfo);
 
+
+	// create pipeline
+	// pbr pipeline
 	LvnShaderCreateInfo shaderCreateInfo{};
-	shaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/examples/basicScene/res/shaders/pbr.vert";
-	shaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/examples/basicScene/res/shaders/pbr.frag";
+	shaderCreateInfo.vertexSrc = s_VertexShaderSrc;
+	shaderCreateInfo.fragmentSrc = s_FragmentShaderSrc;
 
 	LvnShader* shader;
-	lvn::createShaderFromFileSrc(&shader, &shaderCreateInfo);
+	lvn::createShaderFromSrc(&shader, &shaderCreateInfo);
 
 
-	LvnVertexBindingDescription vertexBindingDescroption{};
-	vertexBindingDescroption.stride = 8 * sizeof(float);
-	vertexBindingDescroption.binding = 0;
+	LvnVertexBindingDescription vertexBindingDescription{};
+	vertexBindingDescription.stride = 18 * sizeof(float);
+	vertexBindingDescription.binding = 0;
 
-	LvnVertexBindingDescription lvnVertexBindingDescription{};
-	lvnVertexBindingDescription.stride = sizeof(LvnVertex);
-	lvnVertexBindingDescription.binding = 0;
-
-	LvnVertexAttribute attributes[3] =
-	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
-		{ 0, 2, Lvn_VertexDataType_Vec2f, (6 * sizeof(float)) },
-	};
-
-	LvnVertexAttribute lvnAttributes[6] =
+	LvnVertexAttribute attributes[] =
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
 		{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
@@ -533,22 +667,35 @@ int main()
 		{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
 	};
 
+	LvnVertexBindingDescription cubemapBindingDescription{};
+	cubemapBindingDescription.stride = 3 * sizeof(float);
+	cubemapBindingDescription.binding = 0;
+	
+	LvnVertexAttribute cubemapAttributes[] =
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
+	};
+
+	LvnVertexBindingDescription fbVertexBindingDescription{};
+	fbVertexBindingDescription.stride = 5 * sizeof(float);
+	fbVertexBindingDescription.binding = 0;
+
+	LvnVertexAttribute fbAttributes[] =
+	{
+		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
+		{ 0, 1, Lvn_VertexDataType_Vec2f, (3 * sizeof(float)) },
+	};
+
+
 	LvnDescriptorBinding uniformDescriptorBinding{};
 	uniformDescriptorBinding.binding = 0;
 	uniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
+	uniformDescriptorBinding.shaderStage = Lvn_ShaderStage_All;
 	uniformDescriptorBinding.descriptorCount = 1;
-	uniformDescriptorBinding.maxAllocations = 1;
-
-	LvnDescriptorBinding pbrUniformDescriptorBinding{};
-	pbrUniformDescriptorBinding.binding = 1;
-	pbrUniformDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	pbrUniformDescriptorBinding.shaderStage = Lvn_ShaderStage_All;
-	pbrUniformDescriptorBinding.descriptorCount = 1;
-	pbrUniformDescriptorBinding.maxAllocations = 256;
+	uniformDescriptorBinding.maxAllocations = 256;
 
 	LvnDescriptorBinding storageDescriptorBinding{};
-	storageDescriptorBinding.binding = 0;
+	storageDescriptorBinding.binding = 1;
 	storageDescriptorBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
 	storageDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	storageDescriptorBinding.descriptorCount = 1;
@@ -563,11 +710,11 @@ int main()
 
 	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
-		storageDescriptorBinding, pbrUniformDescriptorBinding,
+		uniformDescriptorBinding, storageDescriptorBinding,
 		textureBinding(2, 256),
 		textureBinding(3, 256),
 		textureBinding(4, 256),
-		// textureBinding(5, 256),
+		textureBinding(5, 256),
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -578,21 +725,18 @@ int main()
 	LvnDescriptorLayout* descriptorLayout;
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
 
-	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
-
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 	pipelineSpec.depthstencil.enableDepth = true;
-	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_Less;
-	// pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;
-	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CCW;
+	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;
+	pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CCW;
 
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
-	pipelineCreateInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
+	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-	pipelineCreateInfo.pVertexAttributes = lvnAttributes;
-	pipelineCreateInfo.vertexAttributeCount = 6;
+	pipelineCreateInfo.pVertexAttributes = attributes;
+	pipelineCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
 	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
@@ -605,63 +749,13 @@ int main()
 	lvn::destroyShader(shader);
 
 
-	// framebuffer pipeline
-	LvnShaderCreateInfo fbShaderCreateInfo{};
-	fbShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/examples/basicScene/res/shaders/vkFB.vert";
-	fbShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/examples/basicScene/res/shaders/vkFB.frag";
-
-	LvnShader* fbShader;
-	lvn::createShaderFromFileSrc(&fbShader, &fbShaderCreateInfo);
-
-	std::vector<LvnDescriptorBinding> fbDescriptorBinding =
-	{
-		uniformDescriptorBinding, combinedImageDescriptorBinding,
-	};
-
-	LvnDescriptorLayoutCreateInfo fbDescriptorLayoutCreateInfo{};
-	fbDescriptorLayoutCreateInfo.pDescriptorBindings = fbDescriptorBinding.data();
-	fbDescriptorLayoutCreateInfo.descriptorBindingCount = fbDescriptorBinding.size();
-	fbDescriptorLayoutCreateInfo.maxSets = 1;
-
-	LvnDescriptorLayout* fbDescriptorLayout;
-	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
-
-	LvnDescriptorSet* fbDescriptorSet;
-	lvn::createDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
-
-	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
-	pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
-	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-	pipelineCreateInfo.pVertexAttributes = attributes;
-	pipelineCreateInfo.vertexAttributeCount = 3;
-	pipelineCreateInfo.shader = fbShader;
-	pipelineCreateInfo.renderPass = lvn::windowGetRenderPass(window);
-	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
-	// pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Back;
-	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CW;
-
-	LvnPipeline* fbPipeline;
-	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
-
-	lvn::destroyShader(fbShader);
-
-
 	// cubemap pipeline
-	LvnVertexBindingDescription cubemapBindingDescription{};
-	cubemapBindingDescription.stride = 3 * sizeof(float);
-	cubemapBindingDescription.binding = 0;
-	
-	LvnVertexAttribute cubemapAttributes[1] = 
-	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-	};
-	
 	LvnShaderCreateInfo cubemapShaderCreateInfo{};
-	cubemapShaderCreateInfo.vertexSrc = "/home/bma/Documents/dev/levikno/examples/basicScene/res/shaders/vkcubemap.vert";
-	cubemapShaderCreateInfo.fragmentSrc = "/home/bma/Documents/dev/levikno/examples/basicScene/res/shaders/vkcubemap.frag";
+	cubemapShaderCreateInfo.vertexSrc = s_CubemapVertexShaderSrc;
+	cubemapShaderCreateInfo.fragmentSrc = s_CubemapFragmentShaderSrc;
 	
 	LvnShader* cubemapShader;
-	lvn::createShaderFromFileSrc(&cubemapShader, &cubemapShaderCreateInfo);
+	lvn::createShaderFromSrc(&cubemapShader, &cubemapShaderCreateInfo);
 	
 	std::vector<LvnDescriptorBinding> cubemapDescriptorBinding =
 	{
@@ -683,13 +777,11 @@ int main()
 	pipelineCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
 	pipelineCreateInfo.pVertexAttributes = cubemapAttributes;
-	pipelineCreateInfo.vertexAttributeCount = 1;
+	pipelineCreateInfo.vertexAttributeCount = ARRAY_LEN(cubemapAttributes);
 	pipelineCreateInfo.shader = cubemapShader;
 	pipelineCreateInfo.renderPass = lvn::frameBufferGetRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
-	// pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Front;
-	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CW;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -697,33 +789,63 @@ int main()
 	lvn::destroyShader(cubemapShader);
 
 
-	// vertex/index buffer
+	// framebuffer pipeline
+	LvnShaderCreateInfo fbShaderCreateInfo{};
+	fbShaderCreateInfo.vertexSrc = s_FbVertexShaderSrc;
+	fbShaderCreateInfo.fragmentSrc = s_FbragmentShaderSrc;
+
+	LvnShader* fbShader;
+	lvn::createShaderFromSrc(&fbShader, &fbShaderCreateInfo);
+
+	LvnDescriptorLayoutCreateInfo fbDescriptorLayoutCreateInfo{};
+	fbDescriptorLayoutCreateInfo.pDescriptorBindings = &combinedImageDescriptorBinding;
+	fbDescriptorLayoutCreateInfo.descriptorBindingCount = 1;
+	fbDescriptorLayoutCreateInfo.maxSets = 1;
+
+	LvnDescriptorLayout* fbDescriptorLayout;
+	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
+
+	LvnDescriptorSet* fbDescriptorSet;
+	lvn::createDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
+
+	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
+	pipelineCreateInfo.pVertexBindingDescriptions = &fbVertexBindingDescription;
+	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
+	pipelineCreateInfo.pVertexAttributes = fbAttributes;
+	pipelineCreateInfo.vertexAttributeCount = ARRAY_LEN(fbAttributes);
+	pipelineCreateInfo.shader = fbShader;
+	pipelineCreateInfo.renderPass = lvn::windowGetRenderPass(window);
+	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+
+	LvnPipeline* fbPipeline;
+	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
+
+	lvn::destroyShader(fbShader);
+
+
+
+	// framebuffer buffer
 	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
+	bufferCreateInfo.type = Lvn_BufferType_Vertex;
+	bufferCreateInfo.pVertexBindingDescriptions = &fbVertexBindingDescription;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = 3;
+	bufferCreateInfo.pVertexAttributes = fbAttributes;
+	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(fbAttributes);
+	bufferCreateInfo.pVertices = s_FbVertices;
+	bufferCreateInfo.vertexBufferSize = sizeof(s_FbVertices);
 
-	bufferCreateInfo.pVertices = vertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(vertices);
+	LvnBuffer* fbBuffer;
+	lvn::createBuffer(&fbBuffer, &bufferCreateInfo);
 
-	bufferCreateInfo.pIndices = indices;
-	bufferCreateInfo.indexBufferSize = sizeof(indices);
-
-	LvnBuffer* buffer;
-	lvn::createBuffer(&buffer, &bufferCreateInfo);
-
+	// cubemap buffer
 	LvnBufferCreateInfo cubemapBufferCreateInfo{};
 	cubemapBufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
 	cubemapBufferCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
 	cubemapBufferCreateInfo.vertexBindingDescriptionCount = 1;
 	cubemapBufferCreateInfo.pVertexAttributes = cubemapAttributes;
-	cubemapBufferCreateInfo.vertexAttributeCount = 1;
-
+	cubemapBufferCreateInfo.vertexAttributeCount = ARRAY_LEN(cubemapAttributes);
 	cubemapBufferCreateInfo.pVertices = s_CubemapVertices;
 	cubemapBufferCreateInfo.vertexBufferSize = sizeof(s_CubemapVertices);
-
 	cubemapBufferCreateInfo.pIndices = s_CubemapIndices;
 	cubemapBufferCreateInfo.indexBufferSize = sizeof(s_CubemapIndices);
 
@@ -732,30 +854,21 @@ int main()
 
 
 	// uniform buffer
-	LvnUniformBufferCreateInfo uniformBufferInfo{};
-	uniformBufferInfo.binding = 0;
-	uniformBufferInfo.type = Lvn_BufferType_Storage;
-	uniformBufferInfo.size = sizeof(PbrStorageData) * 64;
+	LvnUniformBufferCreateInfo storageBufferInfo{};
+	storageBufferInfo.binding = 1;
+	storageBufferInfo.type = Lvn_BufferType_Storage;
+	storageBufferInfo.size = sizeof(UniformData) * 64;
 
-	LvnUniformBuffer* uniformBuffer;
-	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
+	LvnUniformBuffer* storageBuffer;
+	lvn::createUniformBuffer(&storageBuffer, &storageBufferInfo);
 
 	LvnUniformBufferCreateInfo pbrUniformBufferInfo{};
-	pbrUniformBufferInfo.binding = 1;
+	pbrUniformBufferInfo.binding = 0;
 	pbrUniformBufferInfo.type = Lvn_BufferType_Uniform;
 	pbrUniformBufferInfo.size = sizeof(PbrUniformData);
 
 	LvnUniformBuffer* pbrUniformBuffer;
 	lvn::createUniformBuffer(&pbrUniformBuffer, &pbrUniformBufferInfo);
-
-	LvnUniformBufferCreateInfo fbUniformBufferInfo{};
-	fbUniformBufferInfo.binding = 0;
-	fbUniformBufferInfo.type = Lvn_BufferType_Uniform;
-	fbUniformBufferInfo.size = sizeof(UniformData);
-
-	LvnUniformBuffer* fbUniformBuffer;
-	lvn::createUniformBuffer(&fbUniformBuffer, &fbUniformBufferInfo);
-
 
 	LvnUniformBufferCreateInfo cubemapUniformBufferInfo{};
 	cubemapUniformBufferInfo.binding = 0;
@@ -765,57 +878,34 @@ int main()
 	LvnUniformBuffer* cubemapUniformBuffer;
 	lvn::createUniformBuffer(&cubemapUniformBuffer, &cubemapUniformBufferInfo);
 
-	// texture
-	LvnTextureCreateInfo textureCreateInfo{};
-	textureCreateInfo.imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/images/grass.png", 4);
-	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-
-	LvnTexture* texture;
-	lvn::createTexture(&texture, &textureCreateInfo);
-
-	textureCreateInfo.imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/images/debug.png", 4);
-	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-
-	LvnTexture* texture2;
-	lvn::createTexture(&texture2, &textureCreateInfo);
-
 
 	// cubemap
 	LvnCubemapCreateInfo cubemapCreateInfo{};
-	cubemapCreateInfo.posx = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/cubemaps/Chapel/posx.jpg", 4);
-	cubemapCreateInfo.negx = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/cubemaps/Chapel/negx.jpg", 4);
-	cubemapCreateInfo.posy = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/cubemaps/Chapel/posy.jpg", 4);
-	cubemapCreateInfo.negy = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/cubemaps/Chapel/negy.jpg", 4);
-	cubemapCreateInfo.posz = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/cubemaps/Chapel/posz.jpg", 4);
-	cubemapCreateInfo.negz = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/basicScene/res/cubemaps/Chapel/negz.jpg", 4);
+	cubemapCreateInfo.posx = lvn::loadImageData("res/cubemaps/sky/px.jpg", 4);
+	cubemapCreateInfo.negx = lvn::loadImageData("res/cubemaps/sky/nx.jpg", 4);
+	cubemapCreateInfo.posy = lvn::loadImageData("res/cubemaps/sky/py.jpg", 4);
+	cubemapCreateInfo.negy = lvn::loadImageData("res/cubemaps/sky/ny.jpg", 4);
+	cubemapCreateInfo.posz = lvn::loadImageData("res/cubemaps/sky/pz.jpg", 4);
+	cubemapCreateInfo.negz = lvn::loadImageData("res/cubemaps/sky/nz.jpg", 4);
 
 	LvnCubemap* cubemap;
 	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
 
+
+	for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
+	{
+		lvn::createDescriptorSet(&lvnmodel.meshes[i].descriptorSet, descriptorLayout);
+	}
+
+
 	// update descriptor sets
-
-	LvnDescriptorUpdateInfo fbDescriptorUniformUpdateInfo{};
-	fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	fbDescriptorUniformUpdateInfo.binding = 0;
-	fbDescriptorUniformUpdateInfo.descriptorCount = 1;
-	fbDescriptorUniformUpdateInfo.bufferInfo = fbUniformBuffer;
-
 	LvnDescriptorUpdateInfo fbDescriptorTextureUpdateInfo{};
 	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	fbDescriptorTextureUpdateInfo.binding = 1;
 	fbDescriptorTextureUpdateInfo.descriptorCount = 1;
 	fbDescriptorTextureUpdateInfo.textureInfo = lvn::frameBufferGetImage(frameBuffer, 0);
 
-	std::vector<LvnDescriptorUpdateInfo> fbDescriptorUpdateInfo =
-	{
-		fbDescriptorUniformUpdateInfo, fbDescriptorTextureUpdateInfo,
-	};
-
-	lvn::updateDescriptorSetData(fbDescriptorSet, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
+	lvn::updateDescriptorSetData(fbDescriptorSet, &fbDescriptorTextureUpdateInfo, 1);
 
 	LvnDescriptorUpdateInfo cubemapDescriptorUniformUpdateInfo{};
 	cubemapDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
@@ -837,22 +927,33 @@ int main()
 	lvn::updateDescriptorSetData(cubemapDescriptorSet, cubemapDescriptorUpdateInfo.data(), cubemapDescriptorUpdateInfo.size());
 
 
-	// mesh
-	LvnBufferCreateInfo meshBufferInfo{};
-	meshBufferInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	meshBufferInfo.pVertexBindingDescriptions = &lvnVertexBindingDescription;
-	meshBufferInfo.vertexBindingDescriptionCount = 1;
-	meshBufferInfo.pVertexAttributes = lvnAttributes;
-	meshBufferInfo.vertexAttributeCount = 6;
-	meshBufferInfo.pVertices = lvnVertices.data();
-	meshBufferInfo.vertexBufferSize = lvnVertices.size() * sizeof(LvnVertex);
-	meshBufferInfo.pIndices = indices;
-	meshBufferInfo.indexBufferSize = sizeof(indices);
+	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
+	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorPbrUniformUpdateInfo.binding = 0;
+	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
+	descriptorPbrUniformUpdateInfo.bufferInfo = pbrUniformBuffer;
 
-	LvnMeshCreateInfo meshCreateInfo{};
-	meshCreateInfo.bufferInfo = &meshBufferInfo;
+	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
+	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
+	descriptorUniformUpdateInfo.binding = 1;
+	descriptorUniformUpdateInfo.descriptorCount = 1;
+	descriptorUniformUpdateInfo.bufferInfo = storageBuffer;
 
-	LvnMesh mesh = lvn::createMesh(&meshCreateInfo);
+	for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
+	{
+		std::vector<LvnDescriptorUpdateInfo> pbrDescriptorUpdateInfo =
+		{
+			descriptorPbrUniformUpdateInfo,
+			descriptorUniformUpdateInfo,
+			{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.albedo },
+			{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.metallicRoughnessOcclusion },
+			{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.normal },
+			{ 5, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.emissive },
+		};
+
+		lvn::updateDescriptorSetData(lvnmodel.meshes[i].descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
+	}
+
 
 	LvnCameraCreateInfo cameraCreateInfo{};
 	cameraCreateInfo.width = lvn::windowGetSize(window).width;
@@ -866,109 +967,34 @@ int main()
 	LvnCamera camera = lvn::cameraConfigInit(&cameraCreateInfo);
 
 
-	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/gameboy/scene.gltf");
+	EventData eventData{};
+	eventData.fbDescriptorSet = fbDescriptorSet;
+	eventData.frameBuffer = frameBuffer;
 
-	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
-	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
-	descriptorUniformUpdateInfo.binding = 0;
-	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
-
-	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
-	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorPbrUniformUpdateInfo.binding = 1;
-	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
-	descriptorPbrUniformUpdateInfo.bufferInfo = pbrUniformBuffer;
-
-	std::vector<LvnDescriptorUpdateInfo> pbrDescriptorUpdateInfo = 
-	{
-		descriptorUniformUpdateInfo,
-		descriptorPbrUniformUpdateInfo,
-		{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[0].material.albedo },
-		{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[0].material.metallicRoughnessOcclusion },
-		{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[0].material.normal },
-	};
-
-	lvn::updateDescriptorSetData(descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
+	lvn::windowSetEventCallback(window, eventsCallbackFn, &eventData);
 
 
-	LvnSoundCreateInfo soundCreateInfo{};
-	soundCreateInfo.filepath = "/home/bma/Downloads/Soundtrack - Red Alert 2 - Blow It Up.mp3"; // your audio filepath here
-	soundCreateInfo.volume = 1.0f;
-	soundCreateInfo.pitch = 1.0f;
-	soundCreateInfo.pan = 0.0f;
-	soundCreateInfo.looping = false;
-
-	LvnSound* sound;
-	lvn::createSoundFromFile(&sound, &soundCreateInfo);
-
-	SoundData sndData = { .sound = sound, .vol = 1.0f, .pan = 0.0f, .pitch = 1.0f };
-	lvn::windowSetEventCallback(window, eventsCallbackFn, &sndData);
-
-
-	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/JetBrainsMonoNerdFont-Regular.ttf", 32, { 32, 126 });
-
-
-	lvn::soundPlayStart(sound);
-
-	auto startTime = std::chrono::high_resolution_clock::now();
-
-	Timer timer;
+	LvnTimer timer;
 	int fps;
-	timer.start();
+	timer.begin();
 
 	float oldTime = 0.0f;
-	Timer deltaTime;
-	deltaTime.start();
+	LvnTimer deltaTime;
+	deltaTime.begin();
 
 	UniformData uniformData{};
 	PbrUniformData pbrData{};
-	std::vector<PbrStorageData> objectData = {};
-	int winWidth, winHeight;
+	std::vector<UniformData> objectData;
 
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
-
-		// auto [x, y] = lvn::getWindowDimensions(window);
-		// LVN_TRACE("(x:%d,y:%d)", x, y);
-		auto windowSize = lvn::windowGetDimensions(window);
-		int width = windowSize.width, height = windowSize.height;
-
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-		lvn::mat4 model = lvn::scale(lvn::mat4(1.0f), lvn::vec3(1.01f)); // * lvn::rotate(lvn::mat4(1.0f), time * lvn::radians(30.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
-
-		camera.width = width;
-		camera.height = height;
 
 		float timeNow = deltaTime.elapsed();
 		float dt = timeNow - oldTime;
 		oldTime = timeNow;
 		orbitMovment(window, &camera, dt);
 		
-		if (winWidth != width || winHeight != height)
-		{
-			lvn::frameBufferResize(frameBuffer, width, height);
-
-			fbDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-			fbDescriptorUniformUpdateInfo.binding = 0;
-			fbDescriptorUniformUpdateInfo.descriptorCount = 1;
-			fbDescriptorUniformUpdateInfo.bufferInfo = fbUniformBuffer;
-
-			fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-			fbDescriptorTextureUpdateInfo.binding = 1;
-			fbDescriptorTextureUpdateInfo.descriptorCount = 1;
-			fbDescriptorTextureUpdateInfo.textureInfo = lvn::frameBufferGetImage(frameBuffer, 0);
-
-			fbDescriptorUpdateInfo =
-			{
-				fbDescriptorUniformUpdateInfo, fbDescriptorTextureUpdateInfo,
-			};
-
-			lvn::updateDescriptorSetData(fbDescriptorSet, fbDescriptorUpdateInfo.data(), fbDescriptorUpdateInfo.size());
-		}
 
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
@@ -978,23 +1004,23 @@ int main()
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
 			objectData[i].matrix = camera.matrix;
-			objectData[i].model = lvnmodel.meshes[i].modelMatrix * model;
+			objectData[i].model = lvnmodel.meshes[i].modelMatrix;
 		}
 
 		pbrData.campPos = lvn::cameraGetPos(&camera);
-		pbrData.lightPos = lvn::vec3(cos(time) * 3.0f, 0.0f, sin(time) * 3.0f);
+		pbrData.lightPos = lvn::vec3(cos(lvn::getContextTime()) * 3.0f, 0.0f, sin(lvn::getContextTime()) * 3.0f);
 		pbrData.metalic = 0.5f;
-		pbrData.roughness = abs(sin(time));
+		pbrData.roughness = 0.4f;
 		pbrData.ambientOcclusion = 1.0f;
 
 		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData));
+		lvn::updateUniformBufferData(window, storageBuffer, objectData.data(), sizeof(UniformData) * lvnmodel.meshes.size());
 
 		lvn::renderCmdBindPipeline(window, pipeline);
-		lvn::updateUniformBufferData(window, uniformBuffer, objectData.data(), sizeof(PbrStorageData) * lvnmodel.meshes.size());
-		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
+			lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &lvnmodel.meshes[i].descriptorSet);
 			lvn::renderCmdBindVertexBuffer(window, lvn::meshGetBuffer(&lvnmodel.meshes[i]));
 			lvn::renderCmdBindIndexBuffer(window, lvn::meshGetBuffer(&lvnmodel.meshes[i]));
 
@@ -1006,39 +1032,32 @@ int main()
 		lvn::mat4 view = lvn::mat4(lvn::mat3(camera.viewMatrix));
 		uniformData.matrix = projection * view;
 
-		lvn::renderCmdBindPipeline(window, cubemapPipeline);
 		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData));
+		lvn::renderCmdBindPipeline(window, cubemapPipeline);
 		lvn::renderCmdBindDescriptorSets(window, cubemapPipeline, 0, 1, &cubemapDescriptorSet);
 
 		lvn::renderCmdBindVertexBuffer(window, cubemapBuffer);
 		lvn::renderCmdBindIndexBuffer(window, cubemapBuffer);
 
-		lvn::renderCmdDrawIndexed(window, 36);
+		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_CubemapIndices));
 
 		lvn::renderCmdEndFrameBuffer(window, frameBuffer);
 
 
 		// begin main render pass
-		lvn::renderClearColor(window, abs(sin(time)) * 0.1f, 0.0f, abs(cos(time)) * 0.1f, 1.0f);
+		lvn::renderClearColor(window, 0.0f, 0.0f, 0.0f, 1.0f);
 		lvn::renderCmdBeginRenderPass(window);
 
-		uniformData.matrix = lvn::mat4(1.0f);
-
 		lvn::renderCmdBindPipeline(window, fbPipeline);
-		lvn::updateUniformBufferData(window, fbUniformBuffer, &uniformData, sizeof(UniformData));
-
-		lvn::renderCmdBindVertexBuffer(window, buffer);
-		lvn::renderCmdBindIndexBuffer(window, buffer);
-
 		lvn::renderCmdBindDescriptorSets(window, fbPipeline, 0, 1, &fbDescriptorSet);
-		lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0]));
+		lvn::renderCmdBindVertexBuffer(window, fbBuffer);
+
+		lvn::renderCmdDraw(window, 6);
 
 		lvn::renderCmdEndRenderPass(window);
 		lvn::renderEndCommandRecording(window);
 		lvn::renderDrawSubmit(window);
 
-		winWidth = width;
-		winHeight = height;
 
 		fps++;
 		if (timer.elapsed() >= 1.0f)
@@ -1049,25 +1068,18 @@ int main()
 		}
 	}
 
-	lvn::destroySound(sound);
 
 	lvn::freeModel(&lvnmodel);
-	lvn::destroyMesh(&mesh);
 	lvn::destroyCubemap(cubemap);
 	lvn::destroyFrameBuffer(frameBuffer);
 
-	lvn::destroyTexture(texture);
-	lvn::destroyTexture(texture2);
-
-	lvn::destroyBuffer(buffer);
+	lvn::destroyBuffer(fbBuffer);
 	lvn::destroyBuffer(cubemapBuffer);
 
 	lvn::destroyUniformBuffer(cubemapUniformBuffer);
-	lvn::destroyUniformBuffer(fbUniformBuffer);
-	lvn::destroyUniformBuffer(uniformBuffer);
+	lvn::destroyUniformBuffer(storageBuffer);
 	lvn::destroyUniformBuffer(pbrUniformBuffer);
 
-	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyDescriptorSet(fbDescriptorSet);
 	lvn::destroyDescriptorSet(cubemapDescriptorSet);
 

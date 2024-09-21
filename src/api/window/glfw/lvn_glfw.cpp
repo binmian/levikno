@@ -12,6 +12,7 @@
 namespace lvn
 {
 	static bool s_glfwInit = false;
+	static GLFWcursor* s_CursorIcons[10];
 
 	static void      GLFWerrorCallback(int error, const char* descripion);
 	static LvnResult createGraphicsRelatedAPIData(LvnWindow* window);
@@ -75,7 +76,6 @@ namespace lvn
 			LVN_CORE_ASSERT(success, "Failed to initialize glfw");
 			return Lvn_Result_Failure;
 		}
-		glfwSetErrorCallback(GLFWerrorCallback);
 		s_glfwInit = true;
 
 		windowContext->createWindow = glfwImplCreateWindow;
@@ -97,6 +97,8 @@ namespace lvn
 		windowContext->getMousePosPtr = glfwImplGetMousePosPtr;
 		windowContext->getMouseX = glfwImplGetMouseX;
 		windowContext->getMouseY = glfwImplGetMouseY;
+		windowContext->setMouseCursor = glfwImplSetMouseCursor;
+		windowContext->SetMouseInputMode = glfwImplSetMouseInputMode;
 
 		windowContext->getWindowPos = glfwImplGetWindowPos;
 		windowContext->getWindowPosPtr = glfwImplGetWindowPosPtr;
@@ -110,11 +112,30 @@ namespace lvn
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		}
 
+		s_CursorIcons[Lvn_MouseCursor_Arrow] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_Ibeam] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_Crosshair] = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_PointingHand] = glfwCreateStandardCursor(GLFW_POINTING_HAND_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_ResizeEW] = glfwCreateStandardCursor(GLFW_RESIZE_EW_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_ResizeNS] = glfwCreateStandardCursor(GLFW_RESIZE_NS_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_ResizeNWSE] = glfwCreateStandardCursor(GLFW_RESIZE_NWSE_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_ResizeNESW] = glfwCreateStandardCursor(GLFW_RESIZE_NESW_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_ResizeAll] = glfwCreateStandardCursor(GLFW_RESIZE_ALL_CURSOR);
+		s_CursorIcons[Lvn_MouseCursor_NotAllowed] = glfwCreateStandardCursor(GLFW_NOT_ALLOWED_CURSOR);
+
+
+		glfwSetErrorCallback(GLFWerrorCallback);
+
 		return Lvn_Result_Success;
 	}
 
 	void glfwImplTerminateWindowContext()
 	{
+		for (uint32_t i = 0; i < sizeof(s_CursorIcons) / sizeof(s_CursorIcons[0]); i++)
+		{
+			glfwDestroyCursor(s_CursorIcons[i]);
+		}
+
 		if (s_glfwInit)
 		{
 			glfwTerminate();
@@ -538,6 +559,30 @@ namespace lvn
 		double xPos, yPos;
 		glfwGetCursorPos(glfwWin, &xPos, &yPos);
 		return (float)yPos;
+	}
+
+	void glfwImplSetMouseCursor(LvnWindow* window, LvnMouseCursor cursor)
+	{
+		LVN_CORE_ASSERT(static_cast<uint32_t>(cursor) < (sizeof(s_CursorIcons) / sizeof(s_CursorIcons[0])), "cursor mode index out of range");
+
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		glfwSetCursor(glfwWin, s_CursorIcons[cursor]);
+	}
+
+	void glfwImplSetMouseInputMode(LvnWindow* window, LvnMouseInputMode mode)
+	{
+		GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
+		auto modeEnum = GLFW_CURSOR_NORMAL;
+
+		switch (mode)
+		{
+			case Lvn_MouseInputMode_Normal: { modeEnum = GLFW_CURSOR_NORMAL; break; }
+			case Lvn_MouseInputMode_Disable: { modeEnum = GLFW_CURSOR_DISABLED; break; }
+			case Lvn_MouseInputMode_Hidden: { modeEnum = GLFW_CURSOR_HIDDEN; break; }
+			case Lvn_MouseInputMode_Captured: { modeEnum = GLFW_CURSOR_CAPTURED; break; }
+		}
+
+		glfwSetInputMode(glfwWin, GLFW_CURSOR, modeEnum);
 	}
 
 	LvnPair<int> glfwImplGetWindowPos(LvnWindow* window)
