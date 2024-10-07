@@ -8,6 +8,9 @@
 #include "miniaudio.h"
 #include "freetype/freetype.h"
 
+#define ASIO_STANDALONE
+#include "asio.hpp"
+
 #ifdef LVN_PLATFORM_WINDOWS
 	#include <windows.h>
 #endif
@@ -27,6 +30,50 @@
 #include "lvn_loadModel.h"
 
 static LvnContext* s_LvnContext = nullptr;
+
+
+// ------------------------------------------------------------
+// [SECTION]: Audio Internal structs
+// ------------------------------------------------------------
+
+struct LvnSound
+{
+	float volume;
+	float pan;
+	float pitch;
+	bool looping;
+
+	LvnVec3 pos;
+
+	ma_sound sound;
+	LvnSoundBoard* soundBoard;
+};
+
+struct LvnSoundBoard
+{
+	float masterVolume;
+	float masterPan;
+	float masterPitch;
+
+	std::unordered_map<uint32_t, LvnSound> sounds;
+};
+
+
+// ------------------------------------------------------------
+// [SECTION]: Network Internal structs
+// ------------------------------------------------------------
+
+struct LvnSocket
+{
+	const char* host;
+	int port;
+
+	asio::io_context ctx;
+	asio::ip::tcp::socket socket;
+	asio::ip::tcp::resolver resolver;
+	asio::ip::tcp::resolver::results_type endpoints;
+};
+
 
 
 namespace lvn
@@ -130,7 +177,7 @@ static LvnResult setWindowContext(LvnContext* lvnctx, LvnWindowApi windowapi)
 	{
 		case Lvn_WindowApi_None:
 		{
-			LVN_CORE_TRACE("no window context selected, window related function calls will not be used");
+			LVN_CORE_TRACE("no window context selected; window related function calls will not be used");
 			return Lvn_Result_Success;
 		}
 		case Lvn_WindowApi_glfw:
@@ -189,7 +236,7 @@ static LvnResult setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsa
 	{
 		case Lvn_GraphicsApi_None:
 		{
-			LVN_CORE_TRACE("no graphics context selected, graphics related function calls will not be used");
+			LVN_CORE_TRACE("no graphics context selected; graphics related function calls will not be used");
 			return Lvn_Result_Success;
 		}
 		case Lvn_GraphicsApi_vulkan:
@@ -454,7 +501,10 @@ T* createObject(LvnContext* lvnctx, LvnStructureType sType)
 	return object;
 }
 
-/* [SECTION]: Core */
+// ------------------------------------------------------------
+// [SECTION]: Core Functions
+// ------------------------------------------------------------
+
 LvnResult createContext(LvnContextCreateInfo* createInfo)
 {
 	if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
@@ -550,7 +600,9 @@ LvnContext* getContext()
 	return s_LvnContext;
 }
 
+// ------------------------------------------------------------
 // [SECTION]: Date Time Functions
+// ------------------------------------------------------------
 
 int dateGetYear()
 {
@@ -957,7 +1009,7 @@ LvnResult logInit()
 
 		lvnctx->coreLogger.loggerName = "CORE";
 
-		if (lvnctx->appName != nullptr && strcmp(lvnctx->appName, LVN_EMPTY_STR) != 0)
+		if (!lvnctx->appName.empty())
 			lvnctx->clientLogger.loggerName = lvnctx->appName;
 		else
 			lvnctx->clientLogger.loggerName = "CLIENT";
@@ -1027,13 +1079,12 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
 	if (!lvn::getContext()->logging) { return; }
 
-	LvnLogMessage logMsg =
-	{
-		.msg = msg,
-		.loggerName = logger->loggerName,
-		.level = level,
-		.timeEpoch = dateGetSecondsSinceEpoch()
-	};
+	LvnLogMessage logMsg{};
+	logMsg.msg = msg;
+	logMsg.loggerName = logger->loggerName.c_str();
+	logMsg.level = level;
+	logMsg.timeEpoch = dateGetSecondsSinceEpoch();
+
 	logOutputMessage(logger, &logMsg);
 }
 
@@ -1231,10 +1282,11 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 	loggerPtr->logPatternFormat = loggerCreateInfo->logPatternFormat;
 	loggerPtr->logLevel = loggerCreateInfo->logLevel;
 
-	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->logPatternFormat);
+	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->logPatternFormat.c_str());
 
 	lvnctx->objectMemoryAllocations.loggers++;
-	LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName);
+	LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
+
 	return Lvn_Result_Success;
 }
 
@@ -1247,7 +1299,10 @@ void destroyLogger(LvnLogger* logger)
 	lvnctx->objectMemoryAllocations.loggers--;
 }
 
-// [SECTION]: Events
+// ------------------------------------------------------------
+// [SECTION]: Event Functions
+// ------------------------------------------------------------
+
 bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*, void*))
 {
 	if (event->type == Lvn_EventType_KeyHold)
@@ -1478,7 +1533,9 @@ bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent
 }
 
 
-// [SECTION]: Window
+// ------------------------------------------------------------
+// [SECTION]: Window Functions
+// ------------------------------------------------------------
 
 LvnWindowApi getWindowApi()
 {
@@ -1591,7 +1648,10 @@ LvnWindowCreateInfo windowCreateInfoGetConfig(int width, int height, const char*
 	 return windowCreateInfo;
 }
 
-// [SECTION]: Input
+// ------------------------------------------------------------
+// [SECTION]: Input Functions
+// ------------------------------------------------------------
+
 bool keyPressed(LvnWindow* window, int keycode)
 {
 	return lvn::getContext()->windowContext.keyPressed(window, keycode);
@@ -1662,7 +1722,9 @@ void windowGetSize(LvnWindow* window, int* width, int* height)
 	lvn::getContext()->windowContext.getWindowSizePtr(window, width, height);
 }
 
-// [SECTION]: Graphics
+// ------------------------------------------------------------
+// [SECTION]: Graphics Functions
+// ------------------------------------------------------------
 
 LvnGraphicsApi getGraphicsApi()
 {
@@ -1881,13 +1943,13 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (!createInfo->vertexSrc)
+	if (createInfo->vertexSrc.empty())
 	{
 		LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
 		return Lvn_Result_Failure;
 	}
 
-	if (!createInfo->fragmentSrc)
+	if (createInfo->fragmentSrc.empty())
 	{
 		LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
 		return Lvn_Result_Failure;
@@ -1904,13 +1966,13 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (!createInfo->vertexSrc)
+	if (createInfo->vertexSrc.empty())
 	{
 		LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
 		return Lvn_Result_Failure;
 	}
 
-	if (!createInfo->fragmentSrc)
+	if (createInfo->fragmentSrc.empty())
 	{
 		LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
 		return Lvn_Result_Failure;
@@ -1919,7 +1981,7 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
 	lvnctx->objectMemoryAllocations.shaders++;
-	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
+	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
 	return lvnctx->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
 }
 
@@ -1927,13 +1989,13 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (!createInfo->vertexSrc)
+	if (createInfo->vertexSrc.empty())
 	{
 		LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
 		return Lvn_Result_Failure;
 	}
 
-	if (!createInfo->fragmentSrc)
+	if (createInfo->fragmentSrc.empty())
 	{
 		LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
 		return Lvn_Result_Failure;
@@ -1942,7 +2004,7 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
 	lvnctx->objectMemoryAllocations.shaders++;
-	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc, createInfo->fragmentSrc);
+	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
 	return lvnctx->graphicsContext.createShaderFromFileBin(*shader, createInfo);
 }
 
@@ -2657,31 +2719,20 @@ uint32_t getVertexDataTypeSize(LvnVertexDataType type)
 }
 
 
-// [SECTION]: Audio
+// ------------------------------------------------------------
+// [SECTION]: Audio Functions
+// ------------------------------------------------------------
 
 LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
+	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
 
-	if (createInfo->filepath == nullptr)
+	if (createInfo->filepath.empty())
 	{
 		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | createInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file");
 		return Lvn_Result_Failure;
 	}
-
-	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
-
-	ma_sound* pSound = (ma_sound*)lvn::memAlloc(sizeof(ma_sound));
-	if (ma_sound_init_from_file(pEngine, createInfo->filepath, 0, NULL, NULL, pSound) != MA_SUCCESS)
-	{
-		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
-		return Lvn_Result_Failure;
-	}
-
-	ma_sound_set_volume(pSound, createInfo->volume);
-	ma_sound_set_pan(pSound, createInfo->pan);
-	ma_sound_set_pitch(pSound, createInfo->pitch);
-	ma_sound_set_looping(pSound, createInfo->looping);
 
 	*sound = lvn::createObject<LvnSound>(lvnctx, Lvn_Stype_Sound);
 
@@ -2691,8 +2742,18 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	soundPtr->pitch = createInfo->pitch;
 	soundPtr->pos = createInfo->pos;
 	soundPtr->looping = createInfo->looping;
-	soundPtr->soundPtr = pSound;
 	soundPtr->soundBoard = nullptr;
+
+	if (ma_sound_init_from_file(pEngine, createInfo->filepath.c_str(), 0, NULL, NULL, &soundPtr->sound) != MA_SUCCESS)
+	{
+		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
+		return Lvn_Result_Failure;
+	}
+
+	ma_sound_set_volume(&soundPtr->sound, createInfo->volume);
+	ma_sound_set_pan(&soundPtr->sound, createInfo->pan);
+	ma_sound_set_pitch(&soundPtr->sound, createInfo->pitch);
+	ma_sound_set_looping(&soundPtr->sound, createInfo->looping);
 
 	lvnctx->objectMemoryAllocations.sounds++;
 	LVN_CORE_TRACE("created sound: (%p), volume: %.2f, pan: %.2f, pitch: %.2f", *sound, createInfo->volume, createInfo->pan, createInfo->pitch);
@@ -2704,10 +2765,7 @@ void destroySound(LvnSound* sound)
 	if (sound == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-
-	ma_sound_uninit(pSound);
-	lvn::memFree(pSound);
+	ma_sound_uninit(&sound->sound);
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete sound; }
 	sound = nullptr;
@@ -2727,72 +2785,62 @@ LvnSoundCreateInfo soundConfigInit(const char* filepath)
 	return soundInit;
 }
 
-void soundSetVolume(const LvnSound* sound, float volume)
+void soundSetVolume(LvnSound* sound, float volume)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	if (sound->soundBoard != nullptr) { volume *= sound->soundBoard->masterVolume; }
 
-	ma_sound_set_volume(pSound, volume);
+	ma_sound_set_volume(&sound->sound, volume);
 }
 
-void soundSetPan(const LvnSound* sound, float pan)
+void soundSetPan(LvnSound* sound, float pan)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	if (sound->soundBoard != nullptr) { pan *= sound->soundBoard->masterPan; }
 
-	ma_sound_set_pan(pSound, pan);
+	ma_sound_set_pan(&sound->sound, pan);
 }
 
-void soundSetPitch(const LvnSound* sound, float pitch)
+void soundSetPitch(LvnSound* sound, float pitch)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	if (sound->soundBoard != nullptr) { pitch *= sound->soundBoard->masterPitch; }
 
-	ma_sound_set_pitch(pSound, pitch);
+	ma_sound_set_pitch(&sound->sound, pitch);
 }
 
-void soundSetLooping(const LvnSound* sound, bool looping)
+void soundSetLooping(LvnSound* sound, bool looping)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-	ma_sound_set_looping(pSound, looping);
+	ma_sound_set_looping(&sound->sound, looping);
 }
 
-void soundPlayStart(const LvnSound* sound)
+void soundPlayStart(LvnSound* sound)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-	ma_sound_start(pSound);
+	ma_sound_start(&sound->sound);
 }
 
-void soundPlayStop(const LvnSound* sound)
+void soundPlayStop(LvnSound* sound)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-	ma_sound_stop(pSound);
+	ma_sound_stop(&sound->sound);
 }
 
-void soundTogglePause(const LvnSound* sound)
+void soundTogglePause(LvnSound* sound)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-	if (ma_sound_is_playing(pSound)) { ma_sound_stop(pSound); }
-	else { ma_sound_start(pSound); }
+	if (ma_sound_is_playing(&sound->sound)) { ma_sound_stop(&sound->sound); }
+	else { ma_sound_start(&sound->sound); }
 }
 
-bool soundIsPlaying(const LvnSound* sound)
+bool soundIsPlaying(LvnSound* sound)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-	return ma_sound_is_playing(pSound);
+	return ma_sound_is_playing(&sound->sound);
 }
 
-uint64_t soundGetTimeMiliseconds(const LvnSound* sound)
+uint64_t soundGetTimeMiliseconds(LvnSound* sound)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
-	return ma_sound_get_time_in_milliseconds(pSound);
+	return ma_sound_get_time_in_milliseconds(&sound->sound);
 }
 
-float soundGetLengthSeconds(const LvnSound* sound)
+float soundGetLengthSeconds(LvnSound* sound)
 {
-	ma_sound* pSound = static_cast<ma_sound*>(sound->soundPtr);
 	float length;
-	ma_sound_get_length_in_seconds(pSound, &length);
+	ma_sound_get_length_in_seconds(&sound->sound, &length);
 
 	return length;
 }
@@ -2823,9 +2871,9 @@ void destroySoundBoard(LvnSoundBoard* soundBoard)
 	if (soundBoard == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 
-	for (uint32_t i = 0; i < soundBoard->sounds.size(); i++)
+	for (auto& sound : soundBoard->sounds)
 	{
-		lvn::memFree(soundBoard->sounds[i].soundPtr);
+		ma_sound_uninit(&sound.second.sound);
 	}
 
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete soundBoard; }
@@ -2836,8 +2884,9 @@ void destroySoundBoard(LvnSoundBoard* soundBoard)
 LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id)
 {
 	LvnContext* lvnctx = lvn::getContext();
+	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
 
-	if (soundInfo->filepath == nullptr)
+	if (soundInfo->filepath.empty())
 	{
 		LVN_CORE_ERROR("cannot add sound to sound board (%p), soundInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file", soundBoard);
 		return Lvn_Result_Failure;
@@ -2845,31 +2894,27 @@ LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soun
 
 	if (soundBoard->sounds.find(id) != soundBoard->sounds.end())
 	{
-		LVN_CORE_ERROR("cannot add sound to sound board (%p), sound board already has a sound with the given id: %u", soundBoard, id);
+		LVN_CORE_ERROR("cannot add sound to sound board (%p), sound board already has a sound with that id: %u", soundBoard, id);
 		return Lvn_Result_Failure;
 	}
-
-	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
-
-	ma_sound* pSound = (ma_sound*)lvn::memAlloc(sizeof(ma_sound));
-	if (ma_sound_init_from_file(pEngine, soundInfo->filepath, 0, NULL, NULL, pSound) != MA_SUCCESS)
-	{
-		LVN_CORE_ERROR("failed to create sound object when adding sound to sound board (%p)", soundBoard);
-		return Lvn_Result_Failure;
-	}
-
-	ma_sound_set_volume(pSound, soundInfo->volume);
-	ma_sound_set_pan(pSound, soundInfo->pan);
-	ma_sound_set_pitch(pSound, soundInfo->pitch);
-	ma_sound_set_looping(pSound, soundInfo->looping);
 
 	LvnSound sound{};
 	sound.pan = soundInfo->pan;
 	sound.pitch = soundInfo->pitch;
 	sound.pos = soundInfo->pos;
 	sound.looping = soundInfo->looping;
-	sound.soundPtr = pSound;
 	sound.soundBoard = soundBoard;
+
+	if (ma_sound_init_from_file(pEngine, soundInfo->filepath.c_str(), 0, NULL, NULL, &sound.sound) != MA_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create sound object when adding sound to sound board (%p)", soundBoard);
+		return Lvn_Result_Failure;
+	}
+
+	ma_sound_set_volume(&sound.sound, soundInfo->volume);
+	ma_sound_set_pan(&sound.sound, soundInfo->pan);
+	ma_sound_set_pitch(&sound.sound, soundInfo->pitch);
+	ma_sound_set_looping(&sound.sound, soundInfo->looping);
 
 	soundBoard->sounds[id] = sound;
 	return Lvn_Result_Success;
@@ -2877,6 +2922,7 @@ LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soun
 
 void soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id)
 {
+	// TODO: remove sound uninit
 	soundBoard->sounds.erase(id);
 }
 
@@ -2887,7 +2933,9 @@ const LvnSound* soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id)
 	return &soundBoard->sounds[id];
 }
 
-// [SECTION]: Math
+// ------------------------------------------------------------
+// [SECTION]: Math Functions
+// ------------------------------------------------------------
 
 float radians(float deg)
 {

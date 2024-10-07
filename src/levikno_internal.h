@@ -229,6 +229,13 @@ public:
 	}
 };
 
+struct LvnMemoryPool
+{
+	LvnList<LvnMemoryBlock> memBlocks;
+
+	std::vector<LvnList<LvnMemoryBinding>> memBindings;
+};
+
 
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
@@ -236,8 +243,8 @@ public:
 
 struct LvnLogger
 {
-	const char* loggerName;
-	const char* logPatternFormat;
+	std::string loggerName;
+	std::string logPatternFormat;
 	LvnLogLevel logLevel;
 	std::vector<LvnLogPattern> logPatterns;
 };
@@ -286,7 +293,7 @@ struct LvnEvent
 struct LvnWindowData
 {                                        // [Same use with LvnWindowCreateinfo]
 	int width, height;                   // width and height of window
-	const char* title;                   // title of window
+	std::string title;                   // title of window
 	int minWidth, minHeight;             // minimum width and height of window
 	int maxWidth, maxHeight;             // maximum width and height of window
 	bool fullscreen, resizable, vSync;   // sets window to fullscreen; enables window resizing; vSync controls window framerate
@@ -505,40 +512,9 @@ struct LvnCubemap
 };
 
 
-
 // ------------------------------------------------------------
-// [SECTION]: Audio Internal structs
+// [SECTION]: Context Internal structs
 // ------------------------------------------------------------
-
-struct LvnSound
-{
-	float volume;
-	float pan;
-	float pitch;
-	bool looping;
-
-	LvnVec3 pos;
-
-	void* soundPtr;
-	LvnSoundBoard* soundBoard;
-};
-
-struct LvnSoundBoard
-{
-	float masterVolume;
-	float masterPan;
-	float masterPitch;
-
-	std::unordered_map<uint32_t, LvnSound> sounds;
-};
-
-struct LvnMemoryPool
-{
-	LvnList<LvnMemoryBlock> memBlocks;
-
-	std::vector<LvnList<LvnMemoryBinding>> memBindings;
-};
-
 
 struct LvnObjectMemAllocCount
 {
@@ -578,7 +554,7 @@ struct LvnContext
 	LvnLogger                   coreLogger;
 	LvnLogger                   clientLogger;
 	std::vector<LvnLogPattern>  userLogPatterns;
-	const char*                 appName;
+	std::string                 appName;
 
 	LvnPipelineSpecification    defaultPipelineSpecification;
 	LvnTimer                    contexTime;

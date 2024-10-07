@@ -2524,13 +2524,13 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cre
 	std::vector<uint32_t> vertData;
 	std::vector<uint32_t> fragData;
 
-	if (vks::compileShaderToSPIRV(EShLangVertex, createInfo->vertexSrc, vertData) == Lvn_Result_Failure)
+	if (vks::compileShaderToSPIRV(EShLangVertex, createInfo->vertexSrc.c_str(), vertData) == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p)", shader);
 		return Lvn_Result_Failure;
 	}
 
-	if (vks::compileShaderToSPIRV(EShLangFragment, createInfo->fragmentSrc, fragData) == Lvn_Result_Failure)
+	if (vks::compileShaderToSPIRV(EShLangFragment, createInfo->fragmentSrc.c_str(), fragData) == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p)", shader);
 		return Lvn_Result_Failure;
@@ -2549,21 +2549,21 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo*
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc);
-	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc);
+	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
+	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
 
 	std::vector<uint32_t> vertData;
 	std::vector<uint32_t> fragData;
 
 	if (vks::compileShaderToSPIRV(EShLangVertex, fileVertSrc.c_str(), vertData) == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p), filepath: %s", shader, createInfo->vertexSrc);
+		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p), filepath: %s", shader, createInfo->vertexSrc.c_str());
 		return Lvn_Result_Failure;
 	}
 
 	if (vks::compileShaderToSPIRV(EShLangFragment, fileFragSrc.c_str(), fragData) == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p), filepath: %s", shader, createInfo->fragmentSrc);
+		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p), filepath: %s", shader, createInfo->fragmentSrc.c_str());
 		return Lvn_Result_Failure;
 	}
 
@@ -2580,8 +2580,8 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo*
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc);
-	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc);
+	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc.c_str());
+	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc.c_str());
 
 	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, reinterpret_cast<const uint32_t*>(vertbin.data()), vertbin.size());
 	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, reinterpret_cast<const uint32_t*>(fragbin.data()), fragbin.size());

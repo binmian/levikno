@@ -82,11 +82,6 @@
 #define LVN_FALSE 0
 #define LVN_NULL_HANDLE nullptr
 
-#define LVN_UINT8_MAX  0xff
-#define LVN_UINT16_MAX 0xffff
-#define LVN_UINT32_MAX 0xffffffff
-#define LVN_UINT64_MAX 0xffffffffffffffff
-
 #define LVN_FILE_NAME __FILE__
 #define LVN_LINE __LINE__
 #define LVN_FUNC_NAME __func__
@@ -767,8 +762,6 @@ struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
 struct LvnMouseMovedEvent;
 struct LvnMouseScrolledEvent;
-struct LvnNetworkMessage;
-struct LvnNetworkMessageHeader;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
 struct LvnPipeline;
@@ -788,6 +781,7 @@ struct LvnRenderInitInfo;
 struct LvnRenderPass;
 struct LvnShader;
 struct LvnShaderCreateInfo;
+struct LvnSocket;
 struct LvnSound;
 struct LvnSoundBoard;
 struct LvnSoundCreateInfo;
@@ -1284,17 +1278,17 @@ namespace lvn
 	LVN_API void                        destroySound(LvnSound* sound);
 	LVN_API LvnSoundCreateInfo          soundConfigInit(const char* filepath);
 
-	LVN_API void                        soundSetVolume(const LvnSound* sound, float volume);
-	LVN_API void                        soundSetPan(const LvnSound* sound, float pan);
-	LVN_API void                        soundSetPitch(const LvnSound* sound, float pitch);
-	LVN_API void                        soundSetLooping(const LvnSound* sound, bool looping);
-	LVN_API void                        soundPlayStart(const LvnSound* sound);
-	LVN_API void                        soundPlayStop(const LvnSound* sound);
-	LVN_API void                        soundTogglePause(const LvnSound* sound);
-	LVN_API bool                        soundIsPlaying(const LvnSound* sound);
-	LVN_API uint64_t                    soundGetTimeMiliseconds(const LvnSound* sound);
-	LVN_API float                       soundGetLengthSeconds(const LvnSound* sound);
-	LVN_API bool                        soundIsAttachedToSoundBoard(const LvnSound* sound);
+	LVN_API void                        soundSetVolume(LvnSound* sound, float volume);
+	LVN_API void                        soundSetPan(LvnSound* sound, float pan);
+	LVN_API void                        soundSetPitch(LvnSound* sound, float pitch);
+	LVN_API void                        soundSetLooping(LvnSound* sound, bool looping);
+	LVN_API void                        soundPlayStart(LvnSound* sound);
+	LVN_API void                        soundPlayStop(LvnSound* sound);
+	LVN_API void                        soundTogglePause(LvnSound* sound);
+	LVN_API bool                        soundIsPlaying(LvnSound* sound);
+	LVN_API uint64_t                    soundGetTimeMiliseconds(LvnSound* sound);
+	LVN_API float                       soundGetLengthSeconds(LvnSound* sound);
+	LVN_API bool                        soundIsAttachedToSoundBoard(LvnSound* sound);
 
 	LVN_API LvnResult                   createSoundBoard(LvnSoundBoard** soundBoard);
 	LVN_API void                        destroySoundBoard(LvnSoundBoard* soundBoard);
@@ -1813,7 +1807,7 @@ struct LvnMemoryBindingInfo
 
 struct LvnContextCreateInfo
 {
-	const char*                   applicationName;               // name of application or program
+	std::string                   applicationName;               // name of application or program
 	LvnWindowApi                  windowapi;                     // window api to use when creating windows
 	LvnGraphicsApi                graphicsapi;                   // graphics api to use when rendering (eg. vulkan, opengl)
 
@@ -1840,8 +1834,8 @@ struct LvnContextCreateInfo
 /* [Logging] */
 struct LvnLoggerCreateInfo
 {
-	const char* loggerName;
-	const char* logPatternFormat;
+	std::string loggerName;
+	std::string logPatternFormat;
 	LvnLogLevel logLevel;
 };
 
@@ -4903,8 +4897,8 @@ struct LvnPipelineCreateInfo
 
 struct LvnShaderCreateInfo
 {
-	const char* vertexSrc;
-	const char* fragmentSrc;
+	std::string vertexSrc;
+	std::string fragmentSrc;
 };
 
 struct LvnFrameBufferColorAttachment
@@ -5083,7 +5077,7 @@ struct LvnFont
 
 struct LvnSoundCreateInfo
 {
-	const char* filepath;      // the filepath to the sound file (.wav .mp3)
+	std::string filepath;      // the filepath to the sound file (.wav .mp3)
 
 	float volume;              // volume of sound source, (default: 1.0, min/mute: 0.0), 1.0 is the upper limit however volume can be set higher than 1.0 at your own risk
 	float pan;                 // pan of the sound source if using 2 channel sterio output (center: 0.0, left: -1.0, right 1.0)
@@ -5093,16 +5087,10 @@ struct LvnSoundCreateInfo
 	LvnVec3 pos;
 };
 
-struct LvnNetworkMessageHeader
+struct LvnPacket
 {
 	int id;
-	uint64_t size;
-};
-
-struct LvnNetworkMessage
-{
-	LvnNetworkMessageHeader header;
-	uint8_t* body;
+	LvnData<uint8_t> pkgdata;
 };
 
 #endif

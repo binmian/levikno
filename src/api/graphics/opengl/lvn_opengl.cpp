@@ -604,10 +604,13 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 {
 	uint32_t vertexShader, fragmentShader;
 
+	const char* vertexSrc = createInfo->vertexSrc.c_str();
+	const char* fragmentSrc = createInfo->fragmentSrc.c_str();
+
 	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &createInfo->vertexSrc, NULL);
+	glShaderSource(vertexShader, 1, &vertexSrc, NULL);
 	glCompileShader(vertexShader);
-	if (ogls::checkShaderError(vertexShader, GL_VERTEX_SHADER, createInfo->vertexSrc) != Lvn_Result_Success)
+	if (ogls::checkShaderError(vertexShader, GL_VERTEX_SHADER, createInfo->vertexSrc.c_str()) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[opengl] failed to create vertex shader module (id:%u) when creating shader (%p)", vertexShader, shader);
 		return Lvn_Result_Failure;
@@ -616,9 +619,9 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 	shader->vertexShaderId = vertexShader;
 
 	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &createInfo->fragmentSrc, NULL);
+	glShaderSource(fragmentShader, 1, &fragmentSrc, NULL);
 	glCompileShader(fragmentShader);
-	if (ogls::checkShaderError(fragmentShader, GL_FRAGMENT_SHADER, createInfo->fragmentSrc) != Lvn_Result_Success)
+	if (ogls::checkShaderError(fragmentShader, GL_FRAGMENT_SHADER, createInfo->fragmentSrc.c_str()) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[opengl] failed to create fragment shader module (id:%u) when creating shader (%p)", fragmentShader, shader);
 		return Lvn_Result_Failure;
@@ -631,8 +634,8 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 
 LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
 {
-	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc);
-	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc);
+	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
+	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
 
 	const char* vertSrc = fileVertSrc.c_str();
 	const char* fragSrc = fileFragSrc.c_str();
@@ -666,8 +669,8 @@ LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo
 
 LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo)
 {
-	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc);
-	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc);
+	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc.c_str());
+	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc.c_str());
 
 	uint32_t vertexShader, fragmentShader;
 
