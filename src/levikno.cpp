@@ -1,8 +1,8 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
-#include <cstdarg>
 #include <ctime>
+#include <unordered_map>
 
 #include "stb_image.h"
 #include "miniaudio.h"
@@ -65,7 +65,9 @@ struct LvnSoundBoard
 
 struct LvnSocket
 {
-	const char* host;
+	LvnSocket() : socket(ctx), resolver(ctx) {}
+
+	std::string host;
 	int port;
 
 	asio::io_context ctx;
@@ -93,13 +95,17 @@ static LvnResult                    initAudioContext(LvnContext* lvnctx);
 static void                         terminateAudioContext(LvnContext* lvnctx);
 static void                         initStandardPipelineSpecification(LvnContext* lvnctx);
 static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
+static const char*                  getStructTypeEnumStr(LvnStructureType stype);
 static uint64_t                     getStructTypeSize(LvnStructureType sType);
 static void                         setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount);
 static void                         createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
 static void                         createBlockMemoryPool(LvnContext* lvnctx);
 
 template <typename T>
-T* createObject(LvnContext* lvnctx, LvnStructureType sType);
+static T* createObject(LvnContext* lvnctx, LvnStructureType sType);
+
+template <typename T>
+static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType);
 
 
 static void enableLogANSIcodeColors()
@@ -403,6 +409,30 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 	stInfos[Lvn_Stype_Cubemap]          = { Lvn_Stype_Cubemap, sizeof(LvnCubemap), 256 };
 	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
 	stInfos[Lvn_Stype_SoundBoard]       = { Lvn_Stype_SoundBoard, sizeof(LvnSoundBoard), 128 };
+	stInfos[Lvn_Stype_Socket]           = { Lvn_Stype_Socket, sizeof(LvnSocket), 256 };
+}
+
+static const char* getStructTypeEnumStr(LvnStructureType stype)
+{
+	switch (stype)
+	{
+		case Lvn_Stype_Window:            { return "LvnWindow"; }
+		case Lvn_Stype_Logger:            { return "LvnLogger"; }
+		case Lvn_Stype_FrameBuffer:       { return "LvnFrameBuffer"; }
+		case Lvn_Stype_Shader:            { return "LvnShader"; }
+		case Lvn_Stype_DescriptorLayout:  { return "LvnDescriptorLayout"; }
+		case Lvn_Stype_DescriptorSet:     { return "LvnDescriptorSet"; }
+		case Lvn_Stype_Pipeline:          { return "LvnPipeline"; }
+		case Lvn_Stype_Buffer:            { return "LvnBuffer"; }
+		case Lvn_Stype_UniformBuffer:     { return "LvnUniformBuffer"; }
+		case Lvn_Stype_Texture:           { return "LvnTexture"; }
+		case Lvn_Stype_Cubemap:           { return "LvnCubemap"; }
+		case Lvn_Stype_Sound:             { return "LvnSound"; }
+		case Lvn_Stype_SoundBoard:        { return "LvnSoundBoard"; }
+		case Lvn_Stype_Socket:            { return "LvnSocket"; }
+
+		default:                          { return "undefined"; }
+	}
 }
 
 static uint64_t getStructTypeSize(LvnStructureType sType)
@@ -478,14 +508,14 @@ static void createBlockMemoryPool(LvnContext* lvnctx)
 }
 
 template <typename T>
-T* createObject(LvnContext* lvnctx, LvnStructureType sType)
+static T* createObject(LvnContext* lvnctx, LvnStructureType sType)
 {
 	T* object;
 	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
 	{
 		object = new T();
 	}
-	else if (Lvn_MemAllocMode_MemPool)
+	else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
 	{
 		auto& memBinding = lvnctx->memoryPool.memBindings[sType][0];
 		if (memBinding.full() && memBinding.get_next_memory_binding() == nullptr)
@@ -498,7 +528,28 @@ T* createObject(LvnContext* lvnctx, LvnStructureType sType)
 		LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return nullptr;
 	}
 
+	lvnctx->objectMemoryAllocations.sTypes[sType].count++;
 	return object;
+}
+
+template <typename T>
+static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType)
+{
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
+	{
+		delete obj;
+		obj = nullptr;
+	}
+	else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
+	{
+		lvnctx->memoryPool.memBindings[sType][0].push_back(obj);
+	}
+	else
+	{
+		LVN_CORE_ASSERT(false, "destroy object failed, no requirment was met before hand");
+	}
+
+	lvnctx->objectMemoryAllocations.sTypes[sType].count--;
 }
 
 // ------------------------------------------------------------
@@ -524,6 +575,13 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	// logging
 	if (createInfo->logging.enableLogging) { logInit(); }
+
+	// memory
+	s_LvnContext->objectMemoryAllocations.sTypes.resize(Lvn_Stype_Max);
+	for (uint32_t i = 0; i < s_LvnContext->objectMemoryAllocations.sTypes.size(); i++)
+	{
+		s_LvnContext->objectMemoryAllocations.sTypes[i] = { (LvnStructureType)i, 0 };
+	}
 
 	lvn::createContextMemoryPool(s_LvnContext, createInfo);
 
@@ -575,19 +633,15 @@ void terminateContext()
 	terminateGraphicsContext(s_LvnContext);
 	terminateAudioContext(s_LvnContext);
 
-	if (s_LvnContext->objectMemoryAllocations.windows > 0) { LVN_CORE_WARN("not all window objects have been destroyed, number of window objects remaining: %zu", s_LvnContext->objectMemoryAllocations.windows); }
-	if (s_LvnContext->objectMemoryAllocations.loggers > 0) { LVN_CORE_WARN("not all logger objects have been destroyed, number of logger objects remaining: %zu", s_LvnContext->objectMemoryAllocations.loggers); }
-	if (s_LvnContext->objectMemoryAllocations.frameBuffers > 0) { LVN_CORE_WARN("not all frameBuffers objects have been destroyed, number of frameBuffers objects remaining: %zu", s_LvnContext->objectMemoryAllocations.frameBuffers); }
-	if (s_LvnContext->objectMemoryAllocations.shaders > 0) { LVN_CORE_WARN("not all shader objects have been destroyed, number of shader objects remaining: %zu", s_LvnContext->objectMemoryAllocations.shaders); }
-	if (s_LvnContext->objectMemoryAllocations.descriptorLayouts > 0) { LVN_CORE_WARN("not all descriptor layout objects have been destroyed, number of descriptor layout objects remaining: %zu", s_LvnContext->objectMemoryAllocations.descriptorLayouts); }
-	if (s_LvnContext->objectMemoryAllocations.descriptorSets > 0) { LVN_CORE_WARN("not all descriptor set objects have been destroyed, number of descriptor set objects remaining: %zu", s_LvnContext->objectMemoryAllocations.descriptorSets); }
-	if (s_LvnContext->objectMemoryAllocations.pipelines > 0) { LVN_CORE_WARN("not all pipelines objects have been destroyed, number of pipelines objects remaining: %zu", s_LvnContext->objectMemoryAllocations.pipelines); }
-	if (s_LvnContext->objectMemoryAllocations.buffers > 0) { LVN_CORE_WARN("not all buffer objects have been destroyed, number of buffer objects remaining: %zu", s_LvnContext->objectMemoryAllocations.buffers); }
-	if (s_LvnContext->objectMemoryAllocations.uniformBuffers > 0) { LVN_CORE_WARN("not all uniform buffer objects have been destroyed, number of uniform buffer objects remaining: %zu", s_LvnContext->objectMemoryAllocations.uniformBuffers); }
-	if (s_LvnContext->objectMemoryAllocations.textures > 0) { LVN_CORE_WARN("not all texture have been destroyed, number of texture objects remaining: %zu", s_LvnContext->objectMemoryAllocations.textures); }
-	if (s_LvnContext->objectMemoryAllocations.cubemaps > 0) { LVN_CORE_WARN("not all cubemap objects have been destroyed, number of cubemap objects remaining: %zu", s_LvnContext->objectMemoryAllocations.cubemaps); }
-	if (s_LvnContext->objectMemoryAllocations.sounds > 0) { LVN_CORE_WARN("not all sound objects have been destroyed, number of sound objects remaining: %zu", s_LvnContext->objectMemoryAllocations.sounds); }
-	if (s_LvnContext->objectMemoryAllocations.soundBoards > 0) { LVN_CORE_WARN("not all sound board objects have been destroyed, number of sound board objects remaining: %zu", s_LvnContext->objectMemoryAllocations.soundBoards); }
+	for (uint32_t i = 0; i < s_LvnContext->objectMemoryAllocations.sTypes.size(); i++)
+	{
+		if (s_LvnContext->objectMemoryAllocations.sTypes[i].count > 0)
+		{
+			const char* stype = lvn::getStructTypeEnumStr(s_LvnContext->objectMemoryAllocations.sTypes[i].sType);
+			LVN_CORE_ERROR("sType = %s | not all objects of this sType (%s) have been destroyed, number of %s objects remaining: %zu", stype, stype, stype, s_LvnContext->objectMemoryAllocations.sTypes[i].count);
+		}
+	}
+
 	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
 
 	delete s_LvnContext;
@@ -1275,7 +1329,7 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	*logger = new LvnLogger();
+	*logger = lvn::createObject<LvnLogger>(lvnctx, Lvn_Stype_Logger);
 	LvnLogger* loggerPtr = *logger;
 
 	loggerPtr->loggerName = loggerCreateInfo->loggerName;
@@ -1284,9 +1338,7 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 
 	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->logPatternFormat.c_str());
 
-	lvnctx->objectMemoryAllocations.loggers++;
 	LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
-
 	return Lvn_Result_Success;
 }
 
@@ -1294,9 +1346,7 @@ void destroyLogger(LvnLogger* logger)
 {
 	if (logger == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
-	delete logger;
-	logger = nullptr;
-	lvnctx->objectMemoryAllocations.loggers--;
+	lvn::destroyObject(lvnctx, logger, Lvn_Stype_Logger);
 }
 
 // ------------------------------------------------------------
@@ -1567,7 +1617,6 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 
 	*window = lvn::createObject<LvnWindow>(lvnctx, Lvn_Stype_Window);
 
-	lvnctx->objectMemoryAllocations.windows++;
 	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title, createInfo->width, createInfo->height);
 	return lvnctx->windowContext.createWindow(*window, createInfo);
 }
@@ -1577,9 +1626,7 @@ void destroyWindow(LvnWindow* window)
 	if (window == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
 	lvnctx->windowContext.destroyWindow(window);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete window; }
-	window = nullptr;
-	lvnctx->objectMemoryAllocations.windows--;
+	lvn::destroyObject(lvnctx, window, Lvn_Stype_Window);
 }
 
 void windowUpdate(LvnWindow* window)
@@ -1957,7 +2004,6 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 
 	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
-	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source): (%p)", *shader);
 	return lvnctx->graphicsContext.createShaderFromSrc(*shader, createInfo);
 }
@@ -1980,7 +2026,6 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 
 	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
-	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
 	return lvnctx->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
 }
@@ -2003,7 +2048,6 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 
 	*shader = lvn::createObject<LvnShader>(lvnctx, Lvn_Stype_Shader);
 
-	lvnctx->objectMemoryAllocations.shaders++;
 	LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
 	return lvnctx->graphicsContext.createShaderFromFileBin(*shader, createInfo);
 }
@@ -2026,7 +2070,6 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 
 	*descriptorLayout = lvn::createObject<LvnDescriptorLayout>(lvnctx, Lvn_Stype_DescriptorLayout);
 
-	lvnctx->objectMemoryAllocations.descriptorLayouts++;
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
 	return lvnctx->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
 }
@@ -2037,7 +2080,6 @@ LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLay
 
 	*descriptorSet = lvn::createObject<LvnDescriptorSet>(lvnctx, Lvn_Stype_DescriptorSet);
 
-	lvnctx->objectMemoryAllocations.descriptorSets++;
 	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
 	return lvnctx->graphicsContext.createDescriptorSet(*descriptorSet, descriptorLayout);
 }
@@ -2048,7 +2090,6 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 
 	*pipeline = lvn::createObject<LvnPipeline>(lvnctx, Lvn_Stype_Pipeline);
 
-	lvnctx->objectMemoryAllocations.pipelines++;
 	LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
 	return lvnctx->graphicsContext.createPipeline(*pipeline, createInfo);
 }
@@ -2090,7 +2131,6 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 
 	*frameBuffer = lvn::createObject<LvnFrameBuffer>(lvnctx, Lvn_Stype_FrameBuffer);
 
-	lvnctx->objectMemoryAllocations.frameBuffers++;
 	LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
 	return lvnctx->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
 }
@@ -2146,7 +2186,6 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 
 	*buffer = lvn::createObject<LvnBuffer>(lvnctx, Lvn_Stype_Buffer);
 
-	lvnctx->objectMemoryAllocations.buffers++;
 	LVN_CORE_TRACE("created buffer: (%p)", *buffer);
 	return lvnctx->graphicsContext.createBuffer(*buffer, createInfo);
 }
@@ -2169,7 +2208,6 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 
 	*uniformBuffer = lvn::createObject<LvnUniformBuffer>(lvnctx, Lvn_Stype_UniformBuffer);
 
-	lvnctx->objectMemoryAllocations.uniformBuffers++;
 	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
 	return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
@@ -2180,7 +2218,6 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 
 	*texture = lvn::createObject<LvnTexture>(lvnctx, Lvn_Stype_Texture);
 
-	lvnctx->objectMemoryAllocations.textures++;
 	LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize());
 	return lvnctx->graphicsContext.createTexture(*texture, createInfo);
 }
@@ -2233,7 +2270,6 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 
 	*cubemap = lvn::createObject<LvnCubemap>(lvnctx, Lvn_Stype_Cubemap);
 
-	lvnctx->objectMemoryAllocations.cubemaps++;
 	LVN_CORE_TRACE("created cubemap: (%p)", *cubemap);
 	return lvnctx->graphicsContext.createCubemap(*cubemap, createInfo);
 }
@@ -2255,9 +2291,7 @@ void destroyShader(LvnShader* shader)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyShader(shader);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete shader; }
-	shader = nullptr;
-	lvnctx->objectMemoryAllocations.shaders--;
+	lvn::destroyObject(lvnctx, shader, Lvn_Stype_Shader);
 }
 
 void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
@@ -2266,9 +2300,7 @@ void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyDescriptorLayout(descriptorLayout);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete descriptorLayout; }
-	descriptorLayout = nullptr;
-	lvnctx->objectMemoryAllocations.descriptorLayouts--;
+	lvn::destroyObject(lvnctx, descriptorLayout, Lvn_Stype_DescriptorLayout);
 }
 
 void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
@@ -2277,9 +2309,7 @@ void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete descriptorSet; }
-	descriptorSet = nullptr;
-	lvnctx->objectMemoryAllocations.descriptorSets--;
+	lvn::destroyObject(lvnctx, descriptorSet, Lvn_Stype_DescriptorSet);
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
@@ -2288,9 +2318,7 @@ void destroyPipeline(LvnPipeline* pipeline)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyPipeline(pipeline);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete pipeline; }
-	pipeline = nullptr;
-	lvnctx->objectMemoryAllocations.pipelines--;
+	lvn::destroyObject(lvnctx, pipeline, Lvn_Stype_Pipeline);
 }
 
 void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
@@ -2299,9 +2327,7 @@ void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyFrameBuffer(frameBuffer);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete frameBuffer; }
-	frameBuffer = nullptr;
-	lvnctx->objectMemoryAllocations.frameBuffers--;
+	lvn::destroyObject(lvnctx, frameBuffer, Lvn_Stype_FrameBuffer);
 }
 
 void destroyBuffer(LvnBuffer* buffer)
@@ -2310,9 +2336,7 @@ void destroyBuffer(LvnBuffer* buffer)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyBuffer(buffer);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete buffer; }
-	buffer = nullptr;
-	lvnctx->objectMemoryAllocations.buffers--;
+	lvn::destroyObject(lvnctx, buffer, Lvn_Stype_Buffer);
 }
 
 void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
@@ -2321,9 +2345,7 @@ void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyUniformBuffer(uniformBuffer);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete uniformBuffer; }
-	uniformBuffer = nullptr;
-	lvnctx->objectMemoryAllocations.uniformBuffers--;
+	lvn::destroyObject(lvnctx, uniformBuffer, Lvn_Stype_UniformBuffer);
 }
 
 void destroyTexture(LvnTexture* texture)
@@ -2332,9 +2354,7 @@ void destroyTexture(LvnTexture* texture)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyTexture(texture);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete texture; }
-	texture = nullptr;
-	lvnctx->objectMemoryAllocations.textures--;
+	lvn::destroyObject(lvnctx, texture, Lvn_Stype_Texture);
 }
 
 void destroyCubemap(LvnCubemap* cubemap)
@@ -2343,9 +2363,7 @@ void destroyCubemap(LvnCubemap* cubemap)
 	LvnContext* lvnctx = lvn::getContext();
 
 	lvnctx->graphicsContext.destroyCubemap(cubemap);
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete cubemap; }
-	cubemap = nullptr;
-	lvnctx->objectMemoryAllocations.cubemaps--;
+	lvn::destroyObject(lvnctx, cubemap, Lvn_Stype_Cubemap);
 }
 
 void destroyMesh(LvnMesh* mesh)
@@ -2755,7 +2773,6 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	ma_sound_set_pitch(&soundPtr->sound, createInfo->pitch);
 	ma_sound_set_looping(&soundPtr->sound, createInfo->looping);
 
-	lvnctx->objectMemoryAllocations.sounds++;
 	LVN_CORE_TRACE("created sound: (%p), volume: %.2f, pan: %.2f, pitch: %.2f", *sound, createInfo->volume, createInfo->pan, createInfo->pitch);
 	return Lvn_Result_Success;
 }
@@ -2767,9 +2784,7 @@ void destroySound(LvnSound* sound)
 
 	ma_sound_uninit(&sound->sound);
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete sound; }
-	sound = nullptr;
-	lvnctx->objectMemoryAllocations.sounds--;
+	lvn::destroyObject(lvnctx, sound, Lvn_Stype_Sound);
 }
 
 LvnSoundCreateInfo soundConfigInit(const char* filepath)
@@ -2861,7 +2876,6 @@ LvnResult createSoundBoard(LvnSoundBoard** soundBoard)
 	soundBoardPtr->masterPan = 0.0f;
 	soundBoardPtr->masterPitch = 1.0f;
 
-	lvnctx->objectMemoryAllocations.soundBoards++;
 	LVN_CORE_TRACE("created sound board: (%p)", *soundBoard);
 	return Lvn_Result_Success;
 }
@@ -2876,9 +2890,7 @@ void destroySoundBoard(LvnSoundBoard* soundBoard)
 		ma_sound_uninit(&sound.second.sound);
 	}
 
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { delete soundBoard; }
-	soundBoard = nullptr;
-	lvnctx->objectMemoryAllocations.soundBoards--;
+	lvn::destroyObject(lvnctx, soundBoard, Lvn_Stype_SoundBoard);
 }
 
 LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id)
@@ -2931,6 +2943,33 @@ const LvnSound* soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id)
 	if (soundBoard->sounds.find(id) == soundBoard->sounds.end()) { return nullptr; }
 
 	return &soundBoard->sounds[id];
+}
+
+// ------------------------------------------------------------
+// [SECTION]: Network Functions
+// ------------------------------------------------------------
+
+LvnResult createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	if (createInfo->host.empty())
+	{
+		LVN_CORE_ERROR("createSocket(LvnSocket**, LvnSocketCreateInfo*) | cannot create socket, createInfo->host undefined");
+		return Lvn_Result_Failure;
+	}
+
+	*socket = lvn::createObject<LvnSocket>(lvnctx, Lvn_Stype_Socket);
+
+	LVN_CORE_TRACE("created socket: (%p), host: %s, port: %d", createInfo->host.c_str(), createInfo->port);
+	return Lvn_Result_Success;
+}
+
+void destroySocket(LvnSocket* socket)
+{
+	if (socket == nullptr) { return; }
+	LvnContext* lvnctx = lvn::getContext();
+	lvn::destroyObject(lvnctx, socket, Lvn_Stype_Socket);
 }
 
 // ------------------------------------------------------------

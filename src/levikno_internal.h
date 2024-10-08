@@ -3,8 +3,6 @@
 
 #include "levikno.h"
 
-#include <unordered_map>
-
 
 template <typename T>
 struct LvnNode
@@ -204,17 +202,16 @@ public:
 
 	void* take_next()
 	{
-		if (full()) // current memory block is full, get next memory block
-		{
-			return m_Next->take_next();
-		}
-
 		if (!m_Available.empty())
 		{
-			m_Size++;
 			void* value = m_Available.front();
 			m_Available.pop();
 			return value;
+		}
+
+		if (full()) // current memory block is full, get next memory block
+		{
+			return m_Next->take_next();
 		}
 
 		uint64_t index = m_Size;
@@ -224,7 +221,8 @@ public:
 
 	void push_back(void* value)
 	{
-		m_Size--;
+		LVN_CORE_ASSERT(value != nullptr, "value is nullptr when pushing back into memory binding queue");
+
 		m_Available.push(value);
 	}
 };
@@ -516,23 +514,6 @@ struct LvnCubemap
 // [SECTION]: Context Internal structs
 // ------------------------------------------------------------
 
-struct LvnObjectMemAllocCount
-{
-	uint64_t windows;
-	uint64_t loggers;
-	uint64_t frameBuffers;
-	uint64_t shaders;
-	uint64_t descriptorLayouts;
-	uint64_t descriptorSets;
-	uint64_t pipelines;
-	uint64_t buffers;
-	uint64_t uniformBuffers;
-	uint64_t textures;
-	uint64_t cubemaps;
-	uint64_t sounds;
-	uint64_t soundBoards;
-};
-
 struct LvnStructureTypeInfo
 {
 	LvnStructureType sType;
@@ -540,32 +521,43 @@ struct LvnStructureTypeInfo
 	uint64_t count;
 };
 
+struct LvnObjectMemAllocCount
+{
+	struct LvnStructCounts
+	{
+		LvnStructureType sType;
+		size_t count;
+	};
+
+	std::vector<LvnStructCounts> sTypes;
+};
+
 struct LvnContext
 {
-	LvnWindowApi                windowapi;
-	LvnWindowContext            windowContext;
-	LvnGraphicsApi              graphicsapi;
-	LvnGraphicsContext          graphicsContext;
-	void*                       audioEngineContextPtr;
-	LvnClipRegion               matrixClipRegion;
+	LvnWindowApi                         windowapi;
+	LvnWindowContext                     windowContext;
+	LvnGraphicsApi                       graphicsapi;
+	LvnGraphicsContext                   graphicsContext;
+	void*                                audioEngineContextPtr;
+	LvnClipRegion                        matrixClipRegion;
 
-	bool                        logging;
-	bool                        enableCoreLogging;
-	LvnLogger                   coreLogger;
-	LvnLogger                   clientLogger;
-	std::vector<LvnLogPattern>  userLogPatterns;
-	std::string                 appName;
+	bool                                 logging;
+	bool                                 enableCoreLogging;
+	LvnLogger                            coreLogger;
+	LvnLogger                            clientLogger;
+	std::vector<LvnLogPattern>           userLogPatterns;
+	std::string                          appName;
 
-	LvnPipelineSpecification    defaultPipelineSpecification;
-	LvnTimer                    contexTime;
-	LvnMemAllocMode             memoryMode;
-	LvnMemoryPool               memoryPool;
-	std::vector<LvnStructureTypeInfo> sTypeMemAllocInfos;
-	std::vector<LvnStructureTypeInfo> blockMemAllocInfos;
-	uint64_t                    blockMemSize;
+	LvnPipelineSpecification             defaultPipelineSpecification;
+	LvnTimer                             contexTime;
+	LvnMemAllocMode                      memoryMode;
+	LvnMemoryPool                        memoryPool;
+	std::vector<LvnStructureTypeInfo>    sTypeMemAllocInfos;
+	std::vector<LvnStructureTypeInfo>    blockMemAllocInfos;
+	uint64_t                             blockMemSize;
 
-	size_t                      numMemoryAllocations;
-	LvnObjectMemAllocCount      objectMemoryAllocations;
+	size_t                               numMemoryAllocations;
+	LvnObjectMemAllocCount               objectMemoryAllocations;
 };
 
 

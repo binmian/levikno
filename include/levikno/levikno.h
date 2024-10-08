@@ -248,6 +248,7 @@ enum LvnStructureType
 	Lvn_Stype_Cubemap,
 	Lvn_Stype_Sound,
 	Lvn_Stype_SoundBoard,
+	Lvn_Stype_Socket,
 
 	Lvn_Stype_Max,
 };
@@ -782,6 +783,7 @@ struct LvnRenderPass;
 struct LvnShader;
 struct LvnShaderCreateInfo;
 struct LvnSocket;
+struct LvnSocketCreateInfo;
 struct LvnSound;
 struct LvnSoundBoard;
 struct LvnSoundCreateInfo;
@@ -1298,7 +1300,8 @@ namespace lvn
 
 
 	/* [Networking] */
-	LVN_API LvnResult                   createSocket();
+	LVN_API LvnResult                   createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo);
+	LVN_API void                        destroySocket(LvnSocket* socket);
 
 
 	/* [Math] */
@@ -5085,6 +5088,13 @@ struct LvnSoundCreateInfo
 	bool looping;              // sound source loops when reaches end of track
 
 	LvnVec3 pos;
+};
+
+
+struct LvnSocketCreateInfo
+{
+	std::string host;
+	int port;
 };
 
 struct LvnPacket
