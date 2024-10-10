@@ -365,6 +365,7 @@ struct LvnGraphicsContext
 	LvnGraphicsApi              graphicsapi;
 	bool                        enableValidationLayers;
 	LvnTextureFormat            frameBufferColorFormat;
+	uint32_t                    maxFramesInFlight;
 
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
 	LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);

@@ -1992,6 +1992,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	vkBackends->enableValidationLayers = graphicsContext->enableValidationLayers;
+	vkBackends->maxFramesInFlight = graphicsContext->maxFramesInFlight;
 
 	switch (graphicsContext->frameBufferColorFormat)
 	{

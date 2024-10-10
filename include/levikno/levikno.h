@@ -224,12 +224,13 @@ using std::fmod;
 
 /* [Core Enums] */
 
-enum LvnResult
+enum LvnResult : int
 {
-	Lvn_Result_Failure              = 0,
-	Lvn_Result_Success              = 1,
-	Lvn_Result_AlreadyCalled        = 2,
-	Lvn_Result_MemAllocFailure      = 3,
+	Lvn_Result_Success              =  0,
+	Lvn_Result_Failure              = -1,
+	Lvn_Result_AlreadyCalled        = -2,
+	Lvn_Result_MemAllocFailure      = -3,
+	Lvn_Result_TimeOut              = -4,
 };
 
 enum LvnStructureType
@@ -718,6 +719,14 @@ enum LvnVertexDataType
 	Lvn_VertexDataType_Vec4f = Lvn_VertexDataType_Vec4,
 };
 
+/* [Network enums] */
+enum LvnSocketType
+{
+	Lvn_SocketType_Client,
+	Lvn_SocketType_Server,
+};
+
+struct LvnAddress;
 struct LvnAppRenderEvent;
 struct LvnAppTickEvent;
 struct LvnBatchCreateInfo;
@@ -763,6 +772,7 @@ struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
 struct LvnMouseMovedEvent;
 struct LvnMouseScrolledEvent;
+struct LvnPacket;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
 struct LvnPipeline;
@@ -780,6 +790,7 @@ struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
 struct LvnRenderInitInfo;
 struct LvnRenderPass;
+struct LvnServer;
 struct LvnShader;
 struct LvnShaderCreateInfo;
 struct LvnSocket;
@@ -1302,6 +1313,14 @@ namespace lvn
 	/* [Networking] */
 	LVN_API LvnResult                   createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo);
 	LVN_API void                        destroySocket(LvnSocket* socket);
+	LVN_API LvnSocketCreateInfo         socketClientConfigInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
+	LVN_API LvnSocketCreateInfo         socketServerConfigInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
+
+	LVN_API uint32_t                    socketGetHostFromStr(const char* host);
+	LVN_API LvnResult                   socketConnect(LvnSocket* socket, LvnAddress* address, uint32_t channelCount, uint32_t milliseconds);
+	LVN_API LvnResult                   socketDisconnect(LvnSocket* socket, uint32_t milliseconds);
+	LVN_API void                        socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet);
+	LVN_API LvnResult                   socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds);
 
 
 	/* [Math] */
@@ -1823,6 +1842,7 @@ struct LvnContextCreateInfo
 
 	LvnTextureFormat              frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
 	LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
+	uint32_t                      maxFramesInFlight;             // the max number of frames to be computed after submiting to the graphics queue (vulkan)
 	
 	struct
 	{
@@ -5091,16 +5111,27 @@ struct LvnSoundCreateInfo
 };
 
 
+struct LvnAddress
+{
+	uint32_t host;
+	uint16_t port;
+};
+
 struct LvnSocketCreateInfo
 {
-	std::string host;
-	int port;
+	LvnSocketType type;
+	LvnAddress address;
+	uint32_t channelCount;
+	uint32_t connectionCount;
+	uint32_t inBandWidth;
+	uint32_t outBandWidth;
 };
 
 struct LvnPacket
 {
-	int id;
-	LvnData<uint8_t> pkgdata;
+	void* data;
+	size_t size;
 };
+
 
 #endif

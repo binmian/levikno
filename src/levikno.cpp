@@ -7,9 +7,7 @@
 #include "stb_image.h"
 #include "miniaudio.h"
 #include "freetype/freetype.h"
-
-#define ASIO_STANDALONE
-#include "asio.hpp"
+#include "enet/enet.h"
 
 #ifdef LVN_PLATFORM_WINDOWS
 	#include <windows.h>
@@ -65,17 +63,18 @@ struct LvnSoundBoard
 
 struct LvnSocket
 {
-	LvnSocket() : socket(ctx), resolver(ctx) {}
+	LvnSocketType type;
 
-	std::string host;
-	int port;
+	ENetHost* socket;
+	ENetPeer* connection;
+	ENetPacket* packet;
 
-	asio::io_context ctx;
-	asio::ip::tcp::socket socket;
-	asio::ip::tcp::resolver resolver;
-	asio::ip::tcp::resolver::results_type endpoints;
+	LvnAddress address;
+	uint32_t channelCount;
+	uint32_t connectionCount;
+	uint32_t inBandWidth;
+	uint32_t outBandWidth;
 };
-
 
 
 namespace lvn
@@ -93,6 +92,8 @@ static LvnResult                    setGraphicsContext(LvnContext* lvnctx, LvnGr
 static void                         terminateGraphicsContext(LvnContext* lvnctx);
 static LvnResult                    initAudioContext(LvnContext* lvnctx);
 static void                         terminateAudioContext(LvnContext* lvnctx);
+static LvnResult                    initNetworkingContext();
+static void                         terminateNetworkingContext();
 static void                         initStandardPipelineSpecification(LvnContext* lvnctx);
 static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
 static const char*                  getStructTypeEnumStr(LvnStructureType stype);
@@ -324,6 +325,24 @@ static void terminateAudioContext(LvnContext* lvnctx)
 	LVN_CORE_TRACE("audio context terminated");
 }
 
+static LvnResult initNetworkingContext()
+{
+	if (enet_initialize() != 0)
+	{
+		LVN_CORE_ERROR("failed to initialize networking context");
+		return Lvn_Result_Failure;
+	}
+
+	LVN_CORE_TRACE("networking context initialized");
+	return Lvn_Result_Success;
+}
+
+static void terminateNetworkingContext()
+{
+	enet_deinitialize();
+	LVN_CORE_TRACE("networking context terminated");
+}
+
 static void initStandardPipelineSpecification(LvnContext* lvnctx)
 {
 	LvnPipelineSpecification pipelineSpecification{};
@@ -521,7 +540,7 @@ static T* createObject(LvnContext* lvnctx, LvnStructureType sType)
 		if (memBinding.full() && memBinding.get_next_memory_binding() == nullptr)
 			lvn::createBlockMemoryPool(lvnctx);
 
-		object = static_cast<T*>(memBinding.take_next());
+		object = new (static_cast<T*>(memBinding.take_next())) T();
 	}
 	else
 	{
@@ -561,6 +580,8 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
 	s_LvnContext = new LvnContext();
 
+	s_LvnContext->contexTime.reset();
+
 	s_LvnContext->appName = createInfo->applicationName;
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
@@ -569,7 +590,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
-	s_LvnContext->contexTime.reset();
+	s_LvnContext->graphicsContext.maxFramesInFlight = createInfo->maxFramesInFlight;
 
 	lvn::setDefaultStructTypeMemAllocInfos(s_LvnContext);
 
@@ -593,7 +614,12 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	result = setGraphicsContext(s_LvnContext, createInfo->graphicsapi);
 	if (result != Lvn_Result_Success) { return result; }
 
+	// audio context
 	result = initAudioContext(s_LvnContext);
+	if (result != Lvn_Result_Success) { return result; }
+
+	// networking context
+	result = initNetworkingContext();
 	if (result != Lvn_Result_Success) { return result; }
 
 	// config
@@ -632,6 +658,7 @@ void terminateContext()
 	terminateWindowContext(s_LvnContext);
 	terminateGraphicsContext(s_LvnContext);
 	terminateAudioContext(s_LvnContext);
+	terminateNetworkingContext();
 
 	for (uint32_t i = 0; i < s_LvnContext->objectMemoryAllocations.sTypes.size(); i++)
 	{
@@ -2934,8 +2961,11 @@ LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soun
 
 void soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id)
 {
-	// TODO: remove sound uninit
-	soundBoard->sounds.erase(id);
+	if (soundBoard->sounds.find(id) != soundBoard->sounds.end())
+	{
+		ma_sound_uninit(&soundBoard->sounds[id].sound);
+		soundBoard->sounds.erase(id);
+	}
 }
 
 const LvnSound* soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id)
@@ -2953,15 +2983,37 @@ LvnResult createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	if (createInfo->host.empty())
+	*socket = lvn::createObject<LvnSocket>(lvnctx, Lvn_Stype_Socket);
+	LvnSocket* socketPtr = *socket;
+
+	ENetAddress address;
+	address.host = createInfo->address.host;
+	address.port = createInfo->address.port;
+
+	if (createInfo->type == Lvn_SocketType_Client)
 	{
-		LVN_CORE_ERROR("createSocket(LvnSocket**, LvnSocketCreateInfo*) | cannot create socket, createInfo->host undefined");
+		socketPtr->socket = enet_host_create(nullptr, createInfo->connectionCount, createInfo->channelCount, createInfo->inBandWidth, createInfo->outBandWidth);
+	}
+	else if (createInfo->type == Lvn_SocketType_Server)
+	{
+		socketPtr->socket = enet_host_create(&address, createInfo->connectionCount, createInfo->channelCount, createInfo->inBandWidth, createInfo->outBandWidth);
+	}
+
+	if (socketPtr->socket == nullptr)
+	{
+		LVN_CORE_ERROR("createSocket(LvnSocket**, LvnSocketCreateInfo*) | an error occured while trying to create socket");
 		return Lvn_Result_Failure;
 	}
 
-	*socket = lvn::createObject<LvnSocket>(lvnctx, Lvn_Stype_Socket);
+	socketPtr->connection = nullptr;
+	socketPtr->type = createInfo->type;
+	socketPtr->address = createInfo->address;
+	socketPtr->channelCount = createInfo->channelCount;
+	socketPtr->channelCount = createInfo->channelCount;
+	socketPtr->inBandWidth = createInfo->inBandWidth;
+	socketPtr->outBandWidth = createInfo->outBandWidth;
 
-	LVN_CORE_TRACE("created socket: (%p), host: %s, port: %d", createInfo->host.c_str(), createInfo->port);
+	LVN_CORE_TRACE("created socket: (%p), address: (%u:%u)", createInfo->address.host, createInfo->address.port);
 	return Lvn_Result_Success;
 }
 
@@ -2969,7 +3021,125 @@ void destroySocket(LvnSocket* socket)
 {
 	if (socket == nullptr) { return; }
 	LvnContext* lvnctx = lvn::getContext();
+	enet_host_destroy(socket->socket);
 	lvn::destroyObject(lvnctx, socket, Lvn_Stype_Socket);
+}
+
+LvnSocketCreateInfo socketClientConfigInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
+{
+	LvnSocketCreateInfo createInfo{};
+	createInfo.type = Lvn_SocketType_Client;
+	createInfo.connectionCount = connectionCount;
+	createInfo.channelCount = channelCount;
+	createInfo.inBandWidth = inBandwidth;
+	createInfo.outBandWidth = outBandWidth;
+
+	return createInfo;
+}
+
+LvnSocketCreateInfo socketServerConfigInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
+{
+	LvnSocketCreateInfo createInfo{};
+	createInfo.type = Lvn_SocketType_Client;
+	createInfo.address = address;
+	createInfo.connectionCount = connectionCount;
+	createInfo.channelCount = channelCount;
+	createInfo.inBandWidth = inBandwidth;
+	createInfo.outBandWidth = outBandWidth;
+
+	return createInfo;
+}
+
+uint32_t socketGetHostFromStr(const char* host)
+{
+	ENetAddress address;
+	enet_address_set_host(&address, host);
+	return address.host;
+}
+
+LvnResult socketConnect(LvnSocket* socket, LvnAddress* address, uint32_t channelCount, uint32_t milliseconds)
+{
+	if (socket->type != Lvn_SocketType_Client)
+	{
+		LVN_CORE_ERROR("cannot use socket (%p) with type that is not client to connect", socket->socket);
+		return Lvn_Result_Failure;
+	}
+
+	ENetAddress enetAddress;
+	enetAddress, socket->address.host;
+	enetAddress.port = socket->address.port;
+
+	socket->connection = enet_host_connect(socket->socket, &enetAddress, channelCount, 0);
+
+	if (socket->connection == nullptr)
+	{
+		LVN_CORE_ERROR("no available peers for initiating a connection on socket (%p)", socket);
+		return Lvn_Result_Failure;
+	}
+
+	ENetEvent event;
+	if (enet_host_service(socket->socket, &event, milliseconds) > 0 && event.type == ENET_EVENT_TYPE_CONNECT)
+	{
+		return Lvn_Result_Success;
+	}
+
+	enet_peer_reset(socket->connection);
+	return Lvn_Result_TimeOut;
+}
+
+LvnResult socketDisconnect(LvnSocket* socket, uint32_t milliseconds)
+{
+	if (socket->type != Lvn_SocketType_Client)
+	{
+		LVN_CORE_ERROR("cannot use socket (%p) with type that is not client to disconnect", socket->socket);
+		return Lvn_Result_Failure;
+	}
+	enet_peer_disconnect(socket->connection, 0);
+
+	ENetEvent event;
+	if (enet_host_service(socket->socket, &event, milliseconds) > 0)
+	{
+		switch (event.type)
+		{
+			case ENET_EVENT_TYPE_RECEIVE:
+			{
+				enet_packet_destroy(event.packet);
+				break;
+			}
+			case ENET_EVENT_TYPE_DISCONNECT:
+			{
+				return Lvn_Result_Success;
+			}
+		}
+	}
+
+	enet_peer_reset(socket->connection);
+	return Lvn_Result_Success;
+}
+
+void socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet)
+{
+	LVN_CORE_ASSERT(packet != nullptr, "packet is nullptr when trying to send packet through socket");
+
+	ENetPacket* enetPacket = enet_packet_create(packet->data, packet->size, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(socket->connection, channel, enetPacket);
+	enet_host_flush(socket->socket);
+}
+
+LvnResult socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds)
+{
+	LVN_CORE_ASSERT(packet != nullptr, "packet is nullptr when trying to receive packet from socket");
+
+	ENetEvent event;
+	if (enet_host_service(socket->socket, &event, milliseconds) > 0 && event.type == ENET_EVENT_TYPE_RECEIVE)
+	{
+		packet->data = event.packet->data;
+		packet->size = event.packet->dataLength;
+		enet_packet_destroy(event.packet);
+		return Lvn_Result_Success;
+	}
+
+	return Lvn_Result_TimeOut;
 }
 
 // ------------------------------------------------------------

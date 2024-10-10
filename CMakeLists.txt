@@ -122,6 +122,9 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
 # freetype
 add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/freetype)
 
+# enet
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/enet)
+
 
 target_include_directories(levikno
 	PRIVATE
@@ -135,7 +138,7 @@ target_include_directories(levikno
 		${PROJECT_SOURCE_DIR}/src/external/glad/include
 		${PROJECT_SOURCE_DIR}/src/external/vulkan/include
 		${PROJECT_SOURCE_DIR}/src/external/freetype/include
-		${PROJECT_SOURCE_DIR}/src/external/asio/include
+		${PROJECT_SOURCE_DIR}/src/external/enet/include
 )
 
 
@@ -147,8 +150,6 @@ target_compile_definitions(levikno PRIVATE
 
 target_link_libraries(levikno
 	PRIVATE
-		glfw
-		freetype
 		${VULKAN_LIB_DIR}
 )
 
