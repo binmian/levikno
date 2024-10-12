@@ -729,13 +729,12 @@ enum LvnSocketType
 struct LvnAddress;
 struct LvnAppRenderEvent;
 struct LvnAppTickEvent;
-struct LvnBatchCreateInfo;
-struct LvnBatchRenderer;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
 struct LvnCameraCreateInfo;
 struct LvnCharset;
+struct LvnPoly;
 struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnCubemap;
@@ -745,6 +744,7 @@ struct LvnDescriptorLayout;
 struct LvnDescriptorLayoutCreateInfo;
 struct LvnDescriptorSet;
 struct LvnDescriptorUpdateInfo;
+struct LvnDrawCommand;
 struct LvnEvent;
 struct LvnFont;
 struct LvnFontGlyph;
@@ -758,6 +758,7 @@ struct LvnKeyHoldEvent;
 struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
 struct LvnKeyTypedEvent;
+struct LvnLine;
 struct LvnLogger;
 struct LvnLoggerCreateInfo;
 struct LvnLogMessage;
@@ -788,6 +789,9 @@ struct LvnPipelineScissor;
 struct LvnPipelineSpecification;
 struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
+struct LvnRect;
+struct LvnRenderer;
+struct LvnRendererCreateInfo;
 struct LvnRenderInitInfo;
 struct LvnRenderPass;
 struct LvnServer;
@@ -800,6 +804,7 @@ struct LvnSoundBoard;
 struct LvnSoundCreateInfo;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
+struct LvnTriangle;
 struct LvnUniformBuffer;
 struct LvnUniformBufferCreateInfo;
 struct LvnVertex;
@@ -830,6 +835,7 @@ class LvnData;
 
 class LvnTimer;
 class LvnThreadPool;
+class LvnDrawList;
 
 /* [Vectors] */
 template<typename T>
@@ -1239,10 +1245,10 @@ namespace lvn
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    pipelineSpecificationGetConfig();
 
-	LVN_API void                        bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset);
-	LVN_API void                        bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset);
-	LVN_API void                        bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size);
-	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size);
+	LVN_API void                        bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
+	LVN_API void                        bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset);
+	LVN_API void                        bufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size);
+	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
 
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
 
@@ -1321,6 +1327,18 @@ namespace lvn
 	LVN_API LvnResult                   socketDisconnect(LvnSocket* socket, uint32_t milliseconds);
 	LVN_API void                        socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet);
 	LVN_API LvnResult                   socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds);
+
+
+	/* [Renderer] */
+	LVN_API LvnResult                   rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo);
+	LVN_API void                        rendererTerminate(LvnRenderer* renderer);
+	LVN_API void                        rendererBeginDraw2d(LvnRenderer* renderer);
+	LVN_API void                        rendererEndDraw2d(LvnRenderer* renderer);
+	LVN_API void                        rendererSetBackgroundColor(LvnRenderer* renderer, float r, float g, float b, float a);
+
+	LVN_API void                        drawTriangle(LvnRenderer* renderer, const LvnTriangle& triangle, const LvnVec4& color);
+	LVN_API void                        drawRect(LvnRenderer* renderer, const LvnRect& rect, const LvnVec4& color);
+	LVN_API void                        drawPoly(LvnRenderer* renderer, const LvnPoly& poly, const LvnVec4& color);
 
 
 	/* [Math] */
@@ -2224,6 +2242,64 @@ public:
 	{
 		while (LvnThreadPool::busy()) {}
 	}
+};
+
+struct LvnDrawCommand
+{
+	float* pVertices;
+	uint32_t* pIndices;
+	uint32_t vertexCount;
+	uint32_t vertexSize;
+	uint32_t vertexAttributeCount;
+	uint32_t indexCount;
+};
+
+class LvnDrawList
+{
+	std::vector<float> m_VerticesRaw;
+	std::vector<uint32_t> m_Indices;
+	std::vector<LvnDrawCommand> m_DrawCommands;
+	size_t m_Vertices;
+
+public:
+	void push_back(const LvnDrawCommand& drawCmd)
+	{
+		m_DrawCommands.push_back(drawCmd);
+		
+		m_Indices.insert(m_Indices.end(), drawCmd.pIndices, drawCmd.pIndices + drawCmd.indexCount);
+		for (uint32_t i = m_Indices.size() - drawCmd.indexCount; i < m_Indices.size(); i++)
+		{
+			m_Indices[i] += m_Vertices;
+		}
+
+		m_VerticesRaw.insert(m_VerticesRaw.end(), drawCmd.pVertices, drawCmd.pVertices + drawCmd.vertexCount * drawCmd.vertexAttributeCount);
+		m_Vertices += drawCmd.vertexCount;
+	}
+	void clear()
+	{
+		m_DrawCommands.clear();
+		m_VerticesRaw.clear();
+		m_Indices.clear();
+		m_Vertices = 0;
+	}
+	bool empty()
+	{
+		return m_VerticesRaw.empty() && m_Indices.empty() && m_DrawCommands.empty();
+	}
+
+	float* vertices()                         { return m_VerticesRaw.data(); }
+	const float* vertices() const             { return m_VerticesRaw.data(); }
+	size_t vertex_count()                     { return m_VerticesRaw.size(); }
+	size_t vertex_size()                      { return m_VerticesRaw.size() * sizeof(float); }
+
+	uint32_t* indices()                       { return m_Indices.data(); }
+	const uint32_t* indices() const           { return m_Indices.data(); }
+	size_t index_count()                      { return m_Indices.size(); }
+	size_t index_size()                       { return m_Indices.size() * sizeof(uint32_t); }
+
+	LvnDrawCommand* drawcmds()                { return m_DrawCommands.data(); }
+	const LvnDrawCommand* drawcmds() const    { return m_DrawCommands.data(); }
+	size_t drawcmd_count()                    { return m_DrawCommands.size(); }
 };
 
 
@@ -5098,6 +5174,7 @@ struct LvnFont
 	LvnData<LvnFontGlyph> glyphs;
 };
 
+
 struct LvnSoundCreateInfo
 {
 	std::string filepath;      // the filepath to the sound file (.wav .mp3)
@@ -5133,5 +5210,57 @@ struct LvnPacket
 	size_t size;
 };
 
+
+struct LvnRendererCreateInfo
+{
+	LvnWindowCreateInfo windowCreateInfo;
+	size_t vertexBufferSize;
+	size_t indexBufferSize;
+};
+
+struct LvnRenderer
+{
+	LvnWindow* window;
+	LvnVec4 backGroundColor;
+
+	LvnDescriptorLayout* drawDescriptorLayout;
+	LvnDescriptorSet* drawDescriptorSet;
+	LvnPipeline* drawPipeline;
+	LvnPipeline* linePipeline;
+
+	LvnBuffer* drawBuffer;
+	LvnDrawList drawList;
+
+	LvnUniformBuffer* uniformBuffer;
+	struct LvnRendererUniformData
+	{
+		LvnMat4 matrix;
+	} uniformData;
+
+	LvnTexture* texture;
+};
+
+struct LvnLine
+{
+	LvnVec2 v1, v2;
+};
+
+struct LvnTriangle
+{
+	LvnVec2 v1, v2, v3;
+};
+
+struct LvnRect
+{
+	LvnVec2 pos;
+	LvnVec2 size;
+};
+
+struct LvnPoly
+{
+	LvnVec2 pos;
+	float radius;
+	int nSides;
+};
 
 #endif

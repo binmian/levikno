@@ -2414,22 +2414,22 @@ LvnPipelineSpecification pipelineSpecificationGetConfig()
 	return lvnctx->defaultPipelineSpecification;
 }
 
-void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
+void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
 {
 	lvn::getContext()->graphicsContext.bufferUpdateVertexData(buffer, vertices, size, offset);
 }
 
-void bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
+void bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset)
 {
 	lvn::getContext()->graphicsContext.bufferUpdateIndexData(buffer, indices, size, offset);
 }
 
-void bufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
+void bufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size)
 {
 	lvn::getContext()->graphicsContext.bufferResizeVertexBuffer(buffer, size);
 }
 
-void bufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
+void bufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 {
 	lvn::getContext()->graphicsContext.bufferResizeIndexBuffer(buffer, size);
 }
@@ -2572,20 +2572,20 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 
 LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChannels, bool flipVertically)
 {
-	if (data == nullptr)
+	if (!data)
 	{
-		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | invalid filepath, filepath must not be nullptr");
+		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*, int, int, bool) | invalid filepath, filepath must not be nullptr");
 		return {};
 	}
 
 	if (forceChannels < 0)
 	{
-		LVN_CORE_ERROR("loadImageDataMemory(conts unsigned char*) | forceChannels < 0, channels cannot be negative");
+		LVN_CORE_ERROR("loadImageDataMemory(conts unsigned char*, int, int, bool) | forceChannels < 0, channels cannot be negative");
 		return {};
 	}
 	else if (forceChannels > 4)
 	{
-		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*, int, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
 		return {};
 	}
 

@@ -413,10 +413,10 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBeginFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 	void                        (*renderCmdEndFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 
-	void                        (*bufferUpdateVertexData)(LvnBuffer*, void*, uint32_t, uint32_t);
-	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint32_t, uint32_t);
-	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint32_t);
-	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint32_t);
+	void                        (*bufferUpdateVertexData)(LvnBuffer*, void*, uint64_t, uint64_t);
+	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint64_t, uint64_t);
+	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint64_t);
+	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint64_t);
 	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
 	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
 	LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
@@ -477,7 +477,10 @@ struct LvnBuffer
 	void* indexBufferMemory;
 
 	uint64_t indexOffset;
+
 	uint32_t id;
+	uint32_t vboId;
+	uint32_t iboId;
 };
 
 struct LvnUniformBuffer

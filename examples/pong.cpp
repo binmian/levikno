@@ -16,64 +16,6 @@ struct Vertex
 	LvnVec2 texUVs;
 };
 
-struct DrawCommand
-{
-	Vertex* pVertices;
-	uint32_t* pIndices;
-	uint32_t vertexCount;
-	uint32_t indexCount;
-};
-
-class DrawList
-{
-public:
-	uint32_t vertexCount;
-	uint32_t indexCount;
-	uint64_t vertexSize;
-	uint64_t indexSize;
-
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
-	std::vector<DrawCommand> drawCommands;
-
-	void push_back(const DrawCommand& drawCmd)
-	{
-		this->drawCommands.push_back(drawCmd);
-		
-		std::vector<uint32_t> batchIndices(drawCmd.pIndices, drawCmd.pIndices + drawCmd.indexCount);
-
-		for (auto& index : batchIndices)
-			index += this->vertexCount;
-
-		this->vertices.insert(this->vertices.end(), drawCmd.pVertices, drawCmd.pVertices + drawCmd.vertexCount);
-		this->indices.insert(this->indices.end(), batchIndices.begin(), batchIndices.end());
-
-		this->vertexCount += drawCmd.vertexCount;
-		this->indexCount += drawCmd.indexCount;
-		this->vertexSize += drawCmd.vertexCount * sizeof(Vertex);
-		this->indexSize += drawCmd.indexCount * sizeof(uint32_t);
-	}
-
-	void clear()
-	{
-		this->drawCommands.clear();
-		this->vertices.clear();
-		this->indices.clear();
-		this->indexCount = 0;
-		this->vertexCount = 0;
-		this->indexSize = 0;
-		this->vertexSize = 0;
-	}
-
-	bool empty()
-	{
-		if (this->drawCommands.empty() && this->vertices.empty() && this->indices.empty())
-			return true;
-
-		return false;
-	}
-};
-
 class Timer
 {
 private:
@@ -182,7 +124,7 @@ void main()
 }
 )";
 
-void drawRect(DrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
+void drawRect(LvnDrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
 {
 	Vertex vertices[] = 
 	{
@@ -194,16 +136,17 @@ void drawRect(DrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
 
 	uint32_t indices[] = { 0, 1, 2, 0, 2, 3 };
 
-	DrawCommand drawCmd{};
-	drawCmd.pVertices = vertices;
+	LvnDrawCommand drawCmd{};
+	drawCmd.pVertices = (float*)vertices;
 	drawCmd.vertexCount = 4;
 	drawCmd.pIndices = indices;
 	drawCmd.indexCount = 6;
+	drawCmd.vertexAttributeCount = 7;
 
 	list->push_back(drawCmd);
 }
 
-void drawText(DrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
+void drawText(LvnDrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
 {
 	for (uint32_t i = 0; i < strlen(text); i++)
 	{
@@ -230,11 +173,12 @@ void drawText(DrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnV
 			2, 1, 3,
 		};
 
-		DrawCommand drawCmd{};
-		drawCmd.pVertices = rectVertices;
+		LvnDrawCommand drawCmd{};
+		drawCmd.pVertices = (float*)rectVertices;
 		drawCmd.vertexCount = 4;
 		drawCmd.pIndices = rectIndices;
 		drawCmd.indexCount = 6;
+		drawCmd.vertexAttributeCount = 7;
 
 		list->push_back(drawCmd);
 
@@ -457,7 +401,7 @@ int main(int argc, char** argv)
 
 
 	// [Create font]
-	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/PressStart2P.ttf", 32, {32, 126});
+	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/levikno/examples/res/fonts/PressStart2P.ttf", 32, {32, 126});
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
@@ -512,7 +456,7 @@ int main(int argc, char** argv)
 
 
 	// draw list and game objects
-	DrawList list{};
+	LvnDrawList list{};
 	UniformData uniformData{};
 
 	float oldTime = 0.0f;
@@ -686,8 +630,8 @@ int main(int argc, char** argv)
 			drawRect(&list, {-5.0f, -halfHeight + yOff * i + yOff * 0.25f}, {10.0f, yOff * 0.5f}, {1.0f, 1.0f, 1.0f});
 		}
 
-		lvn::bufferUpdateVertexData(buffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
-		lvn::bufferUpdateIndexData(buffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
+		lvn::bufferUpdateVertexData(buffer, list.vertices(), list.vertex_size(), 0);
+		lvn::bufferUpdateIndexData(buffer, list.indices(), list.index_size(), 0);
 
 		// begin render
 		lvn::renderBeginNextFrame(window);
@@ -705,7 +649,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
-		lvn::renderCmdDrawIndexed(window, list.indices.size());
+		lvn::renderCmdDrawIndexed(window, list.index_count());
 
 		list.clear();
 
@@ -713,8 +657,8 @@ int main(int argc, char** argv)
 		drawText(&list, &font, std::to_string(lscore).c_str(), {-220.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 		drawText(&list, &font, std::to_string(rscore).c_str(), {150.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 
-		lvn::bufferUpdateVertexData(fontBuffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
-		lvn::bufferUpdateIndexData(fontBuffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
+		lvn::bufferUpdateVertexData(fontBuffer, list.vertices(), list.vertex_size(), 0);
+		lvn::bufferUpdateIndexData(fontBuffer, list.indices(), list.index_size(), 0);
 
 
 		lvn::renderCmdBindPipeline(window, fontPipeline);
@@ -723,7 +667,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindVertexBuffer(window, fontBuffer);
 		lvn::renderCmdBindIndexBuffer(window, fontBuffer);
 
-		lvn::renderCmdDrawIndexed(window, list.indices.size());
+		lvn::renderCmdDrawIndexed(window, list.index_count());
 
 
 		// end render pass and submit rendering

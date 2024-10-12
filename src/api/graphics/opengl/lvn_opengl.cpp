@@ -1,4 +1,5 @@
 #include "lvn_opengl.h"
+#include "levikno.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -806,12 +807,11 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferC
 
 LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
-	uint32_t vao, vbo, ibo;
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &ibo);
+	glGenVertexArrays(1, &buffer->id);
+	glGenBuffers(1, &buffer->vboId);
+	glGenBuffers(1, &buffer->iboId);
 
-	glBindVertexArray(vao);
+	glBindVertexArray(buffer->id);
 
 	bool dynamicVertex = false, dynamicIndex = false;
 
@@ -821,20 +821,20 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 		dynamicIndex = true;
 
 	// vertex buffer
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer->vboId);
 	glBufferData(GL_ARRAY_BUFFER, createInfo->vertexBufferSize, createInfo->pVertices, dynamicVertex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when creating [vertex] buffer, id: %u, size: %u", vbo, createInfo->vertexBufferSize);
+		LVN_CORE_ERROR("[opengl] last error check occurance when creating [vertex] buffer, id: %u, size: %u", buffer->vboId, createInfo->vertexBufferSize);
 		return Lvn_Result_Failure;
 	}
 
 	// index buffer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->iboId);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, createInfo->indexBufferSize, createInfo->pIndices, dynamicIndex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when creating [index] buffer, id: %u, size: %u", ibo, createInfo->indexBufferSize);
+		LVN_CORE_ERROR("[opengl] last error check occurance when creating [index] buffer, id: %u, size: %u", buffer->iboId, createInfo->indexBufferSize);
 		return Lvn_Result_Failure;
 	}
 
@@ -855,17 +855,14 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	// HACK: store the IDs of the vertex and index buffer in the same variable (uint64_t) with each id (uint32_t) in each half of the variable
-	memcpy(&buffer->indexOffset, &vbo, sizeof(uint32_t));
-	memcpy((char*)(&buffer->indexOffset) + sizeof(uint32_t), &ibo, sizeof(uint32_t));
-
-	buffer->id = vao;
 	buffer->type = createInfo->type;
-	buffer->vertexBuffer = &buffer->indexOffset;
+	buffer->vertexBuffer = nullptr;
 	buffer->vertexBufferSize = createInfo->vertexBufferSize;
-	buffer->indexBuffer = (char*)(&buffer->indexOffset) + sizeof(uint32_t);
+	buffer->vertexBufferMemory = nullptr;
+	buffer->indexBuffer = nullptr;
 	buffer->indexBufferSize = createInfo->indexBufferSize;
 	buffer->indexBufferMemory = nullptr;
+	buffer->indexOffset = 0;
 
 	return Lvn_Result_Success;
 }
@@ -1029,11 +1026,8 @@ void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 
 void oglsImplDestroyBuffer(LvnBuffer* buffer)
 {
-	uint32_t* vertexBuffer = static_cast<uint32_t*>(buffer->vertexBuffer);
-	uint32_t* indexBuffer = static_cast<uint32_t*>(buffer->indexBuffer);
-
-	glDeleteBuffers(1, vertexBuffer);
-	glDeleteBuffers(1, indexBuffer);
+	glDeleteBuffers(1, &buffer->vboId);
+	glDeleteBuffers(1, &buffer->iboId);
 	glDeleteVertexArrays(1, &buffer->id);
 }
 
@@ -1192,34 +1186,38 @@ void oglsImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuf
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
+void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
 {
-	uint32_t vbo = *static_cast<uint32_t*>(buffer->vertexBuffer);
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, size, vertices);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glNamedBufferSubData(buffer->vboId, offset, size, vertices);
 }
 
-void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
+void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset)
 {
-	uint32_t ibo = *static_cast<uint32_t*>(buffer->indexBuffer);
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, indices);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glNamedBufferSubData(buffer->iboId, offset, size, indices);
 }
 
-void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
+void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size)
 {
-	
+	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[opengl] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
+
+	glNamedBufferData(buffer->vboId, size, nullptr, GL_DYNAMIC_DRAW);
+
+	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	{
+		LVN_CORE_ERROR("[opengl] last error check occurance when resizing [vertex] buffer, id: %u", buffer->vboId);
+	}
 }
 
-void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
+void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 {
-	
+	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[opengl] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
+
+	glNamedBufferData(buffer->iboId, size, nullptr, GL_DYNAMIC_DRAW);
+
+	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	{
+		LVN_CORE_ERROR("[opengl] last error check occurance when resizing [index] buffer, id: %u", buffer->iboId);
+	}
 }
 
 void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)

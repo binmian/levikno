@@ -3467,7 +3467,7 @@ void vksImplDestroyCubemap(LvnCubemap* cubemap)
 	vkDestroySampler(vkBackends->device, textureSampler, nullptr);
 }
 
-void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t size, uint32_t offset)
+void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
 {
 	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[vulkan] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
 
@@ -3481,7 +3481,7 @@ void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint32_t s
 	vmaUnmapMemory(vmaAllocator, vertexMemory);
 }
 
-void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t size, uint32_t offset)
+void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset)
 {
 	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[vulkan] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
 
@@ -3496,7 +3496,7 @@ void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint32_t
 
 }
 
-void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
+void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size)
 {
 	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[vulkan] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
 
@@ -3510,9 +3510,12 @@ void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint32_t size)
 	vmaFreeMemory(vmaAllocator, vertexMemory);
 
 	vks::createBuffer(vkBackends, &vertexBuffer, &vertexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	buffer->vertexBuffer = vertexBuffer;
+	buffer->vertexBufferMemory = vertexMemory;
 }
 
-void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
+void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 {
 	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[vulkan] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
 
@@ -3526,6 +3529,9 @@ void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint32_t size)
 	vmaFreeMemory(vmaAllocator, indexMemory);
 
 	vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	buffer->indexBuffer = indexBuffer;
+	buffer->indexBufferMemory = indexMemory;
 }
 
 void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
