@@ -3,7 +3,7 @@
 #define LVN_ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
 
-static const char* s_rendererDefaultVertexShaderCode = R"(
+static const char* s_Renderer2dDefaultVertexShaderCode = R"(
 #version 460
 
 layout(location = 0) in vec2 inPos;
@@ -27,7 +27,7 @@ void main()
 
 )";
 
-static const char* s_rendererDefaultFragmentShaderCodeTypeVks = R"(
+static const char* s_Renderer2dDefaultFragmentShaderCodeTypeVks = R"(
 #version 460
 
 layout(location = 0) out vec4 outColor;
@@ -44,7 +44,7 @@ void main()
 }
 )";
 
-static const char* s_rendererDefaultFragmentShaderCodeTypeOgl = R"(
+static const char* s_Renderer2dDefaultFragmentShaderCodeTypeOgl = R"(
 #version 460
 
 layout(location = 0) out vec4 outColor;
@@ -104,25 +104,25 @@ LvnResult rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo)
 	drawBufferCreateInfo.indexBufferSize = createInfo->indexBufferSize;
 
 	// create buffer
-	if (lvn::createBuffer(&renderer->drawBuffer, &drawBufferCreateInfo) != Lvn_Result_Success)
+	if (lvn::createBuffer(&renderer->draw2dBuffer, &drawBufferCreateInfo) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[R2D] cannot create 2d renderer, failed to create buffer");
 		return Lvn_Result_Failure;
 	}
 
 	LvnShaderCreateInfo drawShaderCreateInfo{};
-	drawShaderCreateInfo.vertexSrc = s_rendererDefaultVertexShaderCode;
+	drawShaderCreateInfo.vertexSrc = s_Renderer2dDefaultVertexShaderCode;
 
 	switch (lvn::getGraphicsApi())
 	{
 		case Lvn_GraphicsApi_OpenGL:
 		{
-			drawShaderCreateInfo.fragmentSrc = s_rendererDefaultFragmentShaderCodeTypeOgl;
+			drawShaderCreateInfo.fragmentSrc = s_Renderer2dDefaultFragmentShaderCodeTypeOgl;
 			break;
 		}
 		case Lvn_GraphicsApi_Vulkan:
 		{
-			drawShaderCreateInfo.fragmentSrc = s_rendererDefaultFragmentShaderCodeTypeVks;
+			drawShaderCreateInfo.fragmentSrc = s_Renderer2dDefaultFragmentShaderCodeTypeVks;
 			break;
 		}
 
@@ -168,12 +168,12 @@ LvnResult rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo)
 	descriptorLayoutCreateInfo.maxSets = 1;
 
 	// create descriptor layout and set
-	if (lvn::createDescriptorLayout(&renderer->drawDescriptorLayout, &descriptorLayoutCreateInfo) != Lvn_Result_Success)
+	if (lvn::createDescriptorLayout(&renderer->draw2dDescriptorLayout, &descriptorLayoutCreateInfo) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[R2D] cannot create 2d renderer, failed to create descriptor layout");
 		return Lvn_Result_Failure;
 	}
-	if (lvn::createDescriptorSet(&renderer->drawDescriptorSet, renderer->drawDescriptorLayout) != Lvn_Result_Success)
+	if (lvn::createDescriptorSet(&renderer->draw2dDescriptorSet, renderer->draw2dDescriptorLayout) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[R2D] cannot create 2d renderer, failed to create descriptor set");
 		return Lvn_Result_Failure;
@@ -190,13 +190,13 @@ LvnResult rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo)
 	pipelineCreateInfo.vertexAttributeCount = LVN_ARRAY_LEN(drawAttributes);
 	pipelineCreateInfo.pVertexBindingDescriptions = &drawVertexBindingDescription;
 	pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-	pipelineCreateInfo.pDescriptorLayouts = &renderer->drawDescriptorLayout;
+	pipelineCreateInfo.pDescriptorLayouts = &renderer->draw2dDescriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = drawShader;
 	pipelineCreateInfo.renderPass = renderPass;
 
 	// create pipeline
-	if (lvn::createPipeline(&renderer->drawPipeline, &pipelineCreateInfo) != Lvn_Result_Success)
+	if (lvn::createPipeline(&renderer->draw2dPipeline, &pipelineCreateInfo) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[R2D] cannot create 2d renderer, failed to create pipeline");
 		return Lvn_Result_Failure;
@@ -251,7 +251,7 @@ LvnResult rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo)
 		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
 	};
 
-	lvn::updateDescriptorSetData(renderer->drawDescriptorSet, descriptorUpdateInfos, LVN_ARRAY_LEN(descriptorUpdateInfos));
+	lvn::updateDescriptorSetData(renderer->draw2dDescriptorSet, descriptorUpdateInfos, LVN_ARRAY_LEN(descriptorUpdateInfos));
 
 	return Lvn_Result_Success;
 }
@@ -259,10 +259,10 @@ LvnResult rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo)
 void rendererTerminate(LvnRenderer* renderer)
 {
 	if (renderer->window) { lvn::destroyWindow(renderer->window); }
-	if (renderer->drawBuffer) { lvn::destroyBuffer(renderer->drawBuffer); }
-	if (renderer->drawPipeline) { lvn::destroyPipeline(renderer->drawPipeline); }
-	if (renderer->drawDescriptorLayout) { lvn::destroyDescriptorLayout(renderer->drawDescriptorLayout); }
-	if (renderer->drawDescriptorSet) { lvn::destroyDescriptorSet(renderer->drawDescriptorSet); }
+	if (renderer->draw2dBuffer) { lvn::destroyBuffer(renderer->draw2dBuffer); }
+	if (renderer->draw2dPipeline) { lvn::destroyPipeline(renderer->draw2dPipeline); }
+	if (renderer->draw2dDescriptorLayout) { lvn::destroyDescriptorLayout(renderer->draw2dDescriptorLayout); }
+	if (renderer->draw2dDescriptorSet) { lvn::destroyDescriptorSet(renderer->draw2dDescriptorSet); }
 	if (renderer->texture) { lvn::destroyTexture(renderer->texture); }
 	if (renderer->uniformBuffer) { lvn::destroyUniformBuffer(renderer->uniformBuffer); }
 }
@@ -291,15 +291,15 @@ void rendererBeginDraw2d(LvnRenderer* renderer)
 
 void rendererEndDraw2d(LvnRenderer* renderer)
 {
-	lvn::bufferUpdateVertexData(renderer->drawBuffer, renderer->drawList.vertices(), renderer->drawList.vertex_size(), 0);
-	lvn::bufferUpdateIndexData(renderer->drawBuffer, renderer->drawList.indices(), renderer->drawList.index_size(), 0);
+	lvn::bufferUpdateVertexData(renderer->draw2dBuffer, renderer->drawList.vertices(), renderer->drawList.vertex_size(), 0);
+	lvn::bufferUpdateIndexData(renderer->draw2dBuffer, renderer->drawList.indices(), renderer->drawList.index_size(), 0);
 
 
-	lvn::renderCmdBindPipeline(renderer->window, renderer->drawPipeline);
-	lvn::renderCmdBindDescriptorSets(renderer->window, renderer->drawPipeline, 0, 1, &renderer->drawDescriptorSet);
+	lvn::renderCmdBindPipeline(renderer->window, renderer->draw2dPipeline);
+	lvn::renderCmdBindDescriptorSets(renderer->window, renderer->draw2dPipeline, 0, 1, &renderer->draw2dDescriptorSet);
 
-	lvn::renderCmdBindVertexBuffer(renderer->window, renderer->drawBuffer);
-	lvn::renderCmdBindIndexBuffer(renderer->window, renderer->drawBuffer);
+	lvn::renderCmdBindVertexBuffer(renderer->window, renderer->draw2dBuffer);
+	lvn::renderCmdBindIndexBuffer(renderer->window, renderer->draw2dBuffer);
 
 	lvn::renderCmdDrawIndexed(renderer->window, renderer->drawList.index_count());
 

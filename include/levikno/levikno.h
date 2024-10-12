@@ -5223,12 +5223,12 @@ struct LvnRenderer
 	LvnWindow* window;
 	LvnVec4 backGroundColor;
 
-	LvnDescriptorLayout* drawDescriptorLayout;
-	LvnDescriptorSet* drawDescriptorSet;
-	LvnPipeline* drawPipeline;
+	LvnDescriptorLayout* draw2dDescriptorLayout;
+	LvnDescriptorSet* draw2dDescriptorSet;
+	LvnPipeline* draw2dPipeline;
 	LvnPipeline* linePipeline;
 
-	LvnBuffer* drawBuffer;
+	LvnBuffer* draw2dBuffer;
 	LvnDrawList drawList;
 
 	LvnUniformBuffer* uniformBuffer;

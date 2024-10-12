@@ -9,7 +9,7 @@ int main(int argc, char** argv)
 	lvnCreateInfo.logging.enableLogging = true;
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_opengl;
 
 	lvn::createContext(&lvnCreateInfo);
 
