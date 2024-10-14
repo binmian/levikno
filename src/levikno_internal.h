@@ -316,10 +316,11 @@ struct LvnRenderPass
 */
 struct LvnWindow
 {
-	LvnWindowData data;          // holds data of window (eg. width, height)
-	void* nativeWindow;          // pointer to window api handle (eg. GLFWwindow)
-	LvnRenderPass renderPass;    // pointer to native render pass for this window
-	void* apiData;               // used for graphics api related uses
+	LvnWindowData data;              // holds data of window (eg. width, height)
+	void* nativeWindow;              // pointer to window api handle (eg. GLFWwindow)
+	void* apiData;                   // used for graphics api related uses
+	LvnRenderPass renderPass;        // pointer to native render pass for this window (vulkan)
+	uint32_t topologyTypeEnum;       // topologyType used to render primitives (opengl)
 };
 
 struct LvnWindowContext
@@ -500,6 +501,7 @@ struct LvnTexture
 	void* imageView;
 	void* sampler;
 
+	uint32_t width, height;
 	uint32_t id;
 };
 

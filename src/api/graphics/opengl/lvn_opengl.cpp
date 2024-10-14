@@ -22,6 +22,7 @@ namespace ogls
 	static GLenum             getColorFormat(LvnColorImageFormat texFormat);
 	static GLenum             getDataFormat(LvnColorImageFormat texFormat);
 	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
+	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
 	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
 
 	static LvnResult checkErrorCode()
@@ -240,6 +241,24 @@ namespace ogls
 			case Lvn_DepthImageFormat_Depth32: { *format = GL_DEPTH_COMPONENT32F; *attachmentType = GL_DEPTH_ATTACHMENT; break; }
 			case Lvn_DepthImageFormat_Depth24Stencil8: { *format = GL_DEPTH24_STENCIL8; *attachmentType = GL_DEPTH_STENCIL_ATTACHMENT; break; }
 			case Lvn_DepthImageFormat_Depth32Stencil8: { *format = GL_DEPTH32F_STENCIL8; *attachmentType = GL_DEPTH_STENCIL_ATTACHMENT; break; }
+		}
+	}
+
+	static GLenum getTopologyTypeEnum(LvnTopologyType type)
+	{
+		switch (type)
+		{
+			case Lvn_TopologyType_Point: { return GL_POINTS; }
+			case Lvn_TopologyType_Line: { return GL_LINES; }
+			case Lvn_TopologyType_LineStrip: { return GL_LINE_STRIP; }
+			case Lvn_TopologyType_Triangle: { return GL_TRIANGLES; }
+			case Lvn_TopologyType_TriangleStrip: { return GL_TRIANGLE_STRIP; }
+
+			default:
+			{
+				LVN_CORE_WARN("invalid topology type enum, setting topology type to GL_TRIANGLES");
+				return GL_TRIANGLES;
+			}
 		}
 	}
 
@@ -777,6 +796,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
 	pipelineEnums->enableDepth = createInfo->pipelineSpecification->depthstencil.enableDepth;
+	pipelineEnums->topologyType = ogls::getTopologyTypeEnum(createInfo->pipelineSpecification->inputAssembly.topology);
 
 	return Lvn_Result_Success;
 }
@@ -935,6 +955,8 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	texture->id = id;
+	texture->width = createInfo->imageData.width;
+	texture->height = createInfo->imageData.height;
 
 	return Lvn_Result_Success;
 }
@@ -1055,22 +1077,22 @@ void oglsImplRenderClearColor(LvnWindow* window, float r, float g, float b, floa
 
 void oglsImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
-	glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+	glDrawArrays(window->topologyTypeEnum, 0, vertexCount);
 }
 
 void oglsImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 {
-	glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+	glDrawElements(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, 0);
 }
 
 void oglsImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-	glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, vertexCount, instanceCount, firstInstance);
+	glDrawArraysInstancedBaseInstance(window->topologyTypeEnum, 0, vertexCount, instanceCount, firstInstance);
 }
 
 void oglsImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-	glDrawElementsInstancedBaseInstance(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0, instanceCount, firstInstance);
+	glDrawElementsInstancedBaseInstance(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, 0, instanceCount, firstInstance);
 }
 
 void oglsImplRenderCmdSetStencilReference(uint32_t reference)
@@ -1126,6 +1148,8 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	else { glDisable(GL_DEPTH_TEST); }
 
 	glUseProgram(pipeline->id);
+
+	window->topologyTypeEnum = pipelineEnums->topologyType;
 }
 
 void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
@@ -1250,11 +1274,11 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 		// texture image
 		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
 		{
-			for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
+			for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
 			{
 				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
 				{
-					descriptorSetPtr->textures[j].id = pUpdateInfo[i].textureInfo->id;
+					descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[j]->id;
 					texCount++;
 					break;
 				}

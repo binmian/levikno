@@ -85,6 +85,7 @@ namespace lvn
 	struct OglPipelineEnums
 	{
 		bool enableDepth;
+		uint32_t topologyType;
 	};
 
 	struct OglFramebufferData

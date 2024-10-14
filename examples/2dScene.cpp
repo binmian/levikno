@@ -1,15 +1,13 @@
 #include <levikno/levikno.h>
 
 
-#define MAX_OBJECTS (5000)
-
 int main(int argc, char** argv)
 {
 	LvnContextCreateInfo lvnCreateInfo{};
 	lvnCreateInfo.logging.enableLogging = true;
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_opengl;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -36,27 +34,41 @@ int main(int argc, char** argv)
 
 	lvn::renderInit(&renderInfo);
 
+	LvnImageData imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
+
+	// texture create info struct
+	LvnTextureCreateInfo textureCreateInfo{};
+	textureCreateInfo.imageData = imageData;
+	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
 	LvnRendererCreateInfo rendererCreateInfo{};
 	rendererCreateInfo.windowCreateInfo = lvn::windowCreateInfoGetConfig(800, 600, "2dScene");
-	rendererCreateInfo.vertexBufferSize = MAX_OBJECTS * 4 * 8 * sizeof(float);
-	rendererCreateInfo.indexBufferSize = MAX_OBJECTS * 6 * sizeof(uint32_t);
+	rendererCreateInfo.rendererModes = Lvn_RendererMode_2d | Lvn_RendererMode_Line;
 
-	LvnRenderer renderer;
+	LvnRenderer renderer{};
 	lvn::rendererInit(&renderer, &rendererCreateInfo);
+
+	LvnSprite sprite = lvn::createSprite(&renderer, &textureCreateInfo, { -200.0f, -200.0f });
 
 	while (lvn::windowOpen(renderer.window))
 	{
 		lvn::rendererSetBackgroundColor(&renderer, 1.0f, 1.0f, 1.0f, 1.0f);
 
-		lvn::rendererBeginDraw2d(&renderer);
+		lvn::rendererBeginDraw(&renderer);
 
 		lvn::drawRect(&renderer, { {0.0f, 0.0f}, {200.0f, 200.0f} }, { 1.0f, 0.0f, 0.0f, 1.0f });
 		lvn::drawTriangle(&renderer, { {-100.0f, 0.0f}, {-50.0f, 0.0f}, { -75.0f, 50.0f } }, { 0.0f, 1.0f, 0.0f, 1.0f});
 		lvn::drawPoly(&renderer, { { 0.0f, 300.0f }, 100.0f, 8 }, { 0.0f, 0.0f, 1.0f, 1.0f });
+		lvn::drawLine(&renderer, { {-200.0f, -400.0f, 0.0f}, {100.0f, 200.0f, 0.0f} }, { 0.0f, 0.0f, 0.0f, 1.0f });
+		lvn::drawLine(&renderer, { {200.0f, -400.0f, 0.0f}, {-100.0f, 200.0f, 0.0f} }, { 1.0f, 0.0f, 1.0f, 1.0f });
 
-		lvn::rendererEndDraw2d(&renderer);
+		lvn::rendererEndDraw(&renderer);
 	}
+
+	lvn::destroySprite(&sprite);
 
 	lvn::rendererTerminate(&renderer);
 	lvn::terminateContext();

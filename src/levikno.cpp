@@ -2,7 +2,6 @@
 #include "levikno_internal.h"
 
 #include <ctime>
-#include <unordered_map>
 
 #include "stb_image.h"
 #include "miniaudio.h"
@@ -2631,7 +2630,7 @@ LvnModel loadModel(const char* filepath)
 	return {};
 }
 
-void freeModel(LvnModel* model)
+void unloadModel(LvnModel* model)
 {
 	for (uint32_t i = 0; i < model->meshes.size(); i++)
 	{

@@ -368,7 +368,7 @@ int main(int argc, char** argv)
 	}
 
 	// destroy objects after they are finished being used
-	lvn::freeModel(&model);
+	lvn::unloadModel(&model);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyUniformBuffer(storageBuffer);
 	lvn::destroyPipeline(pipeline);

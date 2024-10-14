@@ -2611,7 +2611,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 		layoutBindings[i].stageFlags = vks::getShaderStageFlagEnum(createInfo->pDescriptorBindings[i].shaderStage);
 
 		poolSizes[i].type = descriptorType;
-		poolSizes[i].descriptorCount = createInfo->pDescriptorBindings[i].maxAllocations * vkBackends->maxFramesInFlight;
+		poolSizes[i].descriptorCount = createInfo->pDescriptorBindings[i].descriptorCount * createInfo->pDescriptorBindings[i].maxAllocations * vkBackends->maxFramesInFlight;
 	}
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -3183,6 +3183,8 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	texture->imageMemory = textureImageMemory;
 	texture->imageView = imageView;
 	texture->sampler = textureSampler;
+	texture->width = createInfo->imageData.width;
+	texture->height = createInfo->imageData.height;
 
 	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
@@ -3550,7 +3552,19 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 	for (uint32_t i = 0; i < count; i++)
 	{
 		VkDescriptorBufferInfo bufferInfo{};
-		VkDescriptorImageInfo imageInfo{};
+		std::vector<VkDescriptorImageInfo> imageInfos(pUpdateInfo[i].descriptorCount);
+
+		if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler ||
+			pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage ||
+			pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+		{
+			for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
+			{
+				imageInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfos[j].imageView = static_cast<VkImageView>(pUpdateInfo[i].pTextureInfos[j]->imageView);
+				imageInfos[j].sampler = static_cast<VkSampler>(pUpdateInfo[i].pTextureInfos[j]->sampler);
+			}
+		}
 
 		for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
 		{
@@ -3560,7 +3574,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 			descriptorWrite.dstBinding = pUpdateInfo[i].binding;
 			descriptorWrite.dstArrayElement = 0;
 			descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(pUpdateInfo[i].descriptorType);
-			descriptorWrite.descriptorCount = pUpdateInfo->descriptorCount;
+			descriptorWrite.descriptorCount = pUpdateInfo[i].descriptorCount;
 
 			// if descriptor using uniform buffers
 			if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
@@ -3576,10 +3590,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage ||
 				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
 			{
-				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo.imageView = static_cast<VkImageView>(pUpdateInfo[i].textureInfo->imageView);
-				imageInfo.sampler = static_cast<VkSampler>(pUpdateInfo[i].textureInfo->sampler);
-				descriptorWrite.pImageInfo = &imageInfo;
+				descriptorWrite.pImageInfo = imageInfos.data();
 			}
 
 			vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);

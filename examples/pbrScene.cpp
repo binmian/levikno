@@ -534,10 +534,12 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 
 	LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
 
+	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(data->frameBuffer, 0);
+
 	fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	fbDescriptorUpdateInfo.binding = 1;
 	fbDescriptorUpdateInfo.descriptorCount = 1;
-	fbDescriptorUpdateInfo.textureInfo = lvn::frameBufferGetImage(data->frameBuffer, 0);
+	fbDescriptorUpdateInfo.pTextureInfos = &frameBufferImage;
 
 	lvn::updateDescriptorSetData(data->fbDescriptorSet, &fbDescriptorUpdateInfo, 1);
 
@@ -897,15 +899,18 @@ int main()
 		lvn::createDescriptorSet(&lvnmodel.meshes[i].descriptorSet, descriptorLayout);
 	}
 
+	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(frameBuffer, 0);
 
 	// update descriptor sets
 	LvnDescriptorUpdateInfo fbDescriptorTextureUpdateInfo{};
 	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	fbDescriptorTextureUpdateInfo.binding = 1;
 	fbDescriptorTextureUpdateInfo.descriptorCount = 1;
-	fbDescriptorTextureUpdateInfo.textureInfo = lvn::frameBufferGetImage(frameBuffer, 0);
+	fbDescriptorTextureUpdateInfo.pTextureInfos = &frameBufferImage;
 
 	lvn::updateDescriptorSetData(fbDescriptorSet, &fbDescriptorTextureUpdateInfo, 1);
+
+	LvnTexture* cubemapTexture = lvn::cubemapGetTextureData(cubemap);
 
 	LvnDescriptorUpdateInfo cubemapDescriptorUniformUpdateInfo{};
 	cubemapDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
@@ -917,7 +922,7 @@ int main()
 	cubemapDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	cubemapDescriptorTextureUpdateInfo.binding = 1;
 	cubemapDescriptorTextureUpdateInfo.descriptorCount = 1;
-	cubemapDescriptorTextureUpdateInfo.textureInfo = lvn::cubemapGetTextureData(cubemap);
+	cubemapDescriptorTextureUpdateInfo.pTextureInfos = &cubemapTexture;
 
 	std::vector<LvnDescriptorUpdateInfo> cubemapDescriptorUpdateInfo =
 	{
@@ -945,10 +950,10 @@ int main()
 		{
 			descriptorPbrUniformUpdateInfo,
 			descriptorUniformUpdateInfo,
-			{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.albedo },
-			{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.metallicRoughnessOcclusion },
-			{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.normal },
-			{ 5, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, lvnmodel.meshes[i].material.emissive },
+			{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.albedo },
+			{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.metallicRoughnessOcclusion },
+			{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.normal },
+			{ 5, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.emissive },
 		};
 
 		lvn::updateDescriptorSetData(lvnmodel.meshes[i].descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
@@ -1069,7 +1074,7 @@ int main()
 	}
 
 
-	lvn::freeModel(&lvnmodel);
+	lvn::unloadModel(&lvnmodel);
 	lvn::destroyCubemap(cubemap);
 	lvn::destroyFrameBuffer(frameBuffer);
 

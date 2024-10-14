@@ -100,6 +100,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <chrono>
 #include <queue>
 #include <thread>
@@ -726,6 +727,15 @@ enum LvnSocketType
 	Lvn_SocketType_Server,
 };
 
+
+/* [Renderer enums] */
+enum LvnRendererMode
+{
+	Lvn_RendererMode_None   = (0U),
+	Lvn_RendererMode_2d     = (1U << 0),
+	Lvn_RendererMode_Line   = (1U << 1),
+};
+
 struct LvnAddress;
 struct LvnAppRenderEvent;
 struct LvnAppTickEvent;
@@ -734,7 +744,7 @@ struct LvnBufferCreateInfo;
 struct LvnCamera;
 struct LvnCameraCreateInfo;
 struct LvnCharset;
-struct LvnPoly;
+struct LvnColor;
 struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnCubemap;
@@ -789,6 +799,7 @@ struct LvnPipelineScissor;
 struct LvnPipelineSpecification;
 struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
+struct LvnPoly;
 struct LvnRect;
 struct LvnRenderer;
 struct LvnRendererCreateInfo;
@@ -802,6 +813,7 @@ struct LvnSocketCreateInfo;
 struct LvnSound;
 struct LvnSoundBoard;
 struct LvnSoundCreateInfo;
+struct LvnSprite;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
 struct LvnTriangle;
@@ -829,6 +841,9 @@ struct LvnPair;
 
 template<typename T1, typename T2>
 struct LvnDoublePair;
+
+template<typename T, size_t N>
+class LvnArray;
 
 template<typename T>
 class LvnData;
@@ -1251,7 +1266,6 @@ namespace lvn
 	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
 
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
-
 	LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
 	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);                   // update the data stored in a uniform or storage buffer
@@ -1261,7 +1275,6 @@ namespace lvn
 	LVN_API LvnRenderPass*              frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);                                                                    // get the render pass from the framebuffer
 	LVN_API void                        frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height);                                          // update the width and height of the new framebuffer (updates the image data dimensions), Note: call only when the image dimensions need to be changed
 	LVN_API void                        frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);      // set the background color for the framebuffer for offscreen rendering
-
 	LVN_API LvnDepthImageFormat         findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count);
 
 	LVN_API LvnBuffer*                  meshGetBuffer(LvnMesh* mesh);
@@ -1276,7 +1289,7 @@ namespace lvn
 	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                       // destroy mesh object
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
-	LVN_API void                        freeModel(LvnModel* model);
+	LVN_API void                        unloadModel(LvnModel* model);
 
 	LVN_API LvnCamera                   cameraConfigInit(LvnCameraCreateInfo* createInfo);                                // initialize the config of the camera struct given the create info parameters
 	LVN_API void                        cameraUpdateMatrix(LvnCamera* camera);                                            // updates the camera matrix given the camera position, orientation, aspect ratio, fov, near plane, and far plane are set, note that it will also update the projection and view matrix 
@@ -1332,14 +1345,21 @@ namespace lvn
 	/* [Renderer] */
 	LVN_API LvnResult                   rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo);
 	LVN_API void                        rendererTerminate(LvnRenderer* renderer);
-	LVN_API void                        rendererBeginDraw2d(LvnRenderer* renderer);
-	LVN_API void                        rendererEndDraw2d(LvnRenderer* renderer);
+	LVN_API void                        rendererBeginDraw(LvnRenderer* renderer);
+	LVN_API void                        rendererEndDraw(LvnRenderer* renderer);
+	LVN_API void                        rendererFlushDraw(LvnRenderer* renderer);
+	LVN_API void                        rendererFlushDrawMode(LvnRenderer* renderer, LvnRendererMode renderMode);
 	LVN_API void                        rendererSetBackgroundColor(LvnRenderer* renderer, float r, float g, float b, float a);
 
-	LVN_API void                        drawTriangle(LvnRenderer* renderer, const LvnTriangle& triangle, const LvnVec4& color);
-	LVN_API void                        drawRect(LvnRenderer* renderer, const LvnRect& rect, const LvnVec4& color);
-	LVN_API void                        drawPoly(LvnRenderer* renderer, const LvnPoly& poly, const LvnVec4& color);
+	LVN_API void                        drawTriangle(LvnRenderer* renderer, const LvnTriangle& triangle, const LvnColor& color);
+	LVN_API void                        drawRect(LvnRenderer* renderer, const LvnRect& rect, const LvnColor& color);
+	LVN_API void                        drawPoly(LvnRenderer* renderer, const LvnPoly& poly, const LvnColor& color);
+	LVN_API void                        drawLine(LvnRenderer* renderer, const LvnLine& line, const LvnColor& color);
+	LVN_API void                        drawSprite(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color);
+	LVN_API void                        drawSpriteEx(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color, float scale, float rotation);
 
+	LVN_API LvnSprite                   createSprite(LvnRenderer* renderer, LvnTextureCreateInfo* createInfo, const LvnVec2& pos);
+	LVN_API void                        destroySprite(LvnSprite* sprite);
 
 	/* [Math] */
 	template <typename T>
@@ -2083,6 +2103,34 @@ struct LvnDoublePair
 	union { T2 p2, y, height; };
 };
 
+template<typename T, size_t N>
+class LvnArray
+{
+private:
+	T m_Data[N];
+
+public:
+	LvnArray() {}
+	LvnArray(T* data, size_t size)
+	{
+		memcpy(m_Data, data, size);
+	}
+
+	T& operator [](size_t i)
+	{
+		LVN_CORE_ASSERT(i < N, "%s, element index out of range", typeid(this).name());
+		return m_Data[i];
+	}
+	const T& operator [](size_t i) const
+	{
+		LVN_CORE_ASSERT(i < N, "%s, element index out of range", typeid(this).name());
+		return m_Data[i];
+	}
+
+	T* data()                { return m_Data; }
+	const T* data() const    { return m_Data; }
+	size_t size()            { return N; }
+};
 
 template<typename T>
 class LvnData
@@ -2133,7 +2181,12 @@ public:
 
 	T& operator[](size_t i)
 	{
-		LVN_CORE_ASSERT(i < m_Size, "element index out of range");
+		LVN_CORE_ASSERT(i < m_Size, "%s, element index out of range", typeid(this).name());
+		return m_Data[i];
+	}
+	const T& operator [](size_t i) const
+	{
+		LVN_CORE_ASSERT(i < m_Size, "%s, element index out of range", typeid(this).name());
 		return m_Data[i];
 	}
 
@@ -4977,8 +5030,8 @@ struct LvnDescriptorUpdateInfo
 	uint32_t binding;
 	LvnDescriptorType descriptorType;
 	uint32_t descriptorCount;
-	const LvnUniformBuffer* bufferInfo;
-	const LvnTexture* textureInfo;
+	LvnUniformBuffer* bufferInfo;
+	LvnTexture** pTextureInfos;
 };
 
 struct LvnPipelineCreateInfo
@@ -5211,38 +5264,14 @@ struct LvnPacket
 };
 
 
-struct LvnRendererCreateInfo
+struct LvnColor
 {
-	LvnWindowCreateInfo windowCreateInfo;
-	size_t vertexBufferSize;
-	size_t indexBufferSize;
-};
-
-struct LvnRenderer
-{
-	LvnWindow* window;
-	LvnVec4 backGroundColor;
-
-	LvnDescriptorLayout* draw2dDescriptorLayout;
-	LvnDescriptorSet* draw2dDescriptorSet;
-	LvnPipeline* draw2dPipeline;
-	LvnPipeline* linePipeline;
-
-	LvnBuffer* draw2dBuffer;
-	LvnDrawList drawList;
-
-	LvnUniformBuffer* uniformBuffer;
-	struct LvnRendererUniformData
-	{
-		LvnMat4 matrix;
-	} uniformData;
-
-	LvnTexture* texture;
+	float r, g, b, a;
 };
 
 struct LvnLine
 {
-	LvnVec2 v1, v2;
+	LvnVec3 v1, v2;
 };
 
 struct LvnTriangle
@@ -5261,6 +5290,55 @@ struct LvnPoly
 	LvnVec2 pos;
 	float radius;
 	int nSides;
+};
+
+struct LvnSprite
+{
+	LvnTexture* texture;
+	LvnDescriptorSet* descriptorSet;
+	LvnVec2 pos;
+};
+
+struct LvnRendererCreateInfo
+{
+	LvnWindowCreateInfo windowCreateInfo;
+	uint32_t rendererModes;
+	uint64_t maxSprites;
+};
+
+struct LvnRendererModeData
+{
+	LvnRendererMode mode;
+
+	LvnDescriptorLayout* descriptorLayout;
+	LvnDescriptorSet* descriptorSet;
+	LvnPipeline* pipeline;
+	LvnBuffer* buffer;
+	LvnUniformBuffer* uniformBuffer;
+	void (*drawFunc)(LvnRenderer*, LvnRendererModeData*);
+
+	LvnDrawList drawList;
+	uint64_t maxVertexCount, maxIndexCount, maxTextures;
+};
+
+struct LvnRenderer
+{
+	struct LvnRendererUniformData
+	{
+		LvnMat4 matrix;
+	};
+
+	uint32_t renderModes;
+	LvnWindow* window;
+	LvnColor backGroundColor;
+	uint64_t maxSprites;
+
+	std::vector<LvnRendererModeData> rendererModes;
+	std::unordered_map<uint32_t, LvnRendererModeData*> rendererModesIndices;
+
+	LvnRendererUniformData uniformData2d, uniformDataLine;
+
+	LvnTexture* texture;
 };
 
 #endif

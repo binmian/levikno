@@ -374,7 +374,7 @@ int main(int argc, char** argv)
 	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	descriptorTextureUpdateInfo.binding = 1;
 	descriptorTextureUpdateInfo.descriptorCount = 1;
-	descriptorTextureUpdateInfo.textureInfo = texture;
+	descriptorTextureUpdateInfo.pTextureInfos = &texture;
 
 	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
 	{

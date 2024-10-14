@@ -5,7 +5,6 @@ file(COPY res DESTINATION .)
 set(LVN_SOURCES
 	2dScene.cpp
 	antiAliasing.cpp
-	basicScene/src/Main.cpp
 	cubemap.cpp
 	events.cpp
 	framebuffer.cpp
