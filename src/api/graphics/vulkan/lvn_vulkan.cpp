@@ -5,9 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
-#include <glslang/Public/ShaderLang.h>
-#include <glslang/SPIRV/GlslangToSpv.h>
-
+#include <glslang/Include/glslang_c_interface.h>
 
 #ifdef LVN_CONFIG_DEBUG
 	#define VMA_ASSERT(expr) (static_cast<bool>(expr) ? void(0) : LVN_CORE_ERROR("[VMA]: " #expr))
@@ -98,8 +96,8 @@ namespace vks
 	static VkFilter                             getTextureFilterEnum(LvnTextureFilter filter);
 	static VkSamplerAddressMode                 getTextureWrapModeEnum(LvnTextureMode mode);
 	static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
-	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint32_t* code, uint32_t size);
-	static LvnResult                            compileShaderToSPIRV(EShLanguage stage, const char* shaderSource, std::vector<uint32_t>& bin);
+	static VkShaderModule                       createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size);
+	static LvnResult                            compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, std::vector<uint8_t>& bin);
 	static LvnResult                            createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
 	static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
 	static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage);
@@ -1511,12 +1509,12 @@ namespace vks
 		return pipeline;
 	}
 
-	static VkShaderModule createShaderModule(VulkanBackends* vkBackends, const uint32_t* code, uint32_t size)
+	static VkShaderModule createShaderModule(VulkanBackends* vkBackends, const uint8_t* code, uint32_t size)
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		createInfo.codeSize = size;
-		createInfo.pCode = code;
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(code);
 		
 		VkShaderModule shaderModule;
 		LVN_CORE_CALL_ASSERT(vkCreateShaderModule(vkBackends->device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "[vulkan] failed to create shader module!");
@@ -1524,157 +1522,190 @@ namespace vks
 		return shaderModule;
 	}
 
-	static LvnResult compileShaderToSPIRV(EShLanguage stage, const char* shaderSource, std::vector<uint32_t>& bin)
+	static LvnResult compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, std::vector<uint8_t>& bin)
 	{
-		TBuiltInResource builtInResources{};
-		builtInResources.maxLights                                 = 32;
-		builtInResources.maxClipPlanes                             = 6;
-		builtInResources.maxTextureUnits                           = 32;
-		builtInResources.maxTextureCoords                          = 32;
-		builtInResources.maxVertexAttribs                          = 64;
-		builtInResources.maxVertexUniformComponents                = 4096;
-		builtInResources.maxVaryingFloats                          = 64;
-		builtInResources.maxVertexTextureImageUnits                = 32;
-		builtInResources.maxCombinedTextureImageUnits              = 80;
-		builtInResources.maxTextureImageUnits                      = 32;
-		builtInResources.maxFragmentUniformComponents              = 4096;
-		builtInResources.maxDrawBuffers                            = 32;
-		builtInResources.maxVertexUniformVectors                   = 128;
-		builtInResources.maxVaryingVectors                         = 8;
-		builtInResources.maxFragmentUniformVectors                 = 16;
-		builtInResources.maxVertexOutputVectors                    = 16;
-		builtInResources.maxFragmentInputVectors                   = 15;
-		builtInResources.minProgramTexelOffset                     = -8;
-		builtInResources.maxProgramTexelOffset                     = 7;
-		builtInResources.maxClipDistances                          = 8;
-		builtInResources.maxComputeWorkGroupCountX                 = 65535;
-		builtInResources.maxComputeWorkGroupCountY                 = 65535;
-		builtInResources.maxComputeWorkGroupCountZ                 = 65535;
-		builtInResources.maxComputeWorkGroupSizeX                  = 1024;
-		builtInResources.maxComputeWorkGroupSizeY                  = 1024;
-		builtInResources.maxComputeWorkGroupSizeZ                  = 64;
-		builtInResources.maxComputeUniformComponents               = 1024;
-		builtInResources.maxComputeTextureImageUnits               = 16;
-		builtInResources.maxComputeImageUniforms                   = 8;
-		builtInResources.maxComputeAtomicCounters                  = 8;
-		builtInResources.maxComputeAtomicCounterBuffers            = 1;
-		builtInResources.maxVaryingComponents                      = 60;
-		builtInResources.maxVertexOutputComponents                 = 64;
-		builtInResources.maxGeometryInputComponents                = 64;
-		builtInResources.maxGeometryOutputComponents               = 128;
-		builtInResources.maxFragmentInputComponents                = 128;
-		builtInResources.maxImageUnits                             = 8;
-		builtInResources.maxCombinedImageUnitsAndFragmentOutputs   = 8;
-		builtInResources.maxCombinedShaderOutputResources          = 8;
-		builtInResources.maxImageSamples                           = 0;
-		builtInResources.maxVertexImageUniforms                    = 0;
-		builtInResources.maxTessControlImageUniforms               = 0;
-		builtInResources.maxTessEvaluationImageUniforms            = 0;
-		builtInResources.maxGeometryImageUniforms                  = 0;
-		builtInResources.maxFragmentImageUniforms                  = 8;
-		builtInResources.maxCombinedImageUniforms                  = 8;
-		builtInResources.maxGeometryTextureImageUnits              = 16;
-		builtInResources.maxGeometryOutputVertices                 = 256;
-		builtInResources.maxGeometryTotalOutputComponents          = 1024;
-		builtInResources.maxGeometryUniformComponents              = 1024;
-		builtInResources.maxGeometryVaryingComponents              = 64;
-		builtInResources.maxTessControlInputComponents             = 128;
-		builtInResources.maxTessControlOutputComponents            = 128;
-		builtInResources.maxTessControlTextureImageUnits           = 16;
-		builtInResources.maxTessControlUniformComponents           = 1024;
-		builtInResources.maxTessControlTotalOutputComponents       = 4096;
-		builtInResources.maxTessEvaluationInputComponents          = 128;
-		builtInResources.maxTessEvaluationOutputComponents         = 128;
-		builtInResources.maxTessEvaluationTextureImageUnits        = 16;
-		builtInResources.maxTessEvaluationUniformComponents        = 1024;
-		builtInResources.maxTessPatchComponents                    = 120;
-		builtInResources.maxPatchVertices                          = 32;
-		builtInResources.maxTessGenLevel                           = 64;
-		builtInResources.maxViewports                              = 16;
-		builtInResources.maxVertexAtomicCounters                   = 0;
-		builtInResources.maxTessControlAtomicCounters              = 0;
-		builtInResources.maxTessEvaluationAtomicCounters           = 0;
-		builtInResources.maxGeometryAtomicCounters                 = 0;
-		builtInResources.maxFragmentAtomicCounters                 = 8;
-		builtInResources.maxCombinedAtomicCounters                 = 8;
-		builtInResources.maxAtomicCounterBindings                  = 1;
-		builtInResources.maxVertexAtomicCounterBuffers             = 0;
-		builtInResources.maxTessControlAtomicCounterBuffers        = 0;
-		builtInResources.maxTessEvaluationAtomicCounterBuffers     = 0;
-		builtInResources.maxGeometryAtomicCounterBuffers           = 0;
-		builtInResources.maxFragmentAtomicCounterBuffers           = 1;
-		builtInResources.maxCombinedAtomicCounterBuffers           = 1;
-		builtInResources.maxAtomicCounterBufferSize                = 16384;
-		builtInResources.maxTransformFeedbackBuffers               = 4;
-		builtInResources.maxTransformFeedbackInterleavedComponents = 64;
-		builtInResources.maxCullDistances                          = 8;
-		builtInResources.maxCombinedClipAndCullDistances           = 8;
-		builtInResources.maxSamples                                = 4;
-		builtInResources.maxMeshOutputVerticesNV                   = 256;
-		builtInResources.maxMeshOutputPrimitivesNV                 = 512;
-		builtInResources.maxMeshWorkGroupSizeX_NV                  = 32;
-		builtInResources.maxMeshWorkGroupSizeY_NV                  = 1;
-		builtInResources.maxMeshWorkGroupSizeZ_NV                  = 1;
-		builtInResources.maxTaskWorkGroupSizeX_NV                  = 32;
-		builtInResources.maxTaskWorkGroupSizeY_NV                  = 1;
-		builtInResources.maxTaskWorkGroupSizeZ_NV                  = 1;
-		builtInResources.maxMeshViewCountNV                        = 4;
+		glslang_initialize_process();
 
-		builtInResources.limits.nonInductiveForLoops                 = 1;
-		builtInResources.limits.whileLoops                           = 1;
-		builtInResources.limits.doWhileLoops                         = 1;
-		builtInResources.limits.generalUniformIndexing               = 1;
-		builtInResources.limits.generalAttributeMatrixVectorIndexing = 1;
-		builtInResources.limits.generalVaryingIndexing               = 1;
-		builtInResources.limits.generalSamplerIndexing               = 1;
-		builtInResources.limits.generalVariableIndexing              = 1;
-		builtInResources.limits.generalConstantMatrixVectorIndexing  = 1;
-
-
-		if (!glslang::InitializeProcess())
+		glslang_resource_t defaultResources =
 		{
-			LVN_CORE_ERROR("[glsl] cannot initialize process when compiling shader to spirv");
+			.max_lights = 32,
+			.max_clip_planes = 6,
+			.max_texture_units = 32,
+			.max_texture_coords = 32,
+			.max_vertex_attribs = 64,
+			.max_vertex_uniform_components = 4096,
+			.max_varying_floats = 64,
+			.max_vertex_texture_image_units = 32,
+			.max_combined_texture_image_units = 80,
+			.max_texture_image_units = 32,
+			.max_fragment_uniform_components = 4096,
+			.max_draw_buffers = 32,
+			.max_vertex_uniform_vectors = 128,
+			.max_varying_vectors = 8,
+			.max_fragment_uniform_vectors = 16,
+			.max_vertex_output_vectors = 16,
+			.max_fragment_input_vectors = 15,
+			.min_program_texel_offset = -8,
+			.max_program_texel_offset = 7,
+			.max_clip_distances = 8,
+			.max_compute_work_group_count_x = 65535,
+			.max_compute_work_group_count_y = 65535,
+			.max_compute_work_group_count_z = 65535,
+			.max_compute_work_group_size_x = 1024,
+			.max_compute_work_group_size_y = 1024,
+			.max_compute_work_group_size_z = 64,
+			.max_compute_uniform_components = 1024,
+			.max_compute_texture_image_units = 16,
+			.max_compute_image_uniforms = 8,
+			.max_compute_atomic_counters = 8,
+			.max_compute_atomic_counter_buffers = 1,
+			.max_varying_components = 60,
+			.max_vertex_output_components = 64,
+			.max_geometry_input_components = 64,
+			.max_geometry_output_components = 128,
+			.max_fragment_input_components = 128,
+			.max_image_units = 8,
+			.max_combined_image_units_and_fragment_outputs = 8,
+			.max_combined_shader_output_resources = 8,
+			.max_image_samples = 0,
+			.max_vertex_image_uniforms = 0,
+			.max_tess_control_image_uniforms = 0,
+			.max_tess_evaluation_image_uniforms = 0,
+			.max_geometry_image_uniforms = 0,
+			.max_fragment_image_uniforms = 8,
+			.max_combined_image_uniforms = 8,
+			.max_geometry_texture_image_units = 16,
+			.max_geometry_output_vertices = 256,
+			.max_geometry_total_output_components = 1024,
+			.max_geometry_uniform_components = 1024,
+			.max_geometry_varying_components = 64,
+			.max_tess_control_input_components = 128,
+			.max_tess_control_output_components = 128,
+			.max_tess_control_texture_image_units = 16,
+			.max_tess_control_uniform_components = 1024,
+			.max_tess_control_total_output_components = 4096,
+			.max_tess_evaluation_input_components = 128,
+			.max_tess_evaluation_output_components = 128,
+			.max_tess_evaluation_texture_image_units = 16,
+			.max_tess_evaluation_uniform_components = 1024,
+			.max_tess_patch_components = 120,
+			.max_patch_vertices = 32,
+			.max_tess_gen_level = 64,
+			.max_viewports = 16,
+			.max_vertex_atomic_counters = 0,
+			.max_tess_control_atomic_counters = 0,
+			.max_tess_evaluation_atomic_counters = 0,
+			.max_geometry_atomic_counters = 0,
+			.max_fragment_atomic_counters = 8,
+			.max_combined_atomic_counters = 8,
+			.max_atomic_counter_bindings = 1,
+			.max_vertex_atomic_counter_buffers = 0,
+			.max_tess_control_atomic_counter_buffers = 0,
+			.max_tess_evaluation_atomic_counter_buffers = 0,
+			.max_geometry_atomic_counter_buffers = 0,
+			.max_fragment_atomic_counter_buffers = 1,
+			.max_combined_atomic_counter_buffers = 1,
+			.max_atomic_counter_buffer_size = 16384,
+			.max_transform_feedback_buffers = 4,
+			.max_transform_feedback_interleaved_components = 64,
+			.max_cull_distances = 8,
+			.max_combined_clip_and_cull_distances = 8,
+			.max_samples = 4,
+			.max_mesh_output_vertices_nv = 256,
+			.max_mesh_output_primitives_nv = 512,
+			.max_mesh_work_group_size_x_nv = 32,
+			.max_mesh_work_group_size_y_nv = 1,
+			.max_mesh_work_group_size_z_nv = 1,
+			.max_task_work_group_size_x_nv = 32,
+			.max_task_work_group_size_y_nv = 1,
+			.max_task_work_group_size_z_nv = 1,
+			.max_mesh_view_count_nv = 4,
+			.max_mesh_output_vertices_ext = 256,
+			.max_mesh_output_primitives_ext = 256,
+			.max_mesh_work_group_size_x_ext = 128,
+			.max_mesh_work_group_size_y_ext = 128,
+			.max_mesh_work_group_size_z_ext = 128,
+			.max_task_work_group_size_x_ext = 128,
+			.max_task_work_group_size_y_ext = 128,
+			.max_task_work_group_size_z_ext = 128,
+			.max_mesh_view_count_ext = 4,
+			.maxDualSourceDrawBuffersEXT = 1,
+
+			.limits =
+			{
+				.non_inductive_for_loops = 1,
+				.while_loops = 1,
+				.do_while_loops = 1,
+				.general_uniform_indexing = 0,
+				.general_attribute_matrix_vector_indexing = 1,
+				.general_varying_indexing = 1,
+				.general_sampler_indexing = 1,
+				.general_variable_indexing = 1,
+				.general_constant_matrix_vector_indexing = 1,
+			}
+		};
+
+
+		const glslang_input_t input =
+		{
+			.language = GLSLANG_SOURCE_GLSL,
+			.stage = stage,
+			.client = GLSLANG_CLIENT_VULKAN,
+			.client_version = GLSLANG_TARGET_VULKAN_1_2,
+			.target_language = GLSLANG_TARGET_SPV,
+			.target_language_version = GLSLANG_TARGET_SPV_1_5,
+			.code = shaderSource,
+			.default_version = 100,
+			.default_profile = GLSLANG_NO_PROFILE,
+			.force_default_version_and_profile = false,
+			.forward_compatible = false,
+			.messages = GLSLANG_MSG_DEFAULT_BIT,
+			.resource = &defaultResources,
+		};
+
+		glslang_shader_t* shader = glslang_shader_create(&input);
+
+		if (!glslang_shader_preprocess(shader, &input))
+		{
+			LVN_CORE_ERROR("[vulkan-glslang] GLSL preprocessing failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader));
+			glslang_shader_delete(shader);
 			return Lvn_Result_Failure;
 		}
 
-		glslang::TShader shader(stage);
-
-		std::string shaderStr(shaderSource);
-
-		shader.setStrings(&shaderSource, 1);
-		shader.setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
-		shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
-		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_4);
-
-		EShMessages message = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
-		if (!shader.parse(&builtInResources, 100, false, message))
+		if (!glslang_shader_parse(shader, &input))
 		{
-			LVN_CORE_ERROR("[glsl] %s\nsource code:\n%s", shader.getInfoLog(), shaderSource);
+			LVN_CORE_ERROR("[vulkan-glslang] GLSL parsing failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s\npreprocessed code: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader), glslang_shader_get_preprocessed_code(shader));
+			glslang_shader_delete(shader);
 			return Lvn_Result_Failure;
 		}
 
-		glslang::TProgram program;
-		program.addShader(&shader);
+		glslang_program_t* program = glslang_program_create();
+		glslang_program_add_shader(program, shader);
 
-		if (!program.link(message))
+		if (!glslang_program_link(program, GLSLANG_MSG_SPV_RULES_BIT | GLSLANG_MSG_VULKAN_RULES_BIT))
 		{
-			LVN_CORE_ERROR("[glsl] %s\nsource code:\n%s", program.getInfoLog(), shaderSource);
+			LVN_CORE_ERROR("[vulkan-glslang] GLSL linking failed when compiling from shader source:\ncode: %s\ninfo: %s\ndebug: %s", input.code, glslang_shader_get_info_log(shader), glslang_shader_get_info_debug_log(shader));
+			glslang_program_delete(program);
+			glslang_shader_delete(shader);
 			return Lvn_Result_Failure;
 		}
 
-		glslang::SpvOptions spvOptions{};
-		spvOptions.generateDebugInfo = true;
-		spvOptions.disableOptimizer = false;
-		spvOptions.optimizeSize = false;
+		glslang_program_SPIRV_generate(program, stage);
 
-		std::vector<uint32_t> outSPV;
+		bin.resize(4 * glslang_program_SPIRV_get_size(program)); // NOTE: 4 bytes (uint8_t) in one uint32_t, we need to convert to uint8_t* for shader module creation in Vulkan
 
-		glslang::TIntermediate* intermediate = program.getIntermediate(stage);
-		glslang::GlslangToSpv(*intermediate, outSPV, &spvOptions);
+		glslang_program_SPIRV_get(program, (uint32_t*)bin.data());
 
-		bin = outSPV;
+		const char* spirv_messages = glslang_program_SPIRV_get_messages(program);
+		if (spirv_messages)
+		{
+			LVN_CORE_TRACE("[vulkan-glslang] %s", spirv_messages);
+		}
 
-		glslang::FinalizeProcess();
+		glslang_program_delete(program);
+		glslang_shader_delete(shader);
+
+		glslang_finalize_process();
 
 		return Lvn_Result_Success;
 	}
@@ -2020,6 +2051,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->createUniformBuffer = vksImplCreateUniformBuffer;
 	graphicsContext->createTexture = vksImplCreateTexture;
 	graphicsContext->createCubemap = vksImplCreateCubemap;
+	graphicsContext->createCubemapHdr = vksImplCreateCubemapHdr;
 	
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
@@ -2522,23 +2554,23 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cre
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	std::vector<uint32_t> vertData;
-	std::vector<uint32_t> fragData;
+	std::vector<uint8_t> vertData;
+	std::vector<uint8_t> fragData;
 
-	if (vks::compileShaderToSPIRV(EShLangVertex, createInfo->vertexSrc.c_str(), vertData) == Lvn_Result_Failure)
+	if (vks::compileShaderToSPIRV(GLSLANG_STAGE_VERTEX, createInfo->vertexSrc.c_str(), vertData) == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p)", shader);
 		return Lvn_Result_Failure;
 	}
 
-	if (vks::compileShaderToSPIRV(EShLangFragment, createInfo->fragmentSrc.c_str(), fragData) == Lvn_Result_Failure)
+	if (vks::compileShaderToSPIRV(GLSLANG_STAGE_FRAGMENT, createInfo->fragmentSrc.c_str(), fragData) == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p)", shader);
 		return Lvn_Result_Failure;
 	}
 
-	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size() * 4);
-	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size() * 4);
+	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size());
+	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size());
 
 	shader->nativeVertexShaderModule = vertShaderModule;
 	shader->nativeFragmentShaderModule = fragShaderModule;
@@ -2553,23 +2585,23 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo*
 	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
 	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
 
-	std::vector<uint32_t> vertData;
-	std::vector<uint32_t> fragData;
+	std::vector<uint8_t> vertData;
+	std::vector<uint8_t> fragData;
 
-	if (vks::compileShaderToSPIRV(EShLangVertex, fileVertSrc.c_str(), vertData) == Lvn_Result_Failure)
+	if (vks::compileShaderToSPIRV(GLSLANG_STAGE_VERTEX, fileVertSrc.c_str(), vertData) == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create vertex shader module for shader at (%p), filepath: %s", shader, createInfo->vertexSrc.c_str());
 		return Lvn_Result_Failure;
 	}
 
-	if (vks::compileShaderToSPIRV(EShLangFragment, fileFragSrc.c_str(), fragData) == Lvn_Result_Failure)
+	if (vks::compileShaderToSPIRV(GLSLANG_STAGE_FRAGMENT, fileFragSrc.c_str(), fragData) == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create fragment shader module for shader at (%p), filepath: %s", shader, createInfo->fragmentSrc.c_str());
 		return Lvn_Result_Failure;
 	}
 
-	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size() * 4);
-	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size() * 4);
+	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertData.data(), vertData.size());
+	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragData.data(), fragData.size());
 
 	shader->nativeVertexShaderModule = vertShaderModule;
 	shader->nativeFragmentShaderModule = fragShaderModule;
@@ -2584,8 +2616,8 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo*
 	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc.c_str());
 	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc.c_str());
 
-	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, reinterpret_cast<const uint32_t*>(vertbin.data()), vertbin.size());
-	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, reinterpret_cast<const uint32_t*>(fragbin.data()), fragbin.size());
+	VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, vertbin.data(), vertbin.size());
+	VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, fragbin.data(), fragbin.size());
 
 	shader->nativeVertexShaderModule = vertShaderModule;
 	shader->nativeFragmentShaderModule = fragShaderModule;
@@ -3219,6 +3251,122 @@ LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* create
 	void* bufferData;
 	vmaMapMemory(vmaAllocator, stagingBufferMemory, &bufferData);
 	memcpy(bufferData, texData.data(), imageSize);
+	vmaUnmapMemory(vmaAllocator, stagingBufferMemory);
+
+	VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width = imageWidth;
+	imageInfo.extent.height = imageHeight;
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 6; // cubemap has 6 sides
+	imageInfo.format = format;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+	VkImage cubemapImage;
+	VmaAllocation cubemapImageMemory;
+
+	VmaAllocationCreateInfo allocInfo{};
+	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	if (vmaCreateImage(vmaAllocator, &imageInfo, &allocInfo, &cubemapImage, &cubemapImageMemory, nullptr) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create image <VkImage> when creating cubemap at (%p)", cubemap);
+		return Lvn_Result_Failure;
+	}
+
+	vks::transitionImageLayout(vkBackends, cubemapImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6);
+	vks::copyBufferToImage(vkBackends, stagingBuffer, cubemapImage, imageWidth, imageHeight, 6);
+
+	vks::transitionImageLayout(vkBackends, cubemapImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 6);
+
+	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+	vmaFreeMemory(vmaAllocator, stagingBufferMemory);
+
+	// image view
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = cubemapImage;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+	viewInfo.format = format;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 6;
+
+	VkImageView cubemapImageView;
+	if (vkCreateImageView(vkBackends->device, &viewInfo, nullptr, &cubemapImageView) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create texture image view <VkImageView> when creating cubemap at (%p)", cubemap);
+		return Lvn_Result_Failure;
+	}
+
+	// sampler
+	VkSamplerCreateInfo sampler{};
+	sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler.magFilter = VK_FILTER_LINEAR;
+	sampler.minFilter = VK_FILTER_LINEAR;
+	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.compareOp = VK_COMPARE_OP_ALWAYS;
+	sampler.mipLodBias = 0.0f;
+	sampler.minLod = 0.0f;
+	sampler.maxLod = 0.0f;
+	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	sampler.maxAnisotropy = 1.0f;
+	if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
+	{
+		sampler.maxAnisotropy = vkBackends->deviceProperties.limits.maxSamplerAnisotropy;
+		sampler.anisotropyEnable = VK_TRUE;
+	}
+
+	VkSampler cubemapSampler;
+	if (vkCreateSampler(vkBackends->device, &sampler, nullptr, &cubemapSampler) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("failed to create image sampler when creating cubemap at (%p)", cubemap);
+		return Lvn_Result_Failure;
+	}
+
+	LvnTexture cubemapTexture{};
+	cubemapTexture.image = cubemapImage;
+	cubemapTexture.imageView = cubemapImageView;
+	cubemapTexture.imageMemory = cubemapImageMemory;
+	cubemapTexture.sampler = cubemapSampler;
+
+	cubemap->textureData = cubemapTexture;
+
+	return Lvn_Result_Success;
+}
+
+LvnResult vksImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo)
+{
+	VulkanBackends* vkBackends = getVulkanBackends();
+	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
+
+	uint32_t imageWidth = createInfo->hdr.width;
+	uint32_t imageHeight = createInfo->hdr.height;
+	VkDeviceSize imageSize = createInfo->hdr.size;
+
+	VkBuffer stagingBuffer;
+	VmaAllocation stagingBufferMemory;
+
+	vks::createBuffer(vkBackends, &stagingBuffer, &stagingBufferMemory, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	void* bufferData;
+	vmaMapMemory(vmaAllocator, stagingBufferMemory, &bufferData);
+	memcpy(bufferData, createInfo->hdr.pixels.data(), imageSize);
 	vmaUnmapMemory(vmaAllocator, stagingBufferMemory);
 
 	VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;

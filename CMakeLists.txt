@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # Levikno
 project(Levikno)
@@ -38,7 +38,7 @@ set(MIN_VULKAN_VERSION 1.2)
 find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
 
 if(Vulkan_FOUND)
-	message ("Vulkan found")
+	message("Vulkan found")
 	add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
 
 	set (LVN_VULKAN_SRC
@@ -47,19 +47,24 @@ if(Vulkan_FOUND)
 		src/api/graphics/vulkan/lvn_vulkanBackends.h
 	)
 
-	if(Vulkan_glslang_FOUND)
-		message ("glslang found")
-	else()
-		message ("FATAL_ERROR cannot find glslang")
-	endif()
-
-	set(VULKAN_LIB_DIR
-		Vulkan::Vulkan
-		Vulkan::glslang
-	)
-
 else()
-	message ("cannot find Vulkan")
+	message("cannot find Vulkan, please make sure that Vulkan is installed before building")
+endif()
+
+
+# Find glslang
+find_package(glslang CONFIG REQUIRED)
+
+if (TARGET glslang::glslang)
+	message("glslang found")
+else()
+	message("cannot find glslang, please make sure that glslang is installed before building")
+endif()
+
+if (TARGET glslang::SPIRV)
+	message("glslang-SPIRV found")
+else()
+	message("cannot find SPIRV, please make sure that SPIRV and glslang are installed before building")
 endif()
 
 # Source build files
@@ -151,7 +156,9 @@ target_compile_definitions(levikno PRIVATE
 
 target_link_libraries(levikno
 	PRIVATE
-		${VULKAN_LIB_DIR}
+		Vulkan::Vulkan
+		glslang::glslang
+		glslang::SPIRV
 )
 
 # Build examples

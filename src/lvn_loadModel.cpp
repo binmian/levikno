@@ -600,7 +600,7 @@ namespace gltfs
 				material.normal = texture;
 			}
 		}
-		else // default normal texture if no texture was found; creates a 1x1 texture, 4 channels (0x7f7fffff)
+		else // default normal texture if no texture was found; creates a 1x1 texture, 4 channels (0x8080ffff)
 		{
 			uint8_t normalTextureData[4] = { 0x80, 0x80, 0xff, 0xff };
 			LvnImageData imageData;
@@ -636,7 +636,7 @@ namespace gltfs
 			{
 				if (gltfData->textureData[i].index == texSource)
 				{
-					material.normal = gltfData->textureData[i].texture;
+					material.emissive = gltfData->textureData[i].texture;
 					skip = true;
 					break;
 				}
@@ -688,9 +688,9 @@ namespace gltfs
 		}
 		else // default emissive texture if no texture was found
 		{
-			uint8_t normalTextureData[4] = { 0x00, 0x00, 0x00, 0x00 };
+			uint8_t emissiveTextureData[4] = { 0x00, 0x00, 0x00, 0x00 };
 			LvnImageData imageData;
-			imageData.pixels = LvnData<uint8_t>(normalTextureData, sizeof(normalTextureData) / sizeof(uint8_t));
+			imageData.pixels = LvnData<uint8_t>(emissiveTextureData, sizeof(emissiveTextureData) / sizeof(uint8_t));
 			imageData.width = 1;
 			imageData.height = 1;
 			imageData.channels = 4;

@@ -22,6 +22,7 @@ namespace lvn
 	LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
 	LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo);
+	LvnResult vksImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo);
 
 	void vksImplDestroyShader(LvnShader* shader);
 	void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);

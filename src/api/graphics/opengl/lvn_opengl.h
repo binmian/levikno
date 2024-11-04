@@ -22,6 +22,7 @@ namespace lvn
 	LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
 	LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
 	LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo);
+	LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo);
 
 	void oglsImplDestroyShader(LvnShader* shader);
 	void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
@@ -85,6 +86,7 @@ namespace lvn
 	struct OglPipelineEnums
 	{
 		bool enableDepth;
+		uint32_t depthCompareOp;
 		uint32_t topologyType;
 	};
 

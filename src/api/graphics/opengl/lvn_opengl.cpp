@@ -22,6 +22,7 @@ namespace ogls
 	static GLenum             getColorFormat(LvnColorImageFormat texFormat);
 	static GLenum             getDataFormat(LvnColorImageFormat texFormat);
 	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
+	static GLenum             getCompareOpEnum(LvnCompareOperation compareOp);
 	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
 	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
 
@@ -241,6 +242,27 @@ namespace ogls
 			case Lvn_DepthImageFormat_Depth32: { *format = GL_DEPTH_COMPONENT32F; *attachmentType = GL_DEPTH_ATTACHMENT; break; }
 			case Lvn_DepthImageFormat_Depth24Stencil8: { *format = GL_DEPTH24_STENCIL8; *attachmentType = GL_DEPTH_STENCIL_ATTACHMENT; break; }
 			case Lvn_DepthImageFormat_Depth32Stencil8: { *format = GL_DEPTH32F_STENCIL8; *attachmentType = GL_DEPTH_STENCIL_ATTACHMENT; break; }
+		}
+	}
+
+	static GLenum getCompareOpEnum(LvnCompareOperation compareOp)
+	{
+		switch (compareOp)
+		{
+			case Lvn_CompareOperation_Never: { return GL_NEVER; }
+			case Lvn_CompareOperation_Less: { return GL_LESS; }
+			case Lvn_CompareOperation_Equal: { return GL_EQUAL; }
+			case Lvn_CompareOperation_LessOrEqual: { return GL_LEQUAL; }
+			case Lvn_CompareOperation_Greater: { return GL_GREATER; }
+			case Lvn_CompareOperation_NotEqual: { return GL_NOTEQUAL; }
+			case Lvn_CompareOperation_GreaterOrEqual: { return GL_GEQUAL; }
+			case Lvn_CompareOperation_Always: { return GL_ALWAYS; }
+
+			default:
+			{
+				LVN_CORE_WARN("invalid compare op enum, setting topology type to GL_NEVER");
+				return GL_NEVER;
+			}
 		}
 	}
 
@@ -508,6 +530,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->createUniformBuffer = oglsImplCreateUniformBuffer;
 	graphicsContext->createTexture = oglsImplCreateTexture;
 	graphicsContext->createCubemap = oglsImplCreateCubemap;
+	graphicsContext->createCubemapHdr = oglsImplCreateCubemapHdr;
 	
 	graphicsContext->destroyShader = oglsImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = oglsImplDestroyDescriptorLayout;
@@ -796,6 +819,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
 	pipelineEnums->enableDepth = createInfo->pipelineSpecification->depthstencil.enableDepth;
+	pipelineEnums->depthCompareOp = ogls::getCompareOpEnum(createInfo->pipelineSpecification->depthstencil.depthOpCompare);
 	pipelineEnums->topologyType = ogls::getTopologyTypeEnum(createInfo->pipelineSpecification->inputAssembly.topology);
 
 	return Lvn_Result_Success;
@@ -1003,6 +1027,11 @@ LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* creat
 	return Lvn_Result_Success;
 }
 
+LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo)
+{
+
+}
+
 
 void oglsImplDestroyShader(LvnShader* shader)
 {
@@ -1144,8 +1173,15 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 {
 	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
-	if (pipelineEnums->enableDepth) { glEnable(GL_DEPTH_TEST); }
-	else { glDisable(GL_DEPTH_TEST); }
+	if (pipelineEnums->enableDepth)
+	{
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(pipelineEnums->depthCompareOp);
+	}
+	else
+	{
+		glDisable(GL_DEPTH_TEST);
+	}
 
 	glUseProgram(pipeline->id);
 

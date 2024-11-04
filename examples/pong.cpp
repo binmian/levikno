@@ -291,6 +291,7 @@ int main(int argc, char** argv)
 	descriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	descriptorBinding.descriptorCount = 1;
+	descriptorBinding.maxAllocations = 1;
 
 	// descriptor layout create info
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};

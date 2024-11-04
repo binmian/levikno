@@ -93,7 +93,7 @@ target_sources(levikno PRIVATE
 )
 
 if (WIN32)
-    target_link_libraries(levikno winmm ws2_32)
+	target_link_libraries(levikno PRIVATE winmm ws2_32)
 endif()
 
 include(GNUInstallDirs)

@@ -749,6 +749,7 @@ struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnCubemap;
 struct LvnCubemapCreateInfo;
+struct LvnCubemapHdrCreateInfo;
 struct LvnDescriptorBinding;
 struct LvnDescriptorLayout;
 struct LvnDescriptorLayoutCreateInfo;
@@ -764,6 +765,7 @@ struct LvnFrameBufferCreateInfo;
 struct LvnFrameBufferDepthAttachment;
 struct LvnGraphicsContext;
 struct LvnImageData;
+struct LvnImageHdrData;
 struct LvnKeyHoldEvent;
 struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
@@ -955,6 +957,8 @@ typedef LvnQuat_t<float>                LvnQuatf;
 typedef LvnQuat_t<double>               LvnQuatd;
 
 typedef LvnData<uint8_t>                LvnBin;
+
+typedef uint64_t                        LvnEntity;
 
 // ---------------------------------------------
 // [SECTION]: Functions
@@ -1245,6 +1249,7 @@ namespace lvn
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                    // create a uniform buffer object to send changing data to the shader pipeline
 	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                            // create a texture object to hold image pixel data and sampler
 	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo);                                            // create a cubemap texture object that holds the textures of the cubemap
+	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInfo);                                         // create a cubemap texture object that holds the hdr texture of the cubemap
 
 
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                                 // destroy shader module object
@@ -1284,6 +1289,7 @@ namespace lvn
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageData                loadImageDataMemory(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
+	LVN_API LvnImageHdrData             loadHdrImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 
 	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
 	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                       // destroy mesh object
@@ -1624,8 +1630,6 @@ namespace lvn
 	template <typename T>
 	LVN_API LvnMat4x4_t<T> perspectiveRHZO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
 	{
-		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
-
 		T tanHalfFov = static_cast<T>(tan(fovy / 2));
 
 		LvnMat4x4_t<T> matrix(0);
@@ -1641,8 +1645,6 @@ namespace lvn
 	template <typename T>
 	LVN_API LvnMat4x4_t<T> perspectiveRHNO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
 	{
-		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
-
 		T tanHalfFov = static_cast<T>(tan(fovy / 2));
 
 		LvnMat4x4_t<T> matrix(0);
@@ -1658,8 +1660,6 @@ namespace lvn
 	template <typename T>
 	LVN_API LvnMat4x4_t<T> perspectiveLHZO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
 	{
-		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
-
 		T tanHalfFov = static_cast<T>(tan(fovy / 2));
 
 		LvnMat4x4_t<T> matrix(0);
@@ -1675,8 +1675,6 @@ namespace lvn
 	template <typename T>
 	LVN_API LvnMat4x4_t<T> perspectiveLHNO(const T& fovy, const T& aspect, const T& zNear, const T& zFar)
 	{
-		LVN_CORE_ASSERT(aspect >= 0, "aspect ratio cannot be negative");
-
 		T tanHalfFov = static_cast<T>(tan(fovy / 2));
 
 		LvnMat4x4_t<T> matrix(0);
@@ -5103,6 +5101,13 @@ struct LvnImageData
 	uint64_t size;
 };
 
+struct LvnImageHdrData
+{
+	LvnData<float> pixels;
+	uint32_t width, height, channels;
+	uint64_t size;
+};
+
 struct LvnTextureCreateInfo
 {
 	LvnImageData imageData;
@@ -5195,6 +5200,11 @@ struct LvnCameraCreateInfo
 struct LvnCubemapCreateInfo
 {
 	LvnImageData posx, negx, posy, negy, posz, negz;
+};
+
+struct LvnCubemapHdrCreateInfo
+{
+	LvnImageHdrData hdr;
 };
 
 struct LvnFontGlyph

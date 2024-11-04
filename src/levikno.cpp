@@ -2094,6 +2094,15 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 		return Lvn_Result_Failure;
 	}
 
+	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
+	{
+		if (createInfo->pDescriptorBindings[i].maxAllocations == 0)
+			LVN_CORE_WARN("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings[%u].maxAllocations is 0, no descriptors will be allocated for this binding which may not be intentional", i);
+
+		if (createInfo->pDescriptorBindings[i].descriptorCount == 0)
+			LVN_CORE_WARN("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings[%u].descriptorCount is 0, no descriptors will be created for this binding which may not be intentional", i);
+	}
+
 	*descriptorLayout = lvn::createObject<LvnDescriptorLayout>(lvnctx, Lvn_Stype_DescriptorLayout);
 
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
@@ -2300,6 +2309,22 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	return lvnctx->graphicsContext.createCubemap(*cubemap, createInfo);
 }
 
+LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInfo)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	if (createInfo->hdr.pixels.data() == nullptr)
+	{
+		LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapHdrCreateInfo*) | createInfo->hdr.pixels does not point to a valid pointer array");
+		return Lvn_Result_Failure;
+	}
+
+	*cubemap = lvn::createObject<LvnCubemap>(lvnctx, Lvn_Stype_Cubemap);
+
+	LVN_CORE_TRACE("created cubemap (%p) from hdr image (%p)", *cubemap, createInfo->hdr.pixels.data());
+	return lvnctx->graphicsContext.createCubemapHdr(*cubemap, createInfo);
+}
+
 LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
 {
 	LvnMesh mesh{};
@@ -2460,12 +2485,15 @@ LvnRenderPass* frameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
 
 void frameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
 {
-	return lvn::getContext()->graphicsContext.framebufferResize(frameBuffer, width, height);
+	if (width * height == 0)
+		return;
+
+	lvn::getContext()->graphicsContext.framebufferResize(frameBuffer, width, height);
 }
 
 void frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
-	return lvn::getContext()->graphicsContext.frameBufferSetClearColor(frameBuffer, attachmentIndex, r, g, b, a);
+	lvn::getContext()->graphicsContext.frameBufferSetClearColor(frameBuffer, attachmentIndex, r, g, b, a);
 }
 
 LvnDepthImageFormat findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
@@ -2494,13 +2522,8 @@ void meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix)
 	mesh->modelMatrix = matrix;
 }
 
-LvnVertexBindingDescription meshVertexBindingDescroption =
-{
-	.binding = 0,
-	.stride = sizeof(LvnVertex),
-};
-
-LvnVertexAttribute meshVertexAttributes[] = 
+static LvnVertexBindingDescription s_MeshVertexBindingDescroption = { 0, sizeof(LvnVertex) };
+static LvnVertexAttribute s_MeshVertexAttributes[] =
 {
 	{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
 	{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
@@ -2514,10 +2537,10 @@ LvnBufferCreateInfo meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, ui
 {
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.pVertexBindingDescriptions = &meshVertexBindingDescroption;
+	bufferCreateInfo.pVertexBindingDescriptions = &s_MeshVertexBindingDescroption;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertexAttributes = meshVertexAttributes;
-	bufferCreateInfo.vertexAttributeCount = sizeof(meshVertexAttributes) / sizeof(LvnVertexAttribute);
+	bufferCreateInfo.pVertexAttributes = s_MeshVertexAttributes;
+	bufferCreateInfo.vertexAttributeCount = sizeof(s_MeshVertexAttributes) / sizeof(LvnVertexAttribute);
 	bufferCreateInfo.pVertices = pVertices;
 	bufferCreateInfo.vertexBufferSize = vertexCount * sizeof(LvnVertex);
 	bufferCreateInfo.pIndices = pIndices;
@@ -2606,6 +2629,49 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
 	imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
 
 	LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imageData.size);
+
+	stbi_image_free(pixels);
+
+	return imageData;
+}
+
+LvnImageHdrData loadHdrImageData(const char* filepath, int forceChannels, bool flipVertically)
+{
+	if (filepath == nullptr)
+	{
+		LVN_CORE_ERROR("loadHdrImageData(const char*) | invalid filepath, filepath must not be nullptr");
+		return {};
+	}
+
+	if (forceChannels < 0)
+	{
+		LVN_CORE_ERROR("loadHdrImageData(const char*) | forceChannels < 0, channels cannot be negative");
+		return {};
+	}
+	else if (forceChannels > 4)
+	{
+		LVN_CORE_ERROR("loadHdrImageData(const char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		return {};
+	}
+
+	stbi_set_flip_vertically_on_load(flipVertically);
+	int imageWidth, imageHeight, imageChannels;
+	float* pixels = stbi_loadf(filepath, &imageWidth, &imageHeight, &imageChannels, forceChannels);
+
+	if (!pixels)
+	{
+		LVN_CORE_ERROR("loadHdrImageData(const char*) | failed to load image pixel data from file: %s", filepath);
+		return {};
+	}
+
+	LvnImageHdrData imageData{};
+	imageData.width = imageWidth;
+	imageData.height = imageHeight;
+	imageData.channels = forceChannels ? forceChannels : imageChannels;
+	imageData.size = imageData.width * imageData.height * imageData.channels;
+	imageData.pixels = LvnData<float>(pixels, imageData.size);
+
+	LVN_CORE_TRACE("loaded hdr image data <float*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath);
 
 	stbi_image_free(pixels);
 

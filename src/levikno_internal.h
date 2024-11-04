@@ -383,6 +383,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
 	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
 	LvnResult                   (*createCubemap)(LvnCubemap*, LvnCubemapCreateInfo*);
+	LvnResult                   (*createCubemapHdr)(LvnCubemap*, LvnCubemapHdrCreateInfo*);
 
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);

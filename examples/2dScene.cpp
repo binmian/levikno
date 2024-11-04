@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 
 	lvn::renderInit(&renderInfo);
 
-	LvnImageData imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
+	LvnImageData imageData = lvn::loadImageData("res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};

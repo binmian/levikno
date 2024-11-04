@@ -62,51 +62,15 @@ layout(location = 3) in vec3 inNormal;
 layout(location = 4) in vec3 inTangent;
 layout(location = 5) in vec3 inBitangent;
 
-layout(location = 0) out vec3 fragPos;
-layout(location = 1) out vec4 fragColor;
-layout(location = 2) out vec2 fragTexCoord;
-layout(location = 3) out vec3 fragLightPos;
-layout(location = 4) out vec3 fragViewPos;
 
-struct ObjectData
+layout(std140, binding = 0) uniform ObjectBuffer
 {
-	mat4 u_Camera;
-	mat4 model;
-};
-
-layout(std140, binding = 1) readonly buffer UniformBufferObject
-{
-	ObjectData objects[];
-} ubo;
-
-layout(binding = 0) uniform ObjectBuffer
-{
-	vec3 camPos;
-	vec3 lightPos;
-	float metalic;
-	float roughness;
-	float ambientOcclusion;
+	mat4 matrix;
 } pbrUbo;
 
 void main()
 {
-	ObjectData obj = ubo.objects[gl_BaseInstance];
-
-	mat3 normalMatrix = transpose(inverse(mat3(obj.model)));
-	vec3 T = normalize(normalMatrix * inTangent);
-	vec3 N = normalize(normalMatrix * inNormal);
-	T = normalize(T - dot(T, N) * N);
-	vec3 B = cross(N, T);
-
-	mat3 TBN = transpose(mat3(T, B, N));
-
-	fragPos = TBN * vec3(obj.model * vec4(inPos, 1.0));
-	fragColor = inColor;
-	fragTexCoord = inTexCoord;
-	fragLightPos = TBN * pbrUbo.lightPos;
-	fragViewPos = TBN * pbrUbo.camPos;
-
-	gl_Position = obj.u_Camera * obj.model * vec4(inPos, 1.0);
+	gl_Position = pbrUbo.matrix * vec4(inPos, 1.0);
 }
 )";
 
@@ -116,122 +80,9 @@ static const char* s_FragmentShaderSrc = R"(
 
 layout(location = 0) out vec4 outColor;
 
-layout(location = 0) in vec3 fragPos;
-layout(location = 1) in vec4 fragColor;
-layout(location = 2) in vec2 fragTexCoord;
-layout(location = 3) in vec3 fragLightPos;
-layout(location = 4) in vec3 fragViewPos;
-
-
-layout(binding = 0) uniform ObjectBuffer
-{
-	vec3 camPos;
-	vec3 lightPos;
-	float metalic;
-	float roughness;
-	float ambientOcclusion;
-} ubo;
-
-layout(binding = 2) uniform sampler2D albedoTex;
-layout(binding = 3) uniform sampler2D metalicRoughnessOcclusionTex;
-layout(binding = 4) uniform sampler2D normalTex;
-layout(binding = 5) uniform sampler2D emissiveTex;
-
-const float PI = 3.14159265;
-
-float DistributionGGX(vec3 N, vec3 H, float roughness)
-{
-	float a = roughness * roughness;
-	float a2 = a * a;
-	float NdotH = max(dot(N, H), 0.0);
-	float NdotH2 = NdotH * NdotH;
-
-	float num = a2;
-	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-	denom = PI * denom * denom;
-	denom = max(denom, 0.000001);
-
-	return num / denom;
-}
-
-float GeometrySchlickGGX(float NdotX, float roughness)
-{
-	float r = (roughness + 1.0);
-	float k = (r * r) / 8.0;
-
-	float num = NdotX;
-	float denom = NdotX * (1.0 - k) + k;
-
-	return num / denom;
-}
-
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-	float NdotV = max(dot(N, V), 0.0);
-	float NdotL = max(dot(N, L), 0.0);
-	float ggx2  = GeometrySchlickGGX(NdotV, roughness);
-	float ggx1  = GeometrySchlickGGX(NdotL, roughness);
-
-	return ggx1 * ggx2;
-}
-
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
 void main()
 {
-	vec3 albedo = vec3(texture(albedoTex, fragTexCoord)) * vec3(fragColor);
-	// albedo = pow(albedo, vec3(2.2));
-	float metalic = texture(metalicRoughnessOcclusionTex, fragTexCoord).b;
-	float roughness = texture(metalicRoughnessOcclusionTex, fragTexCoord).g;
-	float ambientOcclusion = ubo.ambientOcclusion;
-	vec3 emissive = vec3(texture(emissiveTex, fragTexCoord));
-
-	vec3 normal = texture(normalTex, fragTexCoord).rgb;
-	normal = normalize(normal * 2.0 - 1.0);
-
-	vec3 camPos = fragViewPos;
-	vec3 lightPos = fragLightPos;
-	vec3 lightColors = vec3(1.0);
-	float lightStrength = 10.0;
-
-	vec3 N = normalize(normal);
-	vec3 V = normalize(camPos - fragPos);
-
-	vec3 L = normalize(lightPos - fragPos);
-    vec3 H = normalize(V + L);
-
-	float distance = length(lightPos - fragPos);
-	float attenuation = lightStrength / (distance * distance);
-	vec3 radiance = lightColors * attenuation;
-
-	vec3 F0 = vec3(0.2);
-	F0 = mix(F0, albedo, metalic);
-	vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
-
-	float NDF = DistributionGGX(N, H, roughness);
-	float G = GeometrySmith(N, V, L, roughness);
-
-	vec3 kS = F;
-	vec3 kD = vec3(1.0) - kS;
-	kD *= 1.0 - metalic;
-
-	vec3 numerator = NDF * G * F;
-	float denominator = max(4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0), 0.0001);
-	vec3 specular = numerator / denominator;
-
-	float NdotL = max(dot(N, L), 0.0);
-	vec3 BRDF = (kD * albedo / PI + specular) * radiance * NdotL;
-
-	vec3 ambient = vec3(0.1) * albedo;
-	vec3 color = BRDF + emissive + ambient;
-
-	color = color / (color + vec3(1.0));
-	color = pow(color, vec3(1.0/2.2));
-
-	outColor = vec4(color, 1.0f);
+	outColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 )";
 
@@ -267,7 +118,7 @@ layout (location = 0) out vec4 outColor;
 
 layout (location = 0) in vec3 fragTexCoord;
 
-layout (binding = 1) uniform samplerCube samplerCubeMap;
+uniform samplerCube samplerCubeMap;
 
 void main() 
 {
@@ -301,7 +152,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec2 fragTexCoord;
 
-layout(binding = 1) uniform sampler2D inTexture;
+uniform sampler2D inTexture;
 
 void main()
 {
@@ -324,11 +175,7 @@ struct UniformData
 
 struct PbrUniformData
 {
-	LvnVec3 campPos;
-	alignas(16) LvnVec3 lightPos;
-	float metalic;
-	float roughness;
-	float ambientOcclusion;
+	LvnMat4 matrix;
 };
 
 static float s_CameraSpeed = 5.0f;
@@ -567,7 +414,7 @@ int main()
 	lvnCreateInfo.logging.enableLogging = true;
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_opengl;
 	lvnCreateInfo.frameBufferColorFormat = Lvn_TextureFormat_Unorm;
 
 	lvn::createContext(&lvnCreateInfo);
@@ -719,11 +566,7 @@ int main()
 
 	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
-		uniformDescriptorBinding, storageDescriptorBinding,
-		textureBinding(2, 256),
-		textureBinding(3, 256),
-		textureBinding(4, 256),
-		textureBinding(5, 256),
+		uniformDescriptorBinding,
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -735,10 +578,10 @@ int main()
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
 
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
-	pipelineSpec.depthstencil.enableDepth = true;
+	pipelineSpec.depthstencil.enableDepth = false;
 	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
-	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;
-	pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CCW;
+	// pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;
+	// pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CCW;
 
 	LvnPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
@@ -791,6 +634,7 @@ int main()
 	pipelineCreateInfo.renderPass = lvn::frameBufferGetRenderPass(frameBuffer);
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
+	pipelineCreateInfo.pipelineSpecification->depthstencil.enableDepth = true;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -825,6 +669,7 @@ int main()
 	pipelineCreateInfo.shader = fbShader;
 	pipelineCreateInfo.renderPass = lvn::windowGetRenderPass(window);
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+	pipelineCreateInfo.pipelineSpecification->depthstencil.enableDepth = true;
 
 	LvnPipeline* fbPipeline;
 	lvn::createPipeline(&fbPipeline, &pipelineCreateInfo);
@@ -890,12 +735,12 @@ int main()
 
 	// cubemap
 	LvnCubemapCreateInfo cubemapCreateInfo{};
-	cubemapCreateInfo.posx = lvn::loadImageData("res/cubemaps/sky/px.jpg", 4);
-	cubemapCreateInfo.negx = lvn::loadImageData("res/cubemaps/sky/nx.jpg", 4);
-	cubemapCreateInfo.posy = lvn::loadImageData("res/cubemaps/sky/py.jpg", 4);
-	cubemapCreateInfo.negy = lvn::loadImageData("res/cubemaps/sky/ny.jpg", 4);
-	cubemapCreateInfo.posz = lvn::loadImageData("res/cubemaps/sky/pz.jpg", 4);
-	cubemapCreateInfo.negz = lvn::loadImageData("res/cubemaps/sky/nz.jpg", 4);
+	cubemapCreateInfo.posx = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/cubemaps/sky/px.jpg", 4);
+	cubemapCreateInfo.negx = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/cubemaps/sky/nx.jpg", 4);
+	cubemapCreateInfo.posy = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/cubemaps/sky/py.jpg", 4);
+	cubemapCreateInfo.negy = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/cubemaps/sky/ny.jpg", 4);
+	cubemapCreateInfo.posz = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/cubemaps/sky/pz.jpg", 4);
+	cubemapCreateInfo.negz = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/cubemaps/sky/nz.jpg", 4);
 
 	LvnCubemap* cubemap;
 	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
@@ -956,11 +801,6 @@ int main()
 		std::vector<LvnDescriptorUpdateInfo> pbrDescriptorUpdateInfo =
 		{
 			descriptorPbrUniformUpdateInfo,
-			descriptorUniformUpdateInfo,
-			{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.albedo },
-			{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.metallicRoughnessOcclusion },
-			{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.normal },
-			{ 5, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.emissive },
 		};
 
 		lvn::updateDescriptorSetData(lvnmodel.meshes[i].descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
@@ -1005,12 +845,11 @@ int main()
 		float timeNow = deltaTime.elapsed();
 		float dt = timeNow - oldTime;
 		oldTime = timeNow;
-		orbitMovment(window, &camera, dt);
+		cameraMovment(window, &camera, dt);
 		
 
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
-
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 		lvn::frameBufferSetClearColor(frameBuffer, 0, 0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -1021,14 +860,9 @@ int main()
 			objectData[i].model = lvnmodel.meshes[i].modelMatrix;
 		}
 
-		pbrData.campPos = lvn::cameraGetPos(&camera);
-		pbrData.lightPos = lvn::vec3(cos(lvn::getContextTime()) * 3.0f, 0.0f, sin(lvn::getContextTime()) * 3.0f);
-		pbrData.metalic = 0.5f;
-		pbrData.roughness = 0.4f;
-		pbrData.ambientOcclusion = 1.0f;
+		pbrData.matrix = camera.matrix;
 
 		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData));
-		lvn::updateUniformBufferData(window, storageBuffer, objectData.data(), sizeof(UniformData) * lvnmodel.meshes.size());
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 
@@ -1044,7 +878,7 @@ int main()
 		// draw cubemap
 		lvn::mat4 projection = camera.projectionMatrix;
 		lvn::mat4 view = lvn::mat4(lvn::mat3(camera.viewMatrix));
-		uniformData.matrix = projection * view;
+		uniformData.matrix = camera.matrix;
 
 		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData));
 		lvn::renderCmdBindPipeline(window, cubemapPipeline);
