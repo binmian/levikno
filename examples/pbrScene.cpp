@@ -616,7 +616,7 @@ int main()
 
 
 	// load model
-	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/eightBall/scene.gltf");
+	LvnModel lvnmodel = lvn::loadModel("res/models/teapot.gltf");
 
 
 	// create framebuffer
