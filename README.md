@@ -15,17 +15,17 @@ On Linux, make sure that vulkan and glslang are installed. Download the vulkan a
 
 On Debian based distros:
 ```
-sudo apt install vulkan-tools libvulkan-dev vulkan-validationlayers-dev spirv-tools
+sudo apt install vulkan-tools libvulkan-dev vulkan-validationlayers-dev spirv-tools glslang-tools
 ```
 
-On Red Hat based distros:
+On Fedora based distros:
 ```
-sudo dnf install vulkan-tools vulkan-loader-devel mesa-vulkan-devel vulkan-validation-layers-devel
+sudo dnf install vulkan-tools vulkan-loader-devel mesa-vulkan-devel vulkan-validation-layers-devel glslang
 ```
 
 On Arch based distros:
 ```
-sudo pacman -S vulkan-devel
+sudo pacman -S vulkan-devel glslang
 ```
 
 Now copy the github repository:
