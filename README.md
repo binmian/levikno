@@ -4,14 +4,14 @@ A simple graphics library written in C++ for Vulkan and OpenGL application progr
 See [docs](docs/GettingStarted.md) to get started after installation
 
 ## Building
-Before building, make sure that the latest supported vulkan drivers on installed on your system.
+Before Building, the vulkan and glslang libraries will need to be installed on your system. If your system or graphics card does not support vulkan, it will be skipped during building. Levikno will not allow you to use vulkan when choosing the graphics api.
 
-If you do not have vulkan installed, you can download and install vulkan through the SDK installer from the [LunarG website](https://vulkan.lunarg.com/). Run the installer to install the vulkan depedencies, if you receive error messages, check to make sure your graphics drivers are updated to the latest versions and that it supports vulkan.
-
-If your system or graphics card does not support vulkan, vulkan will be skipped during building. This means you will not be able to choose vulkan as an option when using the library
+### Prerequisite
+- C++20 compiler
+- [cmake](https://cmake.org/)
 
 ### Linux
-Instructions may change depending on the linux distribution, first ensure that the required vulkan dependencies are installed on your system. Download the vulkan packages through your distro's package manager:
+On Linux, make sure that vulkan and glslang are installed. Download the vulkan and glslang packages through your distro's package manager:
 
 On Debian based distros:
 ```
@@ -42,7 +42,13 @@ make
 ```
 
 ### Windows
-Copy the github repository:
+On Windows, make sure that vulkan and glslang are installed. Download the VulkanSDK installer from the [LunarG website](https://vulkan.lunarg.com/) and install the vulkan libraries, if you receive error messages, check to make sure your graphics drivers are updated to the latest versions and that your system can support vulkan.
+
+To install glslang, follow the instructions to build glslang on the [github repository](https://github.com/KhronosGroup/glslang?tab=readme-ov-file), you may either build and install glslang from source or through vcpkg.
+
+**It is important that vulkan and glslang are properly installed so that cmake can find and link the packages correctly.**
+
+Now copy the github repository:
 ```
 git clone https://github.com/bmaow/Levikno.git levikno
 cd levikno
@@ -79,9 +85,9 @@ int main(int argc, char** argv)
 }
 ```
 
-More examples on how to use levikno can be found in the [examples folder](examples/)
+More examples on levikno can be found in the [examples folder](examples/)
 
-Check the simple [tutorial](docs/GettingStarted.md) as well to get started with using the library
+Follow the [tutorial](docs/GettingStarted.md) to get started on using the library
 
 ## License
 Levikno is MIT licensed, levikno is free to modify, copy, and redistribute, more information in [LICENSE.txt](LICENSE.txt)

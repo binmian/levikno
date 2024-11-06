@@ -942,7 +942,7 @@ int main()
 
 
 	LvnTimer timer;
-	int fps;
+	int fps = 0;
 	timer.begin();
 
 	float oldTime = 0.0f;

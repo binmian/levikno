@@ -1,13 +1,13 @@
 #include "lvn_glfw.h"
 
-#include "levikno.h"
-
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#include "lvn_vulkanBackends.h"
 #include "lvn_opengl.h"
+
+#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
+	#include "lvn_vulkanBackends.h"
+	#define GLFW_INCLUDE_NONE
+	#define GLFW_INCLUDE_VULKAN
+#endif
+#include <GLFW/glfw3.h>
 
 namespace lvn
 {
@@ -29,7 +29,11 @@ namespace lvn
 		{
 			case Lvn_GraphicsApi_vulkan:
 			{
+			#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
 				createVulkanWindowSurfaceData(window);
+			#else
+				LVN_CORE_ASSERT(false, "vulkan graphics api not included on platform, cannot create vulkan related surface data");
+			#endif
 				return Lvn_Result_Success;
 			}
 			case Lvn_GraphicsApi_opengl:
@@ -52,7 +56,10 @@ namespace lvn
 		{
 			case Lvn_GraphicsApi_vulkan:
 			{
+			#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
 				destroyVulkanWindowSurfaceData(window);
+			#endif
+				break;
 			}
 
 			default:
@@ -254,8 +261,10 @@ namespace lvn
 				}
 				case Lvn_GraphicsApi_vulkan:
 				{
+				#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
 					VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(lvnWindow->apiData);
 					surfaceData->frameBufferResized = true;
+				#endif
 					break;
 				}
 				default:

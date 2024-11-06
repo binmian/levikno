@@ -1029,7 +1029,9 @@ LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* creat
 
 LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo)
 {
+	// TODO: implement cubemap hdr
 
+	return Lvn_Result_Success;
 }
 
 

@@ -35,7 +35,7 @@ endif()
 
 # Find VulkanSDK
 set(MIN_VULKAN_VERSION 1.2)
-find_package(Vulkan ${MIN_VULKAN_VERSION} REQUIRED COMPONENTS glslang)
+find_package(Vulkan ${MIN_VULKAN_VERSION})
 
 if(Vulkan_FOUND)
 	message("Vulkan found")
@@ -47,25 +47,31 @@ if(Vulkan_FOUND)
 		src/api/graphics/vulkan/lvn_vulkanBackends.h
 	)
 
+	# Find glslang
+	find_package(glslang CONFIG REQUIRED)
+
+	if (TARGET glslang::glslang)
+		message("glslang found")
+	else()
+		message("cannot find glslang, please make sure that glslang is installed before building")
+	endif()
+
+	if (TARGET glslang::SPIRV)
+		message("glslang-SPIRV found")
+	else()
+		message("cannot find SPIRV, please make sure that SPIRV and glslang are installed before building")
+	endif()
+
+	set(LVN_VULKAN_LIBS
+		Vulkan::Vulkan
+		glslang::glslang
+		glslang::SPIRV
+	)
+
 else()
-	message("cannot find Vulkan, please make sure that Vulkan is installed before building")
+	message("cannot find Vulkan")
 endif()
 
-
-# Find glslang
-find_package(glslang CONFIG REQUIRED)
-
-if (TARGET glslang::glslang)
-	message("glslang found")
-else()
-	message("cannot find glslang, please make sure that glslang is installed before building")
-endif()
-
-if (TARGET glslang::SPIRV)
-	message("glslang-SPIRV found")
-else()
-	message("cannot find SPIRV, please make sure that SPIRV and glslang are installed before building")
-endif()
 
 # Source build files
 
@@ -156,9 +162,7 @@ target_compile_definitions(levikno PRIVATE
 
 target_link_libraries(levikno
 	PRIVATE
-		Vulkan::Vulkan
-		glslang::glslang
-		glslang::SPIRV
+		${LVN_VULKAN_LIBS}
 )
 
 # Build examples
