@@ -856,7 +856,13 @@ std::string loadFileSrc(const char* filepath)
 {
 	FILE* fileptr;
 	fileptr = fopen(filepath, "r");
-	
+
+	if (!fileptr)
+	{
+		LVN_CORE_ERROR("cannot open source file: %s", filepath);
+		return {};
+	}
+
 	fseek(fileptr, 0, SEEK_END);
 	long int size = ftell(fileptr);
 	fseek(fileptr, 0, SEEK_SET);
@@ -877,6 +883,12 @@ LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 {
 	FILE* fileptr;
 	fileptr = fopen(filepath, "rb");
+
+	if (!fileptr)
+	{
+		LVN_CORE_ERROR("cannot open binary file: %s", filepath);
+		return {};
+	}
 
 	fseek(fileptr, 0, SEEK_END);
 	long int size = ftell(fileptr);
