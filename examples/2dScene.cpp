@@ -7,7 +7,7 @@ int main(int argc, char** argv)
 	lvnCreateInfo.logging.enableLogging = true;
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_opengl;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -64,6 +64,7 @@ int main(int argc, char** argv)
 		lvn::drawPoly(&renderer, { { 0.0f, 300.0f }, 100.0f, 8 }, { 0.0f, 0.0f, 1.0f, 1.0f });
 		lvn::drawLine(&renderer, { {-200.0f, -400.0f, 0.0f}, {100.0f, 200.0f, 0.0f} }, { 0.0f, 0.0f, 0.0f, 1.0f });
 		lvn::drawLine(&renderer, { {200.0f, -400.0f, 0.0f}, {-100.0f, 200.0f, 0.0f} }, { 1.0f, 0.0f, 1.0f, 1.0f });
+		lvn::drawSpriteEx(&renderer, sprite, { 1.0f, 1.0f, 1.0f, 1.0f}, 0.1f, 0.0f);
 
 		lvn::rendererEndDraw(&renderer);
 	}

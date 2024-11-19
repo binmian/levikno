@@ -2,6 +2,7 @@
 #define HG_LEVIKNO_INTERNAL_H
 
 #include "levikno.h"
+#include <cstring>
 
 
 template <typename T>
@@ -145,23 +146,22 @@ public:
 	LvnMemoryBlock(uint64_t memsize)
 		: m_Size(memsize)
 	{
-		void* memptr = calloc(1, memsize);
-		LVN_CORE_ASSERT(memptr, "malloc failure when allocating memory block");
-		m_Memory = memptr;
+		m_Memory = calloc(1, memsize);
+		LVN_CORE_ASSERT(m_Memory, "malloc failure when allocating memory block");
 	}
 
 	LvnMemoryBlock(const LvnMemoryBlock& other)
 	{
 		m_Size = other.m_Size;
-		void* memptr = calloc(1, m_Size);
-		LVN_CORE_ASSERT(memptr, "malloc failure when allocating memory block");
-		m_Memory = memptr;
+		m_Memory = calloc(1, m_Size);
+		LVN_CORE_ASSERT(m_Memory, "malloc failure when allocating memory block");
+		memcpy(m_Memory, other.m_Memory, other.m_Size);
 	}
 
 	LvnMemoryBlock& operator =(const LvnMemoryBlock& other)
 	{
 		m_Size = other.m_Size;
-		void* memptr = calloc(1, m_Size);
+		void* memptr = realloc(m_Memory, m_Size);
 		LVN_CORE_ASSERT(memptr, "malloc failure when allocating memory block");
 		m_Memory = memptr;
 
