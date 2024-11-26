@@ -6,6 +6,7 @@ set(LVN_SOURCES
 	2dScene.cpp
 	antiAliasing.cpp
 	cubemap.cpp
+	entityComponentSystem.cpp
 	events.cpp
 	framebuffer.cpp
 	loadingModel.cpp

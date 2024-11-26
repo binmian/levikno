@@ -4,6 +4,14 @@
 #include "levikno.h"
 
 
+// ------------------------------------------------------------
+// [SECTION]: Core Internal structs
+// ------------------------------------------------------------
+
+
+// [SUBSECTION]: -- Internal Data Structures
+// ------------------------------------------------------------
+
 template <typename T>
 struct LvnNode
 {
@@ -235,8 +243,8 @@ struct LvnMemoryPool
 };
 
 
-// ------------------------------------------------------------
-// [SECTION]: Core Internal structs
+
+// [SUBSECTION]: -- Logging
 // ------------------------------------------------------------
 
 struct LvnLogger
@@ -252,7 +260,9 @@ struct LvnLogger
 // [SECTION]: Window Internal structs
 // ------------------------------------------------------------
 
-/* [Events] */
+
+// [SUBSECTION]: -- Events
+// ------------------------------------------------------------
 struct LvnEvent
 {
 	LvnEventType type;
@@ -287,7 +297,8 @@ struct LvnEvent
 };
 
 
-/* [Window] */
+// [SUBSECTION]: -- Windows
+// ------------------------------------------------------------
 struct LvnWindowData
 {                                        // [Same use with LvnWindowCreateinfo]
 	int width, height;                   // width and height of window
@@ -541,30 +552,42 @@ struct LvnObjectMemAllocCount
 
 struct LvnContext
 {
+	// api specification
 	LvnWindowApi                         windowapi;
 	LvnWindowContext                     windowContext;
 	LvnGraphicsApi                       graphicsapi;
 	LvnGraphicsContext                   graphicsContext;
 	void*                                audioEngineContextPtr;
 	LvnClipRegion                        matrixClipRegion;
+	std::string                          appName;
+	LvnPipelineSpecification             defaultPipelineSpecification;
 
+	// logging
 	bool                                 logging;
 	bool                                 enableCoreLogging;
 	LvnLogger                            coreLogger;
 	LvnLogger                            clientLogger;
 	std::vector<LvnLogPattern>           userLogPatterns;
-	std::string                          appName;
 
-	LvnPipelineSpecification             defaultPipelineSpecification;
-	LvnTimer                             contexTime;
+	// memory pools and bindings
 	LvnMemAllocMode                      memoryMode;
 	LvnMemoryPool                        memoryPool;
 	std::vector<LvnStructureTypeInfo>    sTypeMemAllocInfos;
 	std::vector<LvnStructureTypeInfo>    blockMemAllocInfos;
 	uint64_t                             blockMemSize;
 
+	// memory object allocations
 	size_t                               numMemoryAllocations;
 	LvnObjectMemAllocCount               objectMemoryAllocations;
+
+	// ecs entity id manager
+	std::queue<LvnEntity>                availableEntityIDs;
+	uint64_t                             entityIndexID, maxEntityIDs;
+
+	// misc
+	LvnTimer                             contexTime;       // timer
+	LvnComponentManager                  componentManager; // ECS component manager
+
 };
 
 

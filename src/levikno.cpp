@@ -591,6 +591,10 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
 	s_LvnContext->graphicsContext.maxFramesInFlight = createInfo->maxFramesInFlight;
 
+	// ecs entity id
+	s_LvnContext->entityIndexID = 0;
+	s_LvnContext->maxEntityIDs = UINT64_MAX;
+
 	lvn::setDefaultStructTypeMemAllocInfos(s_LvnContext);
 
 	// logging
@@ -3217,6 +3221,39 @@ LvnResult socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseco
 	}
 
 	return Lvn_Result_TimeOut;
+}
+
+
+LvnEntity createEntity()
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	if (!lvnctx->availableEntityIDs.empty())
+	{
+		LvnEntity entity = lvnctx->availableEntityIDs.front();
+		lvnctx->availableEntityIDs.pop();
+		return entity;
+	}
+
+	LVN_CORE_ASSERT(lvnctx->entityIndexID < lvnctx->maxEntityIDs, "cannot create entity, maximum entity count (%zu) reached", lvnctx->maxEntityIDs);
+	return ++lvnctx->entityIndexID;
+}
+
+void destroyEntity(LvnEntity entity)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	for (auto& comp : lvnctx->componentManager)
+	{
+		comp.second.get()->entityDestroyed(entity);
+	}
+
+	lvnctx->availableEntityIDs.push(entity);
+}
+
+LvnComponentManager* getComponentManager()
+{
+	return &lvn::getContext()->componentManager;
 }
 
 // ------------------------------------------------------------

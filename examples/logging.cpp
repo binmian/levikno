@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <levikno/levikno.h>
 
 // INFO: this program demonstrates the logging components of the library

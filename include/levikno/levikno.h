@@ -106,6 +106,8 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <typeindex>
+
 
 using std::abs;
 using std::acos;
@@ -854,6 +856,125 @@ class LvnTimer;
 class LvnThreadPool;
 class LvnDrawList;
 
+
+
+typedef uint64_t LvnEntity;
+
+template <typename T>
+class LvnComponentArray;
+
+class LvnIComponentArray;
+class LvnComponentManager;
+
+// [SUBSECTION]: -- ECS (entity component system)
+// ------------------------------------------------------------
+
+class LvnIComponentArray
+{
+public:
+	virtual ~LvnIComponentArray() = default;
+	virtual void entityDestroyed(LvnEntity entity) = 0;
+};
+
+template <typename T>
+class LvnComponentArray : public LvnIComponentArray
+{
+	static_assert(!std::is_pointer_v<T>, "cannot have pointer type as template parameter in component array");
+
+private:
+	std::vector<T> m_Data;
+	std::unordered_map<LvnEntity, uint64_t> m_EntityToIndex;
+	std::queue<uint64_t> m_AvailableIndices;
+
+public:
+	void add_entity(LvnEntity entity, const T& comp)
+	{
+		assert(m_EntityToIndex.find(entity) == m_EntityToIndex.end() && "entity already has component in component array");
+
+		if (!m_AvailableIndices.empty())
+		{
+			const uint64_t index = m_AvailableIndices.front();
+			m_AvailableIndices.pop();
+			m_Data[index] = comp;
+			m_EntityToIndex[entity] = index;
+			return;
+		}
+
+		m_Data.push_back(comp);
+		m_EntityToIndex[entity] = m_Data.size() - 1;
+	}
+
+	void remove_entity(LvnEntity entity)
+	{
+		assert(m_EntityToIndex.find(entity) != m_EntityToIndex.end() && "entity not found within component array");
+
+		const uint64_t index = m_EntityToIndex[entity];
+		assert(index < m_Data.size() && "index out of vector size range");
+
+		m_AvailableIndices.push(index);
+		m_EntityToIndex.erase(entity);
+	}
+
+	T& get_entity_component(LvnEntity entity)
+	{
+		assert(m_EntityToIndex.find(entity) != m_EntityToIndex.end() && "entity not found within component array");
+
+		const uint64_t index = m_EntityToIndex[entity];
+		assert(index < m_Data.size() && "index out of vector size range");
+
+		return m_Data[index];
+	}
+
+	bool has_entity_with_component(LvnEntity entity)
+	{
+		return m_EntityToIndex.find(entity) != m_EntityToIndex.end();
+	}
+
+	virtual void entityDestroyed(LvnEntity entity) override
+	{
+		remove_entity(entity);
+	}
+};
+
+class LvnComponentManager
+{
+private:
+	std::unordered_map<std::type_index, std::shared_ptr<LvnIComponentArray>> m_Components;
+
+public:
+
+	template <typename T>
+	void add_component()
+	{
+		m_Components[std::type_index(typeid(T))] = std::make_shared<LvnComponentArray<T>>();
+	}
+
+	template <typename T>
+	void remove_component()
+	{
+		assert(m_Components.find(std::type_index(typeid(T))) != m_Components.end() && "component not found within registry");
+
+		m_Components.erase(std::type_index(typeid(T)));
+	}
+
+	template <typename T>
+	LvnComponentArray<T>& get_component()
+	{
+		assert(m_Components.find(std::type_index(typeid(T))) != m_Components.end() && "component not found within registry");
+		auto index = std::type_index(typeid(T));
+		return *static_cast<LvnComponentArray<T>*>(m_Components[index].get());
+	}
+
+	template <typename T>
+	bool has_component()
+	{
+		return m_Components.find(std::type_index(typeid(T))) != m_Components.end();
+	}
+
+	auto begin() { return m_Components.begin(); }
+	auto end() { return m_Components.end(); }
+};
+
 /* [Vectors] */
 template<typename T>
 struct LvnVec2_t;
@@ -957,8 +1078,6 @@ typedef LvnQuat_t<float>                LvnQuatf;
 typedef LvnQuat_t<double>               LvnQuatd;
 
 typedef LvnData<uint8_t>                LvnBin;
-
-typedef uint64_t                        LvnEntity;
 
 // ---------------------------------------------
 // [SECTION]: Functions
@@ -1346,6 +1465,68 @@ namespace lvn
 	LVN_API LvnResult                   socketDisconnect(LvnSocket* socket, uint32_t milliseconds);
 	LVN_API void                        socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet);
 	LVN_API LvnResult                   socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds);
+
+
+	/* [ECS] */
+	LvnEntity createEntity();
+	void destroyEntity(LvnEntity entity);
+	LvnComponentManager* getComponentManager();
+
+	template <typename T>
+	void entityAddComponent(LvnEntity entity, const T& comp)
+	{
+		LvnComponentManager* compManager = lvn::getComponentManager();
+		if (!compManager->has_component<T>())
+			compManager->add_component<T>();
+
+		LvnComponentArray<T>& compArray = compManager->get_component<T>();
+		compArray.add_entity(entity, comp);
+	}
+
+	template <typename T, typename... Args>
+	void entityAddComponent(LvnEntity entity, const T& comp, const Args&... args)
+	{
+		LvnComponentManager* compManager = lvn::getComponentManager();
+		if (!compManager->has_component<T>())
+			compManager->add_component<T>();
+
+		LvnComponentArray<T>& compArray = compManager->get_component<T>();
+		compArray.add_entity(entity, comp);
+
+		entityAddComponent(entity, args...);
+	}
+
+	template <typename T>
+	void entityRemoveComponent(LvnEntity entity)
+	{
+		LvnComponentArray<T>& compArray = lvn::getComponentManager()->get_component<T>();
+		compArray.remove_entity(entity);
+	}
+
+	template <typename T, typename T2, typename... Args>
+	void entityRemoveComponent(LvnEntity entity)
+	{
+		LvnComponentArray<T>& compArray = lvn::getComponentManager()->get_component<T>();
+		compArray.remove_entity(entity);
+
+		entityRemoveComponent<T2, Args...>(entity);
+	}
+
+	template <typename T>
+	T& entityGetComponent(LvnEntity entity)
+	{
+		LvnComponentArray<T>& compArray = lvn::getComponentManager()->get_component<T>();
+		return compArray.get_entity_component(entity);
+	}
+
+	template <typename... Ts>
+	void entityUpdateSystem(LvnEntity* pEntities, uint64_t entityCount, void (*func)(Ts&...))
+	{
+		for (uint64_t i = 0; i < entityCount; i++)
+		{
+			func(entityGetComponent<Ts>(pEntities[i])...);
+		}
+	}
 
 
 	/* [Renderer] */
@@ -2352,6 +2533,7 @@ public:
 	const LvnDrawCommand* drawcmds() const    { return m_DrawCommands.data(); }
 	size_t drawcmd_count()                    { return m_DrawCommands.size(); }
 };
+
 
 
 // ---------------------------------------------
