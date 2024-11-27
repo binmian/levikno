@@ -2055,7 +2055,7 @@ struct LvnContextCreateInfo
 		bool                      enableLogging;                 // enable or diable logging
 		bool                      disableCoreLogging;            // whether to disable core logging in the library
 		bool                      enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
-	}                             logging;
+	} logging;
 
 	LvnTextureFormat              frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
 	LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
@@ -2068,7 +2068,7 @@ struct LvnContextCreateInfo
 		uint32_t                  memoryBindingCount;            // number of object alloc inso structs;
 		LvnMemoryBindingInfo*     blockMemoryBindings;           // array of objects alloc info structs of each type to allocate for further memory blocks in case if the first block is full
 		uint32_t                  blockMemoryBindingCount;       // number of block object alloc info structs
-	}                             memoryInfo;
+	} memoryInfo;
 };
 
 /* [Logging] */

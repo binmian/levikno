@@ -2,6 +2,7 @@
 #include "levikno_internal.h"
 
 #include <ctime>
+#include <unistd.h>
 
 #include "stb_image.h"
 #include "miniaudio.h"
@@ -1066,7 +1067,7 @@ static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
 	{
 		if (fmt[i] != '%') // Other characters in format
 		{
-			LvnLogPattern pattern = { .symbol = fmt[i], .func = nullptr };
+			LvnLogPattern pattern = { /* .symbol = */ fmt[i], /* .func = */ nullptr };
 			patterns.push_back(pattern);
 			continue;
 		}
