@@ -660,11 +660,6 @@ void drawRect(LvnRenderer* renderer, const LvnRect& rect, const LvnColor& color)
 
 void drawPoly(LvnRenderer* renderer, const LvnPoly& poly, const LvnColor& color)
 {
-	float r = color.r;
-	float g = color.g;
-	float b = color.b;
-	float a = color.a;
-
 	std::vector<float> vertices(poly.nSides * 8);
 	std::vector<uint32_t> indices(3 * (poly.nSides - 2));
 

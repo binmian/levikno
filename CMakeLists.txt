@@ -124,7 +124,7 @@ add_library(levikno STATIC ${LVN_SOURCES})
 if (MSVC)
 	target_compile_options(levikno PRIVATE "/W2")
 elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
-	target_compile_options(levikno PRIVATE "-w")
+	target_compile_options(levikno PRIVATE -w)
 endif()
 
 # Subdirectories ---------------------------------------- /

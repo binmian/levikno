@@ -79,7 +79,6 @@ struct LvnSocket
 namespace lvn
 {
 
-static void                         enableLogANSIcodeColors();
 static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
@@ -108,17 +107,18 @@ template <typename T>
 static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType);
 
 
+// Windows platform specific; enables console output colors
+#ifdef LVN_PLATFORM_WINDOWS
 static void enableLogANSIcodeColors()
 {
-#ifdef LVN_PLATFORM_WINDOWS
 	DWORD consoleMode;
 	HANDLE outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (GetConsoleMode(outputHandle, &consoleMode))
 	{
 		SetConsoleMode(outputHandle, consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 	}
-#endif
 }
+#endif
 
 static const char* getLogLevelColor(LvnLogLevel level)
 {
@@ -3147,7 +3147,7 @@ LvnResult socketConnect(LvnSocket* socket, LvnAddress* address, uint32_t channel
 	}
 
 	ENetAddress enetAddress;
-	enetAddress, socket->address.host;
+	enetAddress.host = socket->address.host;
 	enetAddress.port = socket->address.port;
 
 	socket->connection = enet_host_connect(socket->socket, &enetAddress, channelCount, 0);
@@ -3190,6 +3190,12 @@ LvnResult socketDisconnect(LvnSocket* socket, uint32_t milliseconds)
 			case ENET_EVENT_TYPE_DISCONNECT:
 			{
 				return Lvn_Result_Success;
+			}
+
+			default:
+			{
+				LVN_CORE_WARN("unknown disconnect event received on socket (%p)", socket);
+				break;
 			}
 		}
 	}

@@ -5023,11 +5023,10 @@ LvnVec4_t<T> operator*(const LvnVec3_t<T>& v, const LvnMat4x3_t<T>& m)
 template<typename T>
 struct LvnQuat_t
 {
-	union
-	{
-		struct { T w, x, y, z; };
-		struct { T r, i, j, k; };
-	};
+	union { T w, r; };
+	union { T x, i; };
+	union { T y, j; };
+	union { T z, k; };
 
 	LvnQuat_t()
 		: w(0), x(0), y(0), z(0) {}

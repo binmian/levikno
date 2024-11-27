@@ -271,28 +271,22 @@ struct LvnEvent
 	bool handled;
 	void* userData;
 
-	union data
+	struct Data
 	{
-		struct /* Mouse/Window pos & size */
+		union
 		{
-			union
-			{
-				struct
-				{
-					int x, y;
-				};
-				struct
-				{
-					double xd, yd;
-				};
-			};
+			int x;
+			double xd;
 		};
-		struct /* key/mouse button codes */
+		union
 		{
-			int code;
-			unsigned int ucode;
-			bool repeat;
+			int y;
+			double yd;
 		};
+
+		int code;
+		unsigned int ucode;
+		bool repeat;
 	} data;
 };
 

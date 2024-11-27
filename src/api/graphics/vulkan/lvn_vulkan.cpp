@@ -55,7 +55,6 @@ namespace vks
 	static bool                                 checkDeviceExtensionSupport(VkPhysicalDevice device);
 	static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
 	static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
-	static uint32_t                             findMemoryType(VulkanBackends* vkBackends, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	static VkFormat                             findSupportedFormat(VkPhysicalDevice physicalDevice, const VkFormat* candidates, uint32_t count, VkImageTiling tiling, VkFormatFeatureFlags features);
 	static VkFormat                             findDepthFormat(VkPhysicalDevice physicalDevice);
 	static bool                                 hasStencilComponent(VkFormat format);
@@ -315,20 +314,6 @@ namespace vks
 		}
 
 		return indices;
-	}
-
-	static uint32_t findMemoryType(VulkanBackends* vkBackends, uint32_t typeFilter, VkMemoryPropertyFlags properties)
-	{
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(vkBackends->physicalDevice, &memProperties);
-
-		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-		{
-			if (typeFilter & (1 << i)) { return i; }
-		}
-
-		LVN_CORE_ASSERT(false, "[vulkan] failed to find suitable memory type for physical device!");
-		return 0;
 	}
 
 	static VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const VkFormat* candidates, uint32_t count, VkImageTiling tiling, VkFormatFeatureFlags features)
