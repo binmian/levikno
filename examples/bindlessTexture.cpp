@@ -1,99 +1,51 @@
 #include <levikno/levikno.h>
 
-#include <vector>
-#include <cstdint>
-#include <chrono>
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
 
-const static float s_CubemapVertices[] =
-{
-	//   Coordinates
-	-1.0f, -1.0f,  1.0f, // 0       7--------6
-	 1.0f, -1.0f,  1.0f, // 1      /|       /|
-	 1.0f, -1.0f, -1.0f, // 2     4--------5 |
-	-1.0f, -1.0f, -1.0f, // 3     | |      | |
-	-1.0f,  1.0f,  1.0f, // 4     | 3------|-2
-	 1.0f,  1.0f,  1.0f, // 5     |/       |/
-	 1.0f,  1.0f, -1.0f, // 6     0--------1
-	-1.0f,  1.0f, -1.0f  // 7
-};
-
-const static uint32_t s_CubemapIndices[] =
-{
-	// Right
-	6, 2, 1,
-	6, 1, 5,
-	// Left
-	4, 0, 3,
-	4, 3, 7,
-	// Top
-	5, 4, 7,
-	5, 7, 6,
-	// Bottom
-	3, 0, 1,
-	3, 1, 2,
-	// Front
-	5, 1, 0,
-	5, 0, 4,
-	// Back
-	7, 3, 2,
-	7, 2, 6
-};
-
 static const char* s_VertexShaderSrc = R"(
 #version 460
 
-layout (location = 0) in vec3 inPos;
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in vec2 inTexCoord;
 
-layout (location = 0) out vec3 fragTexCoord;
+layout(location = 0) out vec2 fragTexCoord;
 
-layout (binding = 0) uniform ObjectBuffer 
+layout (binding = 0) uniform ObjectBuffer
 {
 	mat4 matrix;
 } ubo;
 
 void main()
 {
-	vec4 pos = ubo.matrix * vec4(inPos, 1.0);
-    gl_Position = pos.xyww;
-	fragTexCoord = vec3(inPos.x, inPos.y, inPos.z);
+	gl_Position = ubo.matrix * vec4(inPos, 1.0);
+	fragTexCoord = inTexCoord;
 }
 )";
 
 static const char* s_FragmentShaderSrc = R"(
 #version 460
 
-layout (location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outColor;
 
-layout (location = 0) in vec3 fragTexCoord;
+layout(location = 0) in vec2 fragTexCoord;
 
-layout (binding = 1) uniform samplerCube samplerCubeMap;
+layout(binding = 1) uniform sampler samp;
+layout(binding = 2) uniform texture2D inTextures[2];
 
 void main()
 {
-	outColor = texture(samplerCubeMap, fragTexCoord);
+	vec3 color = vec3(texture(sampler2D(inTextures[0], samp), fragTexCoord));
+	outColor = vec4(color, 1.0);
 }
 )";
-
 
 struct UniformData
 {
 	LvnMat4 matrix;
 };
 
-class Timer
-{
-private:
-	std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
-
-public:
-	void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-	void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-	float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
-	float elapsedms() { return elapsed() * 1000.0f; }
-};
 
 int main(int argc, char** argv)
 {
@@ -141,7 +93,7 @@ int main(int argc, char** argv)
 
 	// window create info struct
 	LvnWindowCreateInfo windowInfo{};
-	windowInfo.title = "cubemap";
+	windowInfo.title = "simpleTexture";
 	windowInfo.width = 800;
 	windowInfo.height = 600;
 	windowInfo.minWidth = 300;
@@ -151,19 +103,32 @@ int main(int argc, char** argv)
 	lvn::createWindow(&window, &windowInfo);
 
 
-	// [Create Cubemap]
-	// cubemap texture create info
-	LvnCubemapCreateInfo cubemapCreateInfo{};
-	cubemapCreateInfo.posx = lvn::loadImageData("res/cubemaps/sky/px.jpg", 4);
-	cubemapCreateInfo.negx = lvn::loadImageData("res/cubemaps/sky/nx.jpg", 4);
-	cubemapCreateInfo.posy = lvn::loadImageData("res/cubemaps/sky/py.jpg", 4);
-	cubemapCreateInfo.negy = lvn::loadImageData("res/cubemaps/sky/ny.jpg", 4);
-	cubemapCreateInfo.posz = lvn::loadImageData("res/cubemaps/sky/pz.jpg", 4);
-	cubemapCreateInfo.negz = lvn::loadImageData("res/cubemaps/sky/nz.jpg", 4);
+	// [Create texture]
+	// load image data
+	LvnImageData imageData = lvn::loadImageData("res/images/debug.png", 4, true);
+	LvnImageData imageData2 = lvn::loadImageData("res/images/woodBox.jpg", 4, true);
 
-	// create cubemap
-	LvnCubemap* cubemap;
-	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
+	LvnSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	samplerCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	samplerCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+
+	LvnSampler* sampler;
+	lvn::createSampler(&sampler, &samplerCreateInfo);
+
+	// texture create info struct
+	LvnTextureCreateInfo textureCreateInfo{};
+	textureCreateInfo.imageData = imageData;
+	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+	textureCreateInfo.sampler = sampler;
+
+	LvnTexture* texture;
+	lvn::createTexture(&texture, &textureCreateInfo);
+
+	textureCreateInfo.imageData = imageData2;
+	LvnTexture* texture2;
+	lvn::createTexture(&texture2, &textureCreateInfo);
+
 
 
 	// [Create Buffer]
@@ -173,12 +138,27 @@ int main(int argc, char** argv)
 	LvnVertexAttribute attributes[] =
 	{
 		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
+		{ 0, 1, Lvn_VertexDataType_Vec2f, (3 * sizeof(float)) },
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};
 	vertexBindingDescription.binding = 0;
-	vertexBindingDescription.stride = 3 * sizeof(float);
+	vertexBindingDescription.stride = 5 * sizeof(float);
 
+	// NOTE: the width and height of the loaded image will be used for the size of our square in the vertex buffer
+	float vertices[] =
+	{
+	/*      pos (x,y,z)   |  TexCoord     */
+		-0.5f * imageData.width, 0.5f * imageData.height, 0.0f, 0.0f, 1.0f, // v1
+		-0.5f * imageData.width,-0.5f * imageData.height, 0.0f, 0.0f, 0.0f, // v2
+		 0.5f * imageData.width, 0.5f * imageData.height, 0.0f, 1.0f, 1.0f, // v3
+		 0.5f * imageData.width,-0.5f * imageData.height, 0.0f, 1.0f, 0.0f, // v4
+	};
+
+	uint32_t indices[] =
+	{
+		0, 1, 2, 2, 1, 3
+	};
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
@@ -187,10 +167,10 @@ int main(int argc, char** argv)
 	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
 	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = s_CubemapVertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(s_CubemapVertices);
-	bufferCreateInfo.pIndices = s_CubemapIndices;
-	bufferCreateInfo.indexBufferSize = sizeof(s_CubemapIndices);
+	bufferCreateInfo.pVertices = vertices;
+	bufferCreateInfo.vertexBufferSize = sizeof(vertices);
+	bufferCreateInfo.pIndices = indices;
+	bufferCreateInfo.indexBufferSize = sizeof(indices);
 
 	// create buffer
 	LvnBuffer* buffer;
@@ -217,16 +197,23 @@ int main(int argc, char** argv)
 	descriptorBindingUniform.descriptorCount = 1;
 	descriptorBindingUniform.maxAllocations = 1;
 
+	LvnDescriptorBinding descriptorBindingSampler{};
+	descriptorBindingSampler.binding = 1;
+	descriptorBindingSampler.descriptorType = Lvn_DescriptorType_Sampler;
+	descriptorBindingSampler.shaderStage = Lvn_ShaderStage_Fragment;
+	descriptorBindingSampler.descriptorCount = 1;
+	descriptorBindingSampler.maxAllocations = 1;
+
 	LvnDescriptorBinding descriptorBindingTexture{};
-	descriptorBindingTexture.binding = 1;
-	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorBindingTexture.binding = 2;
+	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_SampledImage;
 	descriptorBindingTexture.shaderStage = Lvn_ShaderStage_Fragment;
-	descriptorBindingTexture.descriptorCount = 1;
+	descriptorBindingTexture.descriptorCount = 2;
 	descriptorBindingTexture.maxAllocations = 1;
 
 	LvnDescriptorBinding descriptorBindings[] =
 	{
-		descriptorBindingUniform, descriptorBindingTexture,
+		descriptorBindingUniform, descriptorBindingSampler, descriptorBindingTexture,
 	};
 
 	// descriptor layout create info
@@ -244,6 +231,9 @@ int main(int argc, char** argv)
 	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
 
 
+	// get the render pass from the window to pass into the pipeline
+	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
+
 	// create pipeline specification or fixed functions
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 
@@ -257,7 +247,7 @@ int main(int argc, char** argv)
 	pipelineCreateInfo.pDescriptorLayouts = &descriptorLayout;
 	pipelineCreateInfo.descriptorLayoutCount = 1;
 	pipelineCreateInfo.shader = shader;
-	pipelineCreateInfo.renderPass = lvn::windowGetRenderPass(window);
+	pipelineCreateInfo.renderPass = renderPass;
 
 	// create pipeline
 	LvnPipeline* pipeline;
@@ -280,32 +270,35 @@ int main(int argc, char** argv)
 
 
 	// update descriptor set
-	LvnTexture* cubemapTexture = lvn::cubemapGetTextureData(cubemap); // get the texture data from our cubemap
-
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
 	descriptorUniformUpdateInfo.descriptorCount = 1;
 	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
+	LvnDescriptorUpdateInfo descriptorSamplerUpdateInfo{};
+	descriptorSamplerUpdateInfo.descriptorType = Lvn_DescriptorType_Sampler;
+	descriptorSamplerUpdateInfo.binding = 1;
+	descriptorSamplerUpdateInfo.descriptorCount = 1;
+	descriptorSamplerUpdateInfo.pTextureInfos = &texture;
+
+	LvnTexture* textures[] = { texture, texture2 };
+
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	descriptorTextureUpdateInfo.binding = 1;
-	descriptorTextureUpdateInfo.descriptorCount = 1;
-	descriptorTextureUpdateInfo.pTextureInfos = &cubemapTexture; // pass the cubemap texture into the descriptor update struct
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_SampledImage;
+	descriptorTextureUpdateInfo.binding = 2;
+	descriptorTextureUpdateInfo.descriptorCount = 2;
+	descriptorTextureUpdateInfo.pTextureInfos = textures;
 
 	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
 	{
-		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
+		descriptorUniformUpdateInfo, descriptorSamplerUpdateInfo, descriptorTextureUpdateInfo,
 	};
 
 	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
 
 
 	UniformData uniformData{};
-
-	Timer timer{};
-	timer.start();
 
 	// [Main Render Loop]
 	while (lvn::windowOpen(window))
@@ -315,16 +308,12 @@ int main(int argc, char** argv)
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);
 
-		float time = timer.elapsed();
-
 		// update matrix
-		LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-		LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(cos(time), 0.5f * sin(0.5f * time), (sin(time))), LvnVec3(0.0f, 1.0f, 0.0f));
+		LvnMat4 proj = lvn::ortho((float)width * -0.5f, (float)width * 0.5f, (float)height * -0.5f, (float)height * 0.5f, -1.0f, 1.0f);
+		LvnMat4 view = LvnMat4(1.0f);
+		LvnMat4 camera = proj * view;
 
-		view = LvnMat4(LvnMat3(view));
-
-		uniformData.matrix = proj * view;
-
+		uniformData.matrix = camera;
 		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
 
 		// get next window swapchain image
@@ -345,7 +334,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindVertexBuffer(window, buffer);
 		lvn::renderCmdBindIndexBuffer(window, buffer);
 
-		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_CubemapIndices));
+		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(indices));
 
 		// end render pass and submit rendering
 		lvn::renderCmdEndRenderPass(window);
@@ -354,7 +343,9 @@ int main(int argc, char** argv)
 	}
 
 	// destroy objects after they are finished being used
-	lvn::destroyCubemap(cubemap);
+	lvn::destroySampler(sampler);
+	lvn::destroyTexture(texture);
+	lvn::destroyTexture(texture2);
 	lvn::destroyBuffer(buffer);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);

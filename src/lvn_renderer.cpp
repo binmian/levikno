@@ -256,12 +256,17 @@ static LvnResult initRenderer2d(LvnRenderer* renderer, LvnRendererModeData* mode
 	imageData.channels = 4;
 	imageData.size = 4;
 
+	LvnSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+	samplerCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+	samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+	lvn::createSampler(&renderer->sampler, &samplerCreateInfo);
+
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = imageData;
-	textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-	textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+	textureCreateInfo.sampler = renderer->sampler;
 
 	lvn::createTexture(&renderer->texture, &textureCreateInfo);
 
@@ -554,6 +559,7 @@ void rendererTerminate(LvnRenderer* renderer)
 
 	if (renderer->window) { lvn::destroyWindow(renderer->window); }
 	if (renderer->texture) { lvn::destroyTexture(renderer->texture); }
+	if (renderer->sampler) { lvn::destroySampler(renderer->sampler); }
 }
 
 void rendererBeginDraw(LvnRenderer* renderer)

@@ -5,6 +5,7 @@ file(COPY res DESTINATION .)
 set(LVN_SOURCES
 	2dScene.cpp
 	antiAliasing.cpp
+	bindlessTexture.cpp
 	cubemap.cpp
 	entityComponentSystem.cpp
 	events.cpp

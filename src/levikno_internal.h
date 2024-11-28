@@ -386,6 +386,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
 	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
+	LvnResult                   (*createSampler)(LvnSampler*, LvnSamplerCreateInfo*);
 	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
 	LvnResult                   (*createCubemap)(LvnCubemap*, LvnCubemapCreateInfo*);
 	LvnResult                   (*createCubemapHdr)(LvnCubemap*, LvnCubemapHdrCreateInfo*);
@@ -397,6 +398,7 @@ struct LvnGraphicsContext
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
 	void                        (*destroyUniformBuffer)(LvnUniformBuffer*);
+	void                        (*destroySampler)(LvnSampler*);
 	void                        (*destroyTexture)(LvnTexture*);
 	void                        (*destroyCubemap)(LvnCubemap*);
 
@@ -498,6 +500,11 @@ struct LvnUniformBuffer
 	uint64_t size;
 
 	uint32_t id;
+};
+
+struct LvnSampler
+{
+	void* sampler;
 };
 
 struct LvnTexture

@@ -1,6 +1,8 @@
 #include "lvn_loadModel.h"
 
 #include "json.h"
+#include "levikno.h"
+#include "levikno_internal.h"
 
 namespace nlm = nlohmann;
 
@@ -21,6 +23,12 @@ namespace gltfs
 		uint32_t index;
 	};
 
+	struct LvnSamplerIndexData
+	{
+		LvnSampler* sampler;
+		int index;
+	};
+
 	struct gltfLoadData
 	{
 		nlm::json JSON;
@@ -29,7 +37,16 @@ namespace gltfs
 		LvnData<uint8_t> binData;
 		std::vector<LvnMesh> meshes;
 		std::vector<LvnTextureIndexData> textureData;
+		std::vector<LvnSamplerIndexData> samplerData;
 		std::vector<LvnTexture*> textures;
+		std::vector<LvnSampler*> samplers;
+		LvnSampler* defaultSampler;
+	};
+
+	struct TextureSampler
+	{
+		LvnTexture* texture;
+		LvnSampler* sampler;
 	};
 
 	static void                    traverseNode(gltfLoadData* gltfData, uint32_t nextNode, LvnMat4 matrix);
@@ -38,6 +55,7 @@ namespace gltfs
 	static void                    getFloats(gltfLoadData* gltfData, nlm::json accessor, uint32_t* beginningOfData, uint32_t* count, uint32_t* numType);
 	static LvnVec4                 getColors(nlm::json material);
 	static std::vector<uint32_t>   getIndices(gltfLoadData* gltfData, nlm::json accessor);
+	static TextureSampler          getTexture(gltfLoadData* gltfData, nlm::json texInd);
 	static LvnMaterial             getMaterial(gltfLoadData* gltfData, nlm::json accessor);
 	static LvnTextureFilter        getTexFilter(uint32_t filter);
 	static std::vector<LvnVec3>    calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents);
@@ -354,9 +372,122 @@ namespace gltfs
 		return indices;
 	}
 
+	static TextureSampler getTexture(gltfLoadData* gltfData, nlm::json texInd)
+	{
+		nlm::json JSON = gltfData->JSON;
+
+		TextureSampler texSamp{};
+		bool skipTex = false, skipSamp = false;
+
+
+		// sampler
+		int texSamplerIndex = texInd.value("sampler", -1);
+
+		// model has samplers
+		if (texSamplerIndex >= 0)
+		{
+			// find if sampler is already used before it isnt created again
+			for (uint32_t i = 0; i < gltfData->samplerData.size(); i++)
+			{
+				if (gltfData->samplerData[i].index = texSamplerIndex)
+				{
+					texSamp.sampler = gltfData->samplerData[i].sampler;
+					skipSamp = true;
+					break;
+				}
+			}
+
+			if (!skipSamp) // if model has different sampler not loaded yet
+			{
+				LvnSamplerCreateInfo samplerCreateInfo{};
+				samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+
+				uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
+				uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
+				samplerCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
+				samplerCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
+
+				LvnSampler* sampler;
+				lvn::createSampler(&sampler, &samplerCreateInfo);
+
+				texSamp.sampler = sampler;
+
+				LvnSamplerIndexData samplerIndex = { sampler, texSamplerIndex };
+				gltfData->samplerData.push_back(samplerIndex);
+				gltfData->samplers.push_back(sampler);
+			}
+		}
+		else // model does not have sampler, use default sampler
+		{
+			texSamp.sampler = gltfData->defaultSampler;
+		}
+
+
+		// texture
+		std::string fileDirectory;
+		if (gltfData->filetype == Lvn_FileType_Gltf) { fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1); }
+
+		uint32_t texSource;
+		std::string texPath;
+
+		texSource = texInd["source"];
+		if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
+
+		for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
+		{
+			if (gltfData->textureData[i].index == texSource)
+			{
+				texSamp.texture = gltfData->textureData[i].texture;
+				skipTex = true;
+				break;
+			}
+		}
+
+		if (!skipTex)
+		{
+			LvnTextureCreateInfo textureCreateInfo{};
+			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
+			textureCreateInfo.sampler = texSamp.sampler;
+
+			if (gltfData->filetype == Lvn_FileType_Gltf)
+			{
+				textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
+			}
+			else if (gltfData->filetype == Lvn_FileType_Glb)
+			{
+				uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
+				nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
+				uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
+				uint32_t bvByteLength = bufferview.value("byteLength", 0);
+
+				textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
+			}
+
+			LvnTexture* texture;
+			lvn::createTexture(&texture, &textureCreateInfo);
+
+			LvnTextureIndexData textureIndexData = { texture, texSource };
+			gltfData->textureData.push_back(textureIndexData);
+			gltfData->textures.push_back(texture);
+
+			texSamp.texture = texture;
+		}
+
+		return texSamp;
+	}
+
 	static LvnMaterial getMaterial(gltfLoadData* gltfData, nlm::json accessor)
 	{
 		nlm::json JSON = gltfData->JSON;
+
+
+		LvnSamplerCreateInfo samplerCreateInfo{};
+		samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+		samplerCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
+		samplerCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
+
+		lvn::createSampler(&gltfData->defaultSampler, &samplerCreateInfo);
+		gltfData->samplers.push_back(gltfData->defaultSampler);
 
 		LvnMaterial material{};
 
@@ -370,63 +501,9 @@ namespace gltfs
 		if (accessor["pbrMetallicRoughness"].find("baseColorTexture") != accessor["pbrMetallicRoughness"].end())
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["baseColorTexture"]["index"]];
-			texSource = texInd["source"];
-			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
-
-			bool skip = false;
-			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
-			{
-				if (gltfData->textureData[i].index == texSource)
-				{
-					material.albedo = gltfData->textureData[i].texture;
-					skip = true;
-					break;
-				}
-			}
-			if (!skip)
-			{
-				int texSamplerIndex = texInd.value("sampler", -1);
-
-				LvnTextureCreateInfo textureCreateInfo{};
-				if (gltfData->filetype == Lvn_FileType_Gltf)
-				{
-					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
-				}
-				else if (gltfData->filetype == Lvn_FileType_Glb)
-				{
-					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
-					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
-					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
-					uint32_t bvByteLength = bufferview.value("byteLength", 0);
-
-					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
-				}
-
-				// model has samplers
-				if (texSamplerIndex >= 0)
-				{
-					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
-					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
-				}
-				else // default to nearest if no sampler found
-				{
-					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-				}
-
-				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-				textureCreateInfo.format = Lvn_TextureFormat_Srgb;
-
-				LvnTexture* texture;
-				lvn::createTexture(&texture, &textureCreateInfo);
-
-				LvnTextureIndexData textureIndexData = { texture, texSource };
-				gltfData->textureData.push_back(textureIndexData);
-				gltfData->textures.push_back(texture);
-				material.albedo = texture;
-			}
+			TextureSampler texSamp = gltfs::getTexture(gltfData, texInd);
+			material.albedo = texSamp.texture;
+			material.albedoSampler = texSamp.sampler;
 		}
 		else // white texture if no texture was found
 		{
@@ -440,15 +517,14 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
+			textureCreateInfo.sampler = gltfData->defaultSampler;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
 
 			material.albedo = texture;
+			material.albedoSampler = gltfData->defaultSampler;
 			gltfData->textures.push_back(texture);
 		}
 
@@ -456,63 +532,10 @@ namespace gltfs
 		if (accessor["pbrMetallicRoughness"].find("metallicRoughnessTexture") != accessor["pbrMetallicRoughness"].end())
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"]];
-			texSource = texInd["source"];
-			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
-
-			bool skip = false;
-			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
-			{
-				if (gltfData->textureData[i].index == texSource)
-				{
-					material.metallicRoughnessOcclusion = gltfData->textureData[i].texture;
-					skip = true;
-					break;
-				}
-			}
-			if (!skip)
-			{
-				int texSamplerIndex = texInd.value("sampler", -1);
-
-				LvnTextureCreateInfo textureCreateInfo{};
-				if (gltfData->filetype == Lvn_FileType_Gltf)
-				{
-					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
-				}
-				else if (gltfData->filetype == Lvn_FileType_Glb)
-				{
-					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
-					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
-					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
-					uint32_t bvByteLength = bufferview.value("byteLength", 0);
-
-					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
-				}
-
-				// model has samplers
-				if (texSamplerIndex >= 0)
-				{
-					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
-					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
-				}
-				else // default to nearest if no sampler found
-				{
-					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-				}
-
-				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-				textureCreateInfo.format = Lvn_TextureFormat_Srgb;
-
-				LvnTexture* texture;
-				lvn::createTexture(&texture, &textureCreateInfo);
-
-				LvnTextureIndexData textureIndexData = { texture, texSource };
-				gltfData->textureData.push_back(textureIndexData);
-				gltfData->textures.push_back(texture);
-				material.metallicRoughnessOcclusion = texture;
-			}
+			TextureSampler texSamp = gltfs::getTexture(gltfData, texInd);
+			material.metallicRoughnessOcclusion = texSamp.texture;
+			material.mroSampler = texSamp.sampler;
+			
 		}
 		else // create default texture if no texture was found; creates a 1x1 texture, 2 channels, metalic stored in red channel, roughness stored in green channel
 		{
@@ -526,15 +549,14 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
+			textureCreateInfo.sampler = gltfData->defaultSampler;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
 
 			material.metallicRoughnessOcclusion = texture;
+			material.mroSampler = gltfData->defaultSampler;
 			gltfData->textures.push_back(texture);
 		}
 
@@ -542,63 +564,9 @@ namespace gltfs
 		if (accessor.find("normalTexture") != accessor.end())
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["normalTexture"]["index"]];
-			texSource = texInd["source"];
-			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
-
-			bool skip = false;
-			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
-			{
-				if (gltfData->textureData[i].index == texSource)
-				{
-					material.normal = gltfData->textureData[i].texture;
-					skip = true;
-					break;
-				}
-			}
-			if (!skip)
-			{
-				int texSamplerIndex = texInd.value("sampler", -1);
-
-				LvnTextureCreateInfo textureCreateInfo{};
-				if (gltfData->filetype == Lvn_FileType_Gltf)
-				{
-					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
-				}
-				else if (gltfData->filetype == Lvn_FileType_Glb)
-				{
-					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
-					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
-					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
-					uint32_t bvByteLength = bufferview.value("byteLength", 0);
-
-					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
-				}
-
-				// model has samplers
-				if (texSamplerIndex >= 0)
-				{
-					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
-					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
-				}
-				else // default to nearest if no sampler found
-				{
-					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-				}
-
-				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-				textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-
-				LvnTexture* texture;
-				lvn::createTexture(&texture, &textureCreateInfo);
-
-				LvnTextureIndexData textureIndexData = { texture, texSource };
-				gltfData->textureData.push_back(textureIndexData);
-				gltfData->textures.push_back(texture);
-				material.normal = texture;
-			}
+			TextureSampler texSamp = gltfs::getTexture(gltfData, texInd);
+			material.normal = texSamp.texture;
+			material.normalSampler = texSamp.sampler;
 		}
 		else // default normal texture if no texture was found; creates a 1x1 texture, 4 channels (0x8080ffff)
 		{
@@ -612,15 +580,14 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 			textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+			textureCreateInfo.sampler = gltfData->defaultSampler;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
 
 			material.normal = texture;
+			material.normalSampler = gltfData->defaultSampler;
 			gltfData->textures.push_back(texture);
 		}
 
@@ -628,63 +595,9 @@ namespace gltfs
 		if (accessor.find("emissiveTexture") != accessor.end())
 		{
 			nlm::json texInd = JSON["textures"][(uint32_t)accessor["emissiveTexture"]["index"]];
-			texSource = texInd["source"];
-			if (gltfData->filetype == Lvn_FileType_Gltf) { texPath = JSON["images"][texSource]["uri"]; }
-
-			bool skip = false;
-			for (uint32_t i = 0; i < gltfData->textureData.size(); i++)
-			{
-				if (gltfData->textureData[i].index == texSource)
-				{
-					material.emissive = gltfData->textureData[i].texture;
-					skip = true;
-					break;
-				}
-			}
-			if (!skip)
-			{
-				int texSamplerIndex = texInd.value("sampler", -1);
-
-				LvnTextureCreateInfo textureCreateInfo{};
-				if (gltfData->filetype == Lvn_FileType_Gltf)
-				{
-					textureCreateInfo.imageData = lvn::loadImageData((fileDirectory + texPath).c_str(), 4);
-				}
-				else if (gltfData->filetype == Lvn_FileType_Glb)
-				{
-					uint32_t bufferViewIndex = JSON["images"][texSource]["bufferView"];
-					nlm::json bufferview = JSON["bufferViews"][bufferViewIndex];
-					uint32_t bvByteOffset = bufferview.value("byteOffset", 0);
-					uint32_t bvByteLength = bufferview.value("byteLength", 0);
-
-					textureCreateInfo.imageData = lvn::loadImageDataMemory(&gltfData->binData[bvByteOffset], bvByteLength, 4);
-				}
-
-				// model has samplers
-				if (texSamplerIndex >= 0)
-				{
-					uint32_t magFilter = JSON["samplers"][texSamplerIndex]["magFilter"];
-					uint32_t minFilter = JSON["samplers"][texSamplerIndex]["minFilter"];
-					textureCreateInfo.minFilter = gltfs::getTexFilter(minFilter);
-					textureCreateInfo.magFilter = gltfs::getTexFilter(magFilter);
-				}
-				else // default to nearest if no sampler found
-				{
-					textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-					textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-				}
-
-				textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-				textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-
-				LvnTexture* texture;
-				lvn::createTexture(&texture, &textureCreateInfo);
-
-				LvnTextureIndexData textureIndexData = { texture, texSource };
-				gltfData->textureData.push_back(textureIndexData);
-				gltfData->textures.push_back(texture);
-				material.emissive = texture;
-			}
+			TextureSampler texSamp = gltfs::getTexture(gltfData, texInd);
+			material.emissive = texSamp.texture;
+			material.emissiveSampler = texSamp.sampler;
 		}
 		else // default emissive texture if no texture was found
 		{
@@ -698,15 +611,14 @@ namespace gltfs
 
 			LvnTextureCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
-			textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-			textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
 			textureCreateInfo.format = Lvn_TextureFormat_Unorm;
+			textureCreateInfo.sampler = gltfData->defaultSampler;
 
 			LvnTexture* texture;
 			lvn::createTexture(&texture, &textureCreateInfo);
 
 			material.emissive = texture;
+			material.emissiveSampler = gltfData->defaultSampler;
 			gltfData->textures.push_back(texture);
 		}
 
@@ -757,6 +669,7 @@ LvnModel loadGltfModel(const char* filepath)
 
 	LvnModel model{};
 	model.meshes = LvnData(gltfData.meshes.data(), gltfData.meshes.size());
+	model.samplers = LvnData(gltfData.samplers.data(), gltfData.samplers.size());
 	model.textures = LvnData(gltfData.textures.data(), gltfData.textures.size());
 	model.modelMatrix = LvnMat4(1.0f);
 
@@ -792,6 +705,7 @@ LvnModel loadGlbModel(const char* filepath)
 	LvnModel model{};
 	model.meshes = LvnData(gltfData.meshes.data(), gltfData.meshes.size());
 	model.textures = LvnData(gltfData.textures.data(), gltfData.textures.size());
+	model.samplers = LvnData(gltfData.samplers.data(), gltfData.samplers.size());
 	model.modelMatrix = LvnMat4(1.0f);
 
 	return model;

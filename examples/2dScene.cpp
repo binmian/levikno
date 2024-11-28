@@ -36,13 +36,19 @@ int main(int argc, char** argv)
 
 	LvnImageData imageData = lvn::loadImageData("res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
 
+	LvnSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	samplerCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	samplerCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+
+	LvnSampler* sampler;
+	lvn::createSampler(&sampler, &samplerCreateInfo);
+
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = imageData;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.sampler = sampler;
 
 	LvnRendererCreateInfo rendererCreateInfo{};
 	rendererCreateInfo.windowCreateInfo = lvn::windowCreateInfoGetConfig(800, 600, "2dScene");

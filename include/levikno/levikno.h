@@ -248,6 +248,7 @@ enum LvnStructureType
 	Lvn_Stype_Pipeline,
 	Lvn_Stype_Buffer,
 	Lvn_Stype_UniformBuffer,
+	Lvn_Stype_Sampler,
 	Lvn_Stype_Texture,
 	Lvn_Stype_Cubemap,
 	Lvn_Stype_Sound,
@@ -809,6 +810,8 @@ struct LvnRenderer;
 struct LvnRendererCreateInfo;
 struct LvnRenderInitInfo;
 struct LvnRenderPass;
+struct LvnSampler;
+struct LvnSamplerCreateInfo;
 struct LvnServer;
 struct LvnShader;
 struct LvnShaderCreateInfo;
@@ -1366,6 +1369,7 @@ namespace lvn
 	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                            // create framebuffer to render images to
 	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                                // create a single buffer object that can hold both the vertex and index buffers
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                    // create a uniform buffer object to send changing data to the shader pipeline
+	LVN_API LvnResult                   createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo);                                            // create a sampler object to hold texture sampler data
 	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                            // create a texture object to hold image pixel data and sampler
 	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo);                                            // create a cubemap texture object that holds the textures of the cubemap
 	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInfo);                                         // create a cubemap texture object that holds the hdr texture of the cubemap
@@ -1378,6 +1382,7 @@ namespace lvn
 	LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                                  // destroy framebuffer object
 	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                                 // destory buffers object
 	LVN_API void                        destroyUniformBuffer(LvnUniformBuffer* uniformBuffer);                                                            // destroy uniform buffer object
+	LVN_API void                        destroySampler(LvnSampler* sampler);                                                                              // destroy sampler object
 	LVN_API void                        destroyTexture(LvnTexture* texture);                                                                              // destroy texture object
 	LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                              // destroy cubemap object
 
@@ -5289,13 +5294,17 @@ struct LvnImageHdrData
 	uint64_t size;
 };
 
+struct LvnSamplerCreateInfo
+{
+	LvnTextureFilter minFilter, magFilter;
+	LvnTextureMode wrapMode;
+};
+
 struct LvnTextureCreateInfo
 {
 	LvnImageData imageData;
-	LvnTextureFilter minFilter, magFilter;
-	LvnTextureMode wrapMode;
 	LvnTextureFormat format;
-
+	LvnSampler* sampler;
 };
 
 struct LvnVertex
@@ -5322,6 +5331,11 @@ struct LvnMaterial
 	LvnTexture* metallicRoughnessOcclusion;
 	LvnTexture* normal;
 	LvnTexture* emissive;
+
+	LvnSampler* albedoSampler;
+	LvnSampler* mroSampler;
+	LvnSampler* normalSampler;
+	LvnSampler* emissiveSampler;
 };
 
 struct LvnMesh
@@ -5344,6 +5358,7 @@ struct LvnMeshCreateInfo
 struct LvnModel
 {
 	LvnData<LvnMesh> meshes;
+	LvnData<LvnSampler*> samplers;
 	LvnData<LvnTexture*> textures;
 	LvnMat4 modelMatrix;
 };
@@ -5529,6 +5544,7 @@ struct LvnRenderer
 
 	LvnRendererUniformData uniformData2d, uniformDataLine;
 
+	LvnSampler* sampler;
 	LvnTexture* texture;
 };
 

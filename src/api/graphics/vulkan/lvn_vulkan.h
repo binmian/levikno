@@ -20,6 +20,7 @@ namespace lvn
 	LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
+	LvnResult vksImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo);
 	LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
 	LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo);
 	LvnResult vksImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo);
@@ -31,6 +32,7 @@ namespace lvn
 	void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);
 	void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
+	void vksImplDestroySampler(LvnSampler* sampler);
 	void vksImplDestroyTexture(LvnTexture* texture);
 	void vksImplDestroyCubemap(LvnCubemap* cubemap);
 

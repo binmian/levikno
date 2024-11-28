@@ -947,41 +947,41 @@ LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUnifor
 
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
 {
-	uint32_t id;
-	glGenTextures(1, &id);
-	glBindTexture(GL_TEXTURE_2D, id);
-
-	GLenum texWrapMode = ogls::getTextureWrapModeEnum(createInfo->wrapMode);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));
-
-	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
-	GLenum interalFormat = GL_RGB;
-	switch (createInfo->imageData.channels)
-	{
-		case 1: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }
-		case 2: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }
-		case 3: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }
-		case 4: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }
-	}
-
-	glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
-	glGenerateMipmap(GL_TEXTURE_2D);
-	if (ogls::checkErrorCode() == Lvn_Result_Failure)
-	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
-		return Lvn_Result_Failure;
-	}
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	texture->id = id;
-	texture->width = createInfo->imageData.width;
-	texture->height = createInfo->imageData.height;
-
+	/*uint32_t id;*/
+	/*glGenTextures(1, &id);*/
+	/*glBindTexture(GL_TEXTURE_2D, id);*/
+	/**/
+	/*GLenum texWrapMode = ogls::getTextureWrapModeEnum(createInfo->wrapMode);*/
+	/**/
+	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);*/
+	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);*/
+	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));*/
+	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));*/
+	/**/
+	/*GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;*/
+	/*GLenum interalFormat = GL_RGB;*/
+	/*switch (createInfo->imageData.channels)*/
+	/*{*/
+	/*	case 1: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }*/
+	/*	case 2: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }*/
+	/*	case 3: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }*/
+	/*	case 4: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }*/
+	/*}*/
+	/**/
+	/*glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());*/
+	/*glGenerateMipmap(GL_TEXTURE_2D);*/
+	/*if (ogls::checkErrorCode() == Lvn_Result_Failure)*/
+	/*{*/
+	/*	LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());*/
+	/*	return Lvn_Result_Failure;*/
+	/*}*/
+	/**/
+	/*glBindTexture(GL_TEXTURE_2D, 0);*/
+	/**/
+	/*texture->id = id;*/
+	/*texture->width = createInfo->imageData.width;*/
+	/*texture->height = createInfo->imageData.height;*/
+	/**/
 	return Lvn_Result_Success;
 }
 

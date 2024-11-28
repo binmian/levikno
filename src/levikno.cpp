@@ -424,6 +424,7 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 	stInfos[Lvn_Stype_Pipeline]         = { Lvn_Stype_Pipeline, sizeof(LvnPipeline), 64 };
 	stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
 	stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
+	stInfos[Lvn_Stype_Sampler]          = { Lvn_Stype_Sampler, sizeof(LvnSampler), 256 };
 	stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
 	stInfos[Lvn_Stype_Cubemap]          = { Lvn_Stype_Cubemap, sizeof(LvnCubemap), 256 };
 	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
@@ -444,6 +445,7 @@ static const char* getStructTypeEnumStr(LvnStructureType stype)
 		case Lvn_Stype_Pipeline:          { return "LvnPipeline"; }
 		case Lvn_Stype_Buffer:            { return "LvnBuffer"; }
 		case Lvn_Stype_UniformBuffer:     { return "LvnUniformBuffer"; }
+		case Lvn_Stype_Sampler:           { return "LvnSampler"; }
 		case Lvn_Stype_Texture:           { return "LvnTexture"; }
 		case Lvn_Stype_Cubemap:           { return "LvnCubemap"; }
 		case Lvn_Stype_Sound:             { return "LvnSound"; }
@@ -1116,7 +1118,7 @@ LvnResult logInit()
 		lvnctx->coreLogger.logPatterns = lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
 
 
-		#ifdef LVN_PLATFORM_WINDOWS 
+		#ifdef LVN_PLATFORM_WINDOWS
 		enableLogANSIcodeColors();
 		#endif
 
@@ -2264,6 +2266,16 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 	return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
+LvnResult createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	*sampler = lvn::createObject<LvnSampler>(lvnctx, Lvn_Stype_Sampler);
+
+	LVN_CORE_TRACE("created sampler: (%p)");
+	return lvnctx->graphicsContext.createSampler(*sampler, createInfo);
+}
+
 LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
@@ -2414,6 +2426,15 @@ void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 
 	lvnctx->graphicsContext.destroyUniformBuffer(uniformBuffer);
 	lvn::destroyObject(lvnctx, uniformBuffer, Lvn_Stype_UniformBuffer);
+}
+
+void destroySampler(LvnSampler* sampler)
+{
+	if (sampler == nullptr) { return; }
+	LvnContext* lvnctx = lvn::getContext();
+
+	lvnctx->graphicsContext.destroySampler(sampler);
+	lvn::destroyObject(lvnctx, sampler, Lvn_Stype_Sampler);
 }
 
 void destroyTexture(LvnTexture* texture)
@@ -2720,6 +2741,10 @@ void unloadModel(LvnModel* model)
 		lvn::destroyMesh(&model->meshes[i]);
 	}
 	
+	for (uint32_t i = 0; i < model->samplers.size(); i++)
+	{
+		lvn::destroySampler(model->samplers[i]);
+	}
 	for (uint32_t i = 0; i < model->textures.size(); i++)
 	{
 		lvn::destroyTexture(model->textures[i]);
