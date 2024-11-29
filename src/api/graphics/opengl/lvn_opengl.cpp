@@ -528,6 +528,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->createFrameBuffer = oglsImplCreateFrameBuffer;
 	graphicsContext->createBuffer = oglsImplCreateBuffer;
 	graphicsContext->createUniformBuffer = oglsImplCreateUniformBuffer;
+	graphicsContext->createSampler = oglsImplCreateSampler;
 	graphicsContext->createTexture = oglsImplCreateTexture;
 	graphicsContext->createCubemap = oglsImplCreateCubemap;
 	graphicsContext->createCubemapHdr = oglsImplCreateCubemapHdr;
@@ -539,6 +540,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->destroyFrameBuffer = oglsImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = oglsImplDestroyBuffer;
 	graphicsContext->destroyUniformBuffer = oglsImplDestroyUniformBuffer;
+	graphicsContext->destroySampler = oglsImplDestroySampler;
 	graphicsContext->destroyTexture = oglsImplDestroyTexture;
 	graphicsContext->destroyCubemap = oglsImplDestroyCubemap;
 
@@ -794,8 +796,9 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 
 LvnResult oglsImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout)
 {
-	descriptorSet->singleSet = lvn::memAlloc(sizeof(OglDescriptorSet));
-	memcpy(descriptorSet->singleSet, descriptorLayout->descriptorLayout, sizeof(OglDescriptorSet));
+	OglDescriptorSet* oglDescriptorSet = new OglDescriptorSet();
+	*oglDescriptorSet = *static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
+	descriptorSet->singleSet = oglDescriptorSet;
 
 	return Lvn_Result_Success;
 }
@@ -814,7 +817,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 	}
 
 	pipeline->id = shaderProgram;
-	pipeline->nativePipeline = lvn::memAlloc(sizeof(OglPipelineEnums));
+	pipeline->nativePipeline = new OglPipelineEnums();
 
 	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
@@ -945,43 +948,58 @@ LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUnifor
 	return Lvn_Result_Success;
 }
 
+LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo)
+{
+	OglSampler* oglSampler = new OglSampler();
+
+	oglSampler->wrapMode = createInfo->wrapMode;
+	oglSampler->minFilter = createInfo->minFilter;
+	oglSampler->magFilter = createInfo->magFilter;
+
+	sampler->sampler = oglSampler;
+
+	return Lvn_Result_Success;
+}
+
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
 {
-	/*uint32_t id;*/
-	/*glGenTextures(1, &id);*/
-	/*glBindTexture(GL_TEXTURE_2D, id);*/
-	/**/
-	/*GLenum texWrapMode = ogls::getTextureWrapModeEnum(createInfo->wrapMode);*/
-	/**/
-	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);*/
-	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);*/
-	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));*/
-	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));*/
-	/**/
-	/*GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;*/
-	/*GLenum interalFormat = GL_RGB;*/
-	/*switch (createInfo->imageData.channels)*/
-	/*{*/
-	/*	case 1: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }*/
-	/*	case 2: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }*/
-	/*	case 3: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }*/
-	/*	case 4: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }*/
-	/*}*/
-	/**/
-	/*glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());*/
-	/*glGenerateMipmap(GL_TEXTURE_2D);*/
-	/*if (ogls::checkErrorCode() == Lvn_Result_Failure)*/
-	/*{*/
-	/*	LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());*/
-	/*	return Lvn_Result_Failure;*/
-	/*}*/
-	/**/
-	/*glBindTexture(GL_TEXTURE_2D, 0);*/
-	/**/
-	/*texture->id = id;*/
-	/*texture->width = createInfo->imageData.width;*/
-	/*texture->height = createInfo->imageData.height;*/
-	/**/
+	uint32_t id;
+	glGenTextures(1, &id);
+	glBindTexture(GL_TEXTURE_2D, id);
+
+	OglSampler* sampler = static_cast<OglSampler*>(createInfo->sampler->sampler);
+
+	GLenum texWrapMode = ogls::getTextureWrapModeEnum(sampler->wrapMode);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(sampler->minFilter));
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(sampler->magFilter));
+
+	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
+	GLenum interalFormat = GL_RGB;
+	switch (createInfo->imageData.channels)
+	{
+		case 1: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }
+		case 2: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }
+		case 3: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }
+		case 4: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
+	glGenerateMipmap(GL_TEXTURE_2D);
+	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	{
+		LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
+		return Lvn_Result_Failure;
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	texture->id = id;
+	texture->width = createInfo->imageData.width;
+	texture->height = createInfo->imageData.height;
+
 	return Lvn_Result_Success;
 }
 
@@ -1049,12 +1067,13 @@ void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 {
 	OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(descriptorSet->singleSet);
-	lvn::memFree(descriptorSetPtr);
+	delete descriptorSetPtr;
 }
 
 void oglsImplDestroyPipeline(LvnPipeline* pipeline)
 {
-	lvn::memFree(pipeline->nativePipeline);
+	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
+	delete pipelineEnums;
 
 	glDeleteProgram(pipeline->id);
 }
@@ -1087,6 +1106,12 @@ void oglsImplDestroyBuffer(LvnBuffer* buffer)
 void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
 {
 	glDeleteBuffers(1, &uniformBuffer->id);
+}
+
+void oglsImplDestroySampler(LvnSampler* sampler)
+{
+	OglSampler* oglSampler = static_cast<OglSampler*>(sampler->sampler);
+	delete oglSampler;
 }
 
 void oglsImplDestroyTexture(LvnTexture* texture)

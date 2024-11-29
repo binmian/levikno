@@ -20,6 +20,7 @@ namespace lvn
 	LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 	LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo);
 	LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
+	LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo);
 	LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
 	LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo);
 	LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo);
@@ -31,6 +32,7 @@ namespace lvn
 	void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void oglsImplDestroyBuffer(LvnBuffer* buffer);
 	void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
+	void oglsImplDestroySampler(LvnSampler* sampler);
 	void oglsImplDestroyTexture(LvnTexture* texture);
 	void oglsImplDestroyCubemap(LvnCubemap* cubemap);
 
@@ -105,6 +107,12 @@ namespace lvn
 		bool multisampling, hasDepth;
 
 		std::vector<LvnTexture> colorAttachmentTextures;
+	};
+
+	struct OglSampler
+	{
+		LvnTextureMode wrapMode;
+		LvnTextureFilter minFilter, magFilter;
 	};
 
 	struct OglBackends

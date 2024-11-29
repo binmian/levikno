@@ -935,7 +935,8 @@ public:
 
 	virtual void entityDestroyed(LvnEntity entity) override
 	{
-		remove_entity(entity);
+		if (has_entity_with_component(entity))
+			remove_entity(entity);
 	}
 };
 
