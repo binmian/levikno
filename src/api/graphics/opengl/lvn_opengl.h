@@ -76,6 +76,7 @@ namespace lvn
 	{
 		LvnDescriptorType type;
 		uint32_t binding;
+		uint32_t count;
 		uint32_t id;
 	};
 

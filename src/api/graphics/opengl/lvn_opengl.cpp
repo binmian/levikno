@@ -766,8 +766,6 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 	descriptorLayout->descriptorLayout = new OglDescriptorSet();
 	OglDescriptorSet* descriptorSetLayout = static_cast<OglDescriptorSet*>(descriptorLayout->descriptorLayout);
 
-	std::vector<OglDescriptorBinding> uniformDescriptorBindings, textureDescriptorBindings;
-
 	for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
 	{
 		LvnDescriptorType descriptorType = createInfo->pDescriptorBindings[i].descriptorType;
@@ -777,19 +775,17 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 			OglDescriptorBinding descriptorBinding{};
 			descriptorBinding.type = descriptorType;
 			descriptorBinding.binding = createInfo->pDescriptorBindings[i].binding;
-			uniformDescriptorBindings.push_back(descriptorBinding);
+			descriptorSetLayout->uniformBuffers.push_back(descriptorBinding);
 		}
 		else if (descriptorType == Lvn_DescriptorType_Sampler || descriptorType == Lvn_DescriptorType_SampledImage || descriptorType == Lvn_DescriptorType_CombinedImageSampler)
 		{
 			OglDescriptorBinding descriptorBinding{};
 			descriptorBinding.type = descriptorType;
 			descriptorBinding.binding = createInfo->pDescriptorBindings[i].binding;
-			textureDescriptorBindings.push_back(descriptorBinding);
+			descriptorBinding.count = createInfo->pDescriptorBindings[i].descriptorCount;
+			descriptorSetLayout->textures.push_back(descriptorBinding);
 		}
 	}
-
-	descriptorSetLayout->uniformBuffers = std::vector<OglDescriptorBinding>(uniformDescriptorBindings.data(), uniformDescriptorBindings.data() + uniformDescriptorBindings.size());
-	descriptorSetLayout->textures = std::vector<OglDescriptorBinding>(textureDescriptorBindings.data(), textureDescriptorBindings.data() + textureDescriptorBindings.size());
 
 	return Lvn_Result_Success;
 }
@@ -963,31 +959,35 @@ LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* creat
 
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
 {
-	uint32_t id;
-	glGenTextures(1, &id);
-	glBindTexture(GL_TEXTURE_2D, id);
-
 	OglSampler* sampler = static_cast<OglSampler*>(createInfo->sampler->sampler);
 
 	GLenum texWrapMode = ogls::getTextureWrapModeEnum(sampler->wrapMode);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(sampler->minFilter));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(sampler->magFilter));
-
 	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
-	GLenum interalFormat = GL_RGB;
+	GLenum internalFormat = GL_RGB;
 	switch (createInfo->imageData.channels)
 	{
-		case 1: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }
-		case 2: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }
-		case 3: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }
-		case 4: { interalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }
+		case 1: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }
+		case 2: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }
+		case 3: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }
+		case 4: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }
 	}
 
-	glTexImage2D(GL_TEXTURE_2D, 0, interalFormat, createInfo->imageData.width, createInfo->imageData.height, 0, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	uint32_t id;
+	glCreateTextures(GL_TEXTURE_2D, 1, &id);
+	glTextureStorage2D(id, 1, internalFormat, createInfo->imageData.width, createInfo->imageData.height);
+
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(sampler->minFilter));
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(sampler->magFilter));
+
+	glTextureSubImage2D(id, 0, 0, 0, createInfo->imageData.width, createInfo->imageData.height, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
+
 	glGenerateMipmap(GL_TEXTURE_2D);
+
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
@@ -1244,8 +1244,7 @@ void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipelin
 		{
 			LVN_CORE_ASSERT(texCount < oglBackends->maxTextureUnitSlots, "maximum texture unit slots exceeded");
 
-			glActiveTexture(GL_TEXTURE0 + texCount);
-			glBindTexture(GL_TEXTURE_2D, descriptorSetPtr->textures[j].id);
+			glBindTextureUnit(descriptorSetPtr->textures[j].binding, descriptorSetPtr->textures[j].id);
 			texCount++;
 		}
 	}
@@ -1337,11 +1336,11 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 		// texture image
 		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
 		{
-			for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
+			for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 			{
 				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
 				{
-					descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[j]->id;
+					descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
 					texCount++;
 					break;
 				}
