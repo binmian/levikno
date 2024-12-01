@@ -388,6 +388,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
 	LvnResult                   (*createSampler)(LvnSampler*, LvnSamplerCreateInfo*);
 	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
+	LvnResult                   (*createTextureSampler)(LvnTexture*, LvnTextureSamplerCreateInfo*);
 	LvnResult                   (*createCubemap)(LvnCubemap*, LvnCubemapCreateInfo*);
 	LvnResult                   (*createCubemapHdr)(LvnCubemap*, LvnCubemapHdrCreateInfo*);
 
@@ -516,6 +517,8 @@ struct LvnTexture
 
 	uint32_t width, height;
 	uint32_t id;
+
+	bool seperateSampler;
 };
 
 struct LvnFrameBuffer

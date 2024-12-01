@@ -22,6 +22,7 @@ namespace lvn
 	LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
 	LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo);
 	LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
+	LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCreateInfo* createInfo);
 	LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo);
 	LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo);
 

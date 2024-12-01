@@ -223,19 +223,13 @@ int main(int argc, char** argv)
 	// load image data
 	LvnImageData imageData = lvn::loadImageData("res/images/woodBox.jpg", 4, true);
 
-	LvnSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-	samplerCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	samplerCreateInfo.magFilter = Lvn_TextureFilter_Linear;
-
-	LvnSampler* sampler;
-	lvn::createSampler(&sampler, &samplerCreateInfo);
-
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = imageData;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.sampler = sampler;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);
@@ -564,7 +558,6 @@ int main(int argc, char** argv)
 	}
 
 	// destroy objects after they are finished being used
-	lvn::destroySampler(sampler);
 	lvn::destroyTexture(texture);
 	lvn::destroyFrameBuffer(frameBuffer);
 	lvn::destroyBuffer(buffer);

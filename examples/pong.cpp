@@ -403,19 +403,13 @@ int main(int argc, char** argv)
 	// [Create font]
 	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/levikno/examples/res/fonts/PressStart2P.ttf", 32, {32, 126});
 
-	LvnSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-	samplerCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	samplerCreateInfo.magFilter = Lvn_TextureFilter_Linear;
-
-	LvnSampler* sampler;
-	lvn::createSampler(&sampler, &samplerCreateInfo);
-
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = font.atlas;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.sampler = sampler;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);
@@ -686,7 +680,6 @@ int main(int argc, char** argv)
 
 	lvn::destroySound(sound);
 	lvn::destroySound(soundWin);
-	lvn::destroySampler(sampler);
 	lvn::destroyTexture(texture);
 	lvn::destroyBuffer(buffer);
 	lvn::destroyBuffer(fontBuffer);

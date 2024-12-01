@@ -445,7 +445,7 @@ namespace gltfs
 
 		if (!skipTex)
 		{
-			LvnTextureCreateInfo textureCreateInfo{};
+			LvnTextureSamplerCreateInfo textureCreateInfo{};
 			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 			textureCreateInfo.sampler = texSamp.sampler;
 
@@ -515,7 +515,7 @@ namespace gltfs
 			imageData.channels = 4;
 			imageData.size = 4;
 
-			LvnTextureCreateInfo textureCreateInfo{};
+			LvnTextureSamplerCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
 			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 			textureCreateInfo.sampler = gltfData->defaultSampler;
@@ -547,7 +547,7 @@ namespace gltfs
 			imageData.channels = 4;
 			imageData.size = 4;
 
-			LvnTextureCreateInfo textureCreateInfo{};
+			LvnTextureSamplerCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
 			textureCreateInfo.format = Lvn_TextureFormat_Srgb;
 			textureCreateInfo.sampler = gltfData->defaultSampler;
@@ -578,7 +578,7 @@ namespace gltfs
 			imageData.channels = 4;
 			imageData.size = 4;
 
-			LvnTextureCreateInfo textureCreateInfo{};
+			LvnTextureSamplerCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
 			textureCreateInfo.format = Lvn_TextureFormat_Unorm;
 			textureCreateInfo.sampler = gltfData->defaultSampler;
@@ -609,7 +609,7 @@ namespace gltfs
 			imageData.channels = 4;
 			imageData.size = 4;
 
-			LvnTextureCreateInfo textureCreateInfo{};
+			LvnTextureSamplerCreateInfo textureCreateInfo{};
 			textureCreateInfo.imageData = imageData;
 			textureCreateInfo.format = Lvn_TextureFormat_Unorm;
 			textureCreateInfo.sampler = gltfData->defaultSampler;

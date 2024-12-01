@@ -823,6 +823,7 @@ struct LvnSoundCreateInfo;
 struct LvnSprite;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
+struct LvnTextureSamplerCreateInfo;
 struct LvnTriangle;
 struct LvnUniformBuffer;
 struct LvnUniformBufferCreateInfo;
@@ -1370,8 +1371,9 @@ namespace lvn
 	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                            // create framebuffer to render images to
 	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                                // create a single buffer object that can hold both the vertex and index buffers
 	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                    // create a uniform buffer object to send changing data to the shader pipeline
-	LVN_API LvnResult                   createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo);                                            // create a sampler object to hold texture sampler data
-	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                            // create a texture object to hold image pixel data and sampler
+	LVN_API LvnResult                   createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo);                                            // create a sampler object to store texture sampler data
+	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                            // create a texture object to store image data
+	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureSamplerCreateInfo* createInfo);                                     // create a texture object to store image data given a sampler object
 	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo);                                            // create a cubemap texture object that holds the textures of the cubemap
 	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInfo);                                         // create a cubemap texture object that holds the hdr texture of the cubemap
 
@@ -5302,6 +5304,14 @@ struct LvnSamplerCreateInfo
 };
 
 struct LvnTextureCreateInfo
+{
+	LvnImageData imageData;
+	LvnTextureFormat format;
+	LvnTextureFilter minFilter, magFilter;
+	LvnTextureMode wrapMode;
+};
+
+struct LvnTextureSamplerCreateInfo
 {
 	LvnImageData imageData;
 	LvnTextureFormat format;

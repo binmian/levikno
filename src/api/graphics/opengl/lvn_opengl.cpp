@@ -530,6 +530,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->createUniformBuffer = oglsImplCreateUniformBuffer;
 	graphicsContext->createSampler = oglsImplCreateSampler;
 	graphicsContext->createTexture = oglsImplCreateTexture;
+	graphicsContext->createTextureSampler = oglsImplCreateTextureSampler;
 	graphicsContext->createCubemap = oglsImplCreateCubemap;
 	graphicsContext->createCubemapHdr = oglsImplCreateCubemapHdr;
 	
@@ -959,6 +960,51 @@ LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* creat
 
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
 {
+	GLenum texWrapMode = ogls::getTextureWrapModeEnum(createInfo->wrapMode);
+
+	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
+	GLenum internalFormat = GL_RGB;
+	switch (createInfo->imageData.channels)
+	{
+		case 1: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_R8 : GL_R8; format = GL_RED; break; }
+		case 2: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RG8 : GL_RG8; format = GL_RG; break; }
+		case 3: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8; format = GL_RGB; break; }
+		case 4: { internalFormat = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGBA8 : GL_SRGB8_ALPHA8; format = GL_RGBA; break; }
+	}
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	uint32_t id;
+	glCreateTextures(GL_TEXTURE_2D, 1, &id);
+	glTextureStorage2D(id, 1, internalFormat, createInfo->imageData.width, createInfo->imageData.height);
+
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));
+
+	glTextureSubImage2D(id, 0, 0, 0, createInfo->imageData.width, createInfo->imageData.height, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
+
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	{
+		LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
+		return Lvn_Result_Failure;
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	texture->id = id;
+	texture->width = createInfo->imageData.width;
+	texture->height = createInfo->imageData.height;
+	texture->seperateSampler = false;
+
+	return Lvn_Result_Success;
+}
+
+LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCreateInfo* createInfo)
+{
 	OglSampler* sampler = static_cast<OglSampler*>(createInfo->sampler->sampler);
 
 	GLenum texWrapMode = ogls::getTextureWrapModeEnum(sampler->wrapMode);
@@ -999,6 +1045,7 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 	texture->id = id;
 	texture->width = createInfo->imageData.width;
 	texture->height = createInfo->imageData.height;
+	texture->seperateSampler = true;
 
 	return Lvn_Result_Success;
 }

@@ -2286,6 +2286,16 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 	return lvnctx->graphicsContext.createTexture(*texture, createInfo);
 }
 
+LvnResult createTexture(LvnTexture** texture, LvnTextureSamplerCreateInfo* createInfo)
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	*texture = lvn::createObject<LvnTexture>(lvnctx, Lvn_Stype_Texture);
+
+	LVN_CORE_TRACE("created texture (seperate sampler): (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes, sampler object used: (%p)", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize(), createInfo->sampler);
+	return lvnctx->graphicsContext.createTextureSampler(*texture, createInfo);
+}
+
 LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();

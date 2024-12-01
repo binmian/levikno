@@ -22,6 +22,7 @@ namespace lvn
 	LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo);
 	LvnResult vksImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo);
 	LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo);
+	LvnResult vksImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCreateInfo* createInfo);
 	LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo);
 	LvnResult vksImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo);
 

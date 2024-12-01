@@ -31,12 +31,11 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec2 fragTexCoord;
 
-layout(binding = 1) uniform sampler samp;
-layout(binding = 2) uniform texture2D inTextures[2];
+layout(binding = 1) uniform sampler2D inTextures[2];
 
 void main()
 {
-	vec3 color = vec3(texture(sampler2D(inTextures[0], samp), fragTexCoord));
+	vec3 color = vec3(texture(inTextures[0], fragTexCoord));
 	outColor = vec4(color, 1.0);
 }
 )";
@@ -93,7 +92,7 @@ int main(int argc, char** argv)
 
 	// window create info struct
 	LvnWindowCreateInfo windowInfo{};
-	windowInfo.title = "simpleTexture";
+	windowInfo.title = "bindlessTexture";
 	windowInfo.width = 800;
 	windowInfo.height = 600;
 	windowInfo.minWidth = 300;
@@ -108,19 +107,14 @@ int main(int argc, char** argv)
 	LvnImageData imageData = lvn::loadImageData("res/images/debug.png", 4, true);
 	LvnImageData imageData2 = lvn::loadImageData("res/images/woodBox.jpg", 4, true);
 
-	LvnSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
-	samplerCreateInfo.minFilter = Lvn_TextureFilter_Linear;
-	samplerCreateInfo.magFilter = Lvn_TextureFilter_Linear;
-
-	LvnSampler* sampler;
-	lvn::createSampler(&sampler, &samplerCreateInfo);
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = imageData;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.sampler = sampler;
+	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
+	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
 	LvnTexture* texture;
 	lvn::createTexture(&texture, &textureCreateInfo);
@@ -197,23 +191,16 @@ int main(int argc, char** argv)
 	descriptorBindingUniform.descriptorCount = 1;
 	descriptorBindingUniform.maxAllocations = 1;
 
-	LvnDescriptorBinding descriptorBindingSampler{};
-	descriptorBindingSampler.binding = 1;
-	descriptorBindingSampler.descriptorType = Lvn_DescriptorType_Sampler;
-	descriptorBindingSampler.shaderStage = Lvn_ShaderStage_Fragment;
-	descriptorBindingSampler.descriptorCount = 1;
-	descriptorBindingSampler.maxAllocations = 1;
-
 	LvnDescriptorBinding descriptorBindingTexture{};
-	descriptorBindingTexture.binding = 2;
-	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_SampledImage;
+	descriptorBindingTexture.binding = 1;
+	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
 	descriptorBindingTexture.shaderStage = Lvn_ShaderStage_Fragment;
 	descriptorBindingTexture.descriptorCount = 2;
 	descriptorBindingTexture.maxAllocations = 1;
 
 	LvnDescriptorBinding descriptorBindings[] =
 	{
-		descriptorBindingUniform, descriptorBindingSampler, descriptorBindingTexture,
+		descriptorBindingUniform, descriptorBindingTexture,
 	};
 
 	// descriptor layout create info
@@ -276,23 +263,17 @@ int main(int argc, char** argv)
 	descriptorUniformUpdateInfo.descriptorCount = 1;
 	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
-	LvnDescriptorUpdateInfo descriptorSamplerUpdateInfo{};
-	descriptorSamplerUpdateInfo.descriptorType = Lvn_DescriptorType_Sampler;
-	descriptorSamplerUpdateInfo.binding = 1;
-	descriptorSamplerUpdateInfo.descriptorCount = 1;
-	descriptorSamplerUpdateInfo.pTextureInfos = &texture;
-
 	LvnTexture* textures[] = { texture, texture2 };
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_SampledImage;
-	descriptorTextureUpdateInfo.binding = 2;
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.binding = 1;
 	descriptorTextureUpdateInfo.descriptorCount = 2;
 	descriptorTextureUpdateInfo.pTextureInfos = textures;
 
 	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
 	{
-		descriptorUniformUpdateInfo, descriptorSamplerUpdateInfo, descriptorTextureUpdateInfo,
+		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
 	};
 
 	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
@@ -343,7 +324,6 @@ int main(int argc, char** argv)
 	}
 
 	// destroy objects after they are finished being used
-	lvn::destroySampler(sampler);
 	lvn::destroyTexture(texture);
 	lvn::destroyTexture(texture2);
 	lvn::destroyBuffer(buffer);

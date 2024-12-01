@@ -2037,6 +2037,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->createUniformBuffer = vksImplCreateUniformBuffer;
 	graphicsContext->createSampler = vksImplCreateSampler;
 	graphicsContext->createTexture = vksImplCreateTexture;
+	graphicsContext->createTextureSampler = vksImplCreateTextureSampler;
 	graphicsContext->createCubemap = vksImplCreateCubemap;
 	graphicsContext->createCubemapHdr = vksImplCreateCubemapHdr;
 	
@@ -3205,6 +3206,124 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 		return Lvn_Result_Failure;
 	}
 
+	// sampler
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.minFilter = vks::getTextureFilterEnum(createInfo->minFilter);
+	samplerInfo.magFilter = vks::getTextureFilterEnum(createInfo->magFilter);
+
+	VkSamplerAddressMode addressMode = vks::getTextureWrapModeEnum(createInfo->wrapMode);
+	samplerInfo.addressModeU = addressMode;
+	samplerInfo.addressModeV = addressMode;
+	samplerInfo.addressModeW = addressMode;
+
+	if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
+	{
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = vkBackends->deviceProperties.limits.maxSamplerAnisotropy;
+	}
+	else
+	{
+		samplerInfo.anisotropyEnable = VK_FALSE;
+		samplerInfo.maxAnisotropy = 1.0f;
+	}
+
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	VkSampler textureSampler;
+	if (vkCreateSampler(vkBackends->device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create texture sampler <VkSampler> (%p)", textureSampler);
+		return Lvn_Result_Failure;
+	}
+
+	texture->image = textureImage;
+	texture->imageMemory = textureImageMemory;
+	texture->imageView = imageView;
+	texture->sampler = textureSampler;
+	texture->width = createInfo->imageData.width;
+	texture->height = createInfo->imageData.height;
+	texture->seperateSampler = false;
+
+	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+	vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+
+	return Lvn_Result_Success;
+}
+
+LvnResult vksImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCreateInfo* createInfo)
+{
+	VulkanBackends* vkBackends = s_VkBackends;
+
+	VkBuffer stagingBuffer;
+	VmaAllocation stagingBufferMemory;
+	VkDeviceSize imageSize = createInfo->imageData.pixels.memsize();
+
+	vks::createBuffer(vkBackends, &stagingBuffer, &stagingBufferMemory, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	void* data;
+	vmaMapMemory(vkBackends->vmaAllocator, stagingBufferMemory, &data);
+	memcpy(data, createInfo->imageData.pixels.data(), imageSize);
+	vmaUnmapMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+
+	VkFormat format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+	switch (createInfo->imageData.channels)
+	{
+		case 1: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB; break; }
+		case 2: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB; break; }
+		case 4: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB; break; }
+	}
+
+	// create texture image
+	VkImage textureImage;
+	VmaAllocation textureImageMemory;
+
+	if (vks::createImage(vkBackends, 
+		&textureImage,
+		&textureImageMemory,
+		createInfo->imageData.width,
+		createInfo->imageData.height,
+		format,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_SAMPLE_COUNT_1_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create texture image <VkImage> for texture (%p)", texture);
+		return Lvn_Result_Failure;
+	}
+
+	// transition buffer to image
+	vks::transitionImageLayout(vkBackends, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+	vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, createInfo->imageData.width, createInfo->imageData.height, 1);
+	vks::transitionImageLayout(vkBackends, textureImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+
+
+	// texture image view
+	VkImageViewCreateInfo viewInfo{};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = textureImage;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewInfo.format = format;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 1;
+
+	VkImageView imageView;
+	if (vkCreateImageView(vkBackends->device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create texture image view <VkImageView> for texture (%p)", texture);
+		return Lvn_Result_Failure;
+	}
 
 	texture->image = textureImage;
 	texture->imageMemory = textureImageMemory;
@@ -3212,6 +3331,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	texture->sampler = createInfo->sampler->sampler;
 	texture->width = createInfo->imageData.width;
 	texture->height = createInfo->imageData.height;
+	texture->seperateSampler = true;
 
 	vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
@@ -3599,6 +3719,12 @@ void vksImplDestroyTexture(LvnTexture* texture)
 	vkDestroyImage(vkBackends->device, image, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, imageMemory);;
 	vkDestroyImageView(vkBackends->device, imageView, nullptr);
+
+	if (!texture->seperateSampler)
+	{
+		VkSampler textureSampler = static_cast<VkSampler>(texture->sampler);
+		vkDestroySampler(vkBackends->device, textureSampler, nullptr);
+	}
 }
 
 void vksImplDestroyCubemap(LvnCubemap* cubemap)
