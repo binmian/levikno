@@ -2,7 +2,6 @@
 #include "levikno_internal.h"
 
 #include <ctime>
-#include <unistd.h>
 
 #include "stb_image.h"
 #include "miniaudio.h"

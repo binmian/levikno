@@ -58,7 +58,7 @@ layout(location = 2) in vec2 inTexCoord;
 layout(location = 0) out vec3 fragColor;
 
 
-layout (binding = 0) uniform ObjectBuffer 
+layout (binding = 0) uniform ObjectBuffer
 {
 	mat4 matrix;
 } ubo;

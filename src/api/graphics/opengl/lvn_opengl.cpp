@@ -24,6 +24,7 @@ namespace ogls
 	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
 	static GLenum             getCompareOpEnum(LvnCompareOperation compareOp);
 	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
+	static GLenum             getUniformBufferTypeEnum(LvnBufferType type);
 	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
 
 	static LvnResult checkErrorCode()
@@ -280,6 +281,20 @@ namespace ogls
 			{
 				LVN_CORE_WARN("invalid topology type enum, setting topology type to GL_TRIANGLES");
 				return GL_TRIANGLES;
+			}
+		}
+	}
+
+	static GLenum getUniformBufferTypeEnum(LvnDescriptorType type)
+	{
+		switch (type)
+		{
+			case Lvn_BufferType_Uniform: { return GL_UNIFORM_BUFFER; }
+			case Lvn_BufferType_Storage: { return GL_SHADER_STORAGE_BUFFER; }
+			default:
+			{
+				LVN_CORE_ERROR("invalid uniform buffer type, setting buffer type to GL_UNIFORM_BUFFER");
+				return GL_UNIFORM_BUFFER;
 			}
 		}
 	}
@@ -913,31 +928,9 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 
 LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
 {
-	GLenum bufferType = GL_UNIFORM_BUFFER;
-
-	switch (createInfo->type)
-	{
-		case Lvn_BufferType_Uniform:
-		{
-			bufferType = GL_UNIFORM_BUFFER;
-			break;
-		}
-		case Lvn_BufferType_Storage:
-		{
-			bufferType = GL_SHADER_STORAGE_BUFFER;
-			break;
-		}
-		default:
-		{
-			LVN_CORE_ERROR("unknown buffer type (%u) when creating uniform buffer at (%p)", createInfo->type, uniformBuffer);
-			return Lvn_Result_Failure;
-		}
-	}
-
 	uint32_t id;
 	glCreateBuffers(1, &id);
 	glNamedBufferData(id, createInfo->size, nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(bufferType, createInfo->binding, id);
 
 	uniformBuffer->id = id;
 	uniformBuffer->size = createInfo->size;
@@ -1287,6 +1280,11 @@ void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipelin
 	{
 		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(pDescriptorSet[i]->singleSet);
 
+		for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
+		{
+			glBindBufferBase(ogls::getUniformBufferTypeEnum(descriptorSetPtr->uniformBuffers[j].type), descriptorSetPtr->uniformBuffers[j].binding, descriptorSetPtr->uniformBuffers[j].id);
+		}
+
 		for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 		{
 			LVN_CORE_ASSERT(texCount < oglBackends->maxTextureUnitSlots, "maximum texture unit slots exceeded");
@@ -1387,7 +1385,13 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 			{
 				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
 				{
-					descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
+					if (pUpdateInfo[i].descriptorCount > 1)
+					{
+						
+					}
+					else
+						descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
+
 					texCount++;
 					break;
 				}
