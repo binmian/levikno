@@ -81,10 +81,18 @@ namespace lvn
 		uint32_t id;
 	};
 
+	struct OglBindlessTextureBinding
+	{
+		uint32_t ssbo;
+		uint32_t binding;
+		std::vector<uint64_t> textureHandles;
+	};
+
 	struct OglDescriptorSet
 	{
 		std::vector<OglDescriptorBinding> uniformBuffers;
 		std::vector<OglDescriptorBinding> textures;
+		std::vector<OglBindlessTextureBinding> bindlessTextures;
 	};
 
 	struct OglPipelineEnums

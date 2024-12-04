@@ -1107,6 +1107,18 @@ void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
 {
 	OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(descriptorSet->singleSet);
+
+	for (const OglBindlessTextureBinding& bindlessTexBinding : descriptorSetPtr->bindlessTextures)
+	{
+		for (const uint64_t& handle : bindlessTexBinding.textureHandles)
+		{
+			glMakeTextureHandleNonResidentARB(handle);
+		}
+
+		glDeleteBuffers(1, &bindlessTexBinding.ssbo);
+	}
+	descriptorSetPtr->bindlessTextures.clear();
+
 	delete descriptorSetPtr;
 }
 
@@ -1280,17 +1292,30 @@ void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipelin
 	{
 		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(pDescriptorSet[i]->singleSet);
 
+		// uniform/storage buffers
 		for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
 		{
 			glBindBufferBase(ogls::getUniformBufferTypeEnum(descriptorSetPtr->uniformBuffers[j].type), descriptorSetPtr->uniformBuffers[j].binding, descriptorSetPtr->uniformBuffers[j].id);
 		}
 
+		// textures
 		for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 		{
 			LVN_CORE_ASSERT(texCount < oglBackends->maxTextureUnitSlots, "maximum texture unit slots exceeded");
 
 			glBindTextureUnit(descriptorSetPtr->textures[j].binding, descriptorSetPtr->textures[j].id);
 			texCount++;
+		}
+
+		// bindless textures
+		for (const OglBindlessTextureBinding& bindlessTextureBinding : descriptorSetPtr->bindlessTextures)
+		{
+			for (const uint64_t& handle : bindlessTextureBinding.textureHandles)
+			{
+				glMakeTextureHandleResidentARB(handle);
+			}
+
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindlessTextureBinding.binding, bindlessTextureBinding.ssbo);
 		}
 	}
 }
@@ -1363,6 +1388,18 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 
 	OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(descriptorSet->singleSet);
 
+	// clean up bindless texture on previous updates
+	for (const OglBindlessTextureBinding& bindlessTexBinding : descriptorSetPtr->bindlessTextures)
+	{
+		for (const uint64_t& handle : bindlessTexBinding.textureHandles)
+		{
+			glMakeTextureHandleNonResidentARB(handle);
+		}
+
+		glDeleteBuffers(1, &bindlessTexBinding.ssbo);
+	}
+	descriptorSetPtr->bindlessTextures.clear();
+
 	for (uint32_t i = 0; i < count; i++)
 	{
 		// uniform buffer
@@ -1381,19 +1418,40 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 		// texture image
 		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
 		{
-			for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
+			// bindless textures; note they are created/added during descriptor update
+			if (pUpdateInfo[i].descriptorCount > 1)
 			{
-				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
+				OglBindlessTextureBinding bindlessTexture{};
+				for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
 				{
-					if (pUpdateInfo[i].descriptorCount > 1)
+					// iterate through the textures and get the texture handles
+					uint32_t texId = pUpdateInfo[i].pTextureInfos[j]->id;
+					GLuint64 handle = glGetTextureHandleARB(texId);
+					if (!handle)
 					{
-						
+						LVN_CORE_ERROR("[opengl] failed to get texture handle for bindless texturing, texture id: (%u)", texId);
+						return;
 					}
-					else
-						descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
+					bindlessTexture.textureHandles.push_back(handle);
+				}
 
-					texCount++;
-					break;
+				glCreateBuffers(1, &bindlessTexture.ssbo);
+				glNamedBufferData(bindlessTexture.ssbo, bindlessTexture.textureHandles.size() * sizeof(uint64_t), bindlessTexture.textureHandles.data(), GL_DYNAMIC_DRAW);
+				bindlessTexture.binding = pUpdateInfo[i].binding;
+				descriptorSetPtr->bindlessTextures.push_back(bindlessTexture);
+			}
+
+			// textures
+			else
+			{
+				for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
+				{
+					if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
+					{
+						descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
+						texCount++;
+						break;
+					}
 				}
 			}
 		}
