@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 
 	lvn::renderInit(&renderInfo);
 
-	LvnImageData imageData = lvn::loadImageData("res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
+	LvnImageData imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/debug.png", 4, true); // NOTE: image data is loaded as an argument
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
@@ -51,7 +51,9 @@ int main(int argc, char** argv)
 	LvnRenderer renderer{};
 	lvn::rendererInit(&renderer, &rendererCreateInfo);
 
-	LvnSprite sprite = lvn::createSprite(&renderer, &textureCreateInfo, { -200.0f, -200.0f });
+	LvnSprite sprite = lvn::createSprite(&textureCreateInfo, { -200.0f, -200.0f });
+
+	lvn::rendererAddSprite(&renderer, &sprite);
 
 	while (lvn::windowOpen(renderer.window))
 	{

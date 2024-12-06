@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 
 	LvnDescriptorBinding descriptorBindingTexture{};
 	descriptorBindingTexture.binding = 1;
-	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_ImageSamplerBindless;
 	descriptorBindingTexture.shaderStage = Lvn_ShaderStage_Fragment;
 	descriptorBindingTexture.descriptorCount = 2;
 	descriptorBindingTexture.maxAllocations = 1;
@@ -266,7 +266,7 @@ int main(int argc, char** argv)
 	LvnTexture* textures[] = { texture, texture2 };
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSamplerBindless;
 	descriptorTextureUpdateInfo.binding = 1;
 	descriptorTextureUpdateInfo.descriptorCount = 2;
 	descriptorTextureUpdateInfo.pTextureInfos = textures;

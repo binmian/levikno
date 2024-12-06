@@ -349,7 +349,7 @@ int main(int argc, char** argv)
 
 	LvnDescriptorBinding descriptorTextureBinding{};
 	descriptorTextureBinding.binding = 1;
-	descriptorTextureBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureBinding.descriptorType = Lvn_DescriptorType_ImageSampler;
 	descriptorTextureBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	descriptorTextureBinding.descriptorCount = 1;
 	descriptorTextureBinding.maxAllocations = 1;
@@ -431,7 +431,7 @@ int main(int argc, char** argv)
 	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	descriptorTextureUpdateInfo.binding = 1;
 	descriptorTextureUpdateInfo.descriptorCount = 1;
 	descriptorTextureUpdateInfo.pTextureInfos = &texture;

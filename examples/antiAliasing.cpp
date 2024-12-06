@@ -108,7 +108,7 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 
 	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(data->frameBuffer, 0);
 
-	fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	fbDescriptorUpdateInfo.binding = 1;
 	fbDescriptorUpdateInfo.descriptorCount = 1;
 	fbDescriptorUpdateInfo.pTextureInfos = &frameBufferImage;
@@ -342,7 +342,7 @@ int main(int argc, char** argv)
 
 	LvnDescriptorBinding descriptorBindingTexture{};
 	descriptorBindingTexture.binding = 1;
-	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_ImageSampler;
 	descriptorBindingTexture.shaderStage = Lvn_ShaderStage_Fragment;
 	descriptorBindingTexture.descriptorCount = 1;
 	descriptorBindingTexture.maxAllocations = 1;
@@ -452,7 +452,7 @@ int main(int argc, char** argv)
 	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	descriptorTextureUpdateInfo.binding = 1;
 	descriptorTextureUpdateInfo.descriptorCount = 1;
 	descriptorTextureUpdateInfo.pTextureInfos = &texture;

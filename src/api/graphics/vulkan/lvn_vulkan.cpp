@@ -1258,9 +1258,8 @@ namespace vks
 	{
 		switch (type)
 		{
-			case Lvn_DescriptorType_Sampler: { return VK_DESCRIPTOR_TYPE_SAMPLER; }
-			case Lvn_DescriptorType_CombinedImageSampler: { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; }
-			case Lvn_DescriptorType_SampledImage: { return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE; }
+			case Lvn_DescriptorType_ImageSampler: { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; }
+			case Lvn_DescriptorType_ImageSamplerBindless: { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; }
 			case Lvn_DescriptorType_UniformBuffer: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
 			case Lvn_DescriptorType_StorageBuffer: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
 
@@ -3830,9 +3829,8 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 		VkDescriptorBufferInfo bufferInfo{};
 		std::vector<VkDescriptorImageInfo> imageInfos(pUpdateInfo[i].descriptorCount);
 
-		if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler ||
-			pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage ||
-			pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+		if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler ||
+			pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
 		{
 			for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
 			{
@@ -3862,9 +3860,8 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 			}
 
 			// if descriptor using textures
-			else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler ||
-				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage ||
-				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+			else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler ||
+				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
 			{
 				descriptorWrite.pImageInfo = imageInfos.data();
 			}

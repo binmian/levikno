@@ -35,11 +35,11 @@ layout(location = 0) out vec4 outColor;
 layout(location = 0) in vec2 fragTexCoord;
 layout(location = 1) in vec4 fragColor;
 
-layout(binding = 1) uniform sampler2D inTexture;
+layout(binding = 1) uniform sampler2D inTextures[];
 
 void main()
 {
-	vec3 color = vec3(texture(inTexture, fragTexCoord) * fragColor);
+	vec3 color = vec3(texture(inTextures[0], fragTexCoord) * fragColor);
 	outColor = vec4(color, fragColor.a);
 }
 )";
@@ -47,16 +47,20 @@ void main()
 static const char* s_Renderer2dDefaultFragmentShaderCodeTypeOgl = R"(
 #version 460
 
+#extension GL_ARB_bindless_texture : require
+
 layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec2 fragTexCoord;
 layout(location = 1) in vec4 fragColor;
 
-uniform sampler2D inTexture;
+layout(binding = 1, std430) readonly buffer textureSsbo {
+	sampler2D inTextures[];
+};
 
 void main()
 {
-	vec3 color = vec3(texture(inTexture, fragTexCoord) * fragColor);
+	vec3 color = vec3(texture(inTextures[0], fragTexCoord) * fragColor);
 	outColor = vec4(color, fragColor.a);
 }
 )";
@@ -108,7 +112,7 @@ static LvnResult initRenderer2d(LvnRenderer* renderer, LvnRendererModeData* mode
 {
 	modeData->maxVertexCount = 1024;
 	modeData->maxIndexCount = 1024;
-	modeData->maxTextures = renderer->maxSprites == 0 ? 16 : renderer->maxSprites;
+	modeData->maxTextures = 16;
 	modeData->drawFunc = drawRenderer2d;
 	modeData->mode = Lvn_RendererMode_2d;
 
@@ -183,10 +187,10 @@ static LvnResult initRenderer2d(LvnRenderer* renderer, LvnRendererModeData* mode
 
 	LvnDescriptorBinding descriptorBindingTexture{};
 	descriptorBindingTexture.binding = 1;
-	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorBindingTexture.descriptorType = Lvn_DescriptorType_ImageSamplerBindless;
 	descriptorBindingTexture.shaderStage = Lvn_ShaderStage_Fragment;
-	descriptorBindingTexture.descriptorCount = 1;
-	descriptorBindingTexture.maxAllocations = modeData->maxTextures;
+	descriptorBindingTexture.descriptorCount = modeData->maxTextures;
+	descriptorBindingTexture.maxAllocations = 1;
 
 	LvnDescriptorBinding descriptorBindings[] =
 	{
@@ -197,7 +201,7 @@ static LvnResult initRenderer2d(LvnRenderer* renderer, LvnRendererModeData* mode
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
 	descriptorLayoutCreateInfo.pDescriptorBindings = descriptorBindings;
 	descriptorLayoutCreateInfo.descriptorBindingCount = LVN_ARRAY_LEN(descriptorBindings);
-	descriptorLayoutCreateInfo.maxSets = modeData->maxTextures;
+	descriptorLayoutCreateInfo.maxSets = 1;
 
 	// create descriptor layout and set
 	if (lvn::createDescriptorLayout(&modeData->descriptorLayout, &descriptorLayoutCreateInfo) != Lvn_Result_Success)
@@ -272,11 +276,13 @@ static LvnResult initRenderer2d(LvnRenderer* renderer, LvnRendererModeData* mode
 	descriptorUniformUpdateInfo.descriptorCount = 1;
 	descriptorUniformUpdateInfo.bufferInfo = modeData->uniformBuffer;
 
+	std::vector<LvnTexture*> defaultTextures(modeData->maxTextures, renderer->texture);
+
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSamplerBindless;
 	descriptorTextureUpdateInfo.binding = 1;
-	descriptorTextureUpdateInfo.descriptorCount = 1;
-	descriptorTextureUpdateInfo.pTextureInfos = &renderer->texture;
+	descriptorTextureUpdateInfo.descriptorCount = defaultTextures.size();
+	descriptorTextureUpdateInfo.pTextureInfos = defaultTextures.data();
 
 	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
 	{
@@ -505,7 +511,6 @@ LvnResult rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo)
 
 	renderer->backGroundColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 	renderer->renderModes = createInfo->rendererModes;
-	renderer->maxSprites = createInfo->maxSprites;
 
 	LvnRendererModeData modeData2d{};
 
@@ -558,6 +563,21 @@ void rendererTerminate(LvnRenderer* renderer)
 
 void rendererBeginDraw(LvnRenderer* renderer)
 {
+	if (renderer->currentSpriteCount != renderer->spriteTextures.size())
+	{
+		renderer->currentSpriteCount = renderer->spriteTextures.size();
+
+		LvnRendererModeData* modeData = renderer->rendererModesIndices[Lvn_RendererMode_2d];
+
+		LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
+		descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSamplerBindless;
+		descriptorTextureUpdateInfo.binding = 1;
+		descriptorTextureUpdateInfo.descriptorCount = renderer->spriteTextures.size();
+		descriptorTextureUpdateInfo.pTextureInfos = renderer->spriteTextures.data();
+
+		lvn::updateDescriptorSetData(modeData->descriptorSet, &descriptorTextureUpdateInfo, 1);
+	}
+
 	lvn::windowUpdate(renderer->window);
 
 	lvn::renderBeginNextFrame(renderer->window);
@@ -604,6 +624,28 @@ void rendererFlushDrawMode(LvnRenderer* renderer, LvnRendererMode renderMode)
 void rendererSetBackgroundColor(LvnRenderer* renderer, float r, float g, float b, float a)
 {
 	renderer->backGroundColor = { r, g, b, a };
+}
+
+void rendererAddSprite(LvnRenderer* renderer, LvnSprite* sprite)
+{
+	if (!renderer->availableSpriteIndices.empty())
+	{
+		uint32_t index = renderer->availableSpriteIndices.front();
+		renderer->availableSpriteIndices.pop();
+
+		renderer->spriteTextures[index] = sprite->texture;
+		renderer->spriteTexturesIndices[sprite->id] = sprite->texture - renderer->spriteTextures.front();
+		return;
+	}
+
+	renderer->spriteTextures.push_back(sprite->texture);
+	renderer->spriteTexturesIndices[sprite->id] = renderer->spriteTextures.size() - 1;
+}
+
+void rendererRemoveSprite(LvnRenderer* renderer, LvnSprite* sprite)
+{
+	LvnTexture* texture = renderer->spriteTextures[renderer->spriteTexturesIndices[sprite->id]];
+	renderer->availableSpriteIndices.push(texture - renderer->spriteTextures.front());
 }
 
 void drawTriangle(LvnRenderer* renderer, const LvnTriangle& triangle, const LvnColor& color)
@@ -731,6 +773,7 @@ void drawSprite(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color)
 
 void drawSpriteEx(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color, float scale, float rotation)
 {
+
 	float width = static_cast<float>(sprite.texture->width);
 	float height = static_cast<float>(sprite.texture->height);
 	LvnVec2 bl = sprite.pos;
@@ -756,61 +799,40 @@ void drawSpriteEx(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& colo
 
 	LvnRendererModeData* modeData = renderer->rendererModesIndices[Lvn_RendererMode_2d];
 
-	lvn::updateUniformBufferData(renderer->window, modeData->uniformBuffer, &renderer->uniformData2d, sizeof(renderer->uniformData2d));
+	LvnDrawCommand drawCmd{};
+	drawCmd.pVertices = vertices;
+	drawCmd.vertexAttributeCount = 8;
+	drawCmd.vertexCount = 4;
+	drawCmd.pIndices = indices;
+	drawCmd.indexCount = 6;
 
-	lvn::bufferUpdateVertexData(modeData->buffer, vertices, sizeof(vertices), 0);
-	lvn::bufferUpdateIndexData(modeData->buffer, indices, sizeof(indices), 0);
-
-	lvn::renderCmdBindPipeline(renderer->window, modeData->pipeline);
-	lvn::renderCmdBindDescriptorSets(renderer->window, modeData->pipeline, 0, 1, &sprite.descriptorSet);
-
-	lvn::renderCmdBindVertexBuffer(renderer->window, modeData->buffer);
-	lvn::renderCmdBindIndexBuffer(renderer->window, modeData->buffer);
-
-	lvn::renderCmdDrawIndexed(renderer->window, LVN_ARRAY_LEN(indices));
+	renderer->rendererModesIndices[Lvn_RendererMode_2d]->drawList.push_back(drawCmd);
 }
 
-LvnSprite createSprite(LvnRenderer* renderer, LvnTextureCreateInfo* createInfo, const LvnVec2& pos)
+LvnSprite createSprite(LvnTextureCreateInfo* createInfo, const LvnVec2& pos)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	LvnTexture* texture;
 	lvn::createTexture(&texture, createInfo);
 
-	LvnRendererModeData* modeData = renderer->rendererModesIndices[Lvn_RendererMode_2d];
-
-	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, modeData->descriptorLayout);
-
-	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
-	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorUniformUpdateInfo.binding = 0;
-	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = modeData->uniformBuffer;
-
-	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
-	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
-	descriptorTextureUpdateInfo.binding = 1;
-	descriptorTextureUpdateInfo.descriptorCount = 1;
-	descriptorTextureUpdateInfo.pTextureInfos = &texture;
-
-	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
+	LvnSprite sprite =
 	{
-		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
+		texture,
+		pos,
+		lvnctx->spriteIDs.take_next()
 	};
-
-	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfos, LVN_ARRAY_LEN(descriptorUpdateInfos));
-
-	LvnSprite sprite{};
-	sprite.texture = texture;
-	sprite.descriptorSet = descriptorSet;
-	sprite.pos = pos;
 
 	return sprite;
 }
 
 void destroySprite(LvnSprite* sprite)
 {
+	LvnContext* lvnctx = lvn::getContext();
+	if (!lvnctx->spriteIDs.push_back(sprite->id))
+		LVN_CORE_ASSERT(false, "sprite does not have a valid id that is being used");
+
 	lvn::destroyTexture(sprite->texture);
-	lvn::destroyDescriptorSet(sprite->descriptorSet);
 }
 
 } /* namespace lvn */

@@ -518,7 +518,7 @@ LvnDescriptorBinding textureBinding(uint32_t binding, uint32_t maxAllocations)
 {
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = binding;
-	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_ImageSampler;
 	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	combinedImageDescriptorBinding.descriptorCount = 1;
 	combinedImageDescriptorBinding.maxAllocations = maxAllocations;
@@ -536,7 +536,7 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 
 	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(data->frameBuffer, 0);
 
-	fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	fbDescriptorUpdateInfo.binding = 1;
 	fbDescriptorUpdateInfo.descriptorCount = 1;
 	fbDescriptorUpdateInfo.pTextureInfos = &frameBufferImage;
@@ -712,7 +712,7 @@ int main()
 
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = 1;
-	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	combinedImageDescriptorBinding.descriptorType = Lvn_DescriptorType_ImageSampler;
 	combinedImageDescriptorBinding.shaderStage = Lvn_ShaderStage_Fragment;
 	combinedImageDescriptorBinding.descriptorCount = 1;
 	combinedImageDescriptorBinding.maxAllocations = 256;
@@ -910,7 +910,7 @@ int main()
 
 	// update descriptor sets
 	LvnDescriptorUpdateInfo fbDescriptorTextureUpdateInfo{};
-	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	fbDescriptorTextureUpdateInfo.binding = 1;
 	fbDescriptorTextureUpdateInfo.descriptorCount = 1;
 	fbDescriptorTextureUpdateInfo.pTextureInfos = &frameBufferImage;
@@ -926,7 +926,7 @@ int main()
 	cubemapDescriptorUniformUpdateInfo.bufferInfo = cubemapUniformBuffer;
 
 	LvnDescriptorUpdateInfo cubemapDescriptorTextureUpdateInfo{};
-	cubemapDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_CombinedImageSampler;
+	cubemapDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	cubemapDescriptorTextureUpdateInfo.binding = 1;
 	cubemapDescriptorTextureUpdateInfo.descriptorCount = 1;
 	cubemapDescriptorTextureUpdateInfo.pTextureInfos = &cubemapTexture;
@@ -957,10 +957,10 @@ int main()
 		{
 			descriptorPbrUniformUpdateInfo,
 			descriptorUniformUpdateInfo,
-			{ 2, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.albedo },
-			{ 3, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.metallicRoughnessOcclusion },
-			{ 4, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.normal },
-			{ 5, Lvn_DescriptorType_CombinedImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.emissive },
+			{ 2, Lvn_DescriptorType_ImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.albedo },
+			{ 3, Lvn_DescriptorType_ImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.metallicRoughnessOcclusion },
+			{ 4, Lvn_DescriptorType_ImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.normal },
+			{ 5, Lvn_DescriptorType_ImageSampler, 1, nullptr, &lvnmodel.meshes[i].material.emissive },
 		};
 
 		lvn::updateDescriptorSetData(lvnmodel.meshes[i].descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());

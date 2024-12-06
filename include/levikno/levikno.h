@@ -604,17 +604,10 @@ enum LvnDepthImageFormat
 enum LvnDescriptorType
 {
 	Lvn_DescriptorType_None = 0,
-	Lvn_DescriptorType_Sampler,
-	Lvn_DescriptorType_CombinedImageSampler,
-	Lvn_DescriptorType_SampledImage,
+	Lvn_DescriptorType_ImageSampler,
+	Lvn_DescriptorType_ImageSamplerBindless,
 	Lvn_DescriptorType_UniformBuffer,
 	Lvn_DescriptorType_StorageBuffer,
-	// Lvn_DescriptorType_StorageImage,
-	// Lvn_DescriptorType_UniformTexelBuffer,
-	// Lvn_DescriptorType_StorageTexelBuffer,
-	// Lvn_DescriptorType_UniformBufferDynamic,
-	// Lvn_DescriptorType_StorageBufferDynamic,
-	// Lvn_DescriptorType_InputAttachment,
 };
 
 enum LvnGraphicsApi
@@ -1545,6 +1538,8 @@ namespace lvn
 	LVN_API void                        rendererFlushDraw(LvnRenderer* renderer);
 	LVN_API void                        rendererFlushDrawMode(LvnRenderer* renderer, LvnRendererMode renderMode);
 	LVN_API void                        rendererSetBackgroundColor(LvnRenderer* renderer, float r, float g, float b, float a);
+	LVN_API void                        rendererAddSprite(LvnRenderer* renderer, LvnSprite* sprite);
+	LVN_API void                        rendererRemoveSprite(LvnRenderer* renderer, LvnSprite* sprite);
 
 	LVN_API void                        drawTriangle(LvnRenderer* renderer, const LvnTriangle& triangle, const LvnColor& color);
 	LVN_API void                        drawRect(LvnRenderer* renderer, const LvnRect& rect, const LvnColor& color);
@@ -1553,7 +1548,7 @@ namespace lvn
 	LVN_API void                        drawSprite(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color);
 	LVN_API void                        drawSpriteEx(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color, float scale, float rotation);
 
-	LVN_API LvnSprite                   createSprite(LvnRenderer* renderer, LvnTextureCreateInfo* createInfo, const LvnVec2& pos);
+	LVN_API LvnSprite                   createSprite(LvnTextureCreateInfo* createInfo, const LvnVec2& pos);
 	LVN_API void                        destroySprite(LvnSprite* sprite);
 
 	/* [Math] */
@@ -2276,6 +2271,8 @@ struct LvnWindowCreateInfo
 // [SECTION]: Data Structures
 // ---------------------------------------------
 // - Basic data structures for use of allocating or handling data
+
+
 template<typename T>
 struct LvnPair
 {
@@ -5512,8 +5509,8 @@ struct LvnPoly
 struct LvnSprite
 {
 	LvnTexture* texture;
-	LvnDescriptorSet* descriptorSet;
 	LvnVec2 pos;
+	const uint32_t id;
 };
 
 struct LvnRendererCreateInfo
@@ -5548,10 +5545,14 @@ struct LvnRenderer
 	uint32_t renderModes;
 	LvnWindow* window;
 	LvnColor backGroundColor;
-	uint64_t maxSprites;
 
 	std::vector<LvnRendererModeData> rendererModes;
 	std::unordered_map<uint32_t, LvnRendererModeData*> rendererModesIndices;
+
+	uint32_t currentSpriteCount;
+	std::vector<LvnTexture*> spriteTextures;
+	std::unordered_map<uint32_t, uint32_t> spriteTexturesIndices;
+	std::queue<uint32_t> availableSpriteIndices;
 
 	LvnRendererUniformData uniformData2d, uniformDataLine;
 

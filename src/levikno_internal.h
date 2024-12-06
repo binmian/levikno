@@ -3,6 +3,8 @@
 
 #include "levikno.h"
 
+#include <set>
+
 
 // ------------------------------------------------------------
 // [SECTION]: Core Internal structs
@@ -242,6 +244,62 @@ struct LvnMemoryPool
 	std::vector<LvnList<LvnMemoryBinding>> memBindings;
 };
 
+template <typename T>
+class LvnIDQueue
+{
+	static_assert(std::is_same<T, uint8_t>::value ||
+		std::is_same<T, uint16_t>::value ||
+		std::is_same<T, uint32_t>::value ||
+		std::is_same<T, uint64_t>::value ||
+		std::is_same<T, size_t>::value,
+		"ID queue type error, queue template type must be an unsigned integer");
+
+private:
+	std::queue<T> m_Available;
+	std::set<T> m_Used;
+	T m_NextID;
+
+public:
+	LvnIDQueue() : m_NextID(0) {}
+
+	bool push_back(T element)
+	{
+		if (m_Used.find(element) != m_Used.end())
+		{
+			m_Available.push(element);
+			m_Used.erase(element);
+			return true;
+		}
+
+		return false;
+	}
+
+	// Takes the next element from the queue
+	T take_next()
+	{
+		if (!m_Available.empty())
+		{
+			T id = m_Available.front();
+			m_Available.pop();
+			m_Used.insert(id);
+			return id;
+		}
+
+		LVN_CORE_ASSERT(m_NextID < SIZE_MAX, "max IDs reached in IDQueue");
+
+		m_NextID++;
+		m_Used.insert(m_NextID);
+		return m_NextID;
+	}
+
+	auto begin() { return m_Used.begin(); }
+	auto end() { return m_Used.end(); }
+};
+
+typedef LvnIDQueue<uint8_t>  LvnIDQueue8;
+typedef LvnIDQueue<uint16_t> LvnIDQueue16;
+typedef LvnIDQueue<uint32_t> LvnIDQueue32;
+typedef LvnIDQueue<uint64_t> LvnIDQueue64;
 
 
 // [SUBSECTION]: -- Logging
@@ -587,6 +645,9 @@ struct LvnContext
 	// ecs entity id manager
 	std::queue<LvnEntity>                availableEntityIDs;
 	uint64_t                             entityIndexID, maxEntityIDs;
+
+	// 2d renderer
+	LvnIDQueue32                         spriteIDs;
 
 	// misc
 	LvnTimer                             contexTime;       // timer

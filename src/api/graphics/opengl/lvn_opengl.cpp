@@ -289,8 +289,8 @@ namespace ogls
 	{
 		switch (type)
 		{
-			case Lvn_BufferType_Uniform: { return GL_UNIFORM_BUFFER; }
-			case Lvn_BufferType_Storage: { return GL_SHADER_STORAGE_BUFFER; }
+			case Lvn_DescriptorType_UniformBuffer: { return GL_UNIFORM_BUFFER; }
+			case Lvn_DescriptorType_StorageBuffer: { return GL_SHADER_STORAGE_BUFFER; }
 			default:
 			{
 				LVN_CORE_ERROR("invalid uniform buffer type, setting buffer type to GL_UNIFORM_BUFFER");
@@ -793,7 +793,7 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
 			descriptorBinding.binding = createInfo->pDescriptorBindings[i].binding;
 			descriptorSetLayout->uniformBuffers.push_back(descriptorBinding);
 		}
-		else if (descriptorType == Lvn_DescriptorType_Sampler || descriptorType == Lvn_DescriptorType_SampledImage || descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+		else if (descriptorType == Lvn_DescriptorType_ImageSampler)
 		{
 			OglDescriptorBinding descriptorBinding{};
 			descriptorBinding.type = descriptorType;
@@ -1416,44 +1416,41 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 		}
 
 		// texture image
-		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_Sampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_SampledImage || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_CombinedImageSampler)
+		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler)
 		{
-			// bindless textures; note they are created/added during descriptor update
-			if (pUpdateInfo[i].descriptorCount > 1)
-			{
-				OglBindlessTextureBinding bindlessTexture{};
-				for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
-				{
-					// iterate through the textures and get the texture handles
-					uint32_t texId = pUpdateInfo[i].pTextureInfos[j]->id;
-					GLuint64 handle = glGetTextureHandleARB(texId);
-					if (!handle)
-					{
-						LVN_CORE_ERROR("[opengl] failed to get texture handle for bindless texturing, texture id: (%u)", texId);
-						return;
-					}
-					bindlessTexture.textureHandles.push_back(handle);
-				}
-
-				glCreateBuffers(1, &bindlessTexture.ssbo);
-				glNamedBufferData(bindlessTexture.ssbo, bindlessTexture.textureHandles.size() * sizeof(uint64_t), bindlessTexture.textureHandles.data(), GL_DYNAMIC_DRAW);
-				bindlessTexture.binding = pUpdateInfo[i].binding;
-				descriptorSetPtr->bindlessTextures.push_back(bindlessTexture);
-			}
-
 			// textures
-			else
+			for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 			{
-				for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
+				if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
 				{
-					if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
-					{
-						descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
-						texCount++;
-						break;
-					}
+					descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
+					texCount++;
+					break;
 				}
 			}
+		}
+
+		// bindless textures; note they are created/added during descriptor update
+		else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
+		{
+			OglBindlessTextureBinding bindlessTexture{};
+			for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
+			{
+				// iterate through the textures and get the texture handles
+				uint32_t texId = pUpdateInfo[i].pTextureInfos[j]->id;
+				GLuint64 handle = glGetTextureHandleARB(texId);
+				if (!handle)
+				{
+					LVN_CORE_ERROR("[opengl] failed to get texture handle for bindless texturing, texture id: (%u)", texId);
+					return;
+				}
+				bindlessTexture.textureHandles.push_back(handle);
+			}
+
+			glCreateBuffers(1, &bindlessTexture.ssbo);
+			glNamedBufferData(bindlessTexture.ssbo, bindlessTexture.textureHandles.size() * sizeof(uint64_t), bindlessTexture.textureHandles.data(), GL_DYNAMIC_DRAW);
+			bindlessTexture.binding = pUpdateInfo[i].binding;
+			descriptorSetPtr->bindlessTextures.push_back(bindlessTexture);
 		}
 	}
 
