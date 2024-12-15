@@ -561,6 +561,20 @@ void eventsCallbackFn(LvnEvent* e)
 }
 
 
+void scaleInput(LvnWindow* window, float* scale, float dt)
+{
+	if (lvn::keyPressed(window, Lvn_KeyCode_Equal))
+	{
+		*scale += dt;
+	}
+	if (lvn::keyPressed(window, Lvn_KeyCode_Minus))
+	{
+		*scale -= dt;
+	}
+
+	if (*scale <= 0.0) *scale = 0.01f;
+}
+
 int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
@@ -998,6 +1012,8 @@ int main()
 	PbrUniformData pbrData{};
 	std::vector<UniformData> objectData;
 
+	float scale = 1.0f;
+
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
@@ -1014,11 +1030,13 @@ int main()
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 		lvn::frameBufferSetClearColor(frameBuffer, 0, 0.0f, 0.0f, 0.0f, 1.0f);
 
+		scaleInput(window, &scale, dt);
+
 		objectData.resize(lvnmodel.meshes.size());
 		for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
 		{
 			objectData[i].matrix = camera.matrix;
-			objectData[i].model = lvnmodel.meshes[i].modelMatrix;
+			objectData[i].model = lvnmodel.meshes[i].modelMatrix * lvn::scale(LvnMat4(1.0f), LvnVec3(scale));
 		}
 
 		pbrData.campPos = lvn::cameraGetPos(&camera);

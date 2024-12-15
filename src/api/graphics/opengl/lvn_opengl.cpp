@@ -13,6 +13,7 @@ static OglBackends* s_OglBackends = nullptr;
 namespace ogls
 {
 	static LvnResult          checkErrorCode();
+	static void GLAPIENTRY    debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam );
 	static LvnResult          checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
 	static uint32_t           getVertexAttributeSizeEnum(LvnVertexDataType type);
 	static GLenum             getVertexAttributeFormatEnum(LvnVertexDataType type);
@@ -46,6 +47,11 @@ namespace ogls
 		}
 
 		return errOccurred ? Lvn_Result_Failure : Lvn_Result_Success;
+	}
+
+	static void GLAPIENTRY debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam )
+	{
+		LVN_CORE_ERROR("opengl callback: %s type = 0x%x, severity = 0x%x, message = %s\n", (type == GL_DEBUG_TYPE_ERROR ? "opengl error" : "" ), type, severity, message );
 	}
 
 	static LvnResult checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc)
@@ -606,6 +612,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 
 	s_OglBackends->physicalDevice = physicalDevice;
 
+
 	return Lvn_Result_Success;
 }
 
@@ -656,6 +663,10 @@ LvnResult oglsImplRenderInit(LvnRenderInitInfo* renderBackends)
 
 	glfwDestroyWindow(glfwWindow);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+
+	// set error callback
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(ogls::debugCallback, 0);
 
 	return Lvn_Result_Success;
 }

@@ -14,7 +14,7 @@ layout(location = 2) in vec4 inColor;
 layout(location = 0) out vec2 fragTexCoord;
 layout(location = 1) out vec4 fragColor;
 
-layout (binding = 0) uniform ObjectBuffer
+layout(binding = 0) uniform ObjectBuffer
 {
 	mat4 matrix;
 } ubo;
@@ -39,7 +39,7 @@ layout(binding = 1) uniform sampler2D inTextures[];
 
 void main()
 {
-	vec3 color = vec3(texture(inTextures[0], fragTexCoord) * fragColor);
+	vec3 color = vec3(texture(inTextures[1], fragTexCoord) * fragColor);
 	outColor = vec4(color, fragColor.a);
 }
 )";
@@ -60,7 +60,7 @@ layout(binding = 1, std430) readonly buffer textureSsbo {
 
 void main()
 {
-	vec3 color = vec3(texture(inTextures[0], fragTexCoord) * fragColor);
+	vec3 color = vec3(texture(inTextures[1], fragTexCoord) * fragColor);
 	outColor = vec4(color, fragColor.a);
 }
 )";
@@ -569,11 +569,14 @@ void rendererBeginDraw(LvnRenderer* renderer)
 
 		LvnRendererModeData* modeData = renderer->rendererModesIndices[Lvn_RendererMode_2d];
 
+		std::vector<LvnTexture*> descriptorTextures = { renderer->texture };
+		descriptorTextures.insert(descriptorTextures.end(), renderer->spriteTextures.begin(), renderer->spriteTextures.end());
+
 		LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
 		descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSamplerBindless;
 		descriptorTextureUpdateInfo.binding = 1;
-		descriptorTextureUpdateInfo.descriptorCount = renderer->spriteTextures.size();
-		descriptorTextureUpdateInfo.pTextureInfos = renderer->spriteTextures.data();
+		descriptorTextureUpdateInfo.descriptorCount = descriptorTextures.size();
+		descriptorTextureUpdateInfo.pTextureInfos = descriptorTextures.data();
 
 		lvn::updateDescriptorSetData(modeData->descriptorSet, &descriptorTextureUpdateInfo, 1);
 	}
@@ -719,7 +722,7 @@ void drawPoly(LvnRenderer* renderer, const LvnPoly& poly, const LvnColor& color)
 		vertices[i * 8]     = posx;
 		vertices[i * 8 + 1] = posy;
 		vertices[i * 8 + 2] = circlex;
-		vertices[i * 8 + 3] = circlex;
+		vertices[i * 8 + 3] = circley;
 		vertices[i * 8 + 4] = color.r;
 		vertices[i * 8 + 5] = color.g;
 		vertices[i * 8 + 6] = color.b;
@@ -776,8 +779,8 @@ void drawSpriteEx(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& colo
 
 	float width = static_cast<float>(sprite.texture->width);
 	float height = static_cast<float>(sprite.texture->height);
-	LvnVec2 bl = sprite.pos;
 
+	LvnVec2 bl = sprite.pos;
 	LvnVec2 br = sprite.pos + lvn::rotate(LvnVec2(width * scale, 0.0f), rotation);
 	LvnVec2 tl = sprite.pos + lvn::rotate(LvnVec2(0.0f, height * scale), rotation);
 	LvnVec2 tr = sprite.pos + lvn::rotate(LvnVec2(width * scale, height * scale), rotation);
