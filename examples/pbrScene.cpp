@@ -334,7 +334,7 @@ struct PbrUniformData
 static float s_CameraSpeed = 5.0f;
 static bool s_CameraFirstClick = true;
 static float m_LastMouseX = 0.0f, m_LastMouseY = 0.0f;
-static float s_CameraSensitivity = 50.0f;
+static float s_CameraSensitivity = 10.0f;
 
 void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 {
@@ -408,6 +408,7 @@ void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
 static float s_Radius = 5.0f;
 static float s_AngleX = 0.0f, s_AngleY = 0.0f;
 static float s_PanSpeed = 5.0f, s_MoveShiftSpeed = 5.0f;
+static float s_OrbitSensitivity = 50.0f;
 static LvnVec3 s_Pos = LvnVec3(0.0f);
 static LvnMat4 s_Model = LvnMat4(1.0f);
 
@@ -465,8 +466,8 @@ void orbitMovment(LvnWindow* window, LvnCamera* camera, float dt)
 		float yoffset = mousePos.y - m_LastMouseY;
 		m_LastMouseX = mousePos.x;
 		m_LastMouseY = mousePos.y;
-		xoffset *= s_CameraSensitivity * dt;
-		yoffset *= s_CameraSensitivity * dt;
+		xoffset *= s_OrbitSensitivity * dt;
+		yoffset *= s_OrbitSensitivity * dt;
 
 		s_AngleX -= xoffset;
 		s_AngleY += yoffset;
@@ -608,7 +609,7 @@ int main()
 
 	if (selectedPhysicalDevice == nullptr)
 	{
-		LVN_TRACE("no physical device supported");
+		LVN_ERROR("no physical device supported");
 		return -1;
 	}
 
