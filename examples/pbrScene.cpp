@@ -176,7 +176,10 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 void main()
 {
 	vec3 albedo = vec3(texture(albedoTex, fragTexCoord)) * vec3(fragColor);
-	// albedo = pow(albedo, vec3(2.2));
+	float alpha = texture(albedoTex, fragTexCoord).a;
+	if (alpha < 0.1)
+		discard;
+
 	float metalic = texture(metalicRoughnessOcclusionTex, fragTexCoord).b;
 	float roughness = texture(metalicRoughnessOcclusionTex, fragTexCoord).g;
 	float ambientOcclusion = ubo.ambientOcclusion;
@@ -224,7 +227,7 @@ void main()
 	color = color / (color + vec3(1.0));
 	color = pow(color, vec3(1.0/2.2));
 
-	outColor = vec4(color, 1.0f);
+	outColor = vec4(color, alpha);
 }
 )";
 

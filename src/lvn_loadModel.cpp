@@ -231,17 +231,20 @@ namespace gltfs
 
 		gltfData->images.resize(JSON["images"].size());
 
-		for (uint32_t i = 0; i < JSON["images"].size(); i++)
+		if (gltfData->filetype == Lvn_FileType_Gltf)
 		{
-			std::string uri = JSON["images"][i]["uri"];
-			std::string fileDirectory;
-			if (gltfData->filetype == Lvn_FileType_Gltf) { fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1); }
-
-			if (gltfData->filetype == Lvn_FileType_Gltf)
+			for (uint32_t i = 0; i < JSON["images"].size(); i++)
 			{
+				std::string uri = JSON["images"][i]["uri"];
+				std::string fileDirectory;
+				if (gltfData->filetype == Lvn_FileType_Gltf) { fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1); }
+
 				gltfData->images[i] = lvn::loadImageData((fileDirectory + uri).c_str(), 4);
 			}
-			else if (gltfData->filetype == Lvn_FileType_Glb)
+		}
+		else if (gltfData->filetype == Lvn_FileType_Glb)
+		{
+			for (uint32_t i = 0; i < JSON["images"].size(); i++)
 			{
 				uint32_t bufferViewIndex = JSON["images"][i]["bufferView"];
 				GLTFBufferView bufferView = gltfData->bufferViews[bufferViewIndex];

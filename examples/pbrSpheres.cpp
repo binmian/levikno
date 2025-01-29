@@ -576,7 +576,9 @@ int main()
 	}
 
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 	renderInfo.physicalDevice = selectedPhysicalDevice;
+
 	lvn::renderInit(&renderInfo);
 
 
