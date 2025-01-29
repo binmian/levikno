@@ -301,6 +301,13 @@ struct PbrUniformData
 	alignas(16) LvnVec3 lightPos;
 };
 
+struct MeshPrimitiveDescriptorData
+{
+	LvnPrimitive primitive;
+	LvnDescriptorSet* descriptorSet;
+	LvnMat4 matrix;
+};
+
 static float s_CameraSpeed = 5.0f;
 static bool s_CameraFirstClick = true;
 static float m_LastMouseX = 0.0f, m_LastMouseY = 0.0f;
@@ -695,7 +702,7 @@ int main()
 
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 	pipelineSpec.depthstencil.enableDepth = true;
-	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOp_LessOrEqual;
 	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;
 	pipelineSpec.rasterizer.frontFace = Lvn_CullFrontFace_CCW;
 
@@ -748,7 +755,7 @@ int main()
 	pipelineCreateInfo.vertexAttributeCount = ARRAY_LEN(cubemapAttributes);
 	pipelineCreateInfo.shader = cubemapShader;
 	pipelineCreateInfo.renderPass = lvn::frameBufferGetRenderPass(frameBuffer);
-	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOp_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
 	
 	LvnPipeline* cubemapPipeline;
@@ -860,10 +867,42 @@ int main()
 	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
 
 
-	for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
+	LvnUniformBufferInfo descriptorPbrBufferInfo{};
+	descriptorPbrBufferInfo.buffer = pbrUniformBuffer;
+	descriptorPbrBufferInfo.range = sizeof(PbrUniformData);
+	descriptorPbrBufferInfo.offset = 0;
+
+	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
+	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorPbrUniformUpdateInfo.binding = 0;
+	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
+	descriptorPbrUniformUpdateInfo.bufferInfo = &descriptorPbrBufferInfo;
+
+
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = storageBuffer;
+	bufferInfo.range = sizeof(UniformData) * 100;
+	bufferInfo.offset = 0;
+
+	LvnDescriptorUpdateInfo descriptorStorageUniformUpdateInfo{};
+	descriptorStorageUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
+	descriptorStorageUniformUpdateInfo.binding = 1;
+	descriptorStorageUniformUpdateInfo.descriptorCount = 1;
+	descriptorStorageUniformUpdateInfo.bufferInfo = &bufferInfo;
+
+	MeshPrimitiveDescriptorData primitiveDescriptor{};
+	primitiveDescriptor.primitive = lvnmodel.meshes[0].primitives[0];
+	primitiveDescriptor.matrix = lvnmodel.meshes[0].matrix;
+
+	lvn::createDescriptorSet(&primitiveDescriptor.descriptorSet, descriptorLayout);
+
+	LvnDescriptorUpdateInfo pbrDescriptorUpdateInfo[] =
 	{
-		lvn::createDescriptorSet(&lvnmodel.meshes[i].descriptorSet, descriptorLayout);
-	}
+		descriptorPbrUniformUpdateInfo,
+		descriptorStorageUniformUpdateInfo,
+	};
+
+	lvn::updateDescriptorSetData(primitiveDescriptor.descriptorSet, pbrDescriptorUpdateInfo, ARRAY_LEN(pbrDescriptorUpdateInfo));
 
 	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(frameBuffer, 0);
 
@@ -878,11 +917,16 @@ int main()
 
 	LvnTexture* cubemapTexture = lvn::cubemapGetTextureData(cubemap);
 
+	LvnUniformBufferInfo cubemapBufferInfo{};
+	cubemapBufferInfo.buffer = cubemapUniformBuffer;
+	cubemapBufferInfo.range = sizeof(UniformData);
+	cubemapBufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo cubemapDescriptorUniformUpdateInfo{};
 	cubemapDescriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	cubemapDescriptorUniformUpdateInfo.binding = 0;
 	cubemapDescriptorUniformUpdateInfo.descriptorCount = 1;
-	cubemapDescriptorUniformUpdateInfo.bufferInfo = cubemapUniformBuffer;
+	cubemapDescriptorUniformUpdateInfo.bufferInfo = &cubemapBufferInfo;
 
 	LvnDescriptorUpdateInfo cubemapDescriptorTextureUpdateInfo{};
 	cubemapDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
@@ -897,29 +941,6 @@ int main()
 
 	lvn::updateDescriptorSetData(cubemapDescriptorSet, cubemapDescriptorUpdateInfo.data(), cubemapDescriptorUpdateInfo.size());
 
-
-	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
-	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorPbrUniformUpdateInfo.binding = 0;
-	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
-	descriptorPbrUniformUpdateInfo.bufferInfo = pbrUniformBuffer;
-
-	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
-	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
-	descriptorUniformUpdateInfo.binding = 1;
-	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = storageBuffer;
-
-	for (uint32_t i = 0; i < lvnmodel.meshes.size(); i++)
-	{
-		std::vector<LvnDescriptorUpdateInfo> pbrDescriptorUpdateInfo =
-		{
-			descriptorPbrUniformUpdateInfo,
-			descriptorUniformUpdateInfo,
-		};
-
-		lvn::updateDescriptorSetData(lvnmodel.meshes[i].descriptorSet, pbrDescriptorUpdateInfo.data(), pbrDescriptorUpdateInfo.size());
-	}
 
 
 	LvnCameraCreateInfo cameraCreateInfo{};
@@ -974,24 +995,24 @@ int main()
 				objectData[i * 10 + j].matrix = camera.matrix;
 				objectData[i * 10 + j].metalic = (float)(j+1) * 0.1f;
 				objectData[i * 10 + j].roughness = (float)(i+1) * 0.1f;
-				objectData[i * 10 + j].model = lvnmodel.meshes[0].modelMatrix * lvn::translate(LvnMat4(1.0f), LvnVec3(i * 2.0f, j * 2.0f, 0.0f));
+				objectData[i * 10 + j].model = primitiveDescriptor.matrix * lvn::translate(LvnMat4(1.0f), LvnVec3(i * 2.0f, j * 2.0f, 0.0f));
 			}
 
 		pbrData.campPos = lvn::cameraGetPos(&camera);
 		pbrData.lightPos = lvn::vec3(5.0f + cos(lvn::getContextTime()) * 3.0f, 5.0f + sin(lvn::getContextTime()) * 3.0f, 3.0f);
 
-		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData));
-		lvn::updateUniformBufferData(window, storageBuffer, objectData.data(), sizeof(UniformData) * objectData.size());
+		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData), 0);
+		lvn::updateUniformBufferData(window, storageBuffer, objectData.data(), sizeof(UniformData) * objectData.size(), 0);
 
 		lvn::renderCmdBindPipeline(window, pipeline);
-		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &lvnmodel.meshes[0].descriptorSet);
-		lvn::renderCmdBindVertexBuffer(window, lvn::meshGetBuffer(&lvnmodel.meshes[0]));
-		lvn::renderCmdBindIndexBuffer(window, lvn::meshGetBuffer(&lvnmodel.meshes[0]));
+		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitiveDescriptor.descriptorSet);
+		lvn::renderCmdBindVertexBuffer(window, primitiveDescriptor.primitive.buffer);
+		lvn::renderCmdBindIndexBuffer(window, primitiveDescriptor.primitive.buffer);
 
 		for (uint32_t i = 0; i < 10; i++)
 			for (uint32_t j = 0; j < 10; j++)
 			{
-				lvn::renderCmdDrawIndexedInstanced(window, lvnmodel.meshes[0].indexCount, 1, i * 10 + j);
+				lvn::renderCmdDrawIndexedInstanced(window, primitiveDescriptor.primitive.indexCount, 1, i * 10 + j);
 			}
 
 		// draw cubemap
@@ -999,7 +1020,7 @@ int main()
 		lvn::mat4 view = lvn::mat4(lvn::mat3(camera.viewMatrix));
 		uniformData.matrix = projection * view;
 
-		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData));
+		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData), 0);
 		lvn::renderCmdBindPipeline(window, cubemapPipeline);
 		lvn::renderCmdBindDescriptorSets(window, cubemapPipeline, 0, 1, &cubemapDescriptorSet);
 
@@ -1049,6 +1070,7 @@ int main()
 
 	lvn::destroyDescriptorSet(fbDescriptorSet);
 	lvn::destroyDescriptorSet(cubemapDescriptorSet);
+	lvn::destroyDescriptorSet(primitiveDescriptor.descriptorSet);
 
 	lvn::destroyDescriptorLayout(cubemapDescriptorLayout);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);

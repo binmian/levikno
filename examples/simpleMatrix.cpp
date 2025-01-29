@@ -87,6 +87,7 @@ int main(int argc, char** argv)
 
 	// initialize rendering, pass the physical device in the init struct
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 
 	// find and check if physical device is supported
 	for (uint32_t i = 0; i < deviceCount; i++)
@@ -218,11 +219,16 @@ int main(int argc, char** argv)
 
 
 	// update descriptor set
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = uniformBuffer;
+	bufferInfo.range = sizeof(UniformData);
+	bufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo descriptorUniformBufferUpdateInfo{};
 	descriptorUniformBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformBufferUpdateInfo.binding = 0;
 	descriptorUniformBufferUpdateInfo.descriptorCount = 1;
-	descriptorUniformBufferUpdateInfo.bufferInfo = uniformBuffer;
+	descriptorUniformBufferUpdateInfo.bufferInfo = &bufferInfo;
 
 	lvn::updateDescriptorSetData(descriptorSet, &descriptorUniformBufferUpdateInfo, 1);
 
@@ -242,7 +248,7 @@ int main(int argc, char** argv)
 		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData), 0);
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);

@@ -6,6 +6,7 @@ set(LVN_SOURCES
 	2dScene.cpp
 	antiAliasing.cpp
 	bindlessTexture.cpp
+	colorBlending.cpp
 	cubemap.cpp
 	entityComponentSystem.cpp
 	events.cpp

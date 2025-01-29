@@ -256,14 +256,14 @@ namespace ogls
 	{
 		switch (compareOp)
 		{
-			case Lvn_CompareOperation_Never: { return GL_NEVER; }
-			case Lvn_CompareOperation_Less: { return GL_LESS; }
-			case Lvn_CompareOperation_Equal: { return GL_EQUAL; }
-			case Lvn_CompareOperation_LessOrEqual: { return GL_LEQUAL; }
-			case Lvn_CompareOperation_Greater: { return GL_GREATER; }
-			case Lvn_CompareOperation_NotEqual: { return GL_NOTEQUAL; }
-			case Lvn_CompareOperation_GreaterOrEqual: { return GL_GEQUAL; }
-			case Lvn_CompareOperation_Always: { return GL_ALWAYS; }
+			case Lvn_CompareOp_Never: { return GL_NEVER; }
+			case Lvn_CompareOp_Less: { return GL_LESS; }
+			case Lvn_CompareOp_Equal: { return GL_EQUAL; }
+			case Lvn_CompareOp_LessOrEqual: { return GL_LEQUAL; }
+			case Lvn_CompareOp_Greater: { return GL_GREATER; }
+			case Lvn_CompareOp_NotEqual: { return GL_NOTEQUAL; }
+			case Lvn_CompareOp_GreaterOrEqual: { return GL_GEQUAL; }
+			case Lvn_CompareOp_Always: { return GL_ALWAYS; }
 
 			default:
 			{
@@ -953,9 +953,10 @@ LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* creat
 {
 	OglSampler* oglSampler = new OglSampler();
 
-	oglSampler->wrapMode = createInfo->wrapMode;
 	oglSampler->minFilter = createInfo->minFilter;
 	oglSampler->magFilter = createInfo->magFilter;
+	oglSampler->wrapS = createInfo->wrapS;
+	oglSampler->wrapT = createInfo->wrapT;
 
 	sampler->sampler = oglSampler;
 
@@ -964,8 +965,6 @@ LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* creat
 
 LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
 {
-	GLenum texWrapMode = ogls::getTextureWrapModeEnum(createInfo->wrapMode);
-
 	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
 	GLenum internalFormat = GL_RGB;
 	switch (createInfo->imageData.channels)
@@ -982,8 +981,9 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 	glCreateTextures(GL_TEXTURE_2D, 1, &id);
 	glTextureStorage2D(id, 1, internalFormat, createInfo->imageData.width, createInfo->imageData.height);
 
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, ogls::getTextureWrapModeEnum(createInfo->wrapS));
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, ogls::getTextureWrapModeEnum(createInfo->wrapT));
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, ogls::getTextureWrapModeEnum(createInfo->wrapT));
 	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));
 	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));
 
@@ -1011,8 +1011,6 @@ LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCre
 {
 	OglSampler* sampler = static_cast<OglSampler*>(createInfo->sampler->sampler);
 
-	GLenum texWrapMode = ogls::getTextureWrapModeEnum(sampler->wrapMode);
-
 	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
 	GLenum internalFormat = GL_RGB;
 	switch (createInfo->imageData.channels)
@@ -1029,8 +1027,9 @@ LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCre
 	glCreateTextures(GL_TEXTURE_2D, 1, &id);
 	glTextureStorage2D(id, 1, internalFormat, createInfo->imageData.width, createInfo->imageData.height);
 
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, texWrapMode);
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, texWrapMode);
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, ogls::getTextureWrapModeEnum(sampler->wrapS));
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, ogls::getTextureWrapModeEnum(sampler->wrapT));
+	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, ogls::getTextureWrapModeEnum(sampler->wrapT));
 	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(sampler->minFilter));
 	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(sampler->magFilter));
 
@@ -1387,9 +1386,9 @@ void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 	}
 }
 
-void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
+void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
-	glNamedBufferSubData(uniformBuffer->id, 0, size, data);
+	glNamedBufferSubData(uniformBuffer->id, offset, size, data);
 }
 
 void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -1420,7 +1419,7 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 			{
 				if (descriptorSetPtr->uniformBuffers[j].binding == pUpdateInfo[i].binding)
 				{
-					descriptorSetPtr->uniformBuffers[j].id = pUpdateInfo[i].bufferInfo->id;
+					descriptorSetPtr->uniformBuffers[j].id = pUpdateInfo[i].bufferInfo->buffer->id;
 					break;
 				}
 			}

@@ -1083,11 +1083,11 @@ namespace vks
 	{
 		switch (blendOp)
 		{
-			case Lvn_ColorBlendOperation_Add: { return VK_BLEND_OP_ADD; }
-			case Lvn_ColorBlendOperation_Subtract: { return VK_BLEND_OP_SUBTRACT; }
-			case Lvn_ColorBlendOperation_ReverseSubtract: { return VK_BLEND_OP_REVERSE_SUBTRACT; }
-			case Lvn_ColorBlendOperation_Min: { return VK_BLEND_OP_MIN; }
-			case Lvn_ColorBlendOperation_Max: { return VK_BLEND_OP_MAX; }
+			case Lvn_ColorBlendOp_Add: { return VK_BLEND_OP_ADD; }
+			case Lvn_ColorBlendOp_Subtract: { return VK_BLEND_OP_SUBTRACT; }
+			case Lvn_ColorBlendOp_ReverseSubtract: { return VK_BLEND_OP_REVERSE_SUBTRACT; }
+			case Lvn_ColorBlendOp_Min: { return VK_BLEND_OP_MIN; }
+			case Lvn_ColorBlendOp_Max: { return VK_BLEND_OP_MAX; }
 
 			default:
 			{
@@ -1101,14 +1101,14 @@ namespace vks
 	{
 		switch (compare)
 		{
-			case Lvn_CompareOperation_Never: { return VK_COMPARE_OP_NEVER; }
-			case Lvn_CompareOperation_Less: { return VK_COMPARE_OP_LESS; }
-			case Lvn_CompareOperation_Equal: { return VK_COMPARE_OP_EQUAL; }
-			case Lvn_CompareOperation_LessOrEqual: { return VK_COMPARE_OP_LESS_OR_EQUAL; }
-			case Lvn_CompareOperation_Greater: { return VK_COMPARE_OP_GREATER; }
-			case Lvn_CompareOperation_NotEqual: { return VK_COMPARE_OP_NOT_EQUAL; }
-			case Lvn_CompareOperation_GreaterOrEqual: { return VK_COMPARE_OP_GREATER_OR_EQUAL; }
-			case Lvn_CompareOperation_Always: { return VK_COMPARE_OP_ALWAYS; }
+			case Lvn_CompareOp_Never: { return VK_COMPARE_OP_NEVER; }
+			case Lvn_CompareOp_Less: { return VK_COMPARE_OP_LESS; }
+			case Lvn_CompareOp_Equal: { return VK_COMPARE_OP_EQUAL; }
+			case Lvn_CompareOp_LessOrEqual: { return VK_COMPARE_OP_LESS_OR_EQUAL; }
+			case Lvn_CompareOp_Greater: { return VK_COMPARE_OP_GREATER; }
+			case Lvn_CompareOp_NotEqual: { return VK_COMPARE_OP_NOT_EQUAL; }
+			case Lvn_CompareOp_GreaterOrEqual: { return VK_COMPARE_OP_GREATER_OR_EQUAL; }
+			case Lvn_CompareOp_Always: { return VK_COMPARE_OP_ALWAYS; }
 			default:
 			{
 				LVN_CORE_WARN("unknown compare enum (%d), setting to compare enum never", compare);
@@ -1121,14 +1121,14 @@ namespace vks
 	{
 		switch (stencilOp)
 		{
-			case Lvn_StencilOperation_Keep: { return VK_STENCIL_OP_KEEP; }
-			case Lvn_StencilOperation_Zero: { return VK_STENCIL_OP_ZERO; }
-			case Lvn_StencilOperation_Replace: { return VK_STENCIL_OP_REPLACE; }
-			case Lvn_StencilOperation_IncrementAndClamp: { return VK_STENCIL_OP_INCREMENT_AND_CLAMP; }
-			case Lvn_StencilOperation_DecrementAndClamp: { return VK_STENCIL_OP_DECREMENT_AND_CLAMP; }
-			case Lvn_StencilOperation_Invert: { return VK_STENCIL_OP_INVERT; }
-			case Lvn_StencilOperation_IncrementAndWrap: { return VK_STENCIL_OP_INCREMENT_AND_WRAP; }
-			case Lvn_StencilOperation_DecrementAndWrap: { return VK_STENCIL_OP_DECREMENT_AND_WRAP; }
+			case Lvn_StencilOp_Keep: { return VK_STENCIL_OP_KEEP; }
+			case Lvn_StencilOp_Zero: { return VK_STENCIL_OP_ZERO; }
+			case Lvn_StencilOp_Replace: { return VK_STENCIL_OP_REPLACE; }
+			case Lvn_StencilOp_IncrementAndClamp: { return VK_STENCIL_OP_INCREMENT_AND_CLAMP; }
+			case Lvn_StencilOp_DecrementAndClamp: { return VK_STENCIL_OP_DECREMENT_AND_CLAMP; }
+			case Lvn_StencilOp_Invert: { return VK_STENCIL_OP_INVERT; }
+			case Lvn_StencilOp_IncrementAndWrap: { return VK_STENCIL_OP_INCREMENT_AND_WRAP; }
+			case Lvn_StencilOp_DecrementAndWrap: { return VK_STENCIL_OP_DECREMENT_AND_WRAP; }
 			default:
 			{
 				LVN_CORE_WARN("unknown stencil operation enum (%d), setting to stencil operation enum keep (default)", stencilOp);
@@ -3080,13 +3080,9 @@ LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniform
 
 	uniformBuffer->uniformBuffer = vkUniformBuffer;
 	uniformBuffer->uniformBufferMemory = uniformBufferMemory;
-	uniformBuffer->uniformBufferMapped.resize(vkBackends->maxFramesInFlight);
 	uniformBuffer->size = createInfo->size;
 
-	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
-	{
-		vmaMapMemory(vkBackends->vmaAllocator, uniformBufferMemory, &uniformBuffer->uniformBufferMapped[i]);
-	}
+	vmaMapMemory(vkBackends->vmaAllocator, uniformBufferMemory, &uniformBuffer->uniformBufferMapped);
 
 	return Lvn_Result_Success;
 }
@@ -3099,11 +3095,9 @@ LvnResult vksImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* create
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerInfo.minFilter = vks::getTextureFilterEnum(createInfo->minFilter);
 	samplerInfo.magFilter = vks::getTextureFilterEnum(createInfo->magFilter);
-
-	VkSamplerAddressMode addressMode = vks::getTextureWrapModeEnum(createInfo->wrapMode);
-	samplerInfo.addressModeU = addressMode;
-	samplerInfo.addressModeV = addressMode;
-	samplerInfo.addressModeW = addressMode;
+	samplerInfo.addressModeU = vks::getTextureWrapModeEnum(createInfo->wrapS);
+	samplerInfo.addressModeV = vks::getTextureWrapModeEnum(createInfo->wrapT);
+	samplerInfo.addressModeW = vks::getTextureWrapModeEnum(createInfo->wrapT);
 
 	if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
 	{
@@ -3210,11 +3204,9 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerInfo.minFilter = vks::getTextureFilterEnum(createInfo->minFilter);
 	samplerInfo.magFilter = vks::getTextureFilterEnum(createInfo->magFilter);
-
-	VkSamplerAddressMode addressMode = vks::getTextureWrapModeEnum(createInfo->wrapMode);
-	samplerInfo.addressModeU = addressMode;
-	samplerInfo.addressModeV = addressMode;
-	samplerInfo.addressModeW = addressMode;
+	samplerInfo.addressModeU = vks::getTextureWrapModeEnum(createInfo->wrapS);
+	samplerInfo.addressModeV = vks::getTextureWrapModeEnum(createInfo->wrapT);
+	samplerInfo.addressModeW = vks::getTextureWrapModeEnum(createInfo->wrapT);
 
 	if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
 	{
@@ -3811,10 +3803,18 @@ void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 	buffer->indexBufferMemory = indexMemory;
 }
 
-void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
+void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
+	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	memcpy(uniformBuffer->uniformBufferMapped[surfaceData->currentFrame], data, size);
+
+	uint64_t skipBuffers = offset / uniformBuffer->size;     // skip buffers if offset is greater than uniform buffer size
+	uint64_t perBufferOffset = offset % uniformBuffer->size; // offset buffer per frame in flight
+
+	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
+	{
+		memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped)+ uniformBuffer->size * skipBuffers * vkBackends->maxFramesInFlight + perBufferOffset + uniformBuffer->size * i, data, size);
+	}
 }
 
 void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -3853,9 +3853,12 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 			// if descriptor using uniform buffers
 			if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
 			{
-				bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->uniformBuffer);
-				bufferInfo.offset = pUpdateInfo[i].bufferInfo->size * j; // offset buffer range for each frame in flight
-				bufferInfo.range = pUpdateInfo[i].bufferInfo->size;
+				uint64_t skipBuffers = pUpdateInfo[i].bufferInfo->offset / pUpdateInfo[i].bufferInfo->buffer->size;     // skip buffers if offset is greater than uniform buffer size
+				uint64_t perBufferOffset = pUpdateInfo[i].bufferInfo->offset % pUpdateInfo[i].bufferInfo->buffer->size; // offset buffer per frame in flight
+
+				bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->uniformBuffer);
+				bufferInfo.offset = pUpdateInfo[i].bufferInfo->buffer->size * skipBuffers * vkBackends->maxFramesInFlight + perBufferOffset + pUpdateInfo[i].bufferInfo->buffer->size * j; // offset buffer range for each frame in flight
+				bufferInfo.range = pUpdateInfo[i].bufferInfo->range;
 				descriptorWrite.pBufferInfo = &bufferInfo;
 			}
 

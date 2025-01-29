@@ -24,23 +24,18 @@ layout(location = 5) in vec3 inBitangent;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 fragNormal;
 
-struct ObjectData
+
+layout(binding = 0) uniform UniformBuffer
 {
 	mat4 matrix;
 	mat4 model;
-};
-
-layout(std140, binding = 0) readonly buffer UniformBufferObject
-{
-	ObjectData objects[];
 } ubo;
 
 void main()
 {
-	ObjectData obj = ubo.objects[gl_BaseInstance];
-	gl_Position = obj.matrix * vec4(inPos, 1.0);
+	gl_Position = ubo.matrix * vec4(inPos, 1.0);
 	fragColor = vec3(inColor);
-	fragNormal = mat3(transpose(inverse(obj.model))) * inNormals;
+	fragNormal = mat3(transpose(inverse(ubo.model))) * inNormals;
 }
 )";
 
@@ -104,6 +99,14 @@ struct UniformLightData
 	float specular;
 };
 
+// NOTE: This is slightly outdated, a ModelDescriptor will be created to correspond
+//       to every mesh which only works when the model does not have textures
+struct ModelDescriptor
+{
+	LvnMesh mesh;
+	LvnDescriptorSet* descriptorSet;
+};
+
 int main(int argc, char** argv)
 {
 	// [Create Context]
@@ -134,6 +137,7 @@ int main(int argc, char** argv)
 
 	// initialize rendering, pass the physical device in the init struct
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 
 	// find and check if physical device is supported
 	for (uint32_t i = 0; i < deviceCount; i++)
@@ -189,10 +193,10 @@ int main(int argc, char** argv)
 	// descriptor binding
 	LvnDescriptorBinding descriptorStorageBinding{};
 	descriptorStorageBinding.binding = 0;
-	descriptorStorageBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
+	descriptorStorageBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorStorageBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	descriptorStorageBinding.descriptorCount = 1;
-	descriptorStorageBinding.maxAllocations = 1;
+	descriptorStorageBinding.maxAllocations = MAX_OBJECTS;
 
 	LvnDescriptorBinding descriptorUniformBinding{};
 	descriptorUniformBinding.binding = 1;
@@ -210,15 +214,11 @@ int main(int argc, char** argv)
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
 	descriptorLayoutCreateInfo.pDescriptorBindings = descriptorBindings;
 	descriptorLayoutCreateInfo.descriptorBindingCount = ARRAY_LEN(descriptorBindings);
-	descriptorLayoutCreateInfo.maxSets = 1;
+	descriptorLayoutCreateInfo.maxSets = MAX_OBJECTS;
 
 	// create descriptor layout
 	LvnDescriptorLayout* descriptorLayout;
 	lvn::createDescriptorLayout(&descriptorLayout, &descriptorLayoutCreateInfo);
-
-	// create descriptor set using layout
-	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
 
 
 	// get the render pass from the window to pass into the pipeline
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
 	// create pipeline specification or fixed functions
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 	pipelineSpec.depthstencil.enableDepth = true;
-	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOp_LessOrEqual;
 
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};
@@ -251,14 +251,14 @@ int main(int argc, char** argv)
 
 	// [Create uniform buffer]
 	// uniform storage create info struct
-	LvnUniformBufferCreateInfo storageBufferCreateInfo{};
-	storageBufferCreateInfo.type = Lvn_BufferType_Storage;
-	storageBufferCreateInfo.binding = 0;
-	storageBufferCreateInfo.size = sizeof(UniformData) * MAX_OBJECTS;
+	LvnUniformBufferCreateInfo matrixUniformBufferCreateInfo{};
+	matrixUniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
+	matrixUniformBufferCreateInfo.binding = 0;
+	matrixUniformBufferCreateInfo.size = sizeof(UniformData) * MAX_OBJECTS;
 
 	// create storage buffer
-	LvnUniformBuffer* storageBuffer;
-	lvn::createUniformBuffer(&storageBuffer, &storageBufferCreateInfo);
+	LvnUniformBuffer* matrixUniformBuffer;
+	lvn::createUniformBuffer(&matrixUniformBuffer, &matrixUniformBufferCreateInfo);
 
 	// uniform buffer create info struct
 	LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
@@ -270,29 +270,48 @@ int main(int argc, char** argv)
 	LvnUniformBuffer* uniformBuffer;
 	lvn::createUniformBuffer(&uniformBuffer, &uniformBufferCreateInfo);
 
-	// update descriptor set
-	LvnDescriptorUpdateInfo descriptorStorageBufferUpdateInfo{};
-	descriptorStorageBufferUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
-	descriptorStorageBufferUpdateInfo.binding = 0;
-	descriptorStorageBufferUpdateInfo.descriptorCount = 1;
-	descriptorStorageBufferUpdateInfo.bufferInfo = storageBuffer;
-
-	LvnDescriptorUpdateInfo descriptorUniformBufferUpdateInfo{};
-	descriptorUniformBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorUniformBufferUpdateInfo.binding = 1;
-	descriptorUniformBufferUpdateInfo.descriptorCount = 1;
-	descriptorUniformBufferUpdateInfo.bufferInfo = uniformBuffer;
-
-	LvnDescriptorUpdateInfo descriptorUpdateInfo[] =
-	{
-		descriptorStorageBufferUpdateInfo, descriptorUniformBufferUpdateInfo,
-	};
-
-	lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
-
 
 	// [Load model]
 	LvnModel model = lvn::loadModel("res/models/teapot.gltf");
+
+
+	// update descriptor set
+
+	std::vector<ModelDescriptor> modelDescriptors(model.meshes.size());
+
+	for (uint32_t i = 0; i < model.meshes.size(); i++)
+	{
+		LvnUniformBufferInfo bufferInfo{};
+		bufferInfo.buffer = matrixUniformBuffer;
+		bufferInfo.range = sizeof(UniformData);
+		bufferInfo.offset = sizeof(UniformData) * i;
+
+		LvnUniformBufferInfo descriptorBufferInfo{};
+		descriptorBufferInfo.buffer = uniformBuffer;
+		descriptorBufferInfo.range = sizeof(UniformLightData);
+		descriptorBufferInfo.offset = 0;
+
+		LvnDescriptorUpdateInfo descriptorStorageBufferUpdateInfo{};
+		descriptorStorageBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+		descriptorStorageBufferUpdateInfo.binding = 0;
+		descriptorStorageBufferUpdateInfo.descriptorCount = 1;
+		descriptorStorageBufferUpdateInfo.bufferInfo = &bufferInfo;
+
+		LvnDescriptorUpdateInfo descriptorUniformBufferUpdateInfo{};
+		descriptorUniformBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+		descriptorUniformBufferUpdateInfo.binding = 1;
+		descriptorUniformBufferUpdateInfo.descriptorCount = 1;
+		descriptorUniformBufferUpdateInfo.bufferInfo = &descriptorBufferInfo;
+
+		LvnDescriptorUpdateInfo descriptorUpdateInfo[] =
+		{
+			descriptorStorageBufferUpdateInfo, descriptorUniformBufferUpdateInfo,
+		};
+
+		modelDescriptors[i].mesh = model.meshes[i];
+		lvn::createDescriptorSet(&modelDescriptors[i].descriptorSet, descriptorLayout);
+		lvn::updateDescriptorSetData(modelDescriptors[i].descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
+	}
 
 
 	auto startTime = std::chrono::high_resolution_clock::now();
@@ -323,11 +342,11 @@ int main(int argc, char** argv)
 
 		for (uint32_t i = 0; i < model.meshes.size(); i++)
 		{
-			uniformData[i].matrix = camera * model.meshes[i].modelMatrix;
-			uniformData[i].model = modelMatrix * model.meshes[i].modelMatrix;
+			uniformData[i].matrix = camera * model.meshes[i].matrix;
+			uniformData[i].model = modelMatrix * model.meshes[i].matrix;
 		}
 
-		lvn::updateUniformBufferData(window, storageBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size());
+		lvn::updateUniformBufferData(window, matrixUniformBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size(), 0);
 
 		lightData.camPos = camPos;
 		lightData.crntPos = { 0.0f, 0.0f, 0.0f };
@@ -336,7 +355,7 @@ int main(int argc, char** argv)
 		lightData.intensity = 10.0f;
 		lightData.specular = 0.4f;
 
-		lvn::updateUniformBufferData(window, uniformBuffer, &lightData, sizeof(UniformLightData));
+		lvn::updateUniformBufferData(window, uniformBuffer, &lightData, sizeof(UniformLightData), 0);
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);
@@ -349,16 +368,18 @@ int main(int argc, char** argv)
 		// bind pipeline
 		lvn::renderCmdBindPipeline(window, pipeline);
 
-		// bind descriptor set
-		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
-
 		// bind model vertex and index buffer
-		for (uint32_t i = 0; i < model.meshes.size(); i++)
+		for (ModelDescriptor& model : modelDescriptors)
 		{
-			lvn::renderCmdBindVertexBuffer(window, lvn::meshGetBuffer(&model.meshes[i]));
-			lvn::renderCmdBindIndexBuffer(window, lvn::meshGetBuffer(&model.meshes[i]));
+			lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &model.descriptorSet);
 
-			lvn::renderCmdDrawIndexedInstanced(window, model.meshes[i].indexCount, 1, i);
+			for (const LvnPrimitive& primitive : model.mesh.primitives)
+			{
+				lvn::renderCmdBindVertexBuffer(window, primitive.buffer);
+				lvn::renderCmdBindIndexBuffer(window, primitive.buffer);
+
+				lvn::renderCmdDrawIndexed(window, primitive.indexCount);
+			}
 		}
 
 		// end render pass and submit rendering
@@ -370,11 +391,16 @@ int main(int argc, char** argv)
 	// destroy objects after they are finished being used
 	lvn::unloadModel(&model);
 	lvn::destroyUniformBuffer(uniformBuffer);
-	lvn::destroyUniformBuffer(storageBuffer);
+	lvn::destroyUniformBuffer(matrixUniformBuffer);
 	lvn::destroyPipeline(pipeline);
-	lvn::destroyDescriptorLayout(descriptorLayout);
-	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyWindow(window);
+
+	for (ModelDescriptor& model : modelDescriptors)
+	{
+		lvn::destroyDescriptorSet(model.descriptorSet);
+	}
+
+	lvn::destroyDescriptorLayout(descriptorLayout);
 
 	// terminate the context at the end of the program
 	lvn::terminateContext();

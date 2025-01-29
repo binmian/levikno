@@ -208,6 +208,7 @@ int main(int argc, char** argv)
 
 
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 
 	for (uint32_t i = 0; i < deviceCount; i++)
 	{
@@ -407,7 +408,8 @@ int main(int argc, char** argv)
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = font.atlas;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapS = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapT = Lvn_TextureMode_Repeat;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
@@ -415,20 +417,18 @@ int main(int argc, char** argv)
 	lvn::createTexture(&texture, &textureCreateInfo);
 
 	// update descriptor sets
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = uniformBuffer;
+	bufferInfo.range = sizeof(UniformData);
+	bufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo descriptorUpdateInfo{};
 	descriptorUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUpdateInfo.binding = 0;
 	descriptorUpdateInfo.descriptorCount = 1;
-	descriptorUpdateInfo.bufferInfo = uniformBuffer;
+	descriptorUpdateInfo.bufferInfo = &bufferInfo;
 
 	lvn::updateDescriptorSetData(descriptorSet, &descriptorUpdateInfo, 1);
-
-	// update font descriptor set
-	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
-	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorUniformUpdateInfo.binding = 0;
-	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
 	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
@@ -438,7 +438,7 @@ int main(int argc, char** argv)
 
 	LvnDescriptorUpdateInfo descriptorUpdateInfos[] =
 	{
-		descriptorUniformUpdateInfo, descriptorTextureUpdateInfo,
+		descriptorUpdateInfo, descriptorTextureUpdateInfo,
 	};
 
 	lvn::updateDescriptorSetData(fontDescriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
@@ -507,7 +507,7 @@ int main(int argc, char** argv)
 		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(uniformData));
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(uniformData), 0);
 
 
 		float paddleSpeed = height;

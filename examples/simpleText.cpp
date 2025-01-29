@@ -356,7 +356,8 @@ int main(int argc, char** argv)
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = font.atlas;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapS = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapT = Lvn_TextureMode_Repeat;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
@@ -364,11 +365,16 @@ int main(int argc, char** argv)
 	lvn::createTexture(&texture, &textureCreateInfo);
 
 	// update descriptor set
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = uniformBuffer;
+	bufferInfo.range = sizeof(UniformData);
+	bufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
 	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
+	descriptorUniformUpdateInfo.bufferInfo = &bufferInfo;
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
 	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
@@ -411,7 +417,7 @@ int main(int argc, char** argv)
 		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData), 0);
 
 
 		// text examples

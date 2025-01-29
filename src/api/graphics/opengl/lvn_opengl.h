@@ -61,7 +61,7 @@ namespace lvn
 	void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset);
 	void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size);
 	void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
-	void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);
+	void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);
 	void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
 	LvnTexture* oglsImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
 	LvnRenderPass* oglsImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);
@@ -121,8 +121,8 @@ namespace lvn
 
 	struct OglSampler
 	{
-		LvnTextureMode wrapMode;
 		LvnTextureFilter minFilter, magFilter;
+		LvnTextureMode wrapS, wrapT, wrapR;
 	};
 
 	struct OglBackends

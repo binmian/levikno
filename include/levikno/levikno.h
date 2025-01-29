@@ -23,7 +23,7 @@
 // [SECTION]: Struct Definitions
 // -- [SUBSECT]: Data Structure Definitions
 // -- [SUBSECT]: ECS (Entity Component System) Definitions & Implementation
-// -- [SUBSECT]: Vertices & Matricies
+// -- [SUBSECT]: Vertices & Matrices
 // [SECTION]: Functions
 // -- [SUBSECT]: Core Functions
 // -- [SUBSECT]: Logging Functions
@@ -163,6 +163,7 @@
 #include <vector>
 #include <unordered_map>
 #include <chrono>
+#include <memory>
 #include <queue>
 #include <thread>
 #include <mutex>
@@ -619,11 +620,11 @@ enum LvnColorBlendFactor
 
 enum LvnColorBlendOperation
 {
-	Lvn_ColorBlendOperation_Add                 = 0,
-	Lvn_ColorBlendOperation_Subtract            = 1,
-	Lvn_ColorBlendOperation_ReverseSubtract     = 2,
-	Lvn_ColorBlendOperation_Min                 = 3,
-	Lvn_ColorBlendOperation_Max                 = 4,
+	Lvn_ColorBlendOp_Add                 = 0,
+	Lvn_ColorBlendOp_Subtract            = 1,
+	Lvn_ColorBlendOp_ReverseSubtract     = 2,
+	Lvn_ColorBlendOp_Min                 = 3,
+	Lvn_ColorBlendOp_Max                 = 4,
 };
 
 enum LvnColorImageFormat
@@ -644,14 +645,14 @@ enum LvnColorImageFormat
 
 enum LvnCompareOperation
 {
-	Lvn_CompareOperation_Never          = 0,
-	Lvn_CompareOperation_Less           = 1,
-	Lvn_CompareOperation_Equal          = 2,
-	Lvn_CompareOperation_LessOrEqual    = 3,
-	Lvn_CompareOperation_Greater        = 4,
-	Lvn_CompareOperation_NotEqual       = 5,
-	Lvn_CompareOperation_GreaterOrEqual = 6,
-	Lvn_CompareOperation_Always         = 7,
+	Lvn_CompareOp_Never          = 0,
+	Lvn_CompareOp_Less           = 1,
+	Lvn_CompareOp_Equal          = 2,
+	Lvn_CompareOp_LessOrEqual    = 3,
+	Lvn_CompareOp_Greater        = 4,
+	Lvn_CompareOp_NotEqual       = 5,
+	Lvn_CompareOp_GreaterOrEqual = 6,
+	Lvn_CompareOp_Always         = 7,
 };
 
 enum LvnDepthImageFormat
@@ -712,14 +713,14 @@ enum LvnShaderStage
 
 enum LvnStencilOperation
 {
-	Lvn_StencilOperation_Keep              = 0,
-	Lvn_StencilOperation_Zero              = 1,
-	Lvn_StencilOperation_Replace           = 2,
-	Lvn_StencilOperation_IncrementAndClamp = 3,
-	Lvn_StencilOperation_DecrementAndClamp = 4,
-	Lvn_StencilOperation_Invert            = 5,
-	Lvn_StencilOperation_IncrementAndWrap  = 6,
-	Lvn_StencilOperation_DecrementAndWrap  = 7,
+	Lvn_StencilOp_Keep              = 0,
+	Lvn_StencilOp_Zero              = 1,
+	Lvn_StencilOp_Replace           = 2,
+	Lvn_StencilOp_IncrementAndClamp = 3,
+	Lvn_StencilOp_DecrementAndClamp = 4,
+	Lvn_StencilOp_Invert            = 5,
+	Lvn_StencilOp_IncrementAndWrap  = 6,
+	Lvn_StencilOp_DecrementAndWrap  = 7,
 };
 
 enum LvnTextureFilter
@@ -845,7 +846,6 @@ struct LvnLogPattern;
 struct LvnMaterial;
 struct LvnMemoryBindingInfo;
 struct LvnMesh;
-struct LvnMeshCreateInfo;
 struct LvnMeshTextureBindings;
 struct LvnModel;
 struct LvnMouseButtonPressedEvent;
@@ -891,6 +891,7 @@ struct LvnTextureSamplerCreateInfo;
 struct LvnTriangle;
 struct LvnUniformBuffer;
 struct LvnUniformBufferCreateInfo;
+struct LvnUniformBufferInfo;
 struct LvnVertex;
 struct LvnVertexAttribute;
 struct LvnVertexBindingDescription;
@@ -916,6 +917,13 @@ struct LvnPair;
 
 template<typename T1, typename T2>
 struct LvnDoublePair;
+
+template <typename T>
+struct LvnNode;
+template <typename T>
+struct LvnDNode;
+template <typename T>
+struct LvnMNode;
 
 template<typename T, size_t N>
 class LvnArray;
@@ -1047,7 +1055,7 @@ public:
 };
 
 
-// -- [SUBSECT]: Vertices & Matricies
+// -- [SUBSECT]: Vertices & Matrices
 // ------------------------------------------------------------
 
 typedef int length_t;
@@ -1488,7 +1496,7 @@ namespace lvn
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
 	LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
-	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size);                   // update the data stored in a uniform or storage buffer
+	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);  // update the data stored in a uniform or storage buffer
 	LVN_API void                        updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);           // update the descriptor content within a descroptor set
 
 	LVN_API LvnTexture*                 frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);                                               // get the texture image data (render pass attachment) from the framebuffer via the attachment index
@@ -1497,17 +1505,9 @@ namespace lvn
 	LVN_API void                        frameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);      // set the background color for the framebuffer for offscreen rendering
 	LVN_API LvnDepthImageFormat         findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count);
 
-	LVN_API LvnBuffer*                  meshGetBuffer(LvnMesh* mesh);
-	LVN_API LvnMat4                     meshGetMatrix(LvnMesh* mesh);
-	LVN_API void                        meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix);
-	LVN_API LvnBufferCreateInfo         meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount);
-
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageData                loadImageDataMemory(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageHdrData             loadHdrImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
-
-	LVN_API LvnMesh                     createMesh(LvnMeshCreateInfo* createInfo);                                        // create a mesh object containing the vertex/index buffer, model matrix, and material
-	LVN_API void                        destroyMesh(LvnMesh* mesh);                                                       // destroy mesh object
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        unloadModel(LvnModel* model);
@@ -2169,6 +2169,29 @@ struct LvnDoublePair
 	union { T2 p2, y, height; };
 };
 
+template <typename T>
+struct LvnNode
+{
+	T data;
+	LvnNode<T>* next;
+};
+
+template <typename T>
+struct LvnDNode
+{
+	T data;
+	LvnDNode<T>* next;
+	LvnDNode<T>* prev;
+};
+
+template <typename T>
+struct LvnMNode
+{
+	T data;
+	std::vector<std::shared_ptr<LvnMNode<T>>> children;
+};
+
+
 template<typename T, size_t N>
 class LvnArray
 {
@@ -2211,36 +2234,36 @@ public:
 
 	~LvnData()
 	{
-		free(m_Data);
+		delete [] m_Data;
 	}
 
 	LvnData(const T* data, size_t size)
 	{
-		void* buff = malloc(size * sizeof(T));
-		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); LVN_ASSERT_BREAK; }
-		memcpy(buff, data, size * sizeof(T));
-		m_Data = (T*)buff;
 		m_Size = size;
 		m_MemSize = size * sizeof(T);
+		m_Data = new T[size];
+
+		for (size_t i = 0; i < size; i++)
+			m_Data[i] = data[i];
 	}
 	LvnData(const LvnData<T>& data)
 	{
-		void* buff = malloc(data.m_MemSize);
-		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); LVN_ASSERT_BREAK; }
-		memcpy(buff, data.m_Data, data.m_MemSize);
-		this->m_Data = (T*)buff;
-		this->m_Size = data.m_Size;
-		this->m_MemSize = data.m_MemSize;
+		m_Size = data.m_Size;
+		m_MemSize = data.m_MemSize;
+		m_Data = new T[data.m_Size];
+
+		for (size_t i = 0; i < data.m_Size; i++)
+			m_Data[i] = data.m_Data[i];
 	}
 	LvnData<T>& operator=(const LvnData<T>& data)
 	{
-		free(m_Data);
-		void* buff = malloc(data.m_MemSize);
-		if (!buff) { LVN_CORE_ASSERT(false, "malloc failure, failed to allocate memory"); LVN_ASSERT_BREAK; }
-		memcpy(buff, data.m_Data, data.m_MemSize);
-		this->m_Data = (T*)buff;
-		this->m_Size = data.m_Size;
-		this->m_MemSize = data.m_MemSize;
+		delete [] m_Data;
+		m_Size = data.m_Size;
+		m_MemSize = data.m_MemSize;
+		m_Data = new T[data.m_Size];
+
+		for (size_t i = 0; i < data.m_Size; i++)
+			m_Data[i] = data.m_Data[i];
 
 		return *this;
 	}
@@ -2261,7 +2284,9 @@ public:
 	const size_t memsize() const { return m_MemSize; }
 
 	const T* const begin() const { return &m_Data[0]; }
-	const T* const end() const { return &m_Data[m_Size - 1]; }
+	const T* const end() const { return &m_Data[0] + m_Size; }
+	const T* const front() const { return &m_Data[0]; }
+	const T* const back() const { return &m_Data[m_Size - 1]; }
 };
 
 class LvnTimer
@@ -4646,7 +4671,6 @@ struct LvnContextCreateInfo
 
 	LvnTextureFormat              frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
 	LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
-	uint32_t                      maxFramesInFlight;             // the max number of frames to be computed after submiting to the graphics queue (vulkan)
 	
 	struct
 	{
@@ -5007,7 +5031,7 @@ struct LvnDescriptorUpdateInfo
 	uint32_t binding;
 	LvnDescriptorType descriptorType;
 	uint32_t descriptorCount;
-	LvnUniformBuffer* bufferInfo;
+	LvnUniformBufferInfo* bufferInfo;
 	LvnTexture** pTextureInfos;
 };
 
@@ -5073,6 +5097,13 @@ struct LvnUniformBufferCreateInfo
 	uint64_t size;
 };
 
+struct LvnUniformBufferInfo
+{
+	LvnUniformBuffer* buffer;
+	uint64_t range;
+	uint64_t offset;
+};
+
 struct LvnImageData
 {
 	LvnData<uint8_t> pixels;
@@ -5090,7 +5121,7 @@ struct LvnImageHdrData
 struct LvnSamplerCreateInfo
 {
 	LvnTextureFilter minFilter, magFilter;
-	LvnTextureMode wrapMode;
+	LvnTextureMode wrapS, wrapT;
 };
 
 struct LvnTextureCreateInfo
@@ -5098,7 +5129,7 @@ struct LvnTextureCreateInfo
 	LvnImageData imageData;
 	LvnTextureFormat format;
 	LvnTextureFilter minFilter, magFilter;
-	LvnTextureMode wrapMode;
+	LvnTextureMode wrapS, wrapT;
 };
 
 struct LvnTextureSamplerCreateInfo
@@ -5121,47 +5152,43 @@ struct LvnVertex
 
 struct LvnMaterial
 {
-	LvnVec3 vBaseColor;
-	float fMetallic;
-	float fRoughness;
-	float fNormal;
-	float fOcclusion;
-	float fEmissiveStrength;
+	LvnVec3 baseColorFactor;
+	LvnVec3 emissiveFactor;
+	float metallicFactor;
+	float roughnessFactor;
 
 	LvnTexture* albedo;
 	LvnTexture* metallicRoughnessOcclusion;
 	LvnTexture* normal;
 	LvnTexture* emissive;
 
-	LvnSampler* albedoSampler;
-	LvnSampler* mroSampler;
-	LvnSampler* normalSampler;
-	LvnSampler* emissiveSampler;
+	bool doubleSided;
+};
+
+struct LvnPrimitive
+{
+	LvnTopologyType topology;
+	LvnMaterial material;
+	uint32_t vertexCount;
+	uint32_t indexCount;
+
+	LvnBuffer* buffer;
 };
 
 struct LvnMesh
 {
-	LvnBuffer* buffer;    // single buffer that contains both vertex and index buffer
-	LvnDescriptorSet* descriptorSet;
-	LvnMaterial material; // material to hold shader and texture data
-	LvnMat4 modelMatrix;  // model matrix of mesh
-
-	uint32_t vertexCount; // number of vertices in this mesh
-	uint32_t indexCount;  // number of indices in this mesh
-};
-
-struct LvnMeshCreateInfo
-{
-	LvnBufferCreateInfo* bufferInfo;
-	LvnMaterial material;
+	LvnData<LvnPrimitive> primitives;
+	LvnMat4 matrix;
 };
 
 struct LvnModel
 {
+	LvnData<std::shared_ptr<LvnMNode<LvnMesh>>> nodes;
 	LvnData<LvnMesh> meshes;
+	LvnData<LvnBuffer*> buffers;
 	LvnData<LvnSampler*> samplers;
 	LvnData<LvnTexture*> textures;
-	LvnMat4 modelMatrix;
+	LvnMat4 matrix;
 };
 
 struct LvnCamera

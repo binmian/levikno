@@ -153,6 +153,7 @@ int main(int argc, char** argv)
 
 	// initialize rendering, pass the physical device in the init struct
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 
 	// find and check if physical device is supported
 	for (uint32_t i = 0; i < deviceCount; i++)
@@ -214,7 +215,8 @@ int main(int argc, char** argv)
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = imageData;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapS = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapT = Lvn_TextureMode_Repeat;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 
@@ -370,7 +372,7 @@ int main(int argc, char** argv)
 	// create pipeline specification or fixed functions
 	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
 	pipelineSpec.depthstencil.enableDepth = true;
-	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOperation_LessOrEqual;
+	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOp_LessOrEqual;
 	pipelineSpec.multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit; // NOTE: set the multisampling count to 8 in the pipeline specification used in framebuffer recording
 
 	// pipeline create info struct
@@ -445,11 +447,16 @@ int main(int argc, char** argv)
 
 
 	// update descriptor set
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = uniformBuffer;
+	bufferInfo.range = sizeof(UniformData);
+	bufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
 	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = uniformBuffer;
+	descriptorUniformUpdateInfo.bufferInfo = &bufferInfo;
 
 	LvnDescriptorUpdateInfo descriptorTextureUpdateInfo{};
 	descriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
@@ -498,7 +505,7 @@ int main(int argc, char** argv)
 		LvnMat4 camera = proj * view * model;
 
 		uniformData.matrix = camera;
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData));
+		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData), 0);
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);

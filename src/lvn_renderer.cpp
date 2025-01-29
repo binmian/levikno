@@ -265,16 +265,22 @@ static LvnResult initRenderer2d(LvnRenderer* renderer, LvnRendererModeData* mode
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Nearest;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapS = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapT = Lvn_TextureMode_Repeat;
 
 	lvn::createTexture(&renderer->texture, &textureCreateInfo);
 
 	// update descriptor set
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = modeData->uniformBuffer;
+	bufferInfo.range = sizeof(LvnRenderer::LvnRendererUniformData);
+	bufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
 	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = modeData->uniformBuffer;
+	descriptorUniformUpdateInfo.bufferInfo = &bufferInfo;
 
 	std::vector<LvnTexture*> defaultTextures(modeData->maxTextures, renderer->texture);
 
@@ -407,11 +413,16 @@ static LvnResult initRendererLine(LvnRenderer* renderer, LvnRendererModeData* mo
 
 
 	// update descriptor set
+	LvnUniformBufferInfo bufferInfo{};
+	bufferInfo.buffer = modeData->uniformBuffer;
+	bufferInfo.range = sizeof(LvnRenderer::LvnRendererUniformData);
+	bufferInfo.offset = 0;
+
 	LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
 	descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	descriptorUniformUpdateInfo.binding = 0;
 	descriptorUniformUpdateInfo.descriptorCount = 1;
-	descriptorUniformUpdateInfo.bufferInfo = modeData->uniformBuffer;
+	descriptorUniformUpdateInfo.bufferInfo = &bufferInfo;
 
 	lvn::updateDescriptorSetData(modeData->descriptorSet, &descriptorUniformUpdateInfo, 1);
 
@@ -439,7 +450,7 @@ static void drawRenderer2d(LvnRenderer* renderer, LvnRendererModeData* modeData)
 	}
 
 	renderer->uniformData2d.matrix = camera;
-	lvn::updateUniformBufferData(renderer->window, modeData->uniformBuffer, &renderer->uniformData2d, sizeof(renderer->uniformData2d));
+	lvn::updateUniformBufferData(renderer->window, modeData->uniformBuffer, &renderer->uniformData2d, sizeof(renderer->uniformData2d), 0);
 
 	lvn::bufferUpdateVertexData(modeData->buffer, modeData->drawList.vertices(), modeData->drawList.vertex_size(), 0);
 	lvn::bufferUpdateIndexData(modeData->buffer, modeData->drawList.indices(), modeData->drawList.index_size(), 0);
@@ -474,7 +485,7 @@ static void drawRendererLine(LvnRenderer* renderer, LvnRendererModeData* modeDat
 	}
 
 	renderer->uniformData2d.matrix = camera;
-	lvn::updateUniformBufferData(renderer->window, modeData->uniformBuffer, &renderer->uniformData2d, sizeof(renderer->uniformData2d));
+	lvn::updateUniformBufferData(renderer->window, modeData->uniformBuffer, &renderer->uniformData2d, sizeof(renderer->uniformData2d), 0);
 
 	lvn::bufferUpdateVertexData(modeData->buffer, modeData->drawList.vertices(), modeData->drawList.vertex_size(), 0);
 	lvn::bufferUpdateIndexData(modeData->buffer, modeData->drawList.indices(), modeData->drawList.index_size(), 0);

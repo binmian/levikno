@@ -22,6 +22,7 @@ int main(int argc, char** argv)
 
 
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 
 	for (uint32_t i = 0; i < deviceCount; i++)
 	{
@@ -40,7 +41,8 @@ int main(int argc, char** argv)
 	LvnTextureCreateInfo textureCreateInfo{};
 	textureCreateInfo.imageData = imageData;
 	textureCreateInfo.format = Lvn_TextureFormat_Unorm;
-	textureCreateInfo.wrapMode = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapS = Lvn_TextureMode_Repeat;
+	textureCreateInfo.wrapT = Lvn_TextureMode_Repeat;
 	textureCreateInfo.minFilter = Lvn_TextureFilter_Linear;
 	textureCreateInfo.magFilter = Lvn_TextureFilter_Linear;
 

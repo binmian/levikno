@@ -394,15 +394,15 @@ static void initStandardPipelineSpecification(LvnContext* lvnctx)
 
 	// Depth Stencil
 	pipelineSpecification.depthstencil.enableDepth = false;
-	pipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOperation_Never;
+	pipelineSpecification.depthstencil.depthOpCompare = Lvn_CompareOp_Never;
 	pipelineSpecification.depthstencil.enableStencil = false;
 	pipelineSpecification.depthstencil.stencil.compareMask = 0x00;
 	pipelineSpecification.depthstencil.stencil.writeMask = 0x00;
 	pipelineSpecification.depthstencil.stencil.reference = 0;
-	pipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOperation_Never;
-	pipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOperation_Keep;
-	pipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOperation_Keep;
-	pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOperation_Keep;
+	pipelineSpecification.depthstencil.stencil.compareOp = Lvn_CompareOp_Never;
+	pipelineSpecification.depthstencil.stencil.depthFailOp = Lvn_StencilOp_Keep;
+	pipelineSpecification.depthstencil.stencil.failOp = Lvn_StencilOp_Keep;
+	pipelineSpecification.depthstencil.stencil.passOp = Lvn_StencilOp_Keep;
 
 	lvnctx->defaultPipelineSpecification = pipelineSpecification;
 }
@@ -591,7 +591,6 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 
 	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
-	s_LvnContext->graphicsContext.maxFramesInFlight = createInfo->maxFramesInFlight;
 
 	// ecs entity id
 	s_LvnContext->entityIndexID = 0;
@@ -1863,6 +1862,17 @@ LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 
 LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 {
+	if (renderInfo->physicalDevice == nullptr)
+	{
+		LVN_CORE_ERROR("renderInit(LvnRenderInitInfo*) | renderInfo->physicalDevice is nullptr, cannot initialize rendering without a specified physical device (GPU)");
+		return Lvn_Result_Failure;
+	}
+
+	if (renderInfo->maxFramesInFlight == 0)
+	{
+		LVN_CORE_WARN("renderInit(LvnRenderInitInfo*) | renderInfo->maxFramesInFlight is 0, cannot have zero frames in flight during rendering; defaulting to one frame in flight");
+	}
+
 	return lvn::getContext()->graphicsContext.renderInit(renderInfo);
 }
 
@@ -2363,17 +2373,6 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInf
 	return lvnctx->graphicsContext.createCubemapHdr(*cubemap, createInfo);
 }
 
-LvnMesh createMesh(LvnMeshCreateInfo* createInfo)
-{
-	LvnMesh mesh{};
-
-	lvn::createBuffer(&mesh.buffer, createInfo->bufferInfo);
-	mesh.material = createInfo->material;
-	mesh.modelMatrix = LvnMat4(1.0f);
-
-	return mesh;
-}
-
 void destroyShader(LvnShader* shader)
 {
 	if (shader == nullptr) { return; }
@@ -2464,14 +2463,6 @@ void destroyCubemap(LvnCubemap* cubemap)
 	lvn::destroyObject(lvnctx, cubemap, Lvn_Stype_Cubemap);
 }
 
-void destroyMesh(LvnMesh* mesh)
-{
-	lvn::destroyBuffer(mesh->buffer);
-
-	if (mesh->descriptorSet != nullptr)
-		lvn::destroyDescriptorSet(mesh->descriptorSet);
-}
-
 void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification)
 {
 	LVN_CORE_ASSERT(pipelineSpecification != nullptr, "pipeline specification points to nullptr when setting pipeline specification config");
@@ -2510,9 +2501,9 @@ LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 	return &cubemap->textureData;
 }
 
-void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size)
+void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
-	lvn::getContext()->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size);
+	lvn::getContext()->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size, offset);
 }
 
 void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -2552,48 +2543,6 @@ LvnDepthImageFormat findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthIma
 	}
 
 	return lvn::getContext()->graphicsContext.findSupportedDepthImageFormat(pDepthImageFormats, count);
-}
-
-LvnBuffer* meshGetBuffer(LvnMesh* mesh)
-{
-	return mesh->buffer;
-}
-
-LvnMat4 meshGetMatrix(LvnMesh* mesh)
-{
-	return mesh->modelMatrix;
-}
-
-void meshSetMatrix(LvnMesh* mesh, const LvnMat4& matrix)
-{
-	mesh->modelMatrix = matrix;
-}
-
-static LvnVertexBindingDescription s_MeshVertexBindingDescroption = { 0, sizeof(LvnVertex) };
-static LvnVertexAttribute s_MeshVertexAttributes[] =
-{
-	{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
-	{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
-	{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
-	{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
-	{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
-	{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
-};
-
-LvnBufferCreateInfo meshGetVertexBufferCreateInfoConfig(LvnVertex* pVertices, uint32_t vertexCount, uint32_t* pIndices, uint32_t indexCount)
-{
-	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.pVertexBindingDescriptions = &s_MeshVertexBindingDescroption;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertexAttributes = s_MeshVertexAttributes;
-	bufferCreateInfo.vertexAttributeCount = sizeof(s_MeshVertexAttributes) / sizeof(LvnVertexAttribute);
-	bufferCreateInfo.pVertices = pVertices;
-	bufferCreateInfo.vertexBufferSize = vertexCount * sizeof(LvnVertex);
-	bufferCreateInfo.pIndices = pIndices;
-	bufferCreateInfo.indexBufferSize = indexCount * sizeof(uint32_t);
-
-	return bufferCreateInfo;
 }
 
 LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVertically)
@@ -2745,11 +2694,6 @@ LvnModel loadModel(const char* filepath)
 
 void unloadModel(LvnModel* model)
 {
-	for (uint32_t i = 0; i < model->meshes.size(); i++)
-	{
-		lvn::destroyMesh(&model->meshes[i]);
-	}
-	
 	for (uint32_t i = 0; i < model->samplers.size(); i++)
 	{
 		lvn::destroySampler(model->samplers[i]);
@@ -2757,6 +2701,10 @@ void unloadModel(LvnModel* model)
 	for (uint32_t i = 0; i < model->textures.size(); i++)
 	{
 		lvn::destroyTexture(model->textures[i]);
+	}
+	for (uint32_t i = 0; i < model->buffers.size(); i++)
+	{
+		lvn::destroyBuffer(model->buffers[i]);
 	}
 }
 

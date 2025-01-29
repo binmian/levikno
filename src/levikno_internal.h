@@ -15,19 +15,11 @@
 // ------------------------------------------------------------
 
 template <typename T>
-struct LvnNode
-{
-	T data;
-	LvnNode* next;
-	LvnNode* prev;
-};
-
-template <typename T>
 class LvnList
 {
 private:
-	LvnNode<T>* m_Head;
-	LvnNode<T>* m_Tail;
+	LvnDNode<T>* m_Head;
+	LvnDNode<T>* m_Tail;
 	uint32_t m_Size;
 
 public:
@@ -37,7 +29,7 @@ public:
 	{
 		while (m_Head != nullptr)
 		{
-			LvnNode<T>* node = m_Head;
+			LvnDNode<T>* node = m_Head;
 			m_Head = node->next;
 			delete node;
 		}
@@ -47,7 +39,7 @@ public:
 	{
 		LVN_CORE_ASSERT(index < m_Size, "list index out of range");
 
-		LvnNode<T>* node = m_Head;
+		LvnDNode<T>* node = m_Head;
 
 		for (uint32_t i = 0; i < index; i++)
 		{
@@ -60,7 +52,7 @@ public:
 	{
 		LVN_CORE_ASSERT(index < m_Size, "list index out of range");
 
-		LvnNode<T>* node = m_Head;
+		LvnDNode<T>* node = m_Head;
 
 		for (uint32_t i = 0; i < index; i++)
 		{
@@ -83,15 +75,15 @@ public:
 	{
 		if (!m_Size)
 		{
-			m_Head = new LvnNode<T>();
+			m_Head = new LvnDNode<T>();
 			m_Head->data = data;
 			m_Tail = m_Head;
 			m_Size++;
 			return;
 		}
 
-		LvnNode<T>* node = m_Tail;
-		node->next = new LvnNode<T>();
+		LvnDNode<T>* node = m_Tail;
+		node->next = new LvnDNode<T>();
 		m_Tail = node->next;
 		m_Tail->data = data;
 		m_Tail->prev = node;
@@ -102,14 +94,14 @@ public:
 	{
 		if (!m_Size)
 		{
-			m_Head = new LvnNode<T>();
+			m_Head = new LvnDNode<T>();
 			m_Head->data = data;
 			m_Tail = m_Head;
 			m_Size++;
 			return;
 		}
 
-		LvnNode<T>* node = new LvnNode<T>();
+		LvnDNode<T>* node = new LvnDNode<T>();
 		node->data = data;
 		node->next = m_Head;
 		m_Head->prev = node;
@@ -122,7 +114,7 @@ public:
 		if (!m_Size) { return; }
 		if (m_Size == 1) { delete m_Tail; m_Tail = m_Head = nullptr; m_Size--; return; }
 
-		LvnNode<T>* node = m_Tail->prev;
+		LvnDNode<T>* node = m_Tail->prev;
 		node->next = nullptr;
 		delete m_Tail;
 		m_Tail = node;
@@ -134,14 +126,13 @@ public:
 		if (!m_Size) { return; }
 		if (m_Size == 1) { delete m_Head; m_Head = m_Tail = nullptr; m_Size--; return; }
 
-		LvnNode<T>* node = m_Head->next;
+		LvnDNode<T>* node = m_Head->next;
 		node->prev = nullptr;
 		delete m_Head;
 		m_Head = node;
 		m_Size--;
 	}
 };
-
 
 class LvnMemoryBlock
 {
@@ -485,7 +476,7 @@ struct LvnGraphicsContext
 	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint64_t, uint64_t);
 	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint64_t);
 	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint64_t);
-	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t);
+	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t, uint64_t);
 	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
 	LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
 	LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);
@@ -555,7 +546,7 @@ struct LvnUniformBuffer
 {
 	void* uniformBuffer;
 	void* uniformBufferMemory;
-	std::vector<void*> uniformBufferMapped;
+	void* uniformBufferMapped;
 	uint64_t size;
 
 	uint32_t id;
