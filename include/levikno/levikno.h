@@ -19,7 +19,6 @@
 // -- [SUBSECT]: Logging Enums
 // -- [SUBSECT]: Graphics Enums
 // -- [SUBSECT]: Networking Enums
-// -- [SUBSECT]: Renderer Enums
 // [SECTION]: Struct Definitions
 // -- [SUBSECT]: Data Structure Definitions
 // -- [SUBSECT]: ECS (Entity Component System) Definitions & Implementation
@@ -33,7 +32,6 @@
 // -- [SUBSECT]: Audio Functions
 // -- [SUBSECT]: Networking Functions
 // -- [SUBSECT]: ECS Functions
-// -- [SUBSECT]: Renderer Functions
 // -- [SUBSECT]: Math Functions
 // [SECTION]: Struct Implementations
 // -- [SUBSECT]: Data Structures
@@ -43,7 +41,6 @@
 // -- [SUBSECT]: Graphics Struct Implementation
 // -- [SUBSECT]: Audio Struct Implementation
 // -- [SUBSECT]: Networking Struct Implementation
-// -- [SUBSECT]: Renderer Struct Implementation
 
 
 
@@ -785,17 +782,6 @@ enum LvnSocketType
 {
 	Lvn_SocketType_Client,
 	Lvn_SocketType_Server,
-};
-
-
-// -- [SUBSECT]: Renderer Enums
-// ------------------------------------------------------------
-
-enum LvnRendererMode
-{
-	Lvn_RendererMode_None   = (0U),
-	Lvn_RendererMode_2d     = (1U << 0),
-	Lvn_RendererMode_Line   = (1U << 1),
 };
 
 
@@ -1632,29 +1618,6 @@ namespace lvn
 	}
 
 
-	// -- [SUBSECT]: Renderer Functions
-	// ------------------------------------------------------------
-
-	LVN_API LvnResult                   rendererInit(LvnRenderer* renderer, LvnRendererCreateInfo* createInfo);
-	LVN_API void                        rendererTerminate(LvnRenderer* renderer);
-	LVN_API void                        rendererBeginDraw(LvnRenderer* renderer);
-	LVN_API void                        rendererEndDraw(LvnRenderer* renderer);
-	LVN_API void                        rendererFlushDraw(LvnRenderer* renderer);
-	LVN_API void                        rendererFlushDrawMode(LvnRenderer* renderer, LvnRendererMode renderMode);
-	LVN_API void                        rendererSetBackgroundColor(LvnRenderer* renderer, float r, float g, float b, float a);
-	LVN_API void                        rendererAddSprite(LvnRenderer* renderer, LvnSprite* sprite);
-	LVN_API void                        rendererRemoveSprite(LvnRenderer* renderer, LvnSprite* sprite);
-
-	LVN_API void                        drawTriangle(LvnRenderer* renderer, const LvnTriangle& triangle, const LvnColor& color);
-	LVN_API void                        drawRect(LvnRenderer* renderer, const LvnRect& rect, const LvnColor& color);
-	LVN_API void                        drawPoly(LvnRenderer* renderer, const LvnPoly& poly, const LvnColor& color);
-	LVN_API void                        drawLine(LvnRenderer* renderer, const LvnLine& line, const LvnColor& color);
-	LVN_API void                        drawSprite(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color);
-	LVN_API void                        drawSpriteEx(LvnRenderer* renderer, LvnSprite& sprite, const LvnColor& color, float scale, float rotation);
-
-	LVN_API LvnSprite                   createSprite(LvnTextureCreateInfo* createInfo, const LvnVec2& pos);
-	LVN_API void                        destroySprite(LvnSprite* sprite);
-
 
 	// -- [SUBSECT]: Math Functions
 	// ------------------------------------------------------------
@@ -1674,17 +1637,42 @@ namespace lvn
 	template <typename T>
 	LVN_API T                           distance(const T& x1, const T& y1, const T& x2, const T& y2) { return sqrt(pow((x1 - x2), static_cast<T>(2)) + pow((y1 - y2), static_cast<T>(2))); }
 
-	template<typename T>
+	template <typename T>
 	LVN_API bool                        within(T num, T within, T range) { return num <= (within + range) && num >= (within - range); }
 	
-	template<typename T>
+	template <typename T>
 	LVN_API bool                        within(T num, T within, T lowerRange, T upperRange) { return num <= (within + upperRange) && num >= (within - lowerRange); }
+
+	template <typename T>
+	LVN_API T lerp(const T& start, const T& end, float t)
+	{
+		return start * (1 - t) + end * t;
+	}
+
+	template <typename T>
+	LVN_API LvnVec<2, T> lerp(const LvnVec<2, T>& start, const LvnVec<2, T>& end, float t)
+	{
+		return LvnVec<2, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t));
+	}
+
+	template <typename T>
+	LVN_API LvnVec<3, T> lerp(const LvnVec<3, T>& start, const LvnVec<3, T>& end, float t)
+	{
+		return LvnVec<3, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t), lerp(start.z, end.z, t));
+	}
+
+	template <typename T>
+	LVN_API LvnVec<4, T> lerp(const LvnVec<4, T>& start, const LvnVec<4, T>& end, float t)
+	{
+		return LvnVec<4, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t), lerp(start.z, end.z, t), lerp(start.w, end.w, t));
+	}
 
 	LVN_API float radians(float deg);          // convert degrees to radians
 	LVN_API float degrees(float rad);          // convert radians to degrees
 	LVN_API float clampAngle(float rad);       // clamps the given angle in radians to the translated angle between 0 and 2 PI
 	LVN_API float clampAngleDeg(float deg);    // clamps the given angle in degrees to the translated angle between 0 and 2 PI
 	LVN_API float invSqrt(float num);
+	LVN_API double derivative(double (*func)(double), double x, double delta = 0.001); // finds the instantaneous slope of the function given with a delta offset
 
 	template <typename T>
 	LVN_API LvnVec<2, T> normalize(const LvnVec<2, T>& v)
@@ -4886,11 +4874,17 @@ struct LvnPhysicalDeviceInfo
 	uint32_t driverVersion;
 };
 
+struct LvnRendererCreateInfo
+{
+	LvnWindowCreateInfo* windowCreateInfo;
+	uint64_t maxSprites;
+};
+
 struct LvnRenderInitInfo
 {
-	LvnPhysicalDevice*  physicalDevice;
-	bool                gammaCorrection;
-	uint32_t            maxFramesInFlight;
+	LvnPhysicalDevice*       physicalDevice;
+	LvnRendererCreateInfo*   rendererCreateInfo;
+	uint32_t                 maxFramesInFlight;
 };
 
 struct LvnPipelineInputAssembly
@@ -5303,91 +5297,5 @@ struct LvnPacket
 	size_t size;
 };
 
-
-
-// -- [SUBSECT]: Renderer Struct Implementation
-// ------------------------------------------------------------
-
-struct LvnColor
-{
-	float r, g, b, a;
-};
-
-struct LvnLine
-{
-	LvnVec3 v1, v2;
-};
-
-struct LvnTriangle
-{
-	LvnVec2 v1, v2, v3;
-};
-
-struct LvnRect
-{
-	LvnVec2 pos;
-	LvnVec2 size;
-};
-
-struct LvnPoly
-{
-	LvnVec2 pos;
-	float radius;
-	int nSides;
-};
-
-struct LvnSprite
-{
-	LvnTexture* texture;
-	LvnVec2 pos;
-	const uint32_t id;
-};
-
-struct LvnRendererCreateInfo
-{
-	LvnWindowCreateInfo windowCreateInfo;
-	uint32_t rendererModes;
-	uint64_t maxSprites;
-};
-
-struct LvnRendererModeData
-{
-	LvnRendererMode mode;
-
-	LvnDescriptorLayout* descriptorLayout;
-	LvnDescriptorSet* descriptorSet;
-	LvnPipeline* pipeline;
-	LvnBuffer* buffer;
-	LvnUniformBuffer* uniformBuffer;
-	void (*drawFunc)(LvnRenderer*, LvnRendererModeData*);
-
-	LvnDrawList drawList;
-	uint64_t maxVertexCount, maxIndexCount, maxTextures;
-};
-
-struct LvnRenderer
-{
-	struct LvnRendererUniformData
-	{
-		LvnMat4 matrix;
-	};
-
-	uint32_t renderModes;
-	LvnWindow* window;
-	LvnColor backGroundColor;
-
-	std::vector<LvnRendererModeData> rendererModes;
-	std::unordered_map<uint32_t, LvnRendererModeData*> rendererModesIndices;
-
-	uint32_t currentSpriteCount;
-	std::vector<LvnTexture*> spriteTextures;
-	std::unordered_map<uint32_t, uint32_t> spriteTexturesIndices;
-	std::queue<uint32_t> availableSpriteIndices;
-
-	LvnRendererUniformData uniformData2d, uniformDataLine;
-
-	LvnSampler* sampler;
-	LvnTexture* texture;
-};
 
 #endif

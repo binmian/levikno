@@ -98,8 +98,11 @@ namespace lvn
 	struct OglPipelineEnums
 	{
 		bool enableDepth;
+		bool enableBlending;
 		uint32_t depthCompareOp;
 		uint32_t topologyType;
+		uint32_t srcBlendFactor;
+		uint32_t dstBlendFactor;
 	};
 
 	struct OglFramebufferData

@@ -1,8 +1,5 @@
 #include <levikno/levikno.h>
 
-#include <vector>
-#include <cstdint>
-#include <chrono>
 
 // INFO: this program loads a gltf model and render it on screen
 
@@ -25,7 +22,7 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 fragNormal;
 
 
-layout(binding = 0) uniform UniformBuffer
+layout(binding = 0) uniform MatrixUniforms
 {
 	mat4 matrix;
 	mat4 model;

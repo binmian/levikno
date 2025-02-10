@@ -25,6 +25,7 @@ namespace ogls
 	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
 	static GLenum             getCompareOpEnum(LvnCompareOperation compareOp);
 	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
+	static GLenum             getBlendFactorType(LvnColorBlendFactor factor);
 	static GLenum             getUniformBufferTypeEnum(LvnBufferType type);
 	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
 
@@ -79,7 +80,7 @@ namespace ogls
 			glGetProgramiv(shader, GL_LINK_STATUS, &hasCompiled);
 			if (hasCompiled == GL_FALSE)
 			{
-				glGetShaderInfoLog(shader, 1024, 0, infoLog);
+				glGetProgramInfoLog(shader, 1024, 0, infoLog);
 				LVN_CORE_ERROR("[opengl] [program] shader linking error: %s, source: %s", infoLog, shaderSrc);
 				glDeleteProgram(shader);
 				return Lvn_Result_Failure;
@@ -287,6 +288,38 @@ namespace ogls
 			{
 				LVN_CORE_WARN("invalid topology type enum, setting topology type to GL_TRIANGLES");
 				return GL_TRIANGLES;
+			}
+		}
+	}
+
+	static GLenum getBlendFactorType(LvnColorBlendFactor factor)
+	{
+		switch (factor)
+		{
+			case Lvn_ColorBlendFactor_Zero: { return GL_ZERO; }
+			case Lvn_ColorBlendFactor_One: { return GL_ONE; }
+			case Lvn_ColorBlendFactor_SrcColor: { return GL_SRC_COLOR; }
+			case Lvn_ColorBlendFactor_OneMinusSrcColor: { return GL_ONE_MINUS_SRC_COLOR; }
+			case Lvn_ColorBlendFactor_DstColor: { return GL_DST_COLOR; }
+			case Lvn_ColorBlendFactor_OneMinusDstColor: { return GL_ONE_MINUS_DST_COLOR; }
+			case Lvn_ColorBlendFactor_SrcAlpha: { return GL_SRC_ALPHA; }
+			case Lvn_ColorBlendFactor_OneMinusSrcAlpha: { return GL_ONE_MINUS_SRC_ALPHA; }
+			case Lvn_ColorBlendFactor_DstAlpha: { return GL_DST_ALPHA; }
+			case Lvn_ColorBlendFactor_OneMinusDstAlpha: { return GL_ONE_MINUS_DST_ALPHA; }
+			case Lvn_ColorBlendFactor_ConstantColor: { return GL_CONSTANT_COLOR; }
+			case Lvn_ColorBlendFactor_OneMinusConstantColor: { return GL_ONE_MINUS_CONSTANT_COLOR; }
+			case Lvn_ColorBlendFactor_ConstantAlpha: { return GL_CONSTANT_ALPHA; }
+			case Lvn_ColorBlendFactor_OneMinusConstantAlpha: { return GL_ONE_MINUS_CONSTANT_ALPHA; }
+			case Lvn_ColorBlendFactor_SrcAlphaSaturate: { return GL_SRC_ALPHA_SATURATE; }
+			case Lvn_ColorBlendFactor_Src1Color: { return GL_SRC1_COLOR; }
+			case Lvn_ColorBlendFactor_OneMinusSrc1Color: { return GL_ONE_MINUS_SRC1_COLOR; }
+			case Lvn_ColorBlendFactor_Src1_Alpha: { return GL_SRC1_ALPHA; }
+			case Lvn_ColorBlendFactor_OneMinusSrc1Alpha: { return GL_ONE_MINUS_SRC1_ALPHA; }
+
+			default:
+			{
+				LVN_CORE_ERROR("invalid blend factor type enum, setting blend factor to GL_ZERO");
+				return GL_ZERO;
 			}
 		}
 	}
@@ -845,8 +878,15 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
 	pipelineEnums->enableDepth = createInfo->pipelineSpecification->depthstencil.enableDepth;
+	pipelineEnums->enableBlending = createInfo->pipelineSpecification->colorBlend.colorBlendAttachmentCount > 0;
 	pipelineEnums->depthCompareOp = ogls::getCompareOpEnum(createInfo->pipelineSpecification->depthstencil.depthOpCompare);
 	pipelineEnums->topologyType = ogls::getTopologyTypeEnum(createInfo->pipelineSpecification->inputAssembly.topology);
+
+	if (pipelineEnums->enableBlending)
+	{
+		pipelineEnums->srcBlendFactor = ogls::getBlendFactorType(createInfo->pipelineSpecification->colorBlend.pColorBlendAttachments[0].srcColorBlendFactor);
+		pipelineEnums->dstBlendFactor = ogls::getBlendFactorType(createInfo->pipelineSpecification->colorBlend.pColorBlendAttachments[0].dstColorBlendFactor);
+	}
 
 	return Lvn_Result_Success;
 }
@@ -1262,6 +1302,7 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 {
 	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
+	// depth
 	if (pipelineEnums->enableDepth)
 	{
 		glEnable(GL_DEPTH_TEST);
@@ -1270,6 +1311,17 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	else
 	{
 		glDisable(GL_DEPTH_TEST);
+	}
+
+	// color blend
+	if (pipelineEnums->enableBlending)
+	{
+		glEnable(GL_BLEND);
+		glBlendFunc(pipelineEnums->srcBlendFactor, pipelineEnums->dstBlendFactor);
+	}
+	else
+	{
+		glDisable(GL_BLEND);
 	}
 
 	glUseProgram(pipeline->id);

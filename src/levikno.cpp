@@ -1862,6 +1862,8 @@ LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 
 LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (renderInfo->physicalDevice == nullptr)
 	{
 		LVN_CORE_ERROR("renderInit(LvnRenderInitInfo*) | renderInfo->physicalDevice is nullptr, cannot initialize rendering without a specified physical device (GPU)");
@@ -1873,7 +1875,13 @@ LvnResult renderInit(LvnRenderInitInfo* renderInfo)
 		LVN_CORE_WARN("renderInit(LvnRenderInitInfo*) | renderInfo->maxFramesInFlight is 0, cannot have zero frames in flight during rendering; defaulting to one frame in flight");
 	}
 
-	return lvn::getContext()->graphicsContext.renderInit(renderInfo);
+	if (lvnctx->graphicsContext.renderInit(renderInfo) != Lvn_Result_Success)
+	{
+		LVN_CORE_ERROR("failed to initialize back end rendering");
+		return Lvn_Result_Failure;
+	}
+
+	return Lvn_Result_Success;
 }
 
 LvnClipRegion getRenderClipRegionEnum()
@@ -3289,6 +3297,13 @@ float invSqrt(float num)
 	conv.i = 0x5f3759df - (conv.i >> 1);
 	conv.f = conv.f * (threehalfs - (x2 * conv.f * conv.f));
 	return conv.f;
+}
+
+double derivative(double (*func)(double), double x, double delta)
+{
+	double fxph = func(x + delta);
+	double fxmh = func(x - delta);
+	return (fxph - fxmh) / (2.0 * delta);
 }
 
 LvnVec3f cross(LvnVec3f v1, LvnVec3f v2)

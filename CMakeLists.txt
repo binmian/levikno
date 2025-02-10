@@ -95,7 +95,6 @@ set(LVN_SOURCES
 	src/levikno_internal.h
 	src/lvn_loadModel.cpp
 	src/lvn_loadModel.h
-	src/lvn_renderer.cpp
 
 	# glfw
 	src/api/window/glfw/lvn_glfw.cpp

@@ -637,9 +637,6 @@ struct LvnContext
 	std::queue<LvnEntity>                availableEntityIDs;
 	uint64_t                             entityIndexID, maxEntityIDs;
 
-	// 2d renderer
-	LvnIDQueue32                         spriteIDs;
-
 	// misc
 	LvnTimer                             contexTime;       // timer
 	LvnComponentManager                  componentManager; // ECS component manager

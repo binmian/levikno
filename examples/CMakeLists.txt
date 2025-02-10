@@ -3,7 +3,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
 file(COPY res DESTINATION .)
 
 set(LVN_SOURCES
-	2dScene.cpp
 	antiAliasing.cpp
 	bindlessTexture.cpp
 	colorBlending.cpp
