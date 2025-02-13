@@ -75,9 +75,9 @@ int main(int argc, char** argv)
 
 	// logger create info struct
 	LvnLoggerCreateInfo loggerCreateInfo{};
-	loggerCreateInfo.loggerName = "myLogger";        // name of the logger
-	loggerCreateInfo.logPatternFormat = "%n: %v%$";  // log pattern, the logger stores the log pattern which tells the logger how log messages should be formatted and displayed
-	loggerCreateInfo.logLevel = Lvn_LogLevel_None;   // the log level tells the logger which log levels to display and log levels to omit
+	loggerCreateInfo.loggerName = "myLogger";     // name of the logger
+	loggerCreateInfo.format = "%n: %v%$";         // log pattern, the logger stores the log pattern which tells the logger how log messages should be formatted and displayed
+	loggerCreateInfo.level = Lvn_LogLevel_None;   // the log level tells the logger which log levels to display and log levels to omit
 
 	// create the logger
 	LvnLogger* logger;

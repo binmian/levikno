@@ -302,6 +302,8 @@ struct LvnLogger
 	std::string logPatternFormat;
 	LvnLogLevel logLevel;
 	std::vector<LvnLogPattern> logPatterns;
+
+	LvnLogFile logfile;
 };
 
 

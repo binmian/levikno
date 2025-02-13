@@ -206,6 +206,7 @@ int main(int argc, char** argv)
 
 	// initialize rendering, pass the physical device in the init struct
 	LvnRenderInitInfo renderInfo{};
+	renderInfo.maxFramesInFlight = 1;
 
 	// find and check if physical device is supported
 	for (uint32_t i = 0; i < deviceCount; i++)
@@ -429,7 +430,7 @@ int main(int argc, char** argv)
 
 		// progress bar text
 		std::string str = "[";
-		for (int i = 0; i < 100; i++)
+		for (int i = 1; i <= 100; i++)
 		{
 			str += (i <= progress ? "#" : ".");
 		}

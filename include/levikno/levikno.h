@@ -51,7 +51,7 @@
 // -- [SUBSECT]: Platform Defines
 // ------------------------------------------------------------
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__) 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	#ifndef LVN_PLATFORM_WINDOWS
 		#define LVN_PLATFORM_WINDOWS
 	#endif
@@ -324,6 +324,12 @@ enum LvnClipRegion
 	Lvn_ClipRegion_LHNO = Lvn_ClipRegion_LeftHandNegOneToOne,
 	Lvn_ClipRegion_RHZO = Lvn_ClipRegion_RightHandZeroToOne,
 	Lvn_ClipRegion_RHNO = Lvn_ClipRegion_RightHandNegOneToOne,
+};
+
+enum LvnFileMode
+{
+	Lvn_FileMode_Write,
+	Lvn_FileMode_Append,
 };
 
 
@@ -824,7 +830,7 @@ struct LvnKeyHoldEvent;
 struct LvnKeyPressedEvent;
 struct LvnKeyReleasedEvent;
 struct LvnKeyTypedEvent;
-struct LvnLine;
+struct LvnLogFile;
 struct LvnLogger;
 struct LvnLoggerCreateInfo;
 struct LvnLogMessage;
@@ -1271,6 +1277,7 @@ namespace lvn
 
 	LVN_API std::string             loadFileSrc(const char* filepath);                                     // get the src contents from a text file format, filepath must be a valid path to a text file
 	LVN_API LvnBin                  loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
+	LVN_API void                    writeFileSrc(const char* filename, const char* src, LvnFileMode mode); // write to a file given the file name, the source content of the file and the mode to write to the file
 
 	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
 	LVN_API LvnFontGlyph            fontGetGlyph(LvnFont* font, int8_t codepoint);
@@ -1319,29 +1326,31 @@ namespace lvn
 	//  - 'S' = get second (0-59)
 	//  - 'P' = get the time meridiem (AM/PM)
 	//  - 'p' = get the time meridiem in lower (am/pm)
-	// 
+	//
 	// Ex: The default log pattern is: "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 	//     Which could output: "[04-06-2025] [14:25:11] [\x1b[0;32minfo\x1b[0m] CORE: some informational message\n"
 
-	LVN_API LvnResult                   logInit();                                                          // initiates logging
-	LVN_API void                        logEnable(bool enable);                                             // enable or disable logging
-	LVN_API void                        logEnableCoreLogging(bool enable);                                  // enable or disable logging from the core logger
-	LVN_API void                        logSetLevel(LvnLogger* logger, LvnLogLevel level);                  // sets the log level of logger, will only print messages with set log level and higher
-	LVN_API bool                        logCheckLevel(LvnLogger* logger, LvnLogLevel level);                // checks level with loger, returns true if level is the same or higher level than the level of the logger
-	LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);               // renames the name of the logger
-	LVN_API void                        logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);            // prints the log message
-	LVN_API void                        logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);  // log message with given log level
-	LVN_API void                        logMessageTrace(LvnLogger* logger, const char* fmt, ...);           // log message with level trace; ANSI code "\x1b[0;37m"
-	LVN_API void                        logMessageDebug(LvnLogger* logger, const char* fmt, ...);           // log message with level debug; ANSI code "\x1b[0;34m"
-	LVN_API void                        logMessageInfo(LvnLogger* logger, const char* fmt, ...);            // log message with level info;  ANSI code "\x1b[0;32m"
-	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);            // log message with level warn;  ANSI code "\x1b[1;33m"
-	LVN_API void                        logMessageError(LvnLogger* logger, const char* fmt, ...);           // log message with level error; ANSI code "\x1b[1;31m"
-	LVN_API void                        logMessageFatal(LvnLogger* logger, const char* fmt, ...);           // log message with level fatal; ANSI code "\x1b[1;37;41m"
+	LVN_API LvnResult                   logInit();                                                                        // initiates logging
+	LVN_API void                        logEnable(bool enable);                                                           // enable or disable logging
+	LVN_API void                        logEnableCoreLogging(bool enable);                                                // enable or disable logging from the core logger
+	LVN_API void                        logSetLevel(LvnLogger* logger, LvnLogLevel level);                                // sets the log level of logger, will only print messages with set log level and higher
+	LVN_API void                        logSetFileConfig(LvnLogger* logger, bool enable, const char* filename, LvnFileMode filemode);  // sets the log file config, whether to enable logging and the log file name and mode
+	LVN_API bool                        logCheckLevel(LvnLogger* logger, LvnLogLevel level);                              // checks level with loger, returns true if level is the same or higher level than the level of the logger
+	LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);                             // renames the name of the logger
+	LVN_API void                        logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);                          // prints the log message
+	LVN_API std::string                 logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI = false); // formats the log message into the log pattern set by the logger
+	LVN_API void                        logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);                // log message with given log level
+	LVN_API void                        logMessageTrace(LvnLogger* logger, const char* fmt, ...);                         // log message with level trace; ANSI code "\x1b[0;37m"
+	LVN_API void                        logMessageDebug(LvnLogger* logger, const char* fmt, ...);                         // log message with level debug; ANSI code "\x1b[0;34m"
+	LVN_API void                        logMessageInfo(LvnLogger* logger, const char* fmt, ...);                          // log message with level info;  ANSI code "\x1b[0;32m"
+	LVN_API void                        logMessageWarn(LvnLogger* logger, const char* fmt, ...);                          // log message with level warn;  ANSI code "\x1b[1;33m"
+	LVN_API void                        logMessageError(LvnLogger* logger, const char* fmt, ...);                         // log message with level error; ANSI code "\x1b[1;31m"
+	LVN_API void                        logMessageFatal(LvnLogger* logger, const char* fmt, ...);                         // log message with level fatal; ANSI code "\x1b[1;37;41m"
 	LVN_API LvnLogger*                  logGetCoreLogger();
 	LVN_API LvnLogger*                  logGetClientLogger();
-	LVN_API const char*                 logGetANSIcodeColor(LvnLogLevel level);                             // get the ANSI color code of the log level in a string
-	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);     // set the log pattern of the logger; messages outputed from that logger will be in this format
-	LVN_API LvnResult                   logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);        // add user defined log patterns to the library
+	LVN_API const char*                 logGetANSIcodeColor(LvnLogLevel level);                                           // get the ANSI color code of the log level in a string
+	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);                   // set the log pattern of the logger; messages outputed from that logger will be in this format
+	LVN_API LvnResult                   logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);                      // add user defined log patterns to the library
 
 	LVN_API LvnResult                   createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo);
 	LVN_API void                        destroyLogger(LvnLogger* logger);
@@ -2329,14 +2338,14 @@ private:
 
 public:
 	LvnThreadPool()
-		: m_Workers(1), m_Tasks(), m_QueueMutex(), m_QueueCondition(), m_Terminate(false)
+		: m_Workers(1), m_Terminate(false)
 	{
 		for (uint32_t i = 0; i < m_Workers.size(); i++)
 			m_Workers[i] = (std::thread(&LvnThreadPool::ThreadFunc, this));
 	}
 
 	LvnThreadPool(uint32_t workerCount)
-		: m_Tasks(), m_QueueMutex(), m_QueueCondition(), m_Terminate(false)
+		: m_Terminate(false)
 	{
 		m_Workers.resize(workerCount > 0 ? workerCount : 1);
 
@@ -4674,8 +4683,15 @@ struct LvnContextCreateInfo
 struct LvnLoggerCreateInfo
 {
 	std::string loggerName;
-	std::string logPatternFormat;
-	LvnLogLevel logLevel;
+	std::string format;
+	LvnLogLevel level;
+
+	struct
+	{
+		bool enableLogToFile;
+		std::string filename;
+		LvnFileMode filemode;
+	} fileConfig;
 };
 
 struct LvnLogMessage
@@ -4689,6 +4705,14 @@ struct LvnLogPattern
 {
 	char symbol;
 	std::string (*func)(LvnLogMessage*);
+};
+
+struct LvnLogFile
+{
+	std::string filename;
+	LvnFileMode filemode;
+	FILE* fileptr;
+	bool logToFile;
 };
 
 /* [Events] */

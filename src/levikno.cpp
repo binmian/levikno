@@ -859,8 +859,7 @@ std::string dateGetSecondNumStr()
 
 std::string loadFileSrc(const char* filepath)
 {
-	FILE* fileptr;
-	fileptr = fopen(filepath, "r");
+	FILE* fileptr = fopen(filepath, "r");
 
 	if (!fileptr)
 	{
@@ -886,8 +885,7 @@ float getContextTime()
 
 LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 {
-	FILE* fileptr;
-	fileptr = fopen(filepath, "rb");
+	FILE* fileptr = fopen(filepath, "rb");
 
 	if (!fileptr)
 	{
@@ -904,6 +902,24 @@ LvnData<uint8_t> loadFileSrcBin(const char* filepath)
 	fclose(fileptr);
 
 	return LvnData<uint8_t>(bin.data(), bin.size());
+}
+
+void writeFileSrc(const char* filename, const char* src, LvnFileMode mode)
+{
+	const char* filemode = "w";
+	if (mode == Lvn_FileMode_Write) filemode = "w";
+	else if (mode == Lvn_FileMode_Append) filemode = "a";
+
+	FILE* fileptr = fopen(filename, filemode);
+
+	if (!fileptr)
+	{
+		LVN_CORE_ERROR("cannot write to source file: %s", filename);
+		return;
+	}
+
+	fprintf(fileptr, src);
+	fclose(fileptr);
 }
 
 LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset)
@@ -1059,7 +1075,7 @@ const static LvnLogPattern s_LogPatterns[] =
 
 static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
 {
-	if (!fmt || fmt[0] == '\0') { return {}; }
+	if (!fmt || fmt == "\0") { return {}; }
 
 	std::vector<LvnLogPattern> patterns;
 
@@ -1141,6 +1157,35 @@ void logSetLevel(LvnLogger* logger, LvnLogLevel level)
 	logger->logLevel = level;
 }
 
+void logSetFileConfig(LvnLogger* logger, bool enable, const char* filename, LvnFileMode filemode)
+{
+	// if log to file was enabled before, fileptr needs to be closed
+	if (logger->logfile.logToFile)
+	{
+		fclose(logger->logfile.fileptr);
+		logger->logfile.fileptr = nullptr;
+	}
+
+	logger->logfile.logToFile = enable;
+	logger->logfile.filename = filename;
+	logger->logfile.filemode = filemode;
+
+	if (enable)
+	{
+		if (logger->logfile.filename.empty())
+		{
+			LVN_CORE_ERROR("logSetFileConfig(LvnLogger*, bool enable, const char* filename, LvnFileMode filemode) | filename is empty, cannot log to a file without a valid file path/name");
+			return;
+		}
+
+		const char* filemode = "w";
+		if (logger->logfile.filemode == Lvn_FileMode_Write) filemode = "w";
+		else if (logger->logfile.filemode == Lvn_FileMode_Append) filemode = "a";
+
+		logger->logfile.fileptr = fopen(filename, filemode);
+	}
+}
+
 bool logCheckLevel(LvnLogger* logger, LvnLogLevel level)
 {
 	return (level >= logger->logLevel);
@@ -1172,6 +1217,34 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 	printf("%s", msgstr.c_str());
 }
 
+std::string logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI)
+{
+	LvnLogMessage logMsg{};
+	logMsg.msg = msg;
+	logMsg.loggerName = logger->loggerName.c_str();
+	logMsg.level = level;
+	logMsg.timeEpoch = lvn::dateGetSecondsSinceEpoch();
+
+	std::string msgstr;
+
+	for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
+	{
+		if (removeANSI && (logger->logPatterns[i].symbol == '#' || logger->logPatterns[i].symbol == '^'))
+			continue;
+
+		if (logger->logPatterns[i].func == nullptr) // no special format character '%' found
+		{
+			msgstr += logger->logPatterns[i].symbol;
+		}
+		else // call func of special format
+		{
+			msgstr += logger->logPatterns[i].func(&logMsg);
+		}
+	}
+
+	return msgstr;
+}
+
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
 	if (!lvn::getContext()->logging) { return; }
@@ -1180,16 +1253,38 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 	logMsg.msg = msg;
 	logMsg.loggerName = logger->loggerName.c_str();
 	logMsg.level = level;
-	logMsg.timeEpoch = dateGetSecondsSinceEpoch();
+	logMsg.timeEpoch = lvn::dateGetSecondsSinceEpoch();
 
-	logOutputMessage(logger, &logMsg);
+	lvn::logOutputMessage(logger, &logMsg);
+
+	if (logger->logfile.logToFile)
+	{
+		std::string msgstr;
+
+		for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
+		{
+			if (logger->logPatterns[i].symbol == '#' || logger->logPatterns[i].symbol == '^')
+				continue;
+
+			if (logger->logPatterns[i].func == nullptr) // no special format character '%' found
+			{
+				msgstr += logger->logPatterns[i].symbol;
+			}
+			else // call func of special format
+			{
+				msgstr += logger->logPatterns[i].func(&logMsg);
+			}
+		}
+
+		fprintf(logger->logfile.fileptr, msgstr.c_str());
+	}
 }
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
+	if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
 	std::vector<char> buff;
 
@@ -1200,7 +1295,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 	int len = vsnprintf(nullptr, 0, fmt, argptr);
 	buff.resize(len + 1);
 	vsnprintf(&buff[0], len + 1, fmt, argcopy);
-	logMessage(logger, Lvn_LogLevel_Trace, buff.data());
+	lvn::logMessage(logger, Lvn_LogLevel_Trace, buff.data());
 
 	va_end(argcopy);
 	va_end(argptr);
@@ -1210,7 +1305,7 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
+	if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
 
 	std::vector<char> buff;
 
@@ -1221,7 +1316,7 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 	int len = vsnprintf(nullptr, 0, fmt, argptr);
 	buff.resize(len + 1);
 	vsnprintf(&buff[0], len + 1, fmt, argcopy);
-	logMessage(logger, Lvn_LogLevel_Debug, buff.data());
+	lvn::logMessage(logger, Lvn_LogLevel_Debug, buff.data());
 
 	va_end(argcopy);
 	va_end(argptr);
@@ -1231,7 +1326,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
+	if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
 	std::vector<char> buff;
 
@@ -1242,7 +1337,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 	int len = vsnprintf(nullptr, 0, fmt, argptr);
 	buff.resize(len + 1);
 	vsnprintf(&buff[0], len + 1, fmt, argcopy);
-	logMessage(logger, Lvn_LogLevel_Info, buff.data());
+	lvn::logMessage(logger, Lvn_LogLevel_Info, buff.data());
 
 	va_end(argcopy);
 	va_end(argptr);
@@ -1252,7 +1347,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
+	if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
 	std::vector<char> buff;
 
@@ -1263,7 +1358,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 	int len = vsnprintf(nullptr, 0, fmt, argptr);
 	buff.resize(len + 1);
 	vsnprintf(&buff[0], len + 1, fmt, argcopy);
-	logMessage(logger, Lvn_LogLevel_Warn, buff.data());
+	lvn::logMessage(logger, Lvn_LogLevel_Warn, buff.data());
 
 	va_end(argcopy);
 	va_end(argptr);
@@ -1273,7 +1368,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
+	if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
 	std::vector<char> buff;
 
@@ -1284,7 +1379,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 	int len = vsnprintf(nullptr, 0, fmt, argptr);
 	buff.resize(len + 1);
 	vsnprintf(&buff[0], len + 1, fmt, argcopy);
-	logMessage(logger, Lvn_LogLevel_Error, buff.data());
+	lvn::logMessage(logger, Lvn_LogLevel_Error, buff.data());
 
 	va_end(argcopy);
 	va_end(argptr);
@@ -1294,7 +1389,7 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 {
 	if (!s_LvnContext || !s_LvnContext->logging) { return; }
 	if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
-	if (!logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
+	if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
 
 	std::vector<char> buff;
 
@@ -1305,7 +1400,7 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 	int len = vsnprintf(nullptr, 0, fmt, argptr);
 	buff.resize(len + 1);
 	vsnprintf(&buff[0], len + 1, fmt, argcopy);
-	logMessage(logger, Lvn_LogLevel_Fatal, buff.data());
+	lvn::logMessage(logger, Lvn_LogLevel_Fatal, buff.data());
 
 	va_end(argcopy);
 	va_end(argptr);
@@ -1376,10 +1471,29 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 	LvnLogger* loggerPtr = *logger;
 
 	loggerPtr->loggerName = loggerCreateInfo->loggerName;
-	loggerPtr->logPatternFormat = loggerCreateInfo->logPatternFormat;
-	loggerPtr->logLevel = loggerCreateInfo->logLevel;
+	loggerPtr->logPatternFormat = loggerCreateInfo->format;
+	loggerPtr->logLevel = loggerCreateInfo->level;
 
-	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->logPatternFormat.c_str());
+	loggerPtr->logfile.logToFile = loggerCreateInfo->fileConfig.enableLogToFile;
+	loggerPtr->logfile.filename = loggerCreateInfo->fileConfig.filename;
+	loggerPtr->logfile.filemode = loggerCreateInfo->fileConfig.filemode;
+
+	if (loggerPtr->logfile.logToFile)
+	{
+		if (loggerPtr->logfile.filename.empty())
+		{
+			LVN_CORE_ERROR("createLogger(LvnLogger**, LvnLoggerCreateInfo*) | loggerCreateInfo->fileConfig.filename is empty, cannot log to a file without a valid file path/name");
+			return Lvn_Result_Failure;
+		}
+
+		const char* filemode = "w";
+		if (loggerPtr->logfile.filemode == Lvn_FileMode_Write) filemode = "w";
+		else if (loggerPtr->logfile.filemode == Lvn_FileMode_Append) filemode = "a";
+
+		loggerPtr->logfile.fileptr = fopen(loggerPtr->logfile.filename.c_str(), filemode);
+	}
+
+	loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->format.c_str());
 
 	LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
 	return Lvn_Result_Success;
@@ -1388,6 +1502,13 @@ LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo
 void destroyLogger(LvnLogger* logger)
 {
 	if (logger == nullptr) { return; }
+
+	if (logger->logfile.logToFile)
+	{
+		fclose(logger->logfile.fileptr);
+		logger->logfile.fileptr = nullptr;
+	}
+
 	LvnContext* lvnctx = lvn::getContext();
 	lvn::destroyObject(lvnctx, logger, Lvn_Stype_Logger);
 }
