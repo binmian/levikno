@@ -43,16 +43,6 @@ struct LvnSound
 	LvnVec3 pos;
 
 	ma_sound sound;
-	LvnSoundBoard* soundBoard;
-};
-
-struct LvnSoundBoard
-{
-	float masterVolume;
-	float masterPan;
-	float masterPitch;
-
-	std::unordered_map<uint32_t, LvnSound> sounds;
 };
 
 
@@ -427,7 +417,6 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 	stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
 	stInfos[Lvn_Stype_Cubemap]          = { Lvn_Stype_Cubemap, sizeof(LvnCubemap), 256 };
 	stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
-	stInfos[Lvn_Stype_SoundBoard]       = { Lvn_Stype_SoundBoard, sizeof(LvnSoundBoard), 128 };
 	stInfos[Lvn_Stype_Socket]           = { Lvn_Stype_Socket, sizeof(LvnSocket), 256 };
 }
 
@@ -448,7 +437,6 @@ static const char* getStructTypeEnumStr(LvnStructureType stype)
 		case Lvn_Stype_Texture:           { return "LvnTexture"; }
 		case Lvn_Stype_Cubemap:           { return "LvnCubemap"; }
 		case Lvn_Stype_Sound:             { return "LvnSound"; }
-		case Lvn_Stype_SoundBoard:        { return "LvnSoundBoard"; }
 		case Lvn_Stype_Socket:            { return "LvnSocket"; }
 
 		default:                          { return "undefined"; }
@@ -2980,7 +2968,6 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	soundPtr->pitch = createInfo->pitch;
 	soundPtr->pos = createInfo->pos;
 	soundPtr->looping = createInfo->looping;
-	soundPtr->soundBoard = nullptr;
 
 	if (ma_sound_init_from_file(pEngine, createInfo->filepath.c_str(), 0, NULL, NULL, &soundPtr->sound) != MA_SUCCESS)
 	{
@@ -3022,22 +3009,16 @@ LvnSoundCreateInfo soundConfigInit(const char* filepath)
 
 void soundSetVolume(LvnSound* sound, float volume)
 {
-	if (sound->soundBoard != nullptr) { volume *= sound->soundBoard->masterVolume; }
-
 	ma_sound_set_volume(&sound->sound, volume);
 }
 
 void soundSetPan(LvnSound* sound, float pan)
 {
-	if (sound->soundBoard != nullptr) { pan *= sound->soundBoard->masterPan; }
-
 	ma_sound_set_pan(&sound->sound, pan);
 }
 
 void soundSetPitch(LvnSound* sound, float pitch)
 {
-	if (sound->soundBoard != nullptr) { pitch *= sound->soundBoard->masterPitch; }
-
 	ma_sound_set_pitch(&sound->sound, pitch);
 }
 
@@ -3080,93 +3061,6 @@ float soundGetLengthSeconds(LvnSound* sound)
 	return length;
 }
 
-bool soundIsAttachedToSoundBoard(const LvnSound* sound)
-{
-	return sound->soundBoard != nullptr;
-}
-
-LvnResult createSoundBoard(LvnSoundBoard** soundBoard)
-{
-	LvnContext* lvnctx = lvn::getContext();
-
-	*soundBoard = lvn::createObject<LvnSoundBoard>(lvnctx, Lvn_Stype_SoundBoard);
-
-	LvnSoundBoard* soundBoardPtr = *soundBoard;
-	soundBoardPtr->masterVolume = 1.0f;
-	soundBoardPtr->masterPan = 0.0f;
-	soundBoardPtr->masterPitch = 1.0f;
-
-	LVN_CORE_TRACE("created sound board: (%p)", *soundBoard);
-	return Lvn_Result_Success;
-}
-
-void destroySoundBoard(LvnSoundBoard* soundBoard)
-{
-	if (soundBoard == nullptr) { return; }
-	LvnContext* lvnctx = lvn::getContext();
-
-	for (auto& sound : soundBoard->sounds)
-	{
-		ma_sound_uninit(&sound.second.sound);
-	}
-
-	lvn::destroyObject(lvnctx, soundBoard, Lvn_Stype_SoundBoard);
-}
-
-LvnResult soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id)
-{
-	LvnContext* lvnctx = lvn::getContext();
-	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
-
-	if (soundInfo->filepath.empty())
-	{
-		LVN_CORE_ERROR("cannot add sound to sound board (%p), soundInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file", soundBoard);
-		return Lvn_Result_Failure;
-	}
-
-	if (soundBoard->sounds.find(id) != soundBoard->sounds.end())
-	{
-		LVN_CORE_ERROR("cannot add sound to sound board (%p), sound board already has a sound with that id: %u", soundBoard, id);
-		return Lvn_Result_Failure;
-	}
-
-	LvnSound sound{};
-	sound.pan = soundInfo->pan;
-	sound.pitch = soundInfo->pitch;
-	sound.pos = soundInfo->pos;
-	sound.looping = soundInfo->looping;
-	sound.soundBoard = soundBoard;
-
-	if (ma_sound_init_from_file(pEngine, soundInfo->filepath.c_str(), 0, NULL, NULL, &sound.sound) != MA_SUCCESS)
-	{
-		LVN_CORE_ERROR("failed to create sound object when adding sound to sound board (%p)", soundBoard);
-		return Lvn_Result_Failure;
-	}
-
-	ma_sound_set_volume(&sound.sound, soundInfo->volume);
-	ma_sound_set_pan(&sound.sound, soundInfo->pan);
-	ma_sound_set_pitch(&sound.sound, soundInfo->pitch);
-	ma_sound_set_looping(&sound.sound, soundInfo->looping);
-
-	soundBoard->sounds[id] = sound;
-	return Lvn_Result_Success;
-}
-
-void soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id)
-{
-	if (soundBoard->sounds.find(id) != soundBoard->sounds.end())
-	{
-		ma_sound_uninit(&soundBoard->sounds[id].sound);
-		soundBoard->sounds.erase(id);
-	}
-}
-
-const LvnSound* soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id)
-{
-	if (soundBoard->sounds.find(id) == soundBoard->sounds.end()) { return nullptr; }
-
-	return &soundBoard->sounds[id];
-}
 
 // ------------------------------------------------------------
 // [SECTION]: Network Functions

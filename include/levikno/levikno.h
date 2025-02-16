@@ -300,7 +300,6 @@ enum LvnStructureType
 	Lvn_Stype_Texture,
 	Lvn_Stype_Cubemap,
 	Lvn_Stype_Sound,
-	Lvn_Stype_SoundBoard,
 	Lvn_Stype_Socket,
 
 	Lvn_Stype_Max,
@@ -874,7 +873,6 @@ struct LvnShaderCreateInfo;
 struct LvnSocket;
 struct LvnSocketCreateInfo;
 struct LvnSound;
-struct LvnSoundBoard;
 struct LvnSoundCreateInfo;
 struct LvnSprite;
 struct LvnTexture;
@@ -1539,13 +1537,6 @@ namespace lvn
 	LVN_API bool                        soundIsPlaying(LvnSound* sound);
 	LVN_API uint64_t                    soundGetTimeMiliseconds(LvnSound* sound);
 	LVN_API float                       soundGetLengthSeconds(LvnSound* sound);
-	LVN_API bool                        soundIsAttachedToSoundBoard(LvnSound* sound);
-
-	LVN_API LvnResult                   createSoundBoard(LvnSoundBoard** soundBoard);
-	LVN_API void                        destroySoundBoard(LvnSoundBoard* soundBoard);
-	LVN_API LvnResult                   soundBoardAddSound(LvnSoundBoard* soundBoard, LvnSoundCreateInfo* soundInfo, uint32_t id);
-	LVN_API void                        soundBoardRemoveSound(LvnSoundBoard* soundBoard, uint32_t id);
-	LVN_API const LvnSound*             soundBoardGetSound(LvnSoundBoard* soundBoard, uint32_t id);
 
 
 	// -- [SUBSECT]: Networking Functions
@@ -1655,7 +1646,7 @@ namespace lvn
 	template <typename T>
 	LVN_API T lerp(const T& start, const T& end, float t)
 	{
-		return start * (1 - t) + end * t;
+		return start + t * (end - start);
 	}
 
 	template <typename T>
