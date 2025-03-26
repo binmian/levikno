@@ -15,11 +15,24 @@
 // ------------------------------------------------------------
 
 template <typename T>
+struct LvnLinkedNode
+{
+	T value;
+	LvnLinkedNode<T>* next;
+	LvnLinkedNode<T>* prev;
+
+	T* operator->() { return &value; }
+};
+
+template <typename T>
+using LvnLNode = LvnLinkedNode<T>;
+
+template <typename T>
 class LvnList
 {
 private:
-	LvnDNode<T>* m_Head;
-	LvnDNode<T>* m_Tail;
+	LvnLNode<T>* m_Head;
+	LvnLNode<T>* m_Tail;
 	uint32_t m_Size;
 
 public:
@@ -29,7 +42,7 @@ public:
 	{
 		while (m_Head != nullptr)
 		{
-			LvnDNode<T>* node = m_Head;
+			LvnLNode<T>* node = m_Head;
 			m_Head = node->next;
 			delete node;
 		}
@@ -39,53 +52,53 @@ public:
 	{
 		LVN_CORE_ASSERT(index < m_Size, "list index out of range");
 
-		LvnDNode<T>* node = m_Head;
+		LvnLNode<T>* node = m_Head;
 
 		for (uint32_t i = 0; i < index; i++)
 		{
 			node = node->next;
 		}
 
-		return node->data;
+		return node->value;
 	}
 	const T& operator [](uint32_t index) const
 	{
 		LVN_CORE_ASSERT(index < m_Size, "list index out of range");
 
-		LvnDNode<T>* node = m_Head;
+		LvnLNode<T>* node = m_Head;
 
 		for (uint32_t i = 0; i < index; i++)
 		{
 			node = node->next;
 		}
 
-		return node->data;
+		return node->value;
 	}
 
 	uint32_t    size() { return m_Size; }
 	bool        empty() { return m_Size == 0; }
 
-	T&          front() { return m_Head->data; }
-	const T&    front() const { return m_Head->data; }
+	T&          front() { return m_Head->value; }
+	const T&    front() const { return m_Head->value; }
 
-	T&          back() { return m_Tail->data; }
-	const T&    back() const { return m_Tail->data; }
+	T&          back() { return m_Tail->value; }
+	const T&    back() const { return m_Tail->value; }
 
 	void push_back(const T& data)
 	{
 		if (!m_Size)
 		{
-			m_Head = new LvnDNode<T>();
-			m_Head->data = data;
+			m_Head = new LvnLNode<T>();
+			m_Head->value = data;
 			m_Tail = m_Head;
 			m_Size++;
 			return;
 		}
 
-		LvnDNode<T>* node = m_Tail;
-		node->next = new LvnDNode<T>();
+		LvnLNode<T>* node = m_Tail;
+		node->next = new LvnLNode<T>();
 		m_Tail = node->next;
-		m_Tail->data = data;
+		m_Tail->value = data;
 		m_Tail->prev = node;
 		m_Size++;
 	}
@@ -94,15 +107,15 @@ public:
 	{
 		if (!m_Size)
 		{
-			m_Head = new LvnDNode<T>();
-			m_Head->data = data;
+			m_Head = new LvnLNode<T>();
+			m_Head->value = data;
 			m_Tail = m_Head;
 			m_Size++;
 			return;
 		}
 
-		LvnDNode<T>* node = new LvnDNode<T>();
-		node->data = data;
+		LvnLNode<T>* node = new LvnLNode<T>();
+		node->value = data;
 		node->next = m_Head;
 		m_Head->prev = node;
 		m_Head = node;
@@ -114,7 +127,7 @@ public:
 		if (!m_Size) { return; }
 		if (m_Size == 1) { delete m_Tail; m_Tail = m_Head = nullptr; m_Size--; return; }
 
-		LvnDNode<T>* node = m_Tail->prev;
+		LvnLNode<T>* node = m_Tail->prev;
 		node->next = nullptr;
 		delete m_Tail;
 		m_Tail = node;
@@ -126,7 +139,7 @@ public:
 		if (!m_Size) { return; }
 		if (m_Size == 1) { delete m_Head; m_Head = m_Tail = nullptr; m_Size--; return; }
 
-		LvnDNode<T>* node = m_Head->next;
+		LvnLNode<T>* node = m_Head->next;
 		node->prev = nullptr;
 		delete m_Head;
 		m_Head = node;

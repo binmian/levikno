@@ -26,7 +26,9 @@ namespace ogls
 	static GLenum             getCompareOpEnum(LvnCompareOperation compareOp);
 	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
 	static GLenum             getBlendFactorType(LvnColorBlendFactor factor);
-	static GLenum             getUniformBufferTypeEnum(LvnBufferType type);
+	static GLenum             getCullFaceModeEnum(LvnCullFaceMode mode);
+	static GLenum             getCullFrontFaceEnum(LvnCullFrontFace frontFace);
+	static GLenum             getUniformBufferTypeEnum(LvnDescriptorType type);
 	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
 
 	static LvnResult checkErrorCode()
@@ -320,6 +322,37 @@ namespace ogls
 			{
 				LVN_CORE_ERROR("invalid blend factor type enum, setting blend factor to GL_ZERO");
 				return GL_ZERO;
+			}
+		}
+	}
+
+	static GLenum getCullFaceModeEnum(LvnCullFaceMode mode)
+	{
+		switch (mode)
+		{
+			case Lvn_CullFaceMode_Disable: { return GL_NONE; }
+			case Lvn_CullFaceMode_Front: { return GL_FRONT; }
+			case Lvn_CullFaceMode_Back: { return GL_BACK; }
+			case Lvn_CullFaceMode_Both: { return GL_FRONT_AND_BACK; }
+
+			default:
+			{
+				LVN_CORE_ERROR("invalid cull face mode enum, setting cull face mode to GL_NONE");
+				return GL_NONE;
+			}
+		}
+	}
+
+	static GLenum getCullFrontFaceEnum(LvnCullFrontFace frontFace)
+	{
+		switch (frontFace)
+		{
+			case Lvn_CullFrontFace_Clockwise: { return GL_CW; }
+			case Lvn_CullFrontFace_CounterClockwise: { return GL_CCW; }
+			default:
+			{
+				LVN_CORE_ERROR("invalid cull front face enum, setting cull front face to GL_CW (clockwise)");
+				return GL_CW;
 			}
 		}
 	}
@@ -879,6 +912,8 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 
 	pipelineEnums->enableDepth = createInfo->pipelineSpecification->depthstencil.enableDepth;
 	pipelineEnums->enableBlending = createInfo->pipelineSpecification->colorBlend.colorBlendAttachmentCount > 0;
+	pipelineEnums->enableCulling = createInfo->pipelineSpecification->rasterizer.cullMode != Lvn_CullFaceMode_Disable;
+
 	pipelineEnums->depthCompareOp = ogls::getCompareOpEnum(createInfo->pipelineSpecification->depthstencil.depthOpCompare);
 	pipelineEnums->topologyType = ogls::getTopologyTypeEnum(createInfo->pipelineSpecification->inputAssembly.topology);
 
@@ -886,6 +921,12 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 	{
 		pipelineEnums->srcBlendFactor = ogls::getBlendFactorType(createInfo->pipelineSpecification->colorBlend.pColorBlendAttachments[0].srcColorBlendFactor);
 		pipelineEnums->dstBlendFactor = ogls::getBlendFactorType(createInfo->pipelineSpecification->colorBlend.pColorBlendAttachments[0].dstColorBlendFactor);
+	}
+
+	if (pipelineEnums->enableCulling)
+	{
+		pipelineEnums->cullMode = ogls::getCullFaceModeEnum(createInfo->pipelineSpecification->rasterizer.cullMode);
+		pipelineEnums->frontFace = ogls::getCullFrontFaceEnum(createInfo->pipelineSpecification->rasterizer.frontFace);
 	}
 
 	return Lvn_Result_Success;
@@ -1324,6 +1365,17 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 		glDisable(GL_BLEND);
 	}
 
+	if (pipelineEnums->enableCulling)
+	{
+		glEnable(GL_CULL_FACE);
+		glCullFace(pipelineEnums->cullMode);
+		glFrontFace(pipelineEnums->frontFace);
+	}
+	else
+	{
+		glDisable(GL_CULL_FACE);
+	}
+
 	glUseProgram(pipeline->id);
 
 	window->topologyTypeEnum = pipelineEnums->topologyType;
@@ -1357,13 +1409,21 @@ void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipelin
 		// uniform/storage buffers
 		for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
 		{
-			glBindBufferBase(ogls::getUniformBufferTypeEnum(descriptorSetPtr->uniformBuffers[j].type), descriptorSetPtr->uniformBuffers[j].binding, descriptorSetPtr->uniformBuffers[j].id);
+			glBindBufferRange(ogls::getUniformBufferTypeEnum(descriptorSetPtr->uniformBuffers[j].type),
+			    descriptorSetPtr->uniformBuffers[j].binding,
+			    descriptorSetPtr->uniformBuffers[j].id,
+			    static_cast<GLintptr>(descriptorSetPtr->uniformBuffers[j].offset),
+			    static_cast<GLsizeiptr>(descriptorSetPtr->uniformBuffers[j].range));
 		}
 
 		// textures
 		for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
 		{
-			LVN_CORE_ASSERT(texCount < oglBackends->maxTextureUnitSlots, "maximum texture unit slots exceeded");
+			if (texCount >= oglBackends->maxTextureUnitSlots)
+			{
+				LVN_CORE_WARN("maximum texture unit slots exceeded, cannot bind more texture unit slots to one shader pipeline. Max slots: %u", oglBackends->maxTextureUnitSlots);
+				return;
+			}
 
 			glBindTextureUnit(descriptorSetPtr->textures[j].binding, descriptorSetPtr->textures[j].id);
 			texCount++;
@@ -1472,6 +1532,8 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 				if (descriptorSetPtr->uniformBuffers[j].binding == pUpdateInfo[i].binding)
 				{
 					descriptorSetPtr->uniformBuffers[j].id = pUpdateInfo[i].bufferInfo->buffer->id;
+					descriptorSetPtr->uniformBuffers[j].range = pUpdateInfo[i].bufferInfo->range;
+					descriptorSetPtr->uniformBuffers[j].offset = pUpdateInfo[i].bufferInfo->offset;
 					break;
 				}
 			}

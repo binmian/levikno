@@ -22,6 +22,7 @@ set(LVN_SOURCES
 	simpleTexture.cpp
 	simpleTriangle.cpp
 	simpleWindow.cpp
+	twoTextures.cpp
 )
 
 foreach(LVN_SRC ${LVN_SOURCES})

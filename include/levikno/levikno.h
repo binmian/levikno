@@ -780,6 +780,19 @@ enum LvnVertexDataType
 	Lvn_VertexDataType_Vec4f = Lvn_VertexDataType_Vec4,
 };
 
+enum LvnInterpolationMode
+{
+	Lvn_InterpolationMode_Step,
+	Lvn_InterpolationMode_Linear,
+};
+
+enum LvnAnimationPath
+{
+	Lvn_AnimationPath_Translation,
+	Lvn_AnimationPath_Rotation,
+	Lvn_AnimationPath_Scale,
+};
+
 // -- [SUBSECT]: Networking Enums
 // ------------------------------------------------------------
 
@@ -796,12 +809,13 @@ enum LvnSocketType
 // ------------------------------------------------------------
 
 struct LvnAddress;
+struct LvnAnimation;
+struct LvnAnimationChannel;
 struct LvnAppRenderEvent;
 struct LvnAppTickEvent;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
-struct LvnCameraCreateInfo;
 struct LvnCharset;
 struct LvnColor;
 struct LvnContext;
@@ -843,6 +857,8 @@ struct LvnMouseButtonPressedEvent;
 struct LvnMouseButtonReleasedEvent;
 struct LvnMouseMovedEvent;
 struct LvnMouseScrolledEvent;
+struct LvnNode;
+struct LvnOrthoCamera;
 struct LvnPacket;
 struct LvnPhysicalDevice;
 struct LvnPhysicalDeviceInfo;
@@ -870,6 +886,7 @@ struct LvnSamplerCreateInfo;
 struct LvnServer;
 struct LvnShader;
 struct LvnShaderCreateInfo;
+struct LvnSkin;
 struct LvnSocket;
 struct LvnSocketCreateInfo;
 struct LvnSound;
@@ -878,6 +895,7 @@ struct LvnSprite;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
 struct LvnTextureSamplerCreateInfo;
+struct LvnTransform;
 struct LvnTriangle;
 struct LvnUniformBuffer;
 struct LvnUniformBufferCreateInfo;
@@ -902,29 +920,26 @@ struct LvnWindowResizeEvent;
 // -- [SUBSECT]: Data Structure Definitions
 // ------------------------------------------------------------
 
-template<typename T>
+template <typename T>
 struct LvnPair;
 
-template<typename T1, typename T2>
+template <typename T1, typename T2>
 struct LvnDoublePair;
 
-template <typename T>
-struct LvnNode;
-template <typename T>
-struct LvnDNode;
-template <typename T>
-struct LvnMNode;
 
-template<typename T, size_t N>
+template <typename T, size_t N>
 class LvnArray;
 
-template<typename T>
+template <typename T>
 class LvnData;
 typedef LvnData<uint8_t> LvnBin;
 
 class LvnTimer;
 class LvnThreadPool;
 class LvnDrawList;
+
+typedef LvnCamera LvnPerspectiveCamera;
+typedef LvnOrthoCamera LvnOrthographicCamera;
 
 
 // -- [SUBSECT]: ECS (Entity Component System) Definitions & Implementation
@@ -1504,20 +1519,6 @@ namespace lvn
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        unloadModel(LvnModel* model);
-
-	LVN_API LvnCamera                   cameraConfigInit(LvnCameraCreateInfo* createInfo);                                // initialize the config of the camera struct given the create info parameters
-	LVN_API void                        cameraUpdateMatrix(LvnCamera* camera);                                            // updates the camera matrix given the camera position, orientation, aspect ratio, fov, near plane, and far plane are set, note that it will also update the projection and view matrix 
-	LVN_API void                        cameraSetFov(LvnCamera* camera, float fovDeg);                                    // set the fov of the camera in degrees
-	LVN_API void                        cameraSetPlane(LvnCamera* camera, float nearPlane, float farPlane);               // set the near and far plane of the camera
-	LVN_API void                        cameraSetPos(LvnCamera* camera, const LvnVec3& position);                         // set the position of the camera in coord space
-	LVN_API void                        cameraSetOrient(LvnCamera* camera, const LvnVec3& orientation);                   // set the orientation of the camera
-	LVN_API void                        cameraSetUpVec(LvnCamera* camera, const LvnVec3& upVector);                       // set the up vector of the camera
-	LVN_API float                       cameraGetFov(LvnCamera* camera);                                                  // get the fov of the camera in degrees
-	LVN_API float                       cameraGetNearPlane(LvnCamera* camera);                                            // get the near plane of the camera
-	LVN_API float                       cameraGetFarPlane(LvnCamera* camera);                                             // get the far plane of the camera
-	LVN_API LvnVec3                     cameraGetPos(LvnCamera* camera);                                                  // get the position of the camera in coord space
-	LVN_API LvnVec3                     cameraGetOrient(LvnCamera* camera);                                               // get the orientation of the camera
-	LVN_API LvnVec3                     cameraGetUpVec(LvnCamera* camera);                                                // get the up vector of the camera
 
 
 	// -- [SUBSECT]: Audio Functions
@@ -2157,28 +2158,6 @@ struct LvnDoublePair
 	union { T2 p2, y, height; };
 };
 
-template <typename T>
-struct LvnNode
-{
-	T data;
-	LvnNode<T>* next;
-};
-
-template <typename T>
-struct LvnDNode
-{
-	T data;
-	LvnDNode<T>* next;
-	LvnDNode<T>* prev;
-};
-
-template <typename T>
-struct LvnMNode
-{
-	T data;
-	std::vector<std::shared_ptr<LvnMNode<T>>> children;
-};
-
 
 template<typename T, size_t N>
 class LvnArray
@@ -2234,25 +2213,50 @@ public:
 		for (size_t i = 0; i < size; i++)
 			m_Data[i] = data[i];
 	}
-	LvnData(const LvnData<T>& data)
+	LvnData(const LvnData<T>& other)
 	{
-		m_Size = data.m_Size;
-		m_MemSize = data.m_MemSize;
-		m_Data = new T[data.m_Size];
+		m_Size = other.m_Size;
+		m_MemSize = other.m_MemSize;
+		m_Data = new T[other.m_Size];
 
-		for (size_t i = 0; i < data.m_Size; i++)
-			m_Data[i] = data.m_Data[i];
+		for (size_t i = 0; i < other.m_Size; i++)
+			m_Data[i] = other.m_Data[i];
 	}
-	LvnData<T>& operator=(const LvnData<T>& data)
+	LvnData(LvnData<T>&& other)
+	{
+		m_Size = other.m_Size;
+		m_MemSize = other.m_MemSize;
+		m_Data = other.m_Data;
+		other.m_Size = 0;
+		other.m_MemSize = 0;
+		other.m_Data = nullptr;
+	}
+	LvnData<T>& operator=(const LvnData<T>& other)
 	{
 		delete [] m_Data;
-		m_Size = data.m_Size;
-		m_MemSize = data.m_MemSize;
-		m_Data = new T[data.m_Size];
+		m_Size = other.m_Size;
+		m_MemSize = other.m_MemSize;
+		m_Data = new T[other.m_Size];
 
-		for (size_t i = 0; i < data.m_Size; i++)
-			m_Data[i] = data.m_Data[i];
+		for (size_t i = 0; i < other.m_Size; i++)
+			m_Data[i] = other.m_Data[i];
 
+		return *this;
+	}
+	LvnData<T>& operator=(LvnData<T>&& other)
+	{
+		if (this != &other)
+		{
+			delete [] m_Data;
+
+			m_Size = other.m_Size;
+			m_MemSize = other.m_MemSize;
+			m_Data = other.m_Data;
+
+			other.m_Size = 0;
+			other.m_MemSize = 0;
+			other.m_Data = nullptr;
+		}
 		return *this;
 	}
 
@@ -5159,6 +5163,13 @@ struct LvnVertex
 	LvnVec3 bitangent;
 };
 
+struct LvnTransform
+{
+	LvnVec3 translation;
+	LvnQuat rotation;
+	LvnVec3 scale;
+};
+
 struct LvnMaterial
 {
 	LvnVec3 baseColorFactor;
@@ -5186,48 +5197,74 @@ struct LvnPrimitive
 
 struct LvnMesh
 {
-	LvnData<LvnPrimitive> primitives;
+	std::vector<LvnPrimitive> primitives;
+};
+
+struct LvnNode
+{
+	LvnNode* parent;
+	uint32_t index;
+	std::vector<std::shared_ptr<LvnNode>> children;
+
+	LvnMesh mesh;
+	LvnTransform transform;
+	int32_t skin;
 	LvnMat4 matrix;
+};
+
+struct LvnSkin
+{
+	std::string name;
+	LvnNode* skeletonRoot;
+	std::vector<LvnMat4> inverseBindMatrices;
+	std::vector<LvnNode*> joints;
+	LvnBuffer* ssbo;
+};
+
+struct LvnAnimationChannel
+{
+	LvnAnimationPath path;
+	LvnInterpolationMode interpolation;
+	std::vector<float> keyFrames;
+	std::vector<LvnVec4> outputs;
+	LvnNode* node;
+};
+
+struct LvnAnimation
+{
+	std::vector<LvnAnimationChannel> channels;
+	float start;
+	float end;
+	float currentTime;
 };
 
 struct LvnModel
 {
-	LvnData<std::shared_ptr<LvnMNode<LvnMesh>>> nodes;
-	LvnData<LvnMesh> meshes;
-	LvnData<LvnBuffer*> buffers;
-	LvnData<LvnSampler*> samplers;
-	LvnData<LvnTexture*> textures;
+	std::vector<std::shared_ptr<LvnNode>> nodes;
+	std::vector<LvnAnimation> animations;
 	LvnMat4 matrix;
+
+	std::vector<LvnBuffer*> buffers;
+	std::vector<LvnSampler*> samplers;
+	std::vector<LvnTexture*> textures;
 };
 
 struct LvnCamera
 {
-	LvnMat4 projectionMatrix;    // projection matrix
-	LvnMat4 viewMatrix;          // view matrix
-	LvnMat4 matrix;              // combined projection view matrix
-
-	LvnVec3 position;            // position of camera in space
-	LvnVec3 orientation;         // orientation/direction camera is looking
-	LvnVec3 upVector;            // up vector to differentiate direction in space
-
+	float aspectRatio;           // aspect ratio (width / height)
 	float fov;                   // field of view
-	float nearPlane;             // near plane
-	float farPlane;              // far plane
-
-	uint32_t width, height;      // dimensions of camera
+	float zNear;                 // near plane
+	float zFar;                  // far plane
 };
 
-struct LvnCameraCreateInfo
+struct LvnOrthoCamera
 {
-	uint32_t width, height;
-
-	LvnVec3 position;
-	LvnVec3 orientation;
-	LvnVec3 upVector;
-
-	float fovDeg;
-	float nearPlane;
-	float farPlane;
+	float right;                 // posx bound
+	float left;                  // negx bound
+	float top;                   // posy bound
+	float bottom;                // negy bound
+	float zNear;                 // far plane
+	float zFar;                  // near plane
 };
 
 struct LvnCubemapCreateInfo

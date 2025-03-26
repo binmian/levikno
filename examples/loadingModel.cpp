@@ -96,13 +96,28 @@ struct UniformLightData
 	float specular;
 };
 
-// NOTE: This is slightly outdated, a ModelDescriptor will be created to correspond
-//       to every mesh which only works when the model does not have textures
-struct ModelDescriptor
+struct MeshPrimitiveDescriptorData
 {
-	LvnMesh mesh;
+	LvnPrimitive primitive;
 	LvnDescriptorSet* descriptorSet;
+	LvnMat4 matrix;
 };
+
+void getNodePrimitives(const std::vector<std::shared_ptr<LvnNode>>& nodes, std::vector<MeshPrimitiveDescriptorData>& primitives)
+{
+	for (const auto& node : nodes)
+	{
+		for (const LvnPrimitive& primitive : node->mesh.primitives)
+		{
+			MeshPrimitiveDescriptorData primitiveData{};
+			primitiveData.matrix = node->matrix;
+			primitiveData.primitive = primitive;
+			primitives.push_back(primitiveData);
+		}
+
+		getNodePrimitives(node->children, primitives);
+	}
+}
 
 int main(int argc, char** argv)
 {
@@ -274,9 +289,11 @@ int main(int argc, char** argv)
 
 	// update descriptor set
 
-	std::vector<ModelDescriptor> modelDescriptors(model.meshes.size());
+	std::vector<MeshPrimitiveDescriptorData> primitiveDescriptors;
 
-	for (uint32_t i = 0; i < model.meshes.size(); i++)
+	getNodePrimitives(model.nodes, primitiveDescriptors);
+
+	for (uint32_t i = 0; i < primitiveDescriptors.size(); i++)
 	{
 		LvnUniformBufferInfo bufferInfo{};
 		bufferInfo.buffer = matrixUniformBuffer;
@@ -305,15 +322,14 @@ int main(int argc, char** argv)
 			descriptorStorageBufferUpdateInfo, descriptorUniformBufferUpdateInfo,
 		};
 
-		modelDescriptors[i].mesh = model.meshes[i];
-		lvn::createDescriptorSet(&modelDescriptors[i].descriptorSet, descriptorLayout);
-		lvn::updateDescriptorSetData(modelDescriptors[i].descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
+		lvn::createDescriptorSet(&primitiveDescriptors[i].descriptorSet, descriptorLayout);
+		lvn::updateDescriptorSetData(primitiveDescriptors[i].descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
 	}
 
 
 	auto startTime = std::chrono::high_resolution_clock::now();
 
-	std::vector<UniformData> uniformData; uniformData.resize(model.meshes.size());
+	std::vector<UniformData> uniformData; uniformData.resize(primitiveDescriptors.size());
 
 	UniformLightData lightData{};
 
@@ -337,10 +353,10 @@ int main(int argc, char** argv)
 		LvnMat4 modelMatrix = lvn::rotate(LvnMat4(1.0f), lvn::radians(time * 50.0f), LvnVec3(0.0f, 1.0f, 0.0f));
 		LvnMat4 camera = proj * view * modelMatrix;
 
-		for (uint32_t i = 0; i < model.meshes.size(); i++)
+		for (uint32_t i = 0; i < primitiveDescriptors.size(); i++)
 		{
-			uniformData[i].matrix = camera * model.meshes[i].matrix;
-			uniformData[i].model = modelMatrix * model.meshes[i].matrix;
+			uniformData[i].matrix = camera * primitiveDescriptors[i].matrix;
+			uniformData[i].model = modelMatrix * primitiveDescriptors[i].matrix;
 		}
 
 		lvn::updateUniformBufferData(window, matrixUniformBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size(), 0);
@@ -366,17 +382,14 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindPipeline(window, pipeline);
 
 		// bind model vertex and index buffer
-		for (ModelDescriptor& model : modelDescriptors)
+		for (MeshPrimitiveDescriptorData& primitiveData : primitiveDescriptors)
 		{
-			lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &model.descriptorSet);
+			lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitiveData.descriptorSet);
 
-			for (const LvnPrimitive& primitive : model.mesh.primitives)
-			{
-				lvn::renderCmdBindVertexBuffer(window, primitive.buffer);
-				lvn::renderCmdBindIndexBuffer(window, primitive.buffer);
+			lvn::renderCmdBindVertexBuffer(window, primitiveData.primitive.buffer);
+			lvn::renderCmdBindIndexBuffer(window, primitiveData.primitive.buffer);
 
-				lvn::renderCmdDrawIndexed(window, primitive.indexCount);
-			}
+			lvn::renderCmdDrawIndexed(window, primitiveData.primitive.indexCount);
 		}
 
 		// end render pass and submit rendering
@@ -392,9 +405,9 @@ int main(int argc, char** argv)
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyWindow(window);
 
-	for (ModelDescriptor& model : modelDescriptors)
+	for (MeshPrimitiveDescriptorData& primitiveData : primitiveDescriptors)
 	{
-		lvn::destroyDescriptorSet(model.descriptorSet);
+		lvn::destroyDescriptorSet(primitiveData.descriptorSet);
 	}
 
 	lvn::destroyDescriptorLayout(descriptorLayout);

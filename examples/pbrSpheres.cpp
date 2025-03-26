@@ -308,12 +308,25 @@ struct MeshPrimitiveDescriptorData
 	LvnMat4 matrix;
 };
 
+struct CameraView
+{
+	LvnMat4 projectionMatrix;
+	LvnMat4 viewMatrix;
+	LvnMat4 matrix;
+
+	LvnVec3 position;
+	LvnVec3 orientation;
+	LvnVec3 upVector;
+
+	LvnCamera data;
+};
+
 static float s_CameraSpeed = 5.0f;
 static bool s_CameraFirstClick = true;
 static float m_LastMouseX = 0.0f, m_LastMouseY = 0.0f;
 static float s_CameraSensitivity = 50.0f;
 
-void cameraMovment(LvnWindow* window, LvnCamera* camera, float dt)
+void cameraMovment(LvnWindow* window, CameraView* camera, float dt)
 {
 	if (lvn::keyPressed(window, Lvn_KeyCode_W))
 		camera->position += (s_CameraSpeed * camera->orientation) * dt;
@@ -388,7 +401,7 @@ static float s_PanSpeed = 5.0f, s_MoveShiftSpeed = 5.0f;
 static LvnVec3 s_Pos = LvnVec3(0.0f);
 static LvnMat4 s_Model = LvnMat4(1.0f);
 
-void orbitMovment(LvnWindow* window, LvnCamera* camera, float dt)
+void orbitMovment(LvnWindow* window, CameraView* camera, float dt)
 {
 	LvnMat4 view = camera->viewMatrix;
 
@@ -893,8 +906,8 @@ int main()
 	descriptorStorageUniformUpdateInfo.bufferInfo = &bufferInfo;
 
 	MeshPrimitiveDescriptorData primitiveDescriptor{};
-	primitiveDescriptor.primitive = lvnmodel.meshes[0].primitives[0];
-	primitiveDescriptor.matrix = lvnmodel.meshes[0].matrix;
+	primitiveDescriptor.primitive = lvnmodel.nodes[0]->mesh.primitives[0];
+	primitiveDescriptor.matrix = lvnmodel.nodes[0]->matrix;
 
 	lvn::createDescriptorSet(&primitiveDescriptor.descriptorSet, descriptorLayout);
 
@@ -945,16 +958,14 @@ int main()
 
 
 
-	LvnCameraCreateInfo cameraCreateInfo{};
-	cameraCreateInfo.width = lvn::windowGetSize(window).width;
-	cameraCreateInfo.height = lvn::windowGetSize(window).height;
-	cameraCreateInfo.position = LvnVec3(0.0f, 0.0f, -1.0f);
-	cameraCreateInfo.orientation = LvnVec3(0.0f, 0.0f, 1.0f);
-	cameraCreateInfo.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
-	cameraCreateInfo.fovDeg = 60.0f;
-	cameraCreateInfo.nearPlane = 0.1f;
-	cameraCreateInfo.farPlane = 100.0f;
-	LvnCamera camera = lvn::cameraConfigInit(&cameraCreateInfo);
+	CameraView camera{};
+	camera.position = LvnVec3(0.0f, 0.0f, -1.0f);
+	camera.orientation = LvnVec3(0.0f, 0.0f, 1.0f);
+	camera.upVector = LvnVec3(0.0f, 1.0f, 0.0f);
+	camera.data.fov = 60.0f;
+	camera.data.zNear = 0.1f;
+	camera.data.zFar = 100.0f;
+	camera.data.aspectRatio = (float)lvn::windowGetSize(window).width / lvn::windowGetSize(window).height;
 
 
 	EventData eventData{};
@@ -1000,7 +1011,7 @@ int main()
 				objectData[i * 10 + j].model = primitiveDescriptor.matrix * lvn::translate(LvnMat4(1.0f), LvnVec3(i * 2.0f, j * 2.0f, 0.0f));
 			}
 
-		pbrData.campPos = lvn::cameraGetPos(&camera);
+		pbrData.campPos = camera.position;
 		pbrData.lightPos = lvn::vec3(5.0f + cos(lvn::getContextTime()) * 3.0f, 5.0f + sin(lvn::getContextTime()) * 3.0f, 3.0f);
 
 		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData), 0);

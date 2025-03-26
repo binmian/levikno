@@ -79,6 +79,8 @@ namespace lvn
 		uint32_t binding;
 		uint32_t count;
 		uint32_t id;
+		uint64_t range;
+		uint64_t offset;
 	};
 
 	struct OglBindlessTextureBinding
@@ -97,12 +99,15 @@ namespace lvn
 
 	struct OglPipelineEnums
 	{
-		bool enableDepth;
-		bool enableBlending;
 		uint32_t depthCompareOp;
 		uint32_t topologyType;
 		uint32_t srcBlendFactor;
 		uint32_t dstBlendFactor;
+		uint32_t cullMode;
+		uint32_t frontFace;
+		bool enableDepth;
+		bool enableBlending;
+		bool enableCulling;
 	};
 
 	struct OglFramebufferData

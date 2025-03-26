@@ -3808,12 +3808,9 @@ void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniform
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
-	uint64_t skipBuffers = offset / uniformBuffer->size;     // skip buffers if offset is greater than uniform buffer size
-	uint64_t perBufferOffset = offset % uniformBuffer->size; // offset buffer per frame in flight
-
 	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
 	{
-		memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped)+ uniformBuffer->size * skipBuffers * vkBackends->maxFramesInFlight + perBufferOffset + uniformBuffer->size * i, data, size);
+		memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped) + offset + size * i, data, size);
 	}
 }
 
@@ -3853,11 +3850,8 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 			// if descriptor using uniform buffers
 			if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
 			{
-				uint64_t skipBuffers = pUpdateInfo[i].bufferInfo->offset / pUpdateInfo[i].bufferInfo->buffer->size;     // skip buffers if offset is greater than uniform buffer size
-				uint64_t perBufferOffset = pUpdateInfo[i].bufferInfo->offset % pUpdateInfo[i].bufferInfo->buffer->size; // offset buffer per frame in flight
-
 				bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->uniformBuffer);
-				bufferInfo.offset = pUpdateInfo[i].bufferInfo->buffer->size * skipBuffers * vkBackends->maxFramesInFlight + perBufferOffset + pUpdateInfo[i].bufferInfo->buffer->size * j; // offset buffer range for each frame in flight
+				bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset + pUpdateInfo[i].bufferInfo->range * j; // offset buffer range for each frame in flight
 				bufferInfo.range = pUpdateInfo[i].bufferInfo->range;
 				descriptorWrite.pBufferInfo = &bufferInfo;
 			}
