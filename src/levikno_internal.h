@@ -445,7 +445,7 @@ struct LvnGraphicsContext
 	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createShaderFromFileBin)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, LvnDescriptorLayoutCreateInfo*);
-	LvnResult                   (*createDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
+	LvnResult                   (*allocateDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
 	LvnResult                   (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
 	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
 	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
@@ -458,7 +458,6 @@ struct LvnGraphicsContext
 
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
-	void                        (*destroyDescriptorSet)(LvnDescriptorSet*);
 	void                        (*destroyPipeline)(LvnPipeline*);
 	void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
 	void                        (*destroyBuffer)(LvnBuffer*);
@@ -522,6 +521,9 @@ struct LvnDescriptorLayout
 {
 	void* descriptorLayout;
 	void* descriptorPool;
+
+	std::vector<LvnDescriptorSet> descriptorSets;
+	uint64_t descriptorSetIndex;
 };
 
 struct LvnDescriptorSet

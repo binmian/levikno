@@ -2250,18 +2250,22 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDesc
 
 	*descriptorLayout = lvn::createObject<LvnDescriptorLayout>(lvnctx, Lvn_Stype_DescriptorLayout);
 
+	LvnDescriptorLayout* descriptorLayoutPtr = *descriptorLayout;
+	descriptorLayoutPtr->descriptorSets.resize(createInfo->maxSets);
+	descriptorLayoutPtr->descriptorSetIndex = 0;
+
 	LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
 	return lvnctx->graphicsContext.createDescriptorLayout(*descriptorLayout, createInfo);
 }
 
-LvnResult createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout)
+LvnResult allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
-	*descriptorSet = lvn::createObject<LvnDescriptorSet>(lvnctx, Lvn_Stype_DescriptorSet);
+	*descriptorSet = &descriptorLayout->descriptorSets[descriptorLayout->descriptorSetIndex++];
 
 	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
-	return lvnctx->graphicsContext.createDescriptorSet(*descriptorSet, descriptorLayout);
+	return lvnctx->graphicsContext.allocateDescriptorSet(*descriptorSet, descriptorLayout);
 }
 
 LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
@@ -2506,15 +2510,6 @@ void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 
 	lvnctx->graphicsContext.destroyDescriptorLayout(descriptorLayout);
 	lvn::destroyObject(lvnctx, descriptorLayout, Lvn_Stype_DescriptorLayout);
-}
-
-void destroyDescriptorSet(LvnDescriptorSet* descriptorSet)
-{
-	if (descriptorSet == nullptr) { return; }
-	LvnContext* lvnctx = lvn::getContext();
-
-	lvnctx->graphicsContext.destroyDescriptorSet(descriptorSet);
-	lvn::destroyObject(lvnctx, descriptorSet, Lvn_Stype_DescriptorSet);
 }
 
 void destroyPipeline(LvnPipeline* pipeline)

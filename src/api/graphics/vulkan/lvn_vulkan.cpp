@@ -1,5 +1,4 @@
 #include "lvn_vulkan.h"
-#include "levikno.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -2029,7 +2028,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
 	graphicsContext->createDescriptorLayout = vksImplCreateDescriptorLayout;
-	graphicsContext->createDescriptorSet = vksImplCreateDescriptorSet;
 	graphicsContext->createPipeline = vksImplCreatePipeline;
 	graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
 	graphicsContext->createBuffer = vksImplCreateBuffer;
@@ -2042,7 +2040,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	
 	graphicsContext->destroyShader = vksImplDestroyShader;
 	graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
-	graphicsContext->destroyDescriptorSet = vksImplDestroyDescriptorSet;
 	graphicsContext->destroyPipeline = vksImplDestroyPipeline;
 	graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
 	graphicsContext->destroyBuffer = vksImplDestroyBuffer;
@@ -2075,6 +2072,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->bufferUpdateIndexData = vksImplBufferUpdateIndexData;
 	graphicsContext->bufferResizeVertexBuffer = vksImplBufferResizeVertexBuffer;
 	graphicsContext->bufferResizeIndexBuffer = vksImplBufferResizeIndexBuffer;
+	graphicsContext->allocateDescriptorSet = vksImplAllocateDescriptorSet;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 	graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
 	graphicsContext->frameBufferGetImage = vksImplFrameBufferGetImage;
@@ -2666,7 +2664,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, L
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout)
+LvnResult vksImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -3593,11 +3591,6 @@ void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 	vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
 }
 
-void vksImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet)
-{
-
-}
-
 void vksImplDestroyPipeline(LvnPipeline* pipeline)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
@@ -3810,7 +3803,7 @@ void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniform
 
 	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
 	{
-		memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped) + offset + size * i, data, size);
+		memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped) + offset + uniformBuffer->size * i, data, size);
 	}
 }
 
@@ -3851,7 +3844,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 			if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
 			{
 				bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->uniformBuffer);
-				bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset + pUpdateInfo[i].bufferInfo->range * j; // offset buffer range for each frame in flight
+				bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset + pUpdateInfo[i].bufferInfo->buffer->size * j; // offset buffer size for each frame in flight
 				bufferInfo.range = pUpdateInfo[i].bufferInfo->range;
 				descriptorWrite.pBufferInfo = &bufferInfo;
 			}

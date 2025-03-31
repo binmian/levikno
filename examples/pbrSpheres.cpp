@@ -761,7 +761,7 @@ int main()
 	lvn::createDescriptorLayout(&cubemapDescriptorLayout, &cubemapDescriptorLayoutCreateInfo);
 
 	LvnDescriptorSet* cubemapDescriptorSet;
-	lvn::createDescriptorSet(&cubemapDescriptorSet, cubemapDescriptorLayout);
+	lvn::allocateDescriptorSet(&cubemapDescriptorSet, cubemapDescriptorLayout);
 
 	pipelineCreateInfo.pDescriptorLayouts = &cubemapDescriptorLayout;
 	pipelineCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
@@ -796,7 +796,7 @@ int main()
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
 
 	LvnDescriptorSet* fbDescriptorSet;
-	lvn::createDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
+	lvn::allocateDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
 
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
 	pipelineCreateInfo.pVertexBindingDescriptions = &fbVertexBindingDescription;
@@ -909,7 +909,7 @@ int main()
 	primitiveDescriptor.primitive = lvnmodel.nodes[0]->mesh.primitives[0];
 	primitiveDescriptor.matrix = lvnmodel.nodes[0]->matrix;
 
-	lvn::createDescriptorSet(&primitiveDescriptor.descriptorSet, descriptorLayout);
+	lvn::allocateDescriptorSet(&primitiveDescriptor.descriptorSet, descriptorLayout);
 
 	LvnDescriptorUpdateInfo pbrDescriptorUpdateInfo[] =
 	{
@@ -1080,10 +1080,6 @@ int main()
 	lvn::destroyUniformBuffer(cubemapUniformBuffer);
 	lvn::destroyUniformBuffer(storageBuffer);
 	lvn::destroyUniformBuffer(pbrUniformBuffer);
-
-	lvn::destroyDescriptorSet(fbDescriptorSet);
-	lvn::destroyDescriptorSet(cubemapDescriptorSet);
-	lvn::destroyDescriptorSet(primitiveDescriptor.descriptorSet);
 
 	lvn::destroyDescriptorLayout(cubemapDescriptorLayout);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);

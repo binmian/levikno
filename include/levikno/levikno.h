@@ -1470,7 +1470,6 @@ namespace lvn
 	LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the file paths to the binary files (.spv) as input
 	LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the file paths to the source files as input
 	LVN_API LvnResult                   createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo);        // create descriptor layout for the pipeline
-	LVN_API LvnResult                   createDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                     // create descriptor set to uplaod uniform data to pipeline
 	LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);                                        // create pipeline to describe shading specifications
 	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                            // create framebuffer to render images to
 	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                                // create a single buffer object that can hold both the vertex and index buffers
@@ -1484,7 +1483,6 @@ namespace lvn
 
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                                 // destroy shader module object
 	LVN_API void                        destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);                                                   // destroy descriptor layout
-	LVN_API void                        destroyDescriptorSet(LvnDescriptorSet* descriptorSet);                                                            // destroy descriptor set object
 	LVN_API void                        destroyPipeline(LvnPipeline* pipeline);                                                                           // destroy pipeline object
 	LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                                  // destroy framebuffer object
 	LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                                 // destory buffers object
@@ -1495,6 +1493,7 @@ namespace lvn
 
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    pipelineSpecificationGetConfig();
+	LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
 
 	LVN_API void                        bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
 	LVN_API void                        bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset);
@@ -5193,6 +5192,7 @@ struct LvnPrimitive
 	uint32_t indexCount;
 
 	LvnBuffer* buffer;
+	LvnDescriptorSet* descriptorSet;
 };
 
 struct LvnMesh

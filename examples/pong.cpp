@@ -306,7 +306,7 @@ int main(int argc, char** argv)
 
 	// create descriptor set using layout
 	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
+	lvn::allocateDescriptorSet(&descriptorSet, descriptorLayout);
 
 	// get the render pass from the window to pass into the pipeline
 	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
@@ -371,7 +371,7 @@ int main(int argc, char** argv)
 
 	// create descriptor set using layout
 	LvnDescriptorSet* fontDescriptorSet;
-	lvn::createDescriptorSet(&fontDescriptorSet, fontDescriptorLayout);
+	lvn::allocateDescriptorSet(&fontDescriptorSet, fontDescriptorLayout);
 
 	// font pipeline
 	pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
@@ -686,9 +686,7 @@ int main(int argc, char** argv)
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyPipeline(fontPipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);
-	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyDescriptorLayout(fontDescriptorLayout);
-	lvn::destroyDescriptorSet(fontDescriptorSet);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyWindow(window);
 

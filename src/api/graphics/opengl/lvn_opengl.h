@@ -15,7 +15,7 @@ namespace lvn
 	LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo);
-	LvnResult oglsImplCreateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout);
+	LvnResult oglsImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout);
 	LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo);
 	LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo);
 	LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo);
@@ -28,7 +28,6 @@ namespace lvn
 
 	void oglsImplDestroyShader(LvnShader* shader);
 	void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
-	void oglsImplDestroyDescriptorSet(LvnDescriptorSet* descriptorSet);
 	void oglsImplDestroyPipeline(LvnPipeline* pipeline);
 	void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
 	void oglsImplDestroyBuffer(LvnBuffer* buffer);

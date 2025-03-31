@@ -309,7 +309,7 @@ int main(int argc, char** argv)
 
 	// create descriptor set using layout
 	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
+	lvn::allocateDescriptorSet(&descriptorSet, descriptorLayout);
 
 
 	// get the render pass from the window to pass into the pipeline
@@ -501,7 +501,6 @@ int main(int argc, char** argv)
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);
-	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyWindow(window);
 
 	// terminate the context at the end of the program

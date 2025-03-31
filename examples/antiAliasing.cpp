@@ -366,7 +366,7 @@ int main(int argc, char** argv)
 
 	// create descriptor set using layout
 	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
+	lvn::allocateDescriptorSet(&descriptorSet, descriptorLayout);
 
 
 	// create pipeline specification or fixed functions
@@ -416,7 +416,7 @@ int main(int argc, char** argv)
 
 	// create framebuffer descriptor set
 	LvnDescriptorSet* fbDescriptorSet;
-	lvn::createDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
+	lvn::allocateDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
 
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit; // NOTE: set the multisampling count back to 1 for normal rendering to window output
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
@@ -562,9 +562,7 @@ int main(int argc, char** argv)
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyPipeline(fbPipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);
-	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);
-	lvn::destroyDescriptorSet(fbDescriptorSet);
 	lvn::destroyWindow(window);
 
 	// terminate the context at the end of the program

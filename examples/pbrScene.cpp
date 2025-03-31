@@ -37,7 +37,7 @@ const static uint32_t s_CubemapIndices[] =
 	7, 2, 6
 };
 
-static float s_FbVertices[] =
+static float s_FbVertices_vk[] =
 {
 	/*    pos (x,y,z)   |      UV   */
 	-1.0f, -1.0f, 0.0f,    1.0f, 0.0f,
@@ -47,6 +47,18 @@ static float s_FbVertices[] =
 	-1.0f, -1.0f, 0.0f,    1.0f, 0.0f,
 	 1.0f,  1.0f, 0.0f,    0.0f, 1.0f,
 	-1.0f,  1.0f, 0.0f,    1.0f, 1.0f,
+};
+
+static float s_FbVertices_ogl[] =
+{
+	/*    pos (x,y,z)   |      UV   */
+	 1.0f,  1.0f, 0.0f,    1.0f, 1.0f,
+	-1.0f,  1.0f, 0.0f,    0.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f,    0.0f, 0.0f,
+
+	 1.0f,  1.0f, 0.0f,    1.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f,    0.0f, 0.0f,
+	 1.0f, -1.0f, 0.0f,    1.0f, 0.0f,
 };
 
 // pbr shaders
@@ -327,13 +339,6 @@ struct PbrUniformData
 	float ambientOcclusion;
 };
 
-struct MeshPrimitiveDescriptorData
-{
-	LvnPrimitive primitive;
-	LvnDescriptorSet* descriptorSet;
-	LvnMat4 matrix;
-};
-
 struct CameraView
 {
 	LvnMat4 projectionMatrix;
@@ -519,11 +524,25 @@ void orbitMovment(LvnWindow* window, CameraView* camera, float dt)
 	int width, height;
 	lvn::windowGetSize(window, &width, &height);
 	camera->projectionMatrix = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-	camera->viewMatrix =
-		  lvn::translate(LvnMat4(1.0f), LvnVec3(0.0f, 0.0f, s_Radius))
-		* lvn::rotate(LvnMat4(1.0f), lvn::radians(s_AngleY), LvnVec3(1.0f, 0.0f, 0.0f))
-		* lvn::rotate(LvnMat4(1.0f), lvn::radians(s_AngleX), LvnVec3(0.0f, 1.0f, 0.0f))
-		* s_Model;
+
+	// NOTE: opengl and vulkan have different coord systems (left hand vs right hand) so this needs to be different, I might add something later to combine these two
+	LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
+	if (graphicsapi == Lvn_GraphicsApi_vulkan)
+	{
+		camera->viewMatrix =
+			  lvn::translate(LvnMat4(1.0f), LvnVec3(0.0f, 0.0f, s_Radius))
+			* lvn::rotate(LvnMat4(1.0f), lvn::radians(s_AngleY), LvnVec3(1.0f, 0.0f, 0.0f))
+			* lvn::rotate(LvnMat4(1.0f), lvn::radians(s_AngleX), LvnVec3(0.0f, 1.0f, 0.0f))
+			* s_Model;
+	}
+	else if (graphicsapi == Lvn_GraphicsApi_opengl)
+	{
+		camera->viewMatrix =
+			  lvn::translate(LvnMat4(1.0f), LvnVec3(0.0f, 0.0f, -s_Radius))
+			* lvn::rotate(LvnMat4(1.0f), lvn::radians(-s_AngleY), LvnVec3(1.0f, 0.0f, 0.0f))
+			* lvn::rotate(LvnMat4(1.0f), lvn::radians(s_AngleX), LvnVec3(0.0f, 1.0f, 0.0f))
+			* s_Model;
+	}
 
 	camera->matrix = camera->projectionMatrix * camera->viewMatrix;
 
@@ -591,22 +610,6 @@ void scaleInput(LvnWindow* window, float* scale, float dt)
 	if (*scale <= 0.0) *scale = 0.01f;
 }
 
-void getNodePrimitives(const std::vector<std::shared_ptr<LvnNode>>& nodes, std::vector<MeshPrimitiveDescriptorData>& primitives)
-{
-	for (const auto& node : nodes)
-	{
-		for (const LvnPrimitive& primitive : node->mesh.primitives)
-		{
-			MeshPrimitiveDescriptorData primitiveData{};
-			primitiveData.matrix = node->matrix;
-			primitiveData.primitive = primitive;
-			primitives.push_back(primitiveData);
-		}
-
-		getNodePrimitives(node->children, primitives);
-	}
-}
-
 void updateNode(LvnNode* node)
 {
 	LvnMat4 translation = lvn::translate(LvnMat4(1.0f), node->transform.translation);
@@ -624,7 +627,7 @@ void updateNode(LvnNode* node)
 	}
 }
 
-void updateAnimation(LvnModel& model, float dt, std::vector<MeshPrimitiveDescriptorData>& primitiveDescriptor)
+void updateAnimation(LvnModel& model, float dt)
 {
 	if (model.animations.empty())
 		return;
@@ -680,8 +683,99 @@ void updateAnimation(LvnModel& model, float dt, std::vector<MeshPrimitiveDescrip
 	{
 		updateNode(channel.node);
 	}
+}
 
-	primitiveDescriptor[0].matrix = animation.channels[0].node->matrix;
+uint32_t buffOffset = 0;
+void updateNodeDescriptorSets(std::vector<std::shared_ptr<LvnNode>>& nodes, LvnDescriptorLayout* descriptorLayout, LvnUniformBuffer* matrixUniformBuffer, LvnUniformBuffer* pbrUniformBuffer)
+{
+	LvnUniformBufferInfo descriptorPbrBufferInfo{};
+	descriptorPbrBufferInfo.buffer = pbrUniformBuffer;
+	descriptorPbrBufferInfo.range = sizeof(PbrUniformData);
+	descriptorPbrBufferInfo.offset = 0;
+
+	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
+	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+	descriptorPbrUniformUpdateInfo.binding = 0;
+	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
+	descriptorPbrUniformUpdateInfo.bufferInfo = &descriptorPbrBufferInfo;
+
+	for (auto& node : nodes)
+	{
+		for (auto& primitive : node->mesh.primitives)
+		{
+			LvnUniformBufferInfo bufferInfo{};
+			bufferInfo.buffer = matrixUniformBuffer;
+			bufferInfo.range = sizeof(UniformData);
+			bufferInfo.offset = sizeof(UniformData) * buffOffset;
+			buffOffset++;
+
+			LvnDescriptorUpdateInfo descriptorMatrixUniformUpdateInfo{};
+			descriptorMatrixUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+			descriptorMatrixUniformUpdateInfo.binding = 1;
+			descriptorMatrixUniformUpdateInfo.descriptorCount = 1;
+			descriptorMatrixUniformUpdateInfo.bufferInfo = &bufferInfo;
+
+			lvn::allocateDescriptorSet(&primitive.descriptorSet, descriptorLayout);
+
+			LvnDescriptorUpdateInfo pbrDescriptorUpdateInfo[] =
+			{
+				descriptorPbrUniformUpdateInfo,
+				descriptorMatrixUniformUpdateInfo,
+				{ 2, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.albedo },
+				{ 3, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.metallicRoughnessOcclusion },
+				{ 4, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.normal },
+				{ 5, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.emissive },
+			};
+
+			lvn::updateDescriptorSetData(primitive.descriptorSet, pbrDescriptorUpdateInfo, ARRAY_LEN(pbrDescriptorUpdateInfo));
+		}
+
+		updateNodeDescriptorSets(node->children, descriptorLayout, matrixUniformBuffer, pbrUniformBuffer);
+	}
+}
+
+float scale = 1.0f;
+
+void updateNodeMatrix(std::vector<std::shared_ptr<LvnNode>>& nodes, std::vector<UniformData>& objectData, CameraView camera)
+{
+	for (auto& node : nodes)
+	{
+		for (auto& primitive : node->mesh.primitives)
+		{
+			LvnMat4 nodeMatrix = node->matrix;
+			LvnNode* currentParent = node->parent;
+			while (currentParent)
+			{
+				nodeMatrix    = currentParent->matrix * nodeMatrix;
+				currentParent = currentParent->parent;
+			}
+
+			UniformData data{};
+			LvnMat4 scaleMat = lvn::scale(LvnMat4(1.0f), LvnVec3(scale));
+			data.matrix = camera.matrix;
+			data.model = scaleMat * nodeMatrix;
+			objectData.push_back(data);
+		}
+
+		updateNodeMatrix(node->children, objectData, camera);
+	}
+}
+
+void drawNode(std::vector<std::shared_ptr<LvnNode>>& nodes, LvnWindow* window, LvnPipeline* pipeline)
+{
+	for (auto& node : nodes)
+	{
+		for (auto& primitive : node->mesh.primitives)
+		{
+			lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitive.descriptorSet);
+			lvn::renderCmdBindVertexBuffer(window, primitive.buffer);
+			lvn::renderCmdBindIndexBuffer(window, primitive.buffer);
+
+			lvn::renderCmdDrawIndexed(window, primitive.indexCount);
+		}
+
+		drawNode(node->children, window, pipeline);
+	}
 }
 
 int main()
@@ -723,7 +817,7 @@ int main()
 
 	LvnRenderInitInfo renderInfo{};
 	renderInfo.physicalDevice = selectedPhysicalDevice;
-	renderInfo.maxFramesInFlight = 1;
+	renderInfo.maxFramesInFlight = 2;
 	lvn::renderInit(&renderInfo);
 
 
@@ -740,7 +834,7 @@ int main()
 
 
 	// load model
-	LvnModel lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/camera/scene.gltf");
+	LvnModel lvnmodel = lvn::loadModel("res/models/eightBall/scene.gltf");
 
 
 	// create framebuffer
@@ -919,7 +1013,7 @@ int main()
 	lvn::createDescriptorLayout(&cubemapDescriptorLayout, &cubemapDescriptorLayoutCreateInfo);
 
 	LvnDescriptorSet* cubemapDescriptorSet;
-	lvn::createDescriptorSet(&cubemapDescriptorSet, cubemapDescriptorLayout);
+	lvn::allocateDescriptorSet(&cubemapDescriptorSet, cubemapDescriptorLayout);
 
 	pipelineCreateInfo.pDescriptorLayouts = &cubemapDescriptorLayout;
 	pipelineCreateInfo.pVertexBindingDescriptions = &cubemapBindingDescription;
@@ -931,6 +1025,7 @@ int main()
 	pipelineCreateInfo.pipelineSpecification->depthstencil.depthOpCompare = Lvn_CompareOp_LessOrEqual;
 	pipelineCreateInfo.pipelineSpecification->multisampling.rasterizationSamples = Lvn_SampleCount_8_Bit;
 	pipelineCreateInfo.pipelineSpecification->colorBlend.colorBlendAttachmentCount = 0;
+	pipelineCreateInfo.pipelineSpecification->rasterizer.cullMode = Lvn_CullFaceMode_Disable;
 	
 	LvnPipeline* cubemapPipeline;
 	lvn::createPipeline(&cubemapPipeline, &pipelineCreateInfo);
@@ -955,7 +1050,7 @@ int main()
 	lvn::createDescriptorLayout(&fbDescriptorLayout, &fbDescriptorLayoutCreateInfo);
 
 	LvnDescriptorSet* fbDescriptorSet;
-	lvn::createDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
+	lvn::allocateDescriptorSet(&fbDescriptorSet, fbDescriptorLayout);
 
 	pipelineCreateInfo.pDescriptorLayouts = &fbDescriptorLayout;
 	pipelineCreateInfo.pVertexBindingDescriptions = &fbVertexBindingDescription;
@@ -981,8 +1076,20 @@ int main()
 	bufferCreateInfo.vertexBindingDescriptionCount = 1;
 	bufferCreateInfo.pVertexAttributes = fbAttributes;
 	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(fbAttributes);
-	bufferCreateInfo.pVertices = s_FbVertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(s_FbVertices);
+
+	// NOTE: frame buffer vertex coords are different between vulkan and opengl, might fix in future
+	LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
+
+	if (graphicsapi == Lvn_GraphicsApi_vulkan)
+	{
+		bufferCreateInfo.pVertices = s_FbVertices_vk;
+		bufferCreateInfo.vertexBufferSize = sizeof(s_FbVertices_vk);
+	}
+	if (graphicsapi == Lvn_GraphicsApi_opengl)
+	{
+		bufferCreateInfo.pVertices = s_FbVertices_ogl;
+		bufferCreateInfo.vertexBufferSize = sizeof(s_FbVertices_ogl);
+	}
 
 	LvnBuffer* fbBuffer;
 	lvn::createBuffer(&fbBuffer, &bufferCreateInfo);
@@ -1042,53 +1149,11 @@ int main()
 	lvn::createCubemap(&cubemap, &cubemapCreateInfo);
 
 
-	LvnUniformBufferInfo descriptorPbrBufferInfo{};
-	descriptorPbrBufferInfo.buffer = pbrUniformBuffer;
-	descriptorPbrBufferInfo.range = sizeof(PbrUniformData);
-	descriptorPbrBufferInfo.offset = 0;
+	// update descriptor sets
+	updateNodeDescriptorSets(lvnmodel.nodes, descriptorLayout, matrixUniformBuffer, pbrUniformBuffer);
 
-	LvnDescriptorUpdateInfo descriptorPbrUniformUpdateInfo{};
-	descriptorPbrUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-	descriptorPbrUniformUpdateInfo.binding = 0;
-	descriptorPbrUniformUpdateInfo.descriptorCount = 1;
-	descriptorPbrUniformUpdateInfo.bufferInfo = &descriptorPbrBufferInfo;
-
-	std::vector<MeshPrimitiveDescriptorData> primitiveDescriptors;
-	getNodePrimitives(lvnmodel.nodes, primitiveDescriptors);
-
-	uint32_t buffOffset = 0;
-	for (MeshPrimitiveDescriptorData& primitiveData : primitiveDescriptors)
-	{
-		LvnUniformBufferInfo bufferInfo{};
-		bufferInfo.buffer = matrixUniformBuffer;
-		bufferInfo.range = sizeof(UniformData);
-		bufferInfo.offset = sizeof(UniformData) * buffOffset;
-		buffOffset++;
-
-		LvnDescriptorUpdateInfo descriptorMatrixUniformUpdateInfo{};
-		descriptorMatrixUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-		descriptorMatrixUniformUpdateInfo.binding = 1;
-		descriptorMatrixUniformUpdateInfo.descriptorCount = 1;
-		descriptorMatrixUniformUpdateInfo.bufferInfo = &bufferInfo;
-
-		lvn::createDescriptorSet(&primitiveData.descriptorSet, descriptorLayout);
-
-		LvnDescriptorUpdateInfo pbrDescriptorUpdateInfo[] =
-		{
-			descriptorPbrUniformUpdateInfo,
-			descriptorMatrixUniformUpdateInfo,
-			{ 2, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitiveData.primitive.material.albedo },
-			{ 3, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitiveData.primitive.material.metallicRoughnessOcclusion },
-			{ 4, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitiveData.primitive.material.normal },
-			{ 5, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitiveData.primitive.material.emissive },
-		};
-
-		lvn::updateDescriptorSetData(primitiveData.descriptorSet, pbrDescriptorUpdateInfo, ARRAY_LEN(pbrDescriptorUpdateInfo));
-	}
 
 	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(frameBuffer, 0);
-
-	// update descriptor sets
 	LvnDescriptorUpdateInfo fbDescriptorTextureUpdateInfo{};
 	fbDescriptorTextureUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
 	fbDescriptorTextureUpdateInfo.binding = 1;
@@ -1153,8 +1218,6 @@ int main()
 	PbrUniformData pbrData{};
 	std::vector<UniformData> objectData;
 
-	float scale = 1.0f;
-
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
@@ -1171,18 +1234,10 @@ int main()
 		lvn::renderCmdBeginFrameBuffer(window, frameBuffer);
 		lvn::frameBufferSetClearColor(frameBuffer, 0, 0.0f, 0.0f, 0.0f, 1.0f);
 
+		objectData.clear();
+		updateAnimation(lvnmodel, dt);
 		scaleInput(window, &scale, dt);
-
-		updateAnimation(lvnmodel, dt, primitiveDescriptors);
-
-		objectData.resize(primitiveDescriptors.size());
-		for (uint32_t i = 0; i < primitiveDescriptors.size(); i++)
-		{
-			LvnMat4 scaleMat = lvn::scale(LvnMat4(1.0f), LvnVec3(scale));
-			objectData[i].matrix = camera.matrix;
-			objectData[i].model = scaleMat * primitiveDescriptors[i].matrix;
-		}
-
+		updateNodeMatrix(lvnmodel.nodes, objectData, camera);
 		lvn::updateUniformBufferData(window, matrixUniformBuffer, objectData.data(), objectData.size() * sizeof(UniformData), 0);
 
 		pbrData.campPos = camera.position;
@@ -1195,14 +1250,7 @@ int main()
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 
-		for (MeshPrimitiveDescriptorData& primitiveDescriptor : primitiveDescriptors)
-		{
-			lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitiveDescriptor.descriptorSet);
-			lvn::renderCmdBindVertexBuffer(window, primitiveDescriptor.primitive.buffer);
-			lvn::renderCmdBindIndexBuffer(window, primitiveDescriptor.primitive.buffer);
-
-			lvn::renderCmdDrawIndexed(window, primitiveDescriptor.primitive.indexCount);
-		}
+		drawNode(lvnmodel.nodes, window, pipeline);
 
 		// draw cubemap
 		lvn::mat4 projection = camera.projectionMatrix;
@@ -1257,13 +1305,6 @@ int main()
 	lvn::destroyUniformBuffer(matrixUniformBuffer);
 	lvn::destroyUniformBuffer(pbrUniformBuffer);
 
-	lvn::destroyDescriptorSet(fbDescriptorSet);
-	lvn::destroyDescriptorSet(cubemapDescriptorSet);
-
-	for (MeshPrimitiveDescriptorData& primitiveDescriptor : primitiveDescriptors)
-	{
-		lvn::destroyDescriptorSet(primitiveDescriptor.descriptorSet);
-	}
 
 	lvn::destroyDescriptorLayout(cubemapDescriptorLayout);
 	lvn::destroyDescriptorLayout(fbDescriptorLayout);

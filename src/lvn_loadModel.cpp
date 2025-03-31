@@ -124,7 +124,7 @@ namespace gltfs
 	static LvnTopologyType           getTopologyEnum(int mode);
 	static LvnInterpolationMode      getInterpolationMode(std::string interpolation);
 	static std::vector<LvnVec3>      calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents);
-	static void                      traverseNode(GLTFLoadData* gltfData, const LvnMat4& parentMatrix, LvnNode* nextNode, int nextNodeIndex);
+	static void                      traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex);
 	static LvnMesh                   loadMesh(GLTFLoadData* gltfData, int meshIndex);
 	static LvnMaterial               getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex);
 
@@ -499,7 +499,7 @@ namespace gltfs
 
 		return bitangents;
 	}
-	static void traverseNode(GLTFLoadData* gltfData, const LvnMat4& parentMatrix, LvnNode* nextNode, int nextNodeIndex)
+	static void traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex)
 	{
 		nlm::json JSON = gltfData->JSON;
 		nlm::json node = JSON["nodes"][nextNodeIndex];
@@ -543,8 +543,7 @@ namespace gltfs
 		LvnMat4 translation = lvn::translate(LvnMat4(1.0f), translationVec);
 		LvnMat4 rotate = lvn::quatToMat4(rotationQuat);
 		LvnMat4 scale = lvn::scale(LvnMat4(1.0f), scaleVec);
-		LvnMat4 nextNodeMatrix = parentMatrix * matrix * translation * rotate * scale;
-		nextNode->matrix = nextNodeMatrix;
+		nextNode->matrix = matrix * translation * rotate * scale;
 
 		if (node.find("mesh") != node.end())
 		{
@@ -563,7 +562,7 @@ namespace gltfs
 
 				int nodeIndex = node["children"][i];
 				gltfData->nodeArray[nodeIndex] = nextNode->children[i].get();
-				gltfs::traverseNode(gltfData, nextNodeMatrix, nextNode->children[i].get(), nodeIndex);
+				gltfs::traverseNode(gltfData, nextNode->children[i].get(), nodeIndex);
 			}
 		}
 	}
@@ -861,7 +860,7 @@ namespace gltfs
 		else // no metalic roughness found, load default texture (0,1,0,1)
 		{
 			// default metalic roughness texture
-			uint8_t metalicRoughnessData[4] = { 0xff, 0xff, 0x00, 0xff };
+			uint8_t metalicRoughnessData[4] = { 0x00, 0xff, 0x00, 0xff };
 			LvnImageData imageData;
 			imageData.pixels = LvnData<uint8_t>(metalicRoughnessData, sizeof(metalicRoughnessData) / sizeof(uint8_t));
 			imageData.width = 1;
@@ -998,9 +997,6 @@ namespace gltfs
 
 		return material;
 	}
-	static LvnModel loadModel(const char* filepath)
-	{
-	}
 
 } /* namespace gltf */
 
@@ -1034,7 +1030,7 @@ LvnModel loadGltfModel(const char* filepath)
 		gltfData.nodes[i] = std::make_shared<LvnNode>();
 		int nodeIndex = JSON["scenes"][0]["nodes"][i];
 		gltfData.nodeArray[nodeIndex] = gltfData.nodes[i].get();
-		gltfs::traverseNode(&gltfData, LvnMat4(1.0f), gltfData.nodes[i].get(), nodeIndex);
+		gltfs::traverseNode(&gltfData, gltfData.nodes[i].get(), nodeIndex);
 	}
 
 	LvnModel model{};
@@ -1098,7 +1094,7 @@ LvnModel loadGlbModel(const char* filepath)
 		gltfData.nodes[i] = std::make_shared<LvnNode>();
 		int nodeIndex = JSON["scenes"][0]["nodes"][i];
 		gltfData.nodeArray[nodeIndex] = gltfData.nodes[i].get();
-		gltfs::traverseNode(&gltfData, LvnMat4(1.0f), gltfData.nodes[i].get(), nodeIndex);
+		gltfs::traverseNode(&gltfData, gltfData.nodes[i].get(), nodeIndex);
 	}
 
 	LvnModel model{};

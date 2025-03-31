@@ -322,7 +322,7 @@ int main(int argc, char** argv)
 			descriptorStorageBufferUpdateInfo, descriptorUniformBufferUpdateInfo,
 		};
 
-		lvn::createDescriptorSet(&primitiveDescriptors[i].descriptorSet, descriptorLayout);
+		lvn::allocateDescriptorSet(&primitiveDescriptors[i].descriptorSet, descriptorLayout);
 		lvn::updateDescriptorSetData(primitiveDescriptors[i].descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
 	}
 
@@ -404,12 +404,6 @@ int main(int argc, char** argv)
 	lvn::destroyUniformBuffer(matrixUniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyWindow(window);
-
-	for (MeshPrimitiveDescriptorData& primitiveData : primitiveDescriptors)
-	{
-		lvn::destroyDescriptorSet(primitiveData.descriptorSet);
-	}
-
 	lvn::destroyDescriptorLayout(descriptorLayout);
 
 	// terminate the context at the end of the program

@@ -242,7 +242,7 @@ int main(int argc, char** argv)
 
 	// create descriptor set using layout
 	LvnDescriptorSet* descriptorSet;
-	lvn::createDescriptorSet(&descriptorSet, descriptorLayout);
+	lvn::allocateDescriptorSet(&descriptorSet, descriptorLayout);
 
 
 	// create pipeline specification or fixed functions
@@ -365,7 +365,6 @@ int main(int argc, char** argv)
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);
-	lvn::destroyDescriptorSet(descriptorSet);
 	lvn::destroyWindow(window);
 
 	// terminate the context at the end of the program
