@@ -13,6 +13,7 @@ set(LVN_SOURCES
 	loadingModel.cpp
 	loadingShader.cpp
 	logging.cpp
+	loggingToFile.cpp
 	pbrScene.cpp
 	pbrSpheres.cpp
 	pong.cpp

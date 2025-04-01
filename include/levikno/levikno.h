@@ -292,7 +292,6 @@ enum LvnStructureType
 	Lvn_Stype_FrameBuffer,
 	Lvn_Stype_Shader,
 	Lvn_Stype_DescriptorLayout,
-	Lvn_Stype_DescriptorSet,
 	Lvn_Stype_Pipeline,
 	Lvn_Stype_Buffer,
 	Lvn_Stype_UniformBuffer,
@@ -1343,11 +1342,10 @@ namespace lvn
 	// Ex: The default log pattern is: "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 	//     Which could output: "[04-06-2025] [14:25:11] [\x1b[0;32minfo\x1b[0m] CORE: some informational message\n"
 
-	LVN_API LvnResult                   logInit();                                                                        // initiates logging
 	LVN_API void                        logEnable(bool enable);                                                           // enable or disable logging
 	LVN_API void                        logEnableCoreLogging(bool enable);                                                // enable or disable logging from the core logger
 	LVN_API void                        logSetLevel(LvnLogger* logger, LvnLogLevel level);                                // sets the log level of logger, will only print messages with set log level and higher
-	LVN_API void                        logSetFileConfig(LvnLogger* logger, bool enable, const char* filename, LvnFileMode filemode);  // sets the log file config, whether to enable logging and the log file name and mode
+	LVN_API void                        logSetFileConfig(LvnLogger* logger, bool enable, const char* filename = "", LvnFileMode filemode = Lvn_FileMode_Write);  // sets the log file config, whether to enable logging and the log file name and mode
 	LVN_API bool                        logCheckLevel(LvnLogger* logger, LvnLogLevel level);                              // checks level with loger, returns true if level is the same or higher level than the level of the logger
 	LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);                             // renames the name of the logger
 	LVN_API void                        logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);                          // prints the log message

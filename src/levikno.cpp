@@ -1,6 +1,7 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
+#include <cstdio>
 #include <ctime>
 
 #include "stb_image.h"
@@ -69,6 +70,8 @@ struct LvnSocket
 namespace lvn
 {
 
+static LvnResult                    initLogging(LvnContextCreateInfo* createInfo);
+static void                         terminateLogging();
 static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
@@ -409,7 +412,6 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 	stInfos[Lvn_Stype_FrameBuffer]      = { Lvn_Stype_FrameBuffer, sizeof(LvnFrameBuffer), 16 };
 	stInfos[Lvn_Stype_Shader]           = { Lvn_Stype_Shader, sizeof(LvnShader), 32 };
 	stInfos[Lvn_Stype_DescriptorLayout] = { Lvn_Stype_DescriptorLayout, sizeof(LvnDescriptorLayout), 64 };
-	stInfos[Lvn_Stype_DescriptorSet]    = { Lvn_Stype_DescriptorSet, sizeof(LvnDescriptorSet), 64 };
 	stInfos[Lvn_Stype_Pipeline]         = { Lvn_Stype_Pipeline, sizeof(LvnPipeline), 64 };
 	stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
 	stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
@@ -429,7 +431,6 @@ static const char* getStructTypeEnumStr(LvnStructureType stype)
 		case Lvn_Stype_FrameBuffer:       { return "LvnFrameBuffer"; }
 		case Lvn_Stype_Shader:            { return "LvnShader"; }
 		case Lvn_Stype_DescriptorLayout:  { return "LvnDescriptorLayout"; }
-		case Lvn_Stype_DescriptorSet:     { return "LvnDescriptorSet"; }
 		case Lvn_Stype_Pipeline:          { return "LvnPipeline"; }
 		case Lvn_Stype_Buffer:            { return "LvnBuffer"; }
 		case Lvn_Stype_UniformBuffer:     { return "LvnUniformBuffer"; }
@@ -575,8 +576,6 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	s_LvnContext->windowapi = createInfo->windowapi;
 	s_LvnContext->graphicsapi = createInfo->graphicsapi;
 
-	s_LvnContext->enableCoreLogging = !createInfo->logging.disableCoreLogging;
-
 	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
 	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
 
@@ -587,7 +586,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	lvn::setDefaultStructTypeMemAllocInfos(s_LvnContext);
 
 	// logging
-	if (createInfo->logging.enableLogging) { logInit(); }
+	lvn::initLogging(createInfo);
 
 	// memory
 	s_LvnContext->objectMemoryAllocations.sTypes.resize(Lvn_Stype_Max);
@@ -647,10 +646,10 @@ void terminateContext()
 {
 	if (s_LvnContext == nullptr) { return; }
 
-	terminateWindowContext(s_LvnContext);
-	terminateGraphicsContext(s_LvnContext);
-	terminateAudioContext(s_LvnContext);
-	terminateNetworkingContext();
+	lvn::terminateWindowContext(s_LvnContext);
+	lvn::terminateGraphicsContext(s_LvnContext);
+	lvn::terminateAudioContext(s_LvnContext);
+	lvn::terminateNetworkingContext();
 
 	for (uint32_t i = 0; i < s_LvnContext->objectMemoryAllocations.sTypes.size(); i++)
 	{
@@ -662,6 +661,8 @@ void terminateContext()
 	}
 
 	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
+
+	lvn::terminateLogging();
 
 	delete s_LvnContext;
 	s_LvnContext = nullptr;
@@ -1061,6 +1062,52 @@ const static LvnLogPattern s_LogPatterns[] =
 	{ 'p', [](LvnLogMessage* msg) -> std::string { return dateGetTimeMeridiemLower(); }},
 };
 
+static LvnResult initLogging(LvnContextCreateInfo* createInfo)
+{
+	LvnContext* lvnctx = lvn::getContext();
+	lvnctx->enableCoreLogging = !createInfo->logging.disableCoreLogging;
+
+	if (createInfo->logging.enableLogging)
+	{
+		lvnctx->logging = true;
+
+		lvnctx->coreLogger.loggerName = "CORE";
+
+		if (!lvnctx->appName.empty())
+			lvnctx->clientLogger.loggerName = lvnctx->appName;
+		else
+			lvnctx->clientLogger.loggerName = "CLIENT";
+
+		lvnctx->coreLogger.logLevel = lvnctx->clientLogger.logLevel = Lvn_LogLevel_None;
+		lvnctx->coreLogger.logPatternFormat = lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
+		lvnctx->coreLogger.logPatterns = lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
+
+		#ifdef LVN_PLATFORM_WINDOWS
+		enableLogANSIcodeColors();
+		#endif
+
+		return Lvn_Result_Success;
+	}
+
+	return Lvn_Result_AlreadyCalled;
+}
+
+static void terminateLogging()
+{
+	LvnContext* lvnctx = lvn::getContext();
+
+	if (lvnctx->coreLogger.logfile.logToFile)
+	{
+		fclose(lvnctx->coreLogger.logfile.fileptr);
+		lvnctx->coreLogger.logfile.fileptr = nullptr;
+	}
+	if (lvnctx->clientLogger.logfile.logToFile)
+	{
+		fclose(lvnctx->clientLogger.logfile.fileptr);
+		lvnctx->clientLogger.logfile.fileptr = nullptr;
+	}
+}
+
 static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
 {
 	if (!fmt || fmt == "\0") { return {}; }
@@ -1100,36 +1147,6 @@ static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
 	return patterns;
 }
 
-LvnResult logInit()
-{
-	LvnContext* lvnctx = lvn::getContext();
-
-	if (!lvnctx->logging)
-	{
-		lvnctx->logging = true;
-
-		lvnctx->coreLogger.loggerName = "CORE";
-
-		if (!lvnctx->appName.empty())
-			lvnctx->clientLogger.loggerName = lvnctx->appName;
-		else
-			lvnctx->clientLogger.loggerName = "CLIENT";
-
-		lvnctx->coreLogger.logLevel = lvnctx->clientLogger.logLevel = Lvn_LogLevel_None;
-		lvnctx->coreLogger.logPatternFormat = lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
-		lvnctx->coreLogger.logPatterns = lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
-
-
-		#ifdef LVN_PLATFORM_WINDOWS
-		enableLogANSIcodeColors();
-		#endif
-
-		return Lvn_Result_Success;
-	}
-
-	return Lvn_Result_AlreadyCalled;
-}
-
 void logEnable(bool enable)
 {
 	lvn::getContext()->logging = enable;
@@ -1162,15 +1179,15 @@ void logSetFileConfig(LvnLogger* logger, bool enable, const char* filename, LvnF
 	{
 		if (logger->logfile.filename.empty())
 		{
-			LVN_CORE_ERROR("logSetFileConfig(LvnLogger*, bool enable, const char* filename, LvnFileMode filemode) | filename is empty, cannot log to a file without a valid file path/name");
-			return;
+			logger->logfile.filename = logger->loggerName + "_logs.txt";
+			LVN_CORE_WARN("logSetFileConfig(LvnLogger*, bool enable, const char* filename, LvnFileMode filemode) | filename not set, setting file name to name of the logger: %s_logs.txt", logger->loggerName.c_str());
 		}
 
 		const char* filemode = "w";
 		if (logger->logfile.filemode == Lvn_FileMode_Write) filemode = "w";
 		else if (logger->logfile.filemode == Lvn_FileMode_Append) filemode = "a";
 
-		logger->logfile.fileptr = fopen(filename, filemode);
+		logger->logfile.fileptr = fopen(logger->logfile.filename.c_str(), filemode);
 	}
 }
 
