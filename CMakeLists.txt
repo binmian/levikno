@@ -114,6 +114,10 @@ set(LVN_SOURCES
 	src/external/miniaudio.c
 	src/external/miniaudio.h
 
+	# mikktspace
+	src/external/mikktspace.c
+	src/external/mikktspace.h
+
 	${LVN_GRAPHICS_SRC}
 )
 

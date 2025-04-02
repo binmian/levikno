@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 
 	// change values of components
 	posComp1 = { 10.5f, 22.3f };
-	nameComp1.name = "block1"; // since NameComponent was not taken by reference, the component does not change value tied with the entity
+	nameComp1.name = "block1"; // NameComponent was not taken by reference, the component does not change value tied with the entity
 
 	// get components again
 	PosComponent& posCompAgain1 = lvn::entityGetComponent<PosComponent>(e1);

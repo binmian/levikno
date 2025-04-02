@@ -2281,7 +2281,7 @@ LvnResult allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorL
 
 	*descriptorSet = &descriptorLayout->descriptorSets[descriptorLayout->descriptorSetIndex++];
 
-	LVN_CORE_TRACE("created descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
+	LVN_CORE_TRACE("allocated descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
 	return lvnctx->graphicsContext.allocateDescriptorSet(*descriptorSet, descriptorLayout);
 }
 

@@ -1,6 +1,7 @@
 #include "lvn_loadModel.h"
 
 #include "json.h"
+#include "mikktspace.h"
 
 namespace nlm = nlohmann;
 
@@ -83,6 +84,18 @@ namespace gltfs
 		std::vector<GLTFAnimationChannel> channels;
 	};
 
+	struct GLTFTangentCalcInfo
+	{
+		std::vector<LvnVec4> outTangents;
+		std::vector<LvnVec3> positions;
+		std::vector<LvnVec3> normals;
+		std::vector<LvnVec2> texUVs;
+		std::vector<uint32_t> indices;
+		int32_t  numFaces;
+		int32_t  vertexPerFace;
+	};
+
+
 	struct GLTFLoadData
 	{
 		nlm::json JSON;
@@ -124,6 +137,7 @@ namespace gltfs
 	static LvnTopologyType           getTopologyEnum(int mode);
 	static LvnInterpolationMode      getInterpolationMode(std::string interpolation);
 	static std::vector<LvnVec3>      calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents);
+	static std::vector<LvnVec4>      calculateTangents(GLTFTangentCalcInfo* calcInfo);
 	static void                      traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex);
 	static LvnMesh                   loadMesh(GLTFLoadData* gltfData, int meshIndex);
 	static LvnMaterial               getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex);
@@ -499,6 +513,79 @@ namespace gltfs
 
 		return bitangents;
 	}
+	static std::vector<LvnVec4> calculateTangents(GLTFTangentCalcInfo* calcInfo)
+	{
+		SMikkTSpaceInterface iface{};
+		SMikkTSpaceContext context{};
+
+		iface.m_getNumFaces = [](const SMikkTSpaceContext* context) -> int
+		{
+			GLTFTangentCalcInfo* calcInfo = static_cast<GLTFTangentCalcInfo*>(context->m_pUserData);
+			return calcInfo->numFaces;
+		};
+		iface.m_getNumVerticesOfFace = [](const SMikkTSpaceContext* context, const int iFace) -> int
+		{
+			GLTFTangentCalcInfo* calcInfo = static_cast<GLTFTangentCalcInfo*>(context->m_pUserData);
+			return calcInfo->vertexPerFace;
+		};
+		iface.m_getPosition = [](const SMikkTSpaceContext* context, float* outpos, const int iFace, const int iVert)
+		{
+			GLTFTangentCalcInfo* calcInfo = static_cast<GLTFTangentCalcInfo*>(context->m_pUserData);
+
+			uint32_t indicesIndex = iFace * calcInfo->vertexPerFace + iVert;
+			uint32_t index = calcInfo->indices[indicesIndex];
+			LvnVec3 position = calcInfo->positions[index];
+
+			outpos[0] = position.x;
+			outpos[1] = position.y;
+			outpos[2] = position.z;
+		};
+		iface.m_getNormal = [](const SMikkTSpaceContext* context, float* outnormal, const int iFace, const int iVert)
+		{
+			GLTFTangentCalcInfo* calcInfo = static_cast<GLTFTangentCalcInfo*>(context->m_pUserData);
+
+			uint32_t indicesIndex = iFace * calcInfo->vertexPerFace + iVert;
+			uint32_t index = calcInfo->indices[indicesIndex];
+			LvnVec3 normal = calcInfo->normals[index];
+
+			outnormal[0] = normal.x;
+			outnormal[1] = normal.y;
+			outnormal[2] = normal.z;
+		};
+		iface.m_getTexCoord = [](const SMikkTSpaceContext* context, float* outuv, const int iFace, const int iVert)
+		{
+			GLTFTangentCalcInfo* calcInfo = static_cast<GLTFTangentCalcInfo*>(context->m_pUserData);
+
+			uint32_t indicesIndex = iFace * calcInfo->vertexPerFace + iVert;
+			uint32_t index = calcInfo->indices[indicesIndex];
+			LvnVec2 texUV = calcInfo->texUVs[index];
+
+			outuv[0] = texUV.x;
+			outuv[1] = texUV.y;
+		};
+		iface.m_setTSpaceBasic = [](const SMikkTSpaceContext *context, const float *tangentu, const float fSign, const int iFace, const int iVert)
+		{
+			GLTFTangentCalcInfo* calcInfo = static_cast<GLTFTangentCalcInfo*>(context->m_pUserData);
+
+			uint32_t indicesIndex = iFace * calcInfo->vertexPerFace + iVert;
+			uint32_t index = calcInfo->indices[indicesIndex];
+			LvnVec4* tangent = &calcInfo->outTangents[index];
+
+			tangent->x = tangentu[0];
+			tangent->y = tangentu[1];
+			tangent->z = tangentu[2];
+			tangent->w = fSign;
+		};
+
+		context.m_pInterface = &iface;
+		context.m_pUserData = calcInfo;
+
+		calcInfo->outTangents.resize(calcInfo->positions.size());
+
+		genTangSpaceDefault(&context);
+
+		return calcInfo->outTangents;
+	}
 	static void traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex)
 	{
 		nlm::json JSON = gltfData->JSON;
@@ -593,11 +680,29 @@ namespace gltfs
 			for (uint32_t j = 0; j < accessor.count; j++)
 				positions[j] = *reinterpret_cast<LvnVec3*>(&buffer[beginningOfData] + j * 3 * sizeof(float));
 
+			// indices
+			std::vector<uint32_t> indices;
+			if (indicesIndex >= 0)
+			{
+				accessor = gltfData->accessors[indicesIndex];
+				bufferView = gltfData->bufferViews[accessor.bufferView];
+				buffer = gltfData->buffers[bufferView.buffer];
+
+				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				size_t compType = gltfs::getCompType(accessor.componentType);
+
+				indices.resize(accessor.count);
+				for (uint32_t j = 0; j < accessor.count; j++)
+				{
+					memcpy(&indices[j], &buffer[beginningOfData] + j * compType, compType);
+				}
+			}
+
 			// color
 			LvnVec4 color = gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor;
 
 			// texcoords
-			std::vector<LvnVec3> texcoords;
+			std::vector<LvnVec2> texcoords;
 			if (texIndex >= 0)
 			{
 				accessor = gltfData->accessors[texIndex];
@@ -652,6 +757,18 @@ namespace gltfs
 				for (uint32_t j = 0; j < accessor.count; j++)
 					tangents[j] = *reinterpret_cast<LvnVec4*>(&buffer[beginningOfData] + j * 4 * sizeof(float));
 			}
+			else if (primitiveNode.value("mode", 4) >= 4 && posIndex >= 0 && normalIndex >= 0 && texIndex >= 0) // calculate tangents
+			{
+				GLTFTangentCalcInfo calcInfo{};
+				calcInfo.positions = positions;
+				calcInfo.normals = normals;
+				calcInfo.texUVs = texcoords;
+				calcInfo.indices = indices;
+				calcInfo.vertexPerFace = 3;
+				calcInfo.numFaces = indices.size() / 3;
+
+				tangents = gltfs::calculateTangents(&calcInfo);
+			}
 			else // mesh has no tangents
 			{
 				tangents.resize(positions.size(), 0);
@@ -666,24 +783,6 @@ namespace gltfs
 			else
 			{
 				bitangents.resize(positions.size(), 0);
-			}
-
-			// indices
-			std::vector<uint32_t> indices;
-			if (indicesIndex >= 0)
-			{
-				accessor = gltfData->accessors[indicesIndex];
-				bufferView = gltfData->bufferViews[accessor.bufferView];
-				buffer = gltfData->buffers[bufferView.buffer];
-
-				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
-				size_t compType = gltfs::getCompType(accessor.componentType);
-
-				indices.resize(accessor.count);
-				for (uint32_t j = 0; j < accessor.count; j++)
-				{
-					memcpy(&indices[j], &buffer[beginningOfData] + j * compType, compType);
-				}
 			}
 
 			// combine vertex data
