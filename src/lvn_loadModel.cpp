@@ -508,7 +508,7 @@ namespace gltfs
 		std::vector<LvnVec3> bitangents(normals.size());
 		for (uint32_t i = 0; i < normals.size(); i++)
 		{
-			bitangents[i] = lvn::normalize(lvn::cross(normals[i], tangents[i]) * tangents[i].w);
+			bitangents[i] = lvn::normalize(lvn::cross(normals[i], LvnVec3(tangents[i])) * tangents[i].w);
 		}
 
 		return bitangents;

@@ -3246,20 +3246,4 @@ double derivative(double (*func)(double), double x, double delta)
 	return (fxph - fxmh) / (2.0 * delta);
 }
 
-LvnVec3f cross(LvnVec3f v1, LvnVec3f v2)
-{
-	float cx = v1.y * v2.z - v1.z * v2.y;
-	float cy = v1.z * v2.x - v1.x * v2.z;
-	float cz = v1.x * v2.y - v1.y * v2.x;
-	return { cx, cy, cz };
-}
-
-LvnVec3d cross(LvnVec3d v1, LvnVec3d v2)
-{
-	double cx = v1.y * v2.z - v1.z * v2.y;
-	double cy = v1.z * v2.x - v1.x * v2.z;
-	double cz = v1.x * v2.y - v1.y * v2.x;
-	return { cx, cy, cz };
-}
-
 } /* namespace lvn */

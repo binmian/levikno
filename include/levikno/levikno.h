@@ -1641,30 +1641,6 @@ namespace lvn
 	template <typename T>
 	LVN_API bool                        within(T num, T within, T lowerRange, T upperRange) { return num <= (within + upperRange) && num >= (within - lowerRange); }
 
-	template <typename T>
-	LVN_API T lerp(const T& start, const T& end, float t)
-	{
-		return start + t * (end - start);
-	}
-
-	template <typename T>
-	LVN_API LvnVec<2, T> lerp(const LvnVec<2, T>& start, const LvnVec<2, T>& end, float t)
-	{
-		return LvnVec<2, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t));
-	}
-
-	template <typename T>
-	LVN_API LvnVec<3, T> lerp(const LvnVec<3, T>& start, const LvnVec<3, T>& end, float t)
-	{
-		return LvnVec<3, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t), lerp(start.z, end.z, t));
-	}
-
-	template <typename T>
-	LVN_API LvnVec<4, T> lerp(const LvnVec<4, T>& start, const LvnVec<4, T>& end, float t)
-	{
-		return LvnVec<4, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t), lerp(start.z, end.z, t), lerp(start.w, end.w, t));
-	}
-
 	LVN_API float radians(float deg);          // convert degrees to radians
 	LVN_API float degrees(float rad);          // convert radians to degrees
 	LVN_API float clampAngle(float rad);       // clamps the given angle in radians to the translated angle between 0 and 2 PI
@@ -1706,8 +1682,47 @@ namespace lvn
 		return LvnQuat_t<T>(qw * n, qx * n, qy * n, qz * n);
 	}
 
-	LVN_API LvnVec3f cross(LvnVec3f v1, LvnVec3f v2);
-	LVN_API LvnVec3d cross(LvnVec3d v1, LvnVec3d v2);
+	template <typename T>
+	LVN_API T mag(LvnVec<2, T> v)
+	{
+		return sqrt(v.x * v.x + v.y * v.y);
+	}
+
+	template <typename T>
+	LVN_API T mag(LvnVec<3, T> v)
+	{
+		return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	}
+
+	template <typename T>
+	LVN_API T mag(LvnVec<4, T> v)
+	{
+		return sqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
+	}
+
+	template <typename T>
+	LVN_API T mag2(LvnVec<2, T> v)
+	{
+		return v.x * v.x + v.y * v.y;
+	}
+
+	template <typename T>
+	LVN_API T mag2(LvnVec<3, T> v)
+	{
+		return v.x * v.x + v.y * v.y + v.z * v.z;
+	}
+
+	template <typename T>
+	LVN_API T mag2(LvnVec<4, T> v)
+	{
+		return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w;
+	}
+
+	template <typename T>
+	LVN_API T mag2(const LvnQuat_t<T>& q)
+	{
+		return q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z;
+	}
 
 	template <typename T>
 	LVN_API LvnVec<3, T> cross(const LvnVec<3, T>& v1, const LvnVec<3, T>& v2)
@@ -1737,9 +1752,199 @@ namespace lvn
 	}
 
 	template <typename T>
+	LVN_API T dot(const LvnQuat_t<T>& q1, const LvnQuat_t<T>& q2)
+	{
+		return q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z;
+	}
+
+	template <typename T>
 	LVN_API T angle(const LvnVec<3, T>& v1, const LvnVec<3, T>& v2)
 	{
 		return acos(lvn::clamp(lvn::dot(v1, v2), T(-1), T(1)));
+	}
+
+	template <typename T>
+	LVN_API LvnQuat_t<T> conjugate(const LvnQuat_t<T>& q)
+	{
+		return LvnQuat_t<T>(q.w, -q.x, -q.y, -q.z);
+	}
+
+	template <typename T>
+	LVN_API LvnMat<2, 2, T> transpose(const LvnMat<2, 2, T>& m)
+	{
+		LvnMat<2, 2, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<3, 3, T> transpose(const LvnMat<3, 3, T>& m)
+	{
+		LvnMat<3, 3, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[0][2] = m[2][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[1][2] = m[2][1];
+		result[2][0] = m[0][2];
+		result[2][1] = m[1][2];
+		result[2][2] = m[2][2];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<4, 4, T> transpose(const LvnMat<4, 4, T>& m)
+	{
+		LvnMat<4, 4, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[0][2] = m[2][0];
+		result[0][3] = m[3][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[1][2] = m[2][1];
+		result[1][3] = m[3][1];
+		result[2][0] = m[0][2];
+		result[2][1] = m[1][2];
+		result[2][2] = m[2][2];
+		result[2][3] = m[3][2];
+		result[3][0] = m[0][3];
+		result[3][1] = m[1][3];
+		result[3][2] = m[2][3];
+		result[3][3] = m[3][3];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<3, 2, T> transpose(const LvnMat<2, 3, T>& m)
+	{
+		LvnMat<3, 2, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[2][0] = m[0][2];
+		result[2][1] = m[1][2];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<4, 2, T> transpose(const LvnMat<2, 4, T>& m)
+	{
+		LvnMat<4, 2, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[2][0] = m[0][2];
+		result[2][1] = m[1][2];
+		result[3][0] = m[0][3];
+		result[3][1] = m[1][3];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<2, 3, T> transpose(const LvnMat<3, 2, T>& m)
+	{
+		LvnMat<2, 3, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[0][2] = m[2][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[1][2] = m[2][1];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<4, 3, T> transpose(const LvnMat<3, 4, T>& m)
+	{
+		LvnMat<4, 3, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[0][2] = m[2][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[1][2] = m[2][1];
+		result[2][0] = m[0][2];
+		result[2][1] = m[1][2];
+		result[2][2] = m[2][2];
+		result[3][0] = m[0][3];
+		result[3][1] = m[1][3];
+		result[3][2] = m[2][3];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<2, 4, T> transpose(const LvnMat<4, 2, T>& m)
+	{
+		LvnMat<2, 4, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[0][2] = m[2][0];
+		result[0][3] = m[3][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[1][2] = m[2][1];
+		result[1][3] = m[3][1];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API LvnMat<3, 4, T> transpose(const LvnMat<4, 3, T>& m)
+	{
+		LvnMat<3, 4, T> result;
+		result[0][0] = m[0][0];
+		result[0][1] = m[1][0];
+		result[0][2] = m[2][0];
+		result[0][3] = m[3][0];
+		result[1][0] = m[0][1];
+		result[1][1] = m[1][1];
+		result[1][2] = m[2][1];
+		result[1][3] = m[3][1];
+		result[2][0] = m[0][2];
+		result[2][1] = m[1][2];
+		result[2][2] = m[2][2];
+		result[2][3] = m[3][2];
+		return result;
+	}
+
+	template <typename T>
+	LVN_API T determinant(const LvnMat<2, 2, T>& m)
+	{
+		return m[0][0] * m[1][1] - m[1][0] * m[0][1];
+	}
+
+	template <typename T>
+	LVN_API T determinant(const LvnMat<3, 3, T>& m)
+	{
+		return + m[0][0] * (m[1][1] * m[2][2] - m[2][1] * m[1][2])
+		       - m[1][0] * (m[0][1] * m[2][2] - m[2][1] * m[0][2])
+		       + m[2][0] * (m[0][1] * m[1][2] - m[1][1] * m[0][2]);
+	}
+
+	template <typename T>
+	LVN_API T determinant(const LvnMat<4, 4, T>& m)
+	{
+		T sub00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+		T sub01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+		T sub02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+		T sub03 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+		T sub04 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+		T sub05 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+
+		LvnVec<4, T> detCof(
+			+ (m[1][1] * sub00 - m[1][2] * sub01 + m[1][3] * sub02),
+			- (m[1][0] * sub00 - m[1][2] * sub03 + m[1][3] * sub04),
+			+ (m[1][0] * sub01 - m[1][1] * sub03 + m[1][3] * sub05),
+			- (m[1][0] * sub02 - m[1][1] * sub04 + m[1][2] * sub05));
+
+		return m[0][0] * detCof[0] + m[0][1] * detCof[1] +
+		       m[0][2] * detCof[2] + m[0][3] * detCof[3];
 	}
 
 	template <typename T>
@@ -1836,6 +2041,64 @@ namespace lvn
 		T oneOverDeterminant = static_cast<T>(1) / dot1;
 
 		return inverse * oneOverDeterminant;
+	}
+
+	template <typename T>
+	LVN_API LvnQuat_t<T> inverse(const LvnQuat_t<T>& q)
+	{
+		return lvn::conjugate(q) / lvn::dot(q, q);
+	}
+
+	template <typename T>
+	LVN_API T lerp(const T& start, const T& end, float t)
+	{
+		return start + t * (end - start);
+	}
+
+	template <typename T>
+	LVN_API LvnVec<2, T> lerp(const LvnVec<2, T>& start, const LvnVec<2, T>& end, float t)
+	{
+		return LvnVec<2, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t));
+	}
+
+	template <typename T>
+	LVN_API LvnVec<3, T> lerp(const LvnVec<3, T>& start, const LvnVec<3, T>& end, float t)
+	{
+		return LvnVec<3, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t), lerp(start.z, end.z, t));
+	}
+
+	template <typename T>
+	LVN_API LvnVec<4, T> lerp(const LvnVec<4, T>& start, const LvnVec<4, T>& end, float t)
+	{
+		return LvnVec<4, T>(lerp(start.x, end.x, t), lerp(start.y, end.y, t), lerp(start.z, end.z, t), lerp(start.w, end.w, t));
+	}
+
+	template <typename T>
+	LVN_API LvnQuat_t<T> slerp(const LvnQuat_t<T>& q1, const LvnQuat_t<T>& q2, float t)
+	{
+		LvnQuat_t<T> q2s = q2;
+
+		T cosTheta = dot(q1, q2);
+
+		if (cosTheta < static_cast<T>(0))
+		{
+			q2s = -q2;
+			cosTheta = -cosTheta;
+		}
+
+		if(cosTheta > static_cast<T>(1) - std::numeric_limits<T>::epsilon())
+		{
+			return LvnQuat_t<T>(
+				lvn::lerp(q1.w, q2s.w, t),
+				lvn::lerp(q1.x, q2s.x, t),
+				lvn::lerp(q1.y, q2s.y, t),
+				lvn::lerp(q1.z, q2s.z, t));
+		}
+		else
+		{
+			T angle = acos(cosTheta);
+			return (sin((static_cast<T>(1) - t) * angle) * q1 + sin(t * angle) * q2s) / sin(angle);
+		}
 	}
 
 	template <typename T>
@@ -2534,11 +2797,11 @@ struct LvnVec<2, T>
 		--*this;
 		return vec;
 	}
-	LvnVec<2, T> operator+()
+	LvnVec<2, T> operator+() const
 	{
 		return LvnVec<2, T>(this->x, this->y);
 	}
-	LvnVec<2, T> operator-()
+	LvnVec<2, T> operator-() const
 	{
 		return LvnVec<2, T>(-this->x, -this->y);
 	}
@@ -2707,11 +2970,11 @@ struct LvnVec<3, T>
 		--*this;
 		return vec;
 	}
-	LvnVec<3, T> operator+()
+	LvnVec<3, T> operator+() const
 	{
 		return LvnVec<3, T>(this->x, this->y, this->z);
 	}
-	LvnVec<3, T> operator-()
+	LvnVec<3, T> operator-() const
 	{
 		return LvnVec<3, T>(-this->x, -this->y, -this->z);
 	}
@@ -2895,11 +3158,11 @@ struct LvnVec<4, T>
 		--*this;
 		return vec;
 	}
-	LvnVec<4, T> operator+()
+	LvnVec<4, T> operator+() const
 	{
 		return LvnVec<4, T>(this->x, this->y, this->z, this->w);
 	}
-	LvnVec<4, T> operator-()
+	LvnVec<4, T> operator-() const
 	{
 		return LvnVec<4, T>(-this->x, -this->y, -this->z, -this->w);
 	}
@@ -3017,13 +3280,13 @@ struct LvnMat<2, 2, T>
 		return this->value[i];
 	}
 
-	LvnMat<2, 2, T> operator+()
+	LvnMat<2, 2, T> operator+() const
 	{
 		return LvnMat<2, 2, T>(
 			this->value[0],
 			this->value[1]);
 	}
-	LvnMat<2, 2, T> operator-()
+	LvnMat<2, 2, T> operator-() const
 	{
 		return LvnMat<2, 2, T>(
 			-this->value[0],
@@ -3184,14 +3447,14 @@ struct LvnMat<3, 3, T>
 		return this->value[i];
 	}
 
-	LvnMat<3, 3, T> operator+()
+	LvnMat<3, 3, T> operator+() const
 	{
 		return LvnMat<3, 3, T>(
 			this->value[0],
 			this->value[1],
 			this->value[2]);
 	}
-	LvnMat<3, 3, T> operator-()
+	LvnMat<3, 3, T> operator-() const
 	{
 		return LvnMat<3, 3, T>(
 			-this->value[0],
@@ -3375,7 +3638,7 @@ struct LvnMat<4, 4, T>
 		return this->value[i];
 	}
 
-	LvnMat<4, 4, T> operator+()
+	LvnMat<4, 4, T> operator+() const
 	{
 		return LvnMat<4, 4, T>(
 			this->value[0],
@@ -3383,7 +3646,7 @@ struct LvnMat<4, 4, T>
 			this->value[2],
 			this->value[3]);
 	}
-	LvnMat<4, 4, T> operator-()
+	LvnMat<4, 4, T> operator-() const
 	{
 		return LvnMat<4, 4, T>(
 			-this->value[0],
@@ -3580,13 +3843,13 @@ struct LvnMat<2, 3, T>
 		return this->value[i];
 	}
 
-	LvnMat<2, 3, T> operator+()
+	LvnMat<2, 3, T> operator+() const
 	{
 		return LvnMat<2, 3, T>(
 			this->value[0],
 			this->value[1]);
 	}
-	LvnMat<2, 3, T> operator-()
+	LvnMat<2, 3, T> operator-() const
 	{
 		return LvnMat<2, 3, T>(
 			-this->value[0],
@@ -3743,13 +4006,13 @@ struct LvnMat<2, 4, T>
 		return this->value[i];
 	}
 
-	LvnMat<2, 4, T> operator+()
+	LvnMat<2, 4, T> operator+() const
 	{
 		return LvnMat<2, 4, T>(
 			this->value[0],
 			this->value[1]);
 	}
-	LvnMat<2, 4, T> operator-()
+	LvnMat<2, 4, T> operator-() const
 	{
 		return LvnMat<2, 4, T>(
 			-this->value[0],
@@ -3920,14 +4183,14 @@ struct LvnMat<3, 2, T>
 		return this->value[i];
 	}
 
-	LvnMat<3, 2, T> operator+()
+	LvnMat<3, 2, T> operator+() const
 	{
 		return LvnMat<3, 2, T>(
 			this->value[0],
 			this->value[1],
 			this->value[2]);
 	}
-	LvnMat<3, 2, T> operator-()
+	LvnMat<3, 2, T> operator-() const
 	{
 		return LvnMat<3, 2, T>(
 			-this->value[0],
@@ -4086,14 +4349,14 @@ struct LvnMat<3, 4, T>
 		return this->value[i];
 	}
 
-	LvnMat<3, 4, T> operator+()
+	LvnMat<3, 4, T> operator+() const
 	{
 		return LvnMat<3, 4, T>(
 			this->value[0],
 			this->value[1],
 			this->value[2]);
 	}
-	LvnMat<3, 4, T> operator-()
+	LvnMat<3, 4, T> operator-() const
 	{
 		return LvnMat<3, 4, T>(
 			-this->value[0],
@@ -4275,7 +4538,7 @@ struct LvnMat<4, 2, T>
 		return this->value[i];
 	}
 
-	LvnMat<4, 2, T> operator+()
+	LvnMat<4, 2, T> operator+() const
 	{
 		return LvnMat<4, 2, T>(
 			this->value[0],
@@ -4283,7 +4546,7 @@ struct LvnMat<4, 2, T>
 			this->value[2],
 			this->value[3]);
 	}
-	LvnMat<4, 2, T> operator-()
+	LvnMat<4, 2, T> operator-() const
 	{
 		return LvnMat<4, 2, T>(
 			-this->value[0],
@@ -4453,7 +4716,7 @@ struct LvnMat<4, 3, T>
 		return this->value[i];
 	}
 
-	LvnMat<4, 3, T> operator+()
+	LvnMat<4, 3, T> operator+() const
 	{
 		return LvnMat<4, 3, T>(
 			this->value[0],
@@ -4461,7 +4724,7 @@ struct LvnMat<4, 3, T>
 			this->value[2],
 			this->value[3]);
 	}
-	LvnMat<4, 3, T> operator-()
+	LvnMat<4, 3, T> operator-() const
 	{
 		return LvnMat<4, 3, T>(
 			-this->value[0],
@@ -4633,8 +4896,129 @@ struct LvnQuat_t
 				return z;
 		}
 	}
+
+	LvnQuat_t<T>& operator++()
+	{
+		this->w++;
+		this->x++;
+		this->y++;
+		this->z++;
+		return *this;
+	}
+	LvnQuat_t<T>& operator--()
+	{
+		this->w--;
+		this->x--;
+		this->y--;
+		this->z--;
+		return *this;
+	}
+	LvnQuat_t<T> operator++(int)
+	{
+		LvnQuat_t<T> q(*this);
+		++*this;
+		return q;
+	}
+	LvnQuat_t<T> operator--(int)
+	{
+		LvnQuat_t<T> q(*this);
+		--*this;
+		return q;
+	}
+	LvnQuat_t<T> operator+() const
+	{
+		return LvnQuat_t<T>(w, x, y, z);
+	}
+	LvnQuat_t<T> operator-() const
+	{
+		return LvnQuat_t<T>(-w, -x, -y, -z);
+	}
+	LvnQuat_t<T> operator+(const LvnQuat_t<T>& q)
+	{
+		return LvnQuat_t<T>(
+			this->w + q.w,
+			this->x + q.x,
+			this->y + q.y,
+			this->z + q.z);
+	}
+	LvnQuat_t<T> operator-(const LvnQuat_t<T>& q)
+	{
+		return LvnQuat_t<T>(
+			this->w - q.w,
+			this->x - q.x,
+			this->y - q.y,
+			this->z - q.z);
+	}
+	LvnQuat_t<T> operator*(const LvnQuat_t<T>& q)
+	{
+		return LvnQuat_t<T>(
+			this->w * q.w - this->x * q.x - this->y * q.y - this->z * q.z,
+			this->w * q.x + this->x * q.w + this->y * q.z - this->z * q.y,
+			this->w * q.y + this->y * q.w + this->z * q.x - this->x * q.z,
+			this->w * q.z + this->z * q.w + this->x * q.y - this->y * q.x);
+	}
 };
 
+template <typename T>
+LvnQuat_t<T> operator+(const LvnQuat_t<T>& q1, const LvnQuat_t<T>& q2)
+{
+	return LvnQuat_t<T>(q1.w + q2.w, q1.x + q2.x, q1.y + q2.y, q1.z + q2.z);
+}
+template <typename T>
+LvnQuat_t<T> operator-(const LvnQuat_t<T>& q1, const LvnQuat_t<T>& q2)
+{
+	return LvnQuat_t<T>(q1.w - q2.w, q1.x - q2.x, q1.y - q2.y, q1.z - q2.z);
+}
+template <typename T>
+LvnQuat_t<T> operator*(const LvnQuat_t<T>& q1, const LvnQuat_t<T>& q2)
+{
+	return LvnQuat_t<T>(q1.w * q2.w, q1.x * q2.x, q1.y * q2.y, q1.z * q2.z);
+}
+template <typename T>
+LvnQuat_t<T> operator/(const LvnQuat_t<T>& q1, const LvnQuat_t<T>& q2)
+{
+	return LvnQuat_t<T>(q1.w / q2.w, q1.x / q2.x, q1.y / q2.y, q1.z / q2.z);
+}
+template <typename T>
+LvnQuat_t<T> operator+(const T& s, const LvnQuat_t<T>& q)
+{
+	return LvnQuat_t<T>(s + q.w, s + q.x, s + q.y, s + q.z);
+}
+template <typename T>
+LvnQuat_t<T> operator-(const T& s, const LvnQuat_t<T>& q)
+{
+	return LvnQuat_t<T>(s - q.w, s - q.x, s - q.y, s - q.z);
+}
+template <typename T>
+LvnQuat_t<T> operator*(const T& s, const LvnQuat_t<T>& q)
+{
+	return LvnQuat_t<T>(s * q.w, s * q.x, s * q.y, s * q.z);
+}
+template <typename T>
+LvnQuat_t<T> operator/(const T& s, const LvnQuat_t<T>& q)
+{
+	return LvnQuat_t<T>(s / q.w, s / q.x, s / q.y, s / q.z);
+}
+template <typename T>
+LvnQuat_t<T> operator+(const LvnQuat_t<T>& q, const T& s)
+{
+	return LvnQuat_t<T>(q.w + s, q.x + s, q.y + s, q.z + s);
+}
+template <typename T>
+LvnQuat_t<T> operator-(const LvnQuat_t<T>& q, const T& s)
+{
+	return LvnQuat_t<T>(q.w - s, q.x - s, q.y - s, q.z - s);
+}
+template <typename T>
+LvnQuat_t<T> operator*(const LvnQuat_t<T>& q, const T& s)
+{
+	return LvnQuat_t<T>(q.w * s, q.x * s, q.y * s, q.z * s);
+}
+template <typename T>
+LvnQuat_t<T> operator/(const LvnQuat_t<T>& q, const T& s)
+{
+	return LvnQuat_t<T>(q.w / s, q.x / s, q.y / s, q.z / s);
+}
 
 // -- [SUBSECT]: Core Struct Implementation
 // ------------------------------------------------------------
