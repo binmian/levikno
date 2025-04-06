@@ -569,44 +569,46 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 {
 	if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
 	s_LvnContext = new LvnContext();
+	LvnContext* lvnctx = s_LvnContext;
 
-	s_LvnContext->contexTime.reset();
+	lvnctx->contexTime.reset();
 
-	s_LvnContext->appName = createInfo->applicationName;
-	s_LvnContext->windowapi = createInfo->windowapi;
-	s_LvnContext->graphicsapi = createInfo->graphicsapi;
+	lvnctx->appName = createInfo->applicationName;
+	lvnctx->windowapi = createInfo->windowapi;
+	lvnctx->graphicsapi = createInfo->graphicsapi;
+	lvnctx->multithreading = createInfo->enableMultithreading;
 
-	s_LvnContext->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
-	s_LvnContext->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
+	lvnctx->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
+	lvnctx->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
 
 	// ecs entity id
-	s_LvnContext->entityIndexID = 0;
-	s_LvnContext->maxEntityIDs = UINT64_MAX;
+	lvnctx->entityIndexID = 0;
+	lvnctx->maxEntityIDs = UINT64_MAX;
 
-	lvn::setDefaultStructTypeMemAllocInfos(s_LvnContext);
+	lvn::setDefaultStructTypeMemAllocInfos(lvnctx);
 
 	// logging
 	lvn::initLogging(createInfo);
 
 	// memory
-	s_LvnContext->objectMemoryAllocations.sTypes.resize(Lvn_Stype_Max);
-	for (uint32_t i = 0; i < s_LvnContext->objectMemoryAllocations.sTypes.size(); i++)
+	lvnctx->objectMemoryAllocations.sTypes.resize(Lvn_Stype_Max);
+	for (uint32_t i = 0; i < lvnctx->objectMemoryAllocations.sTypes.size(); i++)
 	{
-		s_LvnContext->objectMemoryAllocations.sTypes[i] = { (LvnStructureType)i, 0 };
+		lvnctx->objectMemoryAllocations.sTypes[i] = { (LvnStructureType)i, 0 };
 	}
 
-	lvn::createContextMemoryPool(s_LvnContext, createInfo);
+	lvn::createContextMemoryPool(lvnctx, createInfo);
 
 	// window context
-	LvnResult result = setWindowContext(s_LvnContext, createInfo->windowapi);
+	LvnResult result = setWindowContext(lvnctx, createInfo->windowapi);
 	if (result != Lvn_Result_Success) { return result; }
 
 	// graphics context
-	result = setGraphicsContext(s_LvnContext, createInfo->graphicsapi);
+	result = setGraphicsContext(lvnctx, createInfo->graphicsapi);
 	if (result != Lvn_Result_Success) { return result; }
 
 	// audio context
-	result = initAudioContext(s_LvnContext);
+	result = initAudioContext(lvnctx);
 	if (result != Lvn_Result_Success) { return result; }
 
 	// networking context
@@ -614,7 +616,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	if (result != Lvn_Result_Success) { return result; }
 
 	// config
-	initStandardPipelineSpecification(s_LvnContext);
+	initStandardPipelineSpecification(lvnctx);
 
 	if (createInfo->matrixClipRegion == Lvn_ClipRegion_ApiSpecific)
 	{
@@ -622,12 +624,12 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 		{
 			case Lvn_GraphicsApi_opengl:
 			{
-				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_RHNO;
+				lvnctx->matrixClipRegion = Lvn_ClipRegion_RHNO;
 				break;
 			}
 			case Lvn_GraphicsApi_vulkan:
 			{
-				s_LvnContext->matrixClipRegion = Lvn_ClipRegion_LHZO;
+				lvnctx->matrixClipRegion = Lvn_ClipRegion_LHZO;
 				break;
 			}
 
@@ -636,7 +638,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	}
 	else
 	{
-		s_LvnContext->matrixClipRegion = createInfo->matrixClipRegion;
+		lvnctx->matrixClipRegion = createInfo->matrixClipRegion;
 	}
 
 	return Lvn_Result_Success;
@@ -646,21 +648,23 @@ void terminateContext()
 {
 	if (s_LvnContext == nullptr) { return; }
 
-	lvn::terminateWindowContext(s_LvnContext);
-	lvn::terminateGraphicsContext(s_LvnContext);
-	lvn::terminateAudioContext(s_LvnContext);
+	LvnContext* lvnctx = s_LvnContext;
+
+	lvn::terminateWindowContext(lvnctx);
+	lvn::terminateGraphicsContext(lvnctx);
+	lvn::terminateAudioContext(lvnctx);
 	lvn::terminateNetworkingContext();
 
-	for (uint32_t i = 0; i < s_LvnContext->objectMemoryAllocations.sTypes.size(); i++)
+	for (uint32_t i = 0; i < lvnctx->objectMemoryAllocations.sTypes.size(); i++)
 	{
-		if (s_LvnContext->objectMemoryAllocations.sTypes[i].count > 0)
+		if (lvnctx->objectMemoryAllocations.sTypes[i].count > 0)
 		{
-			const char* stype = lvn::getStructTypeEnumStr(s_LvnContext->objectMemoryAllocations.sTypes[i].sType);
-			LVN_CORE_ERROR("sType = %s | not all objects of this sType (%s) have been destroyed, number of %s objects remaining: %zu", stype, stype, stype, s_LvnContext->objectMemoryAllocations.sTypes[i].count);
+			const char* stype = lvn::getStructTypeEnumStr(lvnctx->objectMemoryAllocations.sTypes[i].sType);
+			LVN_CORE_ERROR("sType = %s | not all objects of this sType (%s) have been destroyed, number of %s objects remaining: %zu", stype, stype, stype, lvnctx->objectMemoryAllocations.sTypes[i].count);
 		}
 	}
 
-	if (s_LvnContext->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->numMemoryAllocations); }
+	if (lvnctx->numMemoryAllocations > 0) { LVN_CORE_WARN("not all memory allocations have been freed, number of allocations remaining: %zu", lvnctx->numMemoryAllocations); }
 
 	lvn::terminateLogging();
 
@@ -2678,18 +2682,18 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 {
 	if (filepath == nullptr)
 	{
-		LVN_CORE_ERROR("loadImageData(const char*) | invalid filepath, filepath must not be nullptr");
+		LVN_CORE_ERROR("loadImageData(const char*, int, bool) | invalid filepath, filepath must not be nullptr");
 		return {};
 	}
 
 	if (forceChannels < 0)
 	{
-		LVN_CORE_ERROR("loadImageData(const char*) | forceChannels < 0, channels cannot be negative");
+		LVN_CORE_ERROR("loadImageData(const char*, int, bool) | forceChannels < 0, channels cannot be negative");
 		return {};
 	}
 	else if (forceChannels > 4)
 	{
-		LVN_CORE_ERROR("loadImageData(const char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		LVN_CORE_ERROR("loadImageData(const char*, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
 		return {};
 	}
 
@@ -2699,7 +2703,7 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 
 	if (!pixels)
 	{
-		LVN_CORE_ERROR("loadImageData(const char*) | failed to load image pixel data from file: %s", filepath);
+		LVN_CORE_ERROR("loadImageData(const char*, int, bool) | failed to load image pixel data from file: %s", filepath);
 		return {};
 	}
 
@@ -2721,7 +2725,7 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
 {
 	if (!data)
 	{
-		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*, int, int, bool) | invalid filepath, filepath must not be nullptr");
+		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*, int, int, bool) | invalid data, image memory data must not be nullptr");
 		return {};
 	}
 
@@ -2743,6 +2747,92 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
 	if (!pixels)
 	{
 		LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | failed to load image pixel data from memory: %p", data);
+		return {};
+	}
+
+	LvnImageData imageData{};
+	imageData.width = imageWidth;
+	imageData.height = imageHeight;
+	imageData.channels = forceChannels ? forceChannels : imageChannels;
+	imageData.size = imageData.width * imageData.height * imageData.channels;
+	imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+
+	LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imageData.size);
+
+	stbi_image_free(pixels);
+
+	return imageData;
+}
+
+LvnImageData loadImageDataThread(const std::string filepath, int forceChannels, bool flipVertically)
+{
+	if (filepath.empty())
+	{
+		LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | invalid filepath, filepath is empty string");
+		return {};
+	}
+
+	if (forceChannels < 0)
+	{
+		LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | forceChannels < 0, channels cannot be negative");
+		return {};
+	}
+	else if (forceChannels > 4)
+	{
+		LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		return {};
+	}
+
+	stbi_set_flip_vertically_on_load_thread(flipVertically);
+	int imageWidth, imageHeight, imageChannels;
+	stbi_uc* pixels = stbi_load(filepath.c_str(), &imageWidth, &imageHeight, &imageChannels, forceChannels);
+
+	if (!pixels)
+	{
+		LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | failed to load image pixel data from file: %s", filepath.c_str());
+		return {};
+	}
+
+	LvnImageData imageData{};
+	imageData.width = imageWidth;
+	imageData.height = imageHeight;
+	imageData.channels = forceChannels ? forceChannels : imageChannels;
+	imageData.size = imageData.width * imageData.height * imageData.channels;
+	imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+
+	LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath.c_str());
+
+	stbi_image_free(pixels);
+
+	return imageData;
+}
+
+LvnImageData loadImageDataMemoryThread(const uint8_t* data, int length, int forceChannels, bool flipVertically)
+{
+	if (!data)
+	{
+		LVN_CORE_ERROR("loadImageDataMemoryThread(const unsigned char*, int, int, bool) | invalid data, image memory data must not be nullptr");
+		return {};
+	}
+
+	if (forceChannels < 0)
+	{
+		LVN_CORE_ERROR("loadImageDataMemoryThread(conts unsigned char*, int, int, bool) | forceChannels < 0, channels cannot be negative");
+		return {};
+	}
+	else if (forceChannels > 4)
+	{
+		LVN_CORE_ERROR("loadImageDataMemoryThread(const unsigned char*, int, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+		return {};
+	}
+
+	stbi_set_flip_vertically_on_load_thread(flipVertically);
+	int imageWidth, imageHeight, imageChannels;
+	stbi_uc* pixels = stbi_load_from_memory(data, length, &imageWidth, &imageHeight, &imageChannels, forceChannels);
+
+	if (!pixels)
+	{
+		LVN_CORE_ERROR("loadImageDataMemoryThread(const unsigned char*) | failed to load image pixel data from memory: %p", data);
 		return {};
 	}
 

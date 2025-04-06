@@ -1512,6 +1512,8 @@ namespace lvn
 
 	LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageData                loadImageDataMemory(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
+	LVN_API LvnImageData                loadImageDataThread(const std::string filepath, int forceChannels = 0, bool flipVertically = false);
+	LVN_API LvnImageData                loadImageDataMemoryThread(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageHdrData             loadHdrImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
@@ -5034,6 +5036,7 @@ struct LvnContextCreateInfo
 	std::string                   applicationName;               // name of application or program
 	LvnWindowApi                  windowapi;                     // window api to use when creating windows
 	LvnGraphicsApi                graphicsapi;                   // graphics api to use when rendering (eg. vulkan, opengl)
+	bool                          enableMultithreading;          // enables the use of multithreading within the context
 
 	struct
 	{

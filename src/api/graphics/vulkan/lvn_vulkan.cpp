@@ -3274,7 +3274,7 @@ LvnResult vksImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCrea
 	VkImage textureImage;
 	VmaAllocation textureImageMemory;
 
-	if (vks::createImage(vkBackends, 
+	if (vks::createImage(vkBackends,
 		&textureImage,
 		&textureImageMemory,
 		createInfo->imageData.width,

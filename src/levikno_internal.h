@@ -631,6 +631,7 @@ struct LvnContext
 	LvnClipRegion                        matrixClipRegion;
 	std::string                          appName;
 	LvnPipelineSpecification             defaultPipelineSpecification;
+	bool                                 multithreading;
 
 	// logging
 	bool                                 logging;
