@@ -21,7 +21,7 @@ namespace gltfs
 	struct GLTFAccessor
 	{
 		int          bufferView;
-		uint32_t     byteOffest;
+		uint32_t     byteOffset;
 		int          componentType;
 		int          count;
 		std::string  type;
@@ -86,6 +86,13 @@ namespace gltfs
 		std::vector<GLTFAnimationChannel> channels;
 	};
 
+	struct GLTFSkin
+	{
+		std::string name;
+		int inverseBindMatrices;
+		std::vector<int> joints;
+	};
+
 	struct GLTFTangentCalcInfo
 	{
 		std::vector<LvnVec4> outTangents;
@@ -111,6 +118,7 @@ namespace gltfs
 		std::vector<GLTFBufferView> bufferViews;
 		std::vector<GLTFMatrial> materials;
 		std::vector<GLTFAnimation> animations;
+		std::vector<GLTFSkin> skins;
 		std::vector<LvnImageData> images;
 		std::vector<LvnSampler*> samplers;
 		std::vector<LvnTexture*> textures;
@@ -129,10 +137,11 @@ namespace gltfs
 	static std::vector<GLTFBufferView> loadBufferViews(const nlm::json& JSON);
 	static std::vector<GLTFMatrial>    loadMaterials(const nlm::json& JSON);
 	static std::vector<GLTFAnimation>  loadAnimations(const nlm::json& JSON);
-	static void                        loadSkins(GLTFLoadData* gltfData);
-	static std::vector<LvnImageData>   loadImages(const GLTFLoadData* gltfData);
+	static std::vector<GLTFSkin>       loadSkins(const nlm::json& JSON);
+	static std::vector<LvnImageData>   loadImages(const GLTFLoadData& gltfData);
 	static std::vector<LvnSampler*>    loadSamplers(const nlm::json& JSON, LvnSampler** defaultSampler);
-	static std::vector<LvnAnimation>   bindAnimationsToNodes(GLTFLoadData* gltfData);
+	static std::vector<LvnAnimation>   bindAnimationsToNodes(const GLTFLoadData& gltfData);
+	static std::vector<LvnSkin>        bindSkinsToNodes(const GLTFLoadData& gltfData);
 	static size_t                      getCompType(int compType);
 	static LvnTextureFilter            getSamplerFilterEnum(int filter);
 	static LvnTextureMode              getSamplerWrapModeEnum(int mode);
@@ -143,6 +152,7 @@ namespace gltfs
 	static void                        traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex);
 	static LvnMesh                     loadMesh(GLTFLoadData* gltfData, int meshIndex);
 	static LvnMaterial                 getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex);
+	static void                        loadDefaultTextures(GLTFLoadData* gltfData);
 
 	static std::vector<LvnBin> loadBuffers(const nlm::json& JSON, std::string_view filepath)
 	{
@@ -166,7 +176,7 @@ namespace gltfs
 		for (int i = 0; i < JSON["accessors"].size(); i++)
 		{
 			accessors[i].bufferView = JSON["accessors"][i].value("bufferView", 0);
-			accessors[i].byteOffest = JSON["accessors"][i].value("byteOffset", 0);
+			accessors[i].byteOffset = JSON["accessors"][i].value("byteOffset", 0);
 			accessors[i].componentType = JSON["accessors"][i]["componentType"];
 			accessors[i].count = JSON["accessors"][i]["count"];
 			accessors[i].type = JSON["accessors"][i]["type"];
@@ -198,6 +208,9 @@ namespace gltfs
 	}
 	static std::vector<GLTFMatrial> loadMaterials(const nlm::json& JSON)
 	{
+		if (!JSON.contains("materials"))
+			return {};
+
 		std::vector<GLTFMatrial> materials(JSON["materials"].size());
 
 		for (uint32_t i = 0; i < JSON["materials"].size(); i++)
@@ -305,11 +318,33 @@ namespace gltfs
 
 		return animations;
 	}
-	static std::vector<LvnImageData> loadImages(const GLTFLoadData* gltfData)
+	static std::vector<GLTFSkin> loadSkins(const nlm::json& JSON)
+	{
+		if (!JSON.contains("skins"))
+			return {};
+
+		std::vector<GLTFSkin> skins(JSON["skins"].size());
+
+		for (uint32_t i = 0; i < JSON["skins"].size(); i++)
+		{
+			const nlm::json& skinNode = JSON["skins"][i];
+
+			skins[i].name = skinNode.value("name", "");
+
+			skins[i].joints.resize(skinNode["joints"].size());
+			for (uint32_t j = 0; j < skinNode["joints"].size(); j++)
+				skins[i].joints[j] = skinNode["joints"][j];
+
+			skins[i].inverseBindMatrices = skinNode.value("inverseBindMatrices", -1);
+		}
+
+		return skins;
+	}
+	static std::vector<LvnImageData> loadImages(const GLTFLoadData& gltfData)
 	{
 		LvnContext* lvnctx = lvn::getContext();
 
-		const nlm::json& JSON = gltfData->JSON;
+		const nlm::json& JSON = gltfData.JSON;
 
 		if (!JSON.contains("images"))
 			return {};
@@ -320,23 +355,23 @@ namespace gltfs
 		{
 			std::vector<std::future<LvnImageData>> futureImages(images.size());
 
-			if (gltfData->filetype == Lvn_FileType_Gltf)
+			if (gltfData.filetype == Lvn_FileType_Gltf)
 			{
 				for (uint32_t i = 0; i < JSON["images"].size(); i++)
 				{
 					std::string uri = JSON["images"][i]["uri"];
-					std::string fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1);
+					std::string fileDirectory = gltfData.filepath.substr(0, gltfData.filepath.find_last_of("/\\") + 1);
 
 					futureImages[i] = std::async(std::launch::async, lvn::loadImageDataThread, fileDirectory + uri, 4, false);
 				}
 			}
-			else if (gltfData->filetype == Lvn_FileType_Glb)
+			else if (gltfData.filetype == Lvn_FileType_Glb)
 			{
 				for (uint32_t i = 0; i < JSON["images"].size(); i++)
 				{
 					uint32_t bufferViewIndex = JSON["images"][i]["bufferView"];
-					GLTFBufferView bufferView = gltfData->bufferViews[bufferViewIndex];
-					LvnBin buffer = gltfData->buffers[bufferView.buffer];
+					GLTFBufferView bufferView = gltfData.bufferViews[bufferViewIndex];
+					LvnBin buffer = gltfData.buffers[bufferView.buffer];
 
 					futureImages[i] = std::async(std::launch::async, lvn::loadImageDataMemoryThread, &buffer[bufferView.byteOffset], bufferView.byteLength, 4, false);
 				}
@@ -349,23 +384,23 @@ namespace gltfs
 		}
 		else // no multithreading
 		{
-			if (gltfData->filetype == Lvn_FileType_Gltf)
+			if (gltfData.filetype == Lvn_FileType_Gltf)
 			{
 				for (uint32_t i = 0; i < JSON["images"].size(); i++)
 				{
 					std::string uri = JSON["images"][i]["uri"];
-					std::string fileDirectory = gltfData->filepath.substr(0, gltfData->filepath.find_last_of("/\\") + 1);
+					std::string fileDirectory = gltfData.filepath.substr(0, gltfData.filepath.find_last_of("/\\") + 1);
 
 					images[i] = lvn::loadImageData((fileDirectory + uri).c_str(), 4);
 				}
 			}
-			else if (gltfData->filetype == Lvn_FileType_Glb)
+			else if (gltfData.filetype == Lvn_FileType_Glb)
 			{
 				for (uint32_t i = 0; i < JSON["images"].size(); i++)
 				{
 					uint32_t bufferViewIndex = JSON["images"][i]["bufferView"];
-					GLTFBufferView bufferView = gltfData->bufferViews[bufferViewIndex];
-					LvnBin buffer = gltfData->buffers[bufferView.buffer];
+					GLTFBufferView bufferView = gltfData.bufferViews[bufferViewIndex];
+					LvnBin buffer = gltfData.buffers[bufferView.buffer];
 
 					images[i] = lvn::loadImageDataMemory(&buffer[bufferView.byteOffset], bufferView.byteLength, 4);
 				}
@@ -426,38 +461,38 @@ namespace gltfs
 			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return 0; }
 		}
 	}
-	static std::vector<LvnAnimation> bindAnimationsToNodes(GLTFLoadData* gltfData)
+	static std::vector<LvnAnimation> bindAnimationsToNodes(const GLTFLoadData& gltfData)
 	{
-		std::vector<LvnAnimation> animations(gltfData->animations.size());
+		std::vector<LvnAnimation> animations(gltfData.animations.size());
 
-		for (uint32_t i = 0; i < gltfData->animations.size(); i++)
+		for (uint32_t i = 0; i < gltfData.animations.size(); i++)
 		{
 			animations[i].currentTime = 0.0f;
 			animations[i].start = 0.0f;
 			animations[i].end = 0.0f;
-			animations[i].channels.resize(gltfData->animations[i].channels.size());
+			animations[i].channels.resize(gltfData.animations[i].channels.size());
 
 			// set the animation start and end points to the first values in the buffer
-			if (!gltfData->animations[i].channels.empty())
+			if (!gltfData.animations[i].channels.empty())
 			{
-				const GLTFAnimationChannel channel = gltfData->animations[i].channels[0];
-				const GLTFAnimationSampler sampler = gltfData->animations[i].samplers[channel.sampler];
+				const GLTFAnimationChannel channel = gltfData.animations[i].channels[0];
+				const GLTFAnimationSampler sampler = gltfData.animations[i].samplers[channel.sampler];
 
-				GLTFAccessor accessor = gltfData->accessors[sampler.input];
-				GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
-				LvnBin buffer = gltfData->buffers[bufferView.buffer];
+				GLTFAccessor accessor = gltfData.accessors[sampler.input];
+				GLTFBufferView bufferView = gltfData.bufferViews[accessor.bufferView];
+				LvnBin buffer = gltfData.buffers[bufferView.buffer];
 
-				uint32_t beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
 				animations[i].start = *reinterpret_cast<float*>(&buffer[beginningOfData]);
 				animations[i].end = *reinterpret_cast<float*>(&buffer[beginningOfData] + (accessor.count - 1) * sizeof(float));
 			}
 
 			// bind the channels, samplers, input, output
-			for (uint32_t j = 0; j < gltfData->animations[i].channels.size(); j++)
+			for (uint32_t j = 0; j < gltfData.animations[i].channels.size(); j++)
 			{
-				const GLTFAnimationChannel channel = gltfData->animations[i].channels[j];
-				const GLTFAnimationSampler sampler = gltfData->animations[i].samplers[channel.sampler];
+				const GLTFAnimationChannel channel = gltfData.animations[i].channels[j];
+				const GLTFAnimationSampler sampler = gltfData.animations[i].samplers[channel.sampler];
 
 				if (channel.target.path == "translation")
 					animations[i].channels[j].path = Lvn_AnimationPath_Translation;
@@ -466,15 +501,15 @@ namespace gltfs
 				if (channel.target.path == "scale")
 					animations[i].channels[j].path = Lvn_AnimationPath_Scale;
 
-				animations[i].channels[j].node = gltfData->nodeArray[channel.target.node];
+				animations[i].channels[j].node = gltfData.nodeArray[channel.target.node];
 				animations[i].channels[j].interpolation = gltfs::getInterpolationMode(sampler.interpolation);
 
 				// sampler input (keyframes)
-				GLTFAccessor accessor = gltfData->accessors[sampler.input];
-				GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
-				LvnBin buffer = gltfData->buffers[bufferView.buffer];
+				GLTFAccessor accessor = gltfData.accessors[sampler.input];
+				GLTFBufferView bufferView = gltfData.bufferViews[accessor.bufferView];
+				LvnBin buffer = gltfData.buffers[bufferView.buffer];
 
-				uint32_t beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
 				animations[i].channels[j].keyFrames.resize(accessor.count);
 				for (uint32_t k = 0; k < accessor.count; k++)
@@ -488,10 +523,10 @@ namespace gltfs
 				}
 
 				// sampler outputs (translations/rotations/scale)
-				accessor = gltfData->accessors[sampler.output];
-				bufferView = gltfData->bufferViews[accessor.bufferView];
-				buffer = gltfData->buffers[bufferView.buffer];
-				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				accessor = gltfData.accessors[sampler.output];
+				bufferView = gltfData.bufferViews[accessor.bufferView];
+				buffer = gltfData.buffers[bufferView.buffer];
+				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
 				animations[i].channels[j].outputs.resize(accessor.count);
 				if (accessor.type == "VEC3")
@@ -504,6 +539,34 @@ namespace gltfs
 		}
 
 		return animations;
+	}
+	static std::vector<LvnSkin> bindSkinsToNodes(const GLTFLoadData& gltfData)
+	{
+		const nlm::json& JSON = gltfData.JSON;
+
+		std::vector<LvnSkin> skins(gltfData.skins.size());
+
+		for (uint32_t i = 0; i < gltfData.skins.size(); i++)
+		{
+			const GLTFSkin& skinData = gltfData.skins[i];
+			skins[i].name = skinData.name;
+
+			skins[i].joints.resize(skinData.joints.size());
+			for (uint32_t j = 0; j < skinData.joints.size(); j++)
+				skins[i].joints[j] = gltfData.nodeArray[skinData.joints[j]];
+
+			if (skinData.inverseBindMatrices >= 0)
+			{
+				const GLTFAccessor& accessor = gltfData.accessors[skinData.inverseBindMatrices];
+				const GLTFBufferView& bufferView = gltfData.bufferViews[accessor.bufferView];
+				const LvnBin& buffer = gltfData.buffers[bufferView.buffer];
+
+				skins[i].inverseBindMatrices.resize(accessor.count);
+				memcpy(skins[i].inverseBindMatrices.data(), &buffer[accessor.byteOffset + bufferView.byteOffset], accessor.count * 16 * sizeof(float));
+			}
+		}
+
+		return skins;
 	}
 	static LvnTextureFilter getSamplerFilterEnum(int filter)
 	{
@@ -724,7 +787,7 @@ namespace gltfs
 			GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
 			LvnBin buffer = gltfData->buffers[bufferView.buffer];
 
-			uint32_t beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+			uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
 			std::vector<LvnVec3> positions(accessor.count);
 			for (uint32_t j = 0; j < accessor.count; j++)
@@ -738,7 +801,7 @@ namespace gltfs
 				bufferView = gltfData->bufferViews[accessor.bufferView];
 				buffer = gltfData->buffers[bufferView.buffer];
 
-				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 				size_t compType = gltfs::getCompType(accessor.componentType);
 
 				indices.resize(accessor.count);
@@ -749,7 +812,7 @@ namespace gltfs
 			}
 
 			// color
-			LvnVec4 color = gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor;
+			LvnVec4 color = materialIndex >= 0 ? gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor : LvnVec4(1, 1, 1, 1);
 
 			// texcoords
 			std::vector<LvnVec2> texcoords;
@@ -759,7 +822,7 @@ namespace gltfs
 				bufferView = gltfData->bufferViews[accessor.bufferView];
 				buffer = gltfData->buffers[bufferView.buffer];
 
-				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 				size_t compType = gltfs::getCompType(accessor.componentType);
 
 				texcoords.resize(accessor.count);
@@ -782,7 +845,7 @@ namespace gltfs
 				bufferView = gltfData->bufferViews[accessor.bufferView];
 				buffer = gltfData->buffers[bufferView.buffer];
 
-				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
 				normals.resize(accessor.count);
 				for (uint32_t j = 0; j < accessor.count; j++)
@@ -801,7 +864,7 @@ namespace gltfs
 				bufferView = gltfData->bufferViews[accessor.bufferView];
 				buffer = gltfData->buffers[bufferView.buffer];
 
-				beginningOfData = accessor.byteOffest + bufferView.byteOffset;
+				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
 				tangents.resize(accessor.count);
 				for (uint32_t j = 0; j < accessor.count; j++)
@@ -903,6 +966,13 @@ namespace gltfs
 				meshPrimitives[i].material.roughnessFactor = 1.0f;
 				meshPrimitives[i].material.emissiveFactor = LvnVec3(0, 0, 0);
 				meshPrimitives[i].material.doubleSided = false;
+
+				// load all default textures if no material found
+				gltfs::loadDefaultTextures(gltfData);
+				meshPrimitives[i].material.albedo = gltfData->defaultBaseColorTexture;
+				meshPrimitives[i].material.metallicRoughnessOcclusion = gltfData->defaultMetalicRoughnessTexture;
+				meshPrimitives[i].material.normal = gltfData->defaultNormalTexture;
+				meshPrimitives[i].material.emissive = gltfData->defaultEmissiveTexture;
 			}
 
 			meshPrimitives[i].topology = gltfs::getTopologyEnum(primitiveNode.value("mode", 4));
@@ -1140,6 +1210,85 @@ namespace gltfs
 
 		return material;
 	}
+	static void loadDefaultTextures(GLTFLoadData* gltfData)
+	{
+		// default base color texture
+		uint8_t whiteTextureData[] = { 0xff, 0xff, 0xff, 0xff };
+		LvnImageData imageData;
+		imageData.pixels = LvnData<uint8_t>(whiteTextureData, sizeof(whiteTextureData) / sizeof(uint8_t));
+		imageData.width = 1;
+		imageData.height = 1;
+		imageData.channels = 4;
+		imageData.size = 4;
+
+		LvnTextureSamplerCreateInfo baseColorCreateInfo{};
+		baseColorCreateInfo.imageData = imageData;
+		baseColorCreateInfo.format = Lvn_TextureFormat_Srgb;
+		baseColorCreateInfo.sampler = gltfData->defaultSampler;
+
+		if (gltfData->defaultBaseColorTexture == nullptr)
+		{
+			lvn::createTexture(&gltfData->defaultBaseColorTexture, &baseColorCreateInfo);
+			gltfData->textures.push_back(gltfData->defaultBaseColorTexture);
+		}
+
+		// default metalic roughness texture
+		uint8_t metalicRoughnessData[4] = { 0x00, 0xff, 0x00, 0xff };
+		imageData.pixels = LvnData<uint8_t>(metalicRoughnessData, sizeof(metalicRoughnessData) / sizeof(uint8_t));
+		imageData.width = 1;
+		imageData.height = 1;
+		imageData.channels = 4;
+		imageData.size = 4;
+
+		LvnTextureSamplerCreateInfo metalicRoughnessCreateInfo{};
+		metalicRoughnessCreateInfo.imageData = imageData;
+		metalicRoughnessCreateInfo.format = Lvn_TextureFormat_Srgb;
+		metalicRoughnessCreateInfo.sampler = gltfData->defaultSampler;
+
+		if (gltfData->defaultMetalicRoughnessTexture == nullptr)
+		{
+			lvn::createTexture(&gltfData->defaultMetalicRoughnessTexture, &metalicRoughnessCreateInfo);
+			gltfData->textures.push_back(gltfData->defaultMetalicRoughnessTexture);
+		}
+
+		// default normal texture
+		uint8_t normalTextureData[4] = { 0x80, 0x80, 0xff, 0xff };
+		imageData.pixels = LvnData<uint8_t>(normalTextureData, sizeof(normalTextureData) / sizeof(uint8_t));
+		imageData.width = 1;
+		imageData.height = 1;
+		imageData.channels = 4;
+		imageData.size = 4;
+
+		LvnTextureSamplerCreateInfo normalCreateInfo{};
+		normalCreateInfo.imageData = imageData;
+		normalCreateInfo.format = Lvn_TextureFormat_Unorm;
+		normalCreateInfo.sampler = gltfData->defaultSampler;
+
+		if (gltfData->defaultNormalTexture == nullptr)
+		{
+			lvn::createTexture(&gltfData->defaultNormalTexture, &normalCreateInfo);
+			gltfData->textures.push_back(gltfData->defaultNormalTexture);
+		}
+
+		// default emissive texture
+		uint8_t emissiveTextureData[4] = { 0x00, 0x00, 0x00, 0x00 };
+		imageData.pixels = LvnData<uint8_t>(emissiveTextureData, sizeof(emissiveTextureData) / sizeof(uint8_t));
+		imageData.width = 1;
+		imageData.height = 1;
+		imageData.channels = 4;
+		imageData.size = 4;
+
+		LvnTextureSamplerCreateInfo emissiveCreateInfo{};
+		emissiveCreateInfo.imageData = imageData;
+		emissiveCreateInfo.format = Lvn_TextureFormat_Unorm;
+		emissiveCreateInfo.sampler = gltfData->defaultSampler;
+
+		if (gltfData->defaultEmissiveTexture == nullptr)
+		{
+			lvn::createTexture(&gltfData->defaultEmissiveTexture, &emissiveCreateInfo);
+			gltfData->textures.push_back(gltfData->defaultEmissiveTexture);
+		}
+	}
 
 } /* namespace gltf */
 
@@ -1167,7 +1316,8 @@ LvnModel loadGltfModel(const char* filepath)
 	gltfData.bufferViews = std::move(gltfs::loadBufferViews(gltfData.JSON));
 	gltfData.materials = std::move(gltfs::loadMaterials(gltfData.JSON));
 	gltfData.animations = std::move(gltfs::loadAnimations(gltfData.JSON));
-	gltfData.images = std::move(gltfs::loadImages(&gltfData));
+	gltfData.skins = std::move(gltfs::loadSkins(gltfData.JSON));
+	gltfData.images = std::move(gltfs::loadImages(gltfData));
 	gltfData.samplers = std::move(gltfs::loadSamplers(gltfData.JSON, &gltfData.defaultSampler));
 	
 	gltfData.nodes.resize(JSON["scenes"][0]["nodes"].size());
@@ -1187,7 +1337,8 @@ LvnModel loadGltfModel(const char* filepath)
 	model.textures = std::move(gltfData.textures);
 	model.samplers = std::move(gltfData.samplers);
 	model.nodes = std::move(gltfData.nodes);
-	model.animations = gltfs::bindAnimationsToNodes(&gltfData);
+	model.animations = gltfs::bindAnimationsToNodes(gltfData);
+	model.skins = gltfs::bindSkinsToNodes(gltfData);
 
 	return model;
 }
@@ -1236,7 +1387,8 @@ LvnModel loadGlbModel(const char* filepath)
 	gltfData.bufferViews = std::move(gltfs::loadBufferViews(gltfData.JSON));
 	gltfData.materials = std::move(gltfs::loadMaterials(gltfData.JSON));
 	gltfData.animations = std::move(gltfs::loadAnimations(gltfData.JSON));
-	gltfData.images = std::move(gltfs::loadImages(&gltfData));
+	gltfData.skins = std::move(gltfs::loadSkins(gltfData.JSON));
+	gltfData.images = std::move(gltfs::loadImages(gltfData));
 	gltfData.samplers = std::move(gltfs::loadSamplers(gltfData.JSON, &gltfData.defaultSampler));
 
 	gltfData.nodes.resize(JSON["scenes"][0]["nodes"].size());
@@ -1256,7 +1408,8 @@ LvnModel loadGlbModel(const char* filepath)
 	model.textures = std::move(gltfData.textures);
 	model.samplers = std::move(gltfData.samplers);
 	model.nodes = std::move(gltfData.nodes);
-	model.animations = gltfs::bindAnimationsToNodes(&gltfData);
+	model.animations = gltfs::bindAnimationsToNodes(gltfData);
+	model.skins = gltfs::bindSkinsToNodes(gltfData);
 
 	return model;
 }

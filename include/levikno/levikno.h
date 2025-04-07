@@ -5600,7 +5600,6 @@ struct LvnNode
 struct LvnSkin
 {
 	std::string name;
-	LvnNode* skeletonRoot;
 	std::vector<LvnMat4> inverseBindMatrices;
 	std::vector<LvnNode*> joints;
 	LvnBuffer* ssbo;
@@ -5627,6 +5626,7 @@ struct LvnModel
 {
 	std::vector<std::shared_ptr<LvnNode>> nodes;
 	std::vector<LvnAnimation> animations;
+	std::vector<LvnSkin> skins;
 	LvnMat4 matrix;
 
 	std::vector<LvnBuffer*> buffers;
