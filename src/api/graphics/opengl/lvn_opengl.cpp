@@ -1496,7 +1496,7 @@ void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 	}
 }
 
-void oglsImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
+void oglsImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
 	glNamedBufferSubData(uniformBuffer->id, offset, size, data);
 }

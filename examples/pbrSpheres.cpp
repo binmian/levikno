@@ -648,7 +648,7 @@ int main()
 
 
 	LvnVertexBindingDescription vertexBindingDescription{};
-	vertexBindingDescription.stride = 18 * sizeof(float);
+	vertexBindingDescription.stride = sizeof(LvnVertex);
 	vertexBindingDescription.binding = 0;
 
 	LvnVertexAttribute attributes[] =
@@ -845,7 +845,6 @@ int main()
 
 	// uniform buffer
 	LvnUniformBufferCreateInfo storageBufferInfo{};
-	storageBufferInfo.binding = 1;
 	storageBufferInfo.type = Lvn_BufferType_Storage;
 	storageBufferInfo.size = sizeof(UniformData) * 100;
 
@@ -853,7 +852,6 @@ int main()
 	lvn::createUniformBuffer(&storageBuffer, &storageBufferInfo);
 
 	LvnUniformBufferCreateInfo pbrUniformBufferInfo{};
-	pbrUniformBufferInfo.binding = 0;
 	pbrUniformBufferInfo.type = Lvn_BufferType_Uniform;
 	pbrUniformBufferInfo.size = sizeof(PbrUniformData);
 
@@ -861,7 +859,6 @@ int main()
 	lvn::createUniformBuffer(&pbrUniformBuffer, &pbrUniformBufferInfo);
 
 	LvnUniformBufferCreateInfo cubemapUniformBufferInfo{};
-	cubemapUniformBufferInfo.binding = 0;
 	cubemapUniformBufferInfo.type = Lvn_BufferType_Uniform;
 	cubemapUniformBufferInfo.size = sizeof(UniformData);
 
@@ -1014,8 +1011,8 @@ int main()
 		pbrData.campPos = camera.position;
 		pbrData.lightPos = lvn::vec3(5.0f + cos(lvn::getContextTime()) * 3.0f, 5.0f + sin(lvn::getContextTime()) * 3.0f, 3.0f);
 
-		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData), 0);
-		lvn::updateUniformBufferData(window, storageBuffer, objectData.data(), sizeof(UniformData) * objectData.size(), 0);
+		lvn::updateUniformBufferData(pbrUniformBuffer, &pbrData, sizeof(PbrUniformData), 0);
+		lvn::updateUniformBufferData(storageBuffer, objectData.data(), sizeof(UniformData) * objectData.size(), 0);
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitiveDescriptor.descriptorSet);
@@ -1033,7 +1030,7 @@ int main()
 		lvn::mat4 view = lvn::mat4(lvn::mat3(camera.viewMatrix));
 		uniformData.matrix = projection * view;
 
-		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData), 0);
+		lvn::updateUniformBufferData(cubemapUniformBuffer, &uniformData, sizeof(UniformData), 0);
 		lvn::renderCmdBindPipeline(window, cubemapPipeline);
 		lvn::renderCmdBindDescriptorSets(window, cubemapPipeline, 0, 1, &cubemapDescriptorSet);
 

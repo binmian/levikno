@@ -2968,19 +2968,14 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 	buffer->indexBufferSize = createInfo->indexBufferSize;
 
 	bool vertexOnly = createInfo->type & (Lvn_BufferType_Index | Lvn_BufferType_DynamicIndex) ? false : true;
-
-	bool dynamicVertex = false, dynamicIndex = false;
-
-	if (createInfo->type & Lvn_BufferType_DynamicVertex)
-		dynamicVertex = true;
-	if (createInfo->type & Lvn_BufferType_DynamicIndex)
-		dynamicIndex = true;
+	bool dynamicVertex = createInfo->type & Lvn_BufferType_DynamicVertex;
+	bool dynamicIndex = createInfo->type & Lvn_BufferType_DynamicIndex;
 
 	if (dynamicVertex || dynamicIndex) // buffers need to be seperate if either buffer is dynamic
 	{
 		// dynamic buffers will have their memory stored on the cpu
 
-		// vertex 
+		// vertex
 		VkBuffer vertexBuffer;
 		VmaAllocation vertexMemory;
 
@@ -3074,7 +3069,7 @@ LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniform
 	VmaAllocation uniformBufferMemory;
 
 	VkBufferUsageFlags bufferUsageType = vks::getUniformBufferTypeEnum(createInfo->type);
-	vks::createBuffer(vkBackends, &vkUniformBuffer, &uniformBufferMemory, createInfo->size * vkBackends->maxFramesInFlight, bufferUsageType, VMA_MEMORY_USAGE_CPU_ONLY);
+	vks::createBuffer(vkBackends, &vkUniformBuffer, &uniformBufferMemory, createInfo->size, bufferUsageType, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	uniformBuffer->uniformBuffer = vkUniformBuffer;
 	uniformBuffer->uniformBufferMemory = uniformBufferMemory;
@@ -3796,15 +3791,9 @@ void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
 	buffer->indexBufferMemory = indexMemory;
 }
 
-void vksImplUpdateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
+void vksImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
-	VulkanBackends* vkBackends = s_VkBackends;
-	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-
-	for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
-	{
-		memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped) + offset + uniformBuffer->size * i, data, size);
-	}
+	memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped) + offset, data, size);
 }
 
 void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -3844,14 +3833,13 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 			if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
 			{
 				bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->uniformBuffer);
-				bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset + pUpdateInfo[i].bufferInfo->buffer->size * j; // offset buffer size for each frame in flight
+				bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset; // offset buffer size for each frame in flight
 				bufferInfo.range = pUpdateInfo[i].bufferInfo->range;
 				descriptorWrite.pBufferInfo = &bufferInfo;
 			}
 
 			// if descriptor using textures
-			else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler ||
-				pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
+			else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
 			{
 				descriptorWrite.pImageInfo = imageInfos.data();
 			}

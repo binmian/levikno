@@ -73,6 +73,8 @@ layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec3 inNormal;
 layout(location = 4) in vec3 inTangent;
 layout(location = 5) in vec3 inBitangent;
+layout(location = 6) in vec4 inJointIndices;
+layout(location = 7) in vec4 inWeights;
 
 layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec4 fragColor;
@@ -93,7 +95,13 @@ layout(binding = 0) uniform ObjectBuffer
 	float metalic;
 	float roughness;
 	float ambientOcclusion;
+	bool hasSkin;
 } pbrUbo;
+
+layout(std430, binding = 2) readonly buffer JointMatrices
+{
+	mat4 jointMatrices[];
+};
 
 void main()
 {
@@ -105,13 +113,25 @@ void main()
 
 	mat3 TBN = transpose(mat3(T, B, N));
 
-	fragPos = TBN * vec3(ubo.model * vec4(inPos, 1.0));
+	mat4 skinMat;
+	if (pbrUbo.hasSkin)
+	{
+		skinMat =
+		inWeights.x * jointMatrices[int(inJointIndices.x)] +
+		inWeights.y * jointMatrices[int(inJointIndices.y)] +
+		inWeights.z * jointMatrices[int(inJointIndices.z)] +
+		inWeights.w * jointMatrices[int(inJointIndices.w)];
+	}
+	else
+		skinMat = mat4(1.0);
+
+	fragPos = TBN * vec3(ubo.model * skinMat * vec4(inPos, 1.0));
 	fragColor = inColor;
 	fragTexCoord = inTexCoord;
 	fragLightPos = TBN * pbrUbo.lightPos;
 	fragViewPos = TBN * pbrUbo.camPos;
 
-	gl_Position = ubo.matrix * ubo.model * vec4(inPos, 1.0);
+	gl_Position = ubo.matrix * ubo.model * skinMat * vec4(inPos, 1.0);
 }
 )";
 
@@ -135,12 +155,13 @@ layout(binding = 0) uniform ObjectBuffer
 	float metalic;
 	float roughness;
 	float ambientOcclusion;
+	bool hasSkin;
 } ubo;
 
-layout(binding = 2) uniform sampler2D albedoTex;
-layout(binding = 3) uniform sampler2D metalicRoughnessOcclusionTex;
-layout(binding = 4) uniform sampler2D normalTex;
-layout(binding = 5) uniform sampler2D emissiveTex;
+layout(binding = 3) uniform sampler2D albedoTex;
+layout(binding = 4) uniform sampler2D metalicRoughnessOcclusionTex;
+layout(binding = 5) uniform sampler2D normalTex;
+layout(binding = 6) uniform sampler2D emissiveTex;
 
 const float PI = 3.14159265;
 
@@ -337,6 +358,7 @@ struct PbrUniformData
 	float metalic;
 	float roughness;
 	float ambientOcclusion;
+	int hasSkin;
 };
 
 struct CameraView
@@ -368,9 +390,11 @@ LvnPipeline* fbPipeline;
 LvnBuffer* fbBuffer;
 LvnBuffer* cubemapBuffer;
 LvnUniformBuffer* matrixUniformBuffer;
+LvnUniformBuffer* defaultSkinUniformBuffer;
 LvnUniformBuffer* pbrUniformBuffer;
 LvnUniformBuffer* cubemapUniformBuffer;
 LvnCubemap* cubemap;
+LvnModel lvnmodel;
 
 
 void cameraMovment(LvnWindow* window, CameraView* camera, float dt);
@@ -380,8 +404,9 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 bool mouseScroll(LvnMouseScrolledEvent* e, void* pUserData);
 void eventsCallbackFn(LvnEvent* e);
 void scaleInput(LvnWindow* window, float* scale, float dt);
-void updateNode(LvnNode* node);
-void updateAnimation(LvnModel& model, float dt);
+LvnMat4 getNodeMatrix(LvnNode* node);
+void updateJoints(LvnNode* node);
+void updateAnimation(float dt);
 void updateNodeDescriptorSets(std::vector<std::shared_ptr<LvnNode>>& nodes);
 void updateNodeMatrix(std::vector<std::shared_ptr<LvnNode>>& nodes, std::vector<UniformData>& objectData, CameraView camera);
 void drawNode(std::vector<std::shared_ptr<LvnNode>>& nodes);
@@ -644,25 +669,46 @@ void scaleInput(LvnWindow* window, float* scale, float dt)
 	if (*scale <= 0.0) *scale = 0.01f;
 }
 
-void updateNode(LvnNode* node)
+LvnMat4 getNodeMatrix(LvnNode* node)
 {
-	LvnMat4 translation = lvn::translate(LvnMat4(1.0f), node->transform.translation);
-	LvnMat4 rotate = lvn::quatToMat4(node->transform.rotation);
-	LvnMat4 scale = lvn::scale(LvnMat4(1.0f), node->transform.scale);
-
+	LvnMat4 nodeMatrix = lvn::translate(LvnMat4(1.0f), node->transform.translation) * lvn::quatToMat4(node->transform.rotation) * lvn::scale(LvnMat4(1.0f), node->transform.scale) * node->matrix;
+	LvnNode* currentParent = node->parent;
 	if (node->parent)
-		node->matrix = node->parent->matrix * translation * rotate * scale;
-	else
-		node->matrix = translation * rotate * scale;
-
-	for (uint32_t i = 0; i < node->children.size(); i++)
 	{
-		updateNode(node->children[i].get());
+		nodeMatrix = getNodeMatrix(node->parent) * nodeMatrix;
+	}
+
+	return nodeMatrix;
+}
+
+static std::vector<LvnMat4> s_JointMatrices;
+static std::unordered_map<int, LvnUniformBuffer*> s_CacheSkinSSBO; // keep track of skins that are already updated so that they arent updated again
+
+void updateJoints(LvnNode* node)
+{
+	if (node->skin > -1)
+	{
+		const LvnSkin& skin = lvnmodel.skins[node->skin];
+
+		if (s_CacheSkinSSBO.find(node->skin) != s_CacheSkinSSBO.end())
+			return;
+		else
+			s_CacheSkinSSBO[node->skin] = skin.ssbo;
+
+		s_JointMatrices.resize(skin.joints.size());
+		for (size_t i = 0; i < skin.joints.size(); i++)
+		{
+			s_JointMatrices[i] = getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i];
+		}
+
+		lvn::updateUniformBufferData(skin.ssbo, s_JointMatrices.data(), s_JointMatrices.size() * sizeof(LvnMat4), 0);
 	}
 }
 
-void updateAnimation(LvnModel& model, float dt)
+void updateAnimation(float dt)
 {
+	LvnModel& model = lvnmodel;
+
 	if (model.animations.empty())
 		return;
 
@@ -710,13 +756,41 @@ void updateAnimation(LvnModel& model, float dt)
 					}
 				}
 			}
+			else if (channel.interpolation == Lvn_InterpolationMode_Step)
+			{
+				if ((animation.currentTime >= channel.keyFrames[i]) && (animation.currentTime <= channel.keyFrames[i + 1]))
+				{
+					if (channel.path == Lvn_AnimationPath_Translation)
+					{
+						channel.node->transform.translation = channel.outputs[i];
+						break;
+					}
+					else if (channel.path == Lvn_AnimationPath_Rotation)
+					{
+						LvnQuat q1;
+						q1.x = channel.outputs[i].x;
+						q1.y = channel.outputs[i].y;
+						q1.z = channel.outputs[i].z;
+						q1.w = channel.outputs[i].w;
+
+						channel.node->transform.rotation = q1;
+						break;
+					}
+					else if (channel.path == Lvn_AnimationPath_Scale)
+					{
+						channel.node->transform.scale = channel.outputs[i];
+						break;
+					}
+				}
+			}
 		}
 	}
 
-	for (LvnAnimationChannel& channel : animation.channels)
-	{
-		updateNode(channel.node);
-	}
+	s_CacheSkinSSBO.clear();
+
+	for (auto& skin : model.skins)
+		for (auto& node : skin.joints)
+			updateJoints(node);
 }
 
 uint32_t buffOffset = 0;
@@ -749,16 +823,30 @@ void updateNodeDescriptorSets(std::vector<std::shared_ptr<LvnNode>>& nodes)
 			descriptorMatrixUniformUpdateInfo.descriptorCount = 1;
 			descriptorMatrixUniformUpdateInfo.bufferInfo = &bufferInfo;
 
+			LvnUniformBuffer* skinBuffer = node->skin >= 0 ? lvnmodel.skins[node->skin].ssbo : defaultSkinUniformBuffer;
+
+			LvnUniformBufferInfo skinBufferInfo{};
+			skinBufferInfo.buffer = skinBuffer;
+			skinBufferInfo.range = (node->skin >= 0 ? lvnmodel.skins[node->skin].inverseBindMatrices.size() : 1) * sizeof(LvnMat4);
+			skinBufferInfo.offset = 0;
+
+			LvnDescriptorUpdateInfo descriptorSkinUniformUpdateInfo{};
+			descriptorSkinUniformUpdateInfo.descriptorType = Lvn_DescriptorType_StorageBuffer;
+			descriptorSkinUniformUpdateInfo.binding = 2;
+			descriptorSkinUniformUpdateInfo.descriptorCount = 1;
+			descriptorSkinUniformUpdateInfo.bufferInfo = &skinBufferInfo;
+
 			lvn::allocateDescriptorSet(&primitive.descriptorSet, descriptorLayout);
 
 			LvnDescriptorUpdateInfo pbrDescriptorUpdateInfo[] =
 			{
 				descriptorPbrUniformUpdateInfo,
 				descriptorMatrixUniformUpdateInfo,
-				{ 2, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.albedo },
-				{ 3, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.metallicRoughnessOcclusion },
-				{ 4, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.normal },
-				{ 5, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.emissive },
+				descriptorSkinUniformUpdateInfo,
+				{ 3, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.albedo },
+				{ 4, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.metallicRoughnessOcclusion },
+				{ 5, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.normal },
+				{ 6, Lvn_DescriptorType_ImageSampler, 1, nullptr, &primitive.material.emissive },
 			};
 
 			lvn::updateDescriptorSetData(primitive.descriptorSet, pbrDescriptorUpdateInfo, ARRAY_LEN(pbrDescriptorUpdateInfo));
@@ -776,18 +864,10 @@ void updateNodeMatrix(std::vector<std::shared_ptr<LvnNode>>& nodes, std::vector<
 	{
 		for (auto& primitive : node->mesh.primitives)
 		{
-			LvnMat4 nodeMatrix = node->matrix;
-			LvnNode* currentParent = node->parent;
-			while (currentParent)
-			{
-				nodeMatrix    = currentParent->matrix * nodeMatrix;
-				currentParent = currentParent->parent;
-			}
-
 			UniformData data{};
 			LvnMat4 scaleMat = lvn::scale(LvnMat4(1.0f), LvnVec3(s_Scale));
 			data.matrix = camera.matrix;
-			data.model = scaleMat * nodeMatrix;
+			data.model = scaleMat * getNodeMatrix(node.get());
 			objectData.push_back(data);
 		}
 
@@ -868,7 +948,7 @@ int main()
 
 
 	// load model
-	LvnModel lvnmodel = lvn::loadModel("res/models/teapot.gltf");
+	lvnmodel = lvn::loadModel("res/models/teapot.gltf");
 
 
 	// create framebuffer
@@ -906,7 +986,7 @@ int main()
 
 
 	LvnVertexBindingDescription vertexBindingDescription{};
-	vertexBindingDescription.stride = 18 * sizeof(float);
+	vertexBindingDescription.stride = sizeof(LvnVertex);
 	vertexBindingDescription.binding = 0;
 
 	LvnVertexAttribute attributes[] =
@@ -917,6 +997,8 @@ int main()
 		{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
 		{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
 		{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
+		{ 0, 6, Lvn_VertexDataType_Vec4f, 18 * sizeof(float) },  // joints
+		{ 0, 7, Lvn_VertexDataType_Vec4f, 22 * sizeof(float) },  // weights
 	};
 
 	LvnVertexBindingDescription cubemapBindingDescription{};
@@ -951,7 +1033,7 @@ int main()
 	uniformCubemapDescriptorBinding.descriptorType = Lvn_DescriptorType_UniformBuffer;
 	uniformCubemapDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	uniformCubemapDescriptorBinding.descriptorCount = 1;
-	uniformCubemapDescriptorBinding.maxAllocations = 256;
+	uniformCubemapDescriptorBinding.maxAllocations = 1;
 
 	LvnDescriptorBinding uniformModelDescriptorBinding{};
 	uniformModelDescriptorBinding.binding = 1;
@@ -959,6 +1041,13 @@ int main()
 	uniformModelDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
 	uniformModelDescriptorBinding.descriptorCount = 1;
 	uniformModelDescriptorBinding.maxAllocations = 1;
+
+	LvnDescriptorBinding uniformSkinMatrixDescriptorBinding{};
+	uniformSkinMatrixDescriptorBinding.binding = 2;
+	uniformSkinMatrixDescriptorBinding.descriptorType = Lvn_DescriptorType_StorageBuffer;
+	uniformSkinMatrixDescriptorBinding.shaderStage = Lvn_ShaderStage_Vertex;
+	uniformSkinMatrixDescriptorBinding.descriptorCount = 1;
+	uniformSkinMatrixDescriptorBinding.maxAllocations = 1;
 
 	LvnDescriptorBinding combinedImageDescriptorBinding{};
 	combinedImageDescriptorBinding.binding = 1;
@@ -969,11 +1058,11 @@ int main()
 
 	std::vector<LvnDescriptorBinding> descriptorBindings =
 	{
-		uniformDescriptorBinding, uniformModelDescriptorBinding,
-		textureBinding(2, 256),
+		uniformDescriptorBinding, uniformModelDescriptorBinding, uniformSkinMatrixDescriptorBinding,
 		textureBinding(3, 256),
 		textureBinding(4, 256),
 		textureBinding(5, 256),
+		textureBinding(6, 256),
 	};
 
 	LvnDescriptorLayoutCreateInfo descriptorLayoutCreateInfo{};
@@ -1133,21 +1222,24 @@ int main()
 
 	// uniform buffer
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
-	uniformBufferInfo.binding = 1;
 	uniformBufferInfo.type = Lvn_BufferType_Uniform;
 	uniformBufferInfo.size = sizeof(UniformData) * 256;
 
 	lvn::createUniformBuffer(&matrixUniformBuffer, &uniformBufferInfo);
 
+	LvnUniformBufferCreateInfo skinUniformBufferInfo{};
+	skinUniformBufferInfo.type = Lvn_BufferType_Storage;
+	skinUniformBufferInfo.size = sizeof(LvnMat4);
+
+	lvn::createUniformBuffer(&defaultSkinUniformBuffer, &skinUniformBufferInfo);
+
 	LvnUniformBufferCreateInfo pbrUniformBufferInfo{};
-	pbrUniformBufferInfo.binding = 0;
 	pbrUniformBufferInfo.type = Lvn_BufferType_Uniform;
 	pbrUniformBufferInfo.size = sizeof(PbrUniformData);
 
 	lvn::createUniformBuffer(&pbrUniformBuffer, &pbrUniformBufferInfo);
 
 	LvnUniformBufferCreateInfo cubemapUniformBufferInfo{};
-	cubemapUniformBufferInfo.binding = 6;
 	cubemapUniformBufferInfo.type = Lvn_BufferType_Uniform;
 	cubemapUniformBufferInfo.size = sizeof(UniformData);
 
@@ -1169,6 +1261,8 @@ int main()
 	// update descriptor sets
 	updateNodeDescriptorSets(lvnmodel.nodes);
 
+	LvnMat4 defualtSkin(1.0f);
+	lvn::updateUniformBufferData(defaultSkinUniformBuffer, &defualtSkin, sizeof(LvnMat4), 0);
 
 	LvnTexture* frameBufferImage = lvn::frameBufferGetImage(frameBuffer, 0);
 	LvnDescriptorUpdateInfo fbDescriptorTextureUpdateInfo{};
@@ -1243,6 +1337,7 @@ int main()
 		float dt = timeNow - oldTime;
 		oldTime = timeNow;
 		orbitMovment(window, &camera, dt);
+		scaleInput(window, &s_Scale, dt);
 
 
 		lvn::renderBeginNextFrame(window);
@@ -1252,18 +1347,18 @@ int main()
 		lvn::frameBufferSetClearColor(frameBuffer, 0, 0.0f, 0.0f, 0.0f, 1.0f);
 
 		objectData.clear();
-		updateAnimation(lvnmodel, dt);
-		scaleInput(window, &s_Scale, dt);
+		updateAnimation(dt);
 		updateNodeMatrix(lvnmodel.nodes, objectData, camera);
-		lvn::updateUniformBufferData(window, matrixUniformBuffer, objectData.data(), objectData.size() * sizeof(UniformData), 0);
+		lvn::updateUniformBufferData(matrixUniformBuffer, objectData.data(), objectData.size() * sizeof(UniformData), 0);
 
 		pbrData.campPos = camera.position;
 		pbrData.lightPos = lvn::vec3(cos(lvn::getContextTime()) * 3.0f, 0.0f, sin(lvn::getContextTime()) * 3.0f);
 		pbrData.metalic = 0.5f;
 		pbrData.roughness = 0.4f;
 		pbrData.ambientOcclusion = 1.0f;
+		pbrData.hasSkin = !lvnmodel.skins.empty();
 
-		lvn::updateUniformBufferData(window, pbrUniformBuffer, &pbrData, sizeof(PbrUniformData), 0);
+		lvn::updateUniformBufferData(pbrUniformBuffer, &pbrData, sizeof(PbrUniformData), 0);
 
 		lvn::renderCmdBindPipeline(window, pipeline);
 
@@ -1274,7 +1369,7 @@ int main()
 		lvn::mat4 view = lvn::mat4(lvn::mat3(camera.viewMatrix));
 		uniformData.matrix = projection * view;
 
-		lvn::updateUniformBufferData(window, cubemapUniformBuffer, &uniformData, sizeof(UniformData), 0);
+		lvn::updateUniformBufferData(cubemapUniformBuffer, &uniformData, sizeof(UniformData), 0);
 		lvn::renderCmdBindPipeline(window, cubemapPipeline);
 		lvn::renderCmdBindDescriptorSets(window, cubemapPipeline, 0, 1, &cubemapDescriptorSet);
 
@@ -1320,6 +1415,7 @@ int main()
 
 	lvn::destroyUniformBuffer(cubemapUniformBuffer);
 	lvn::destroyUniformBuffer(matrixUniformBuffer);
+	lvn::destroyUniformBuffer(defaultSkinUniformBuffer);
 	lvn::destroyUniformBuffer(pbrUniformBuffer);
 
 

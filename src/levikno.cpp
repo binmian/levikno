@@ -2413,7 +2413,7 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 
 	*uniformBuffer = lvn::createObject<LvnUniformBuffer>(lvnctx, Lvn_Stype_UniformBuffer);
 
-	LVN_CORE_TRACE("created uniform buffer: (%p), binding: %u, size: %lu bytes", *uniformBuffer, createInfo->binding, createInfo->size);
+	LVN_CORE_TRACE("created uniform buffer: (%p), size: %lu bytes", *uniformBuffer, createInfo->size);
 	return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
@@ -2634,13 +2634,14 @@ LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 	return &cubemap->textureData;
 }
 
-void updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
+void updateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
-	lvn::getContext()->graphicsContext.updateUniformBufferData(window, uniformBuffer, data, size, offset);
+	lvn::getContext()->graphicsContext.updateUniformBufferData(uniformBuffer, data, size, offset);
 }
 
 void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
+	// TODO: add update error logs
 	lvn::getContext()->graphicsContext.updateDescriptorSetData(descriptorSet, pUpdateInfo, count);
 }
 
@@ -2924,6 +2925,10 @@ void unloadModel(LvnModel* model)
 	for (uint32_t i = 0; i < model->buffers.size(); i++)
 	{
 		lvn::destroyBuffer(model->buffers[i]);
+	}
+	for (uint32_t i = 0; i < model->skins.size(); i++)
+	{
+		lvn::destroyUniformBuffer(model->skins[i].ssbo);
 	}
 }
 

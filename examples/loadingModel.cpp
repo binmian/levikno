@@ -265,7 +265,6 @@ int main(int argc, char** argv)
 	// uniform storage create info struct
 	LvnUniformBufferCreateInfo matrixUniformBufferCreateInfo{};
 	matrixUniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
-	matrixUniformBufferCreateInfo.binding = 0;
 	matrixUniformBufferCreateInfo.size = sizeof(UniformData) * MAX_OBJECTS;
 
 	// create storage buffer
@@ -275,7 +274,6 @@ int main(int argc, char** argv)
 	// uniform buffer create info struct
 	LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
 	uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
-	uniformBufferCreateInfo.binding = 1;
 	uniformBufferCreateInfo.size = sizeof(UniformLightData);
 
 	// create uniform buffer
@@ -359,7 +357,7 @@ int main(int argc, char** argv)
 			uniformData[i].model = modelMatrix * primitiveDescriptors[i].matrix;
 		}
 
-		lvn::updateUniformBufferData(window, matrixUniformBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size(), 0);
+		lvn::updateUniformBufferData(matrixUniformBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size(), 0);
 
 		lightData.camPos = camPos;
 		lightData.crntPos = { 0.0f, 0.0f, 0.0f };
@@ -368,7 +366,7 @@ int main(int argc, char** argv)
 		lightData.intensity = 10.0f;
 		lightData.specular = 0.4f;
 
-		lvn::updateUniformBufferData(window, uniformBuffer, &lightData, sizeof(UniformLightData), 0);
+		lvn::updateUniformBufferData(uniformBuffer, &lightData, sizeof(UniformLightData), 0);
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);

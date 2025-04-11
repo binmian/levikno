@@ -342,7 +342,6 @@ int main(int argc, char** argv)
 	// uniform buffer create info struct
 	LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
 	uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
-	uniformBufferCreateInfo.binding = 0;
 	uniformBufferCreateInfo.size = sizeof(UniformData);
 
 	// create uniform buffer
@@ -418,7 +417,7 @@ int main(int argc, char** argv)
 		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(UniformData), 0);
+		lvn::updateUniformBufferData(uniformBuffer, &uniformData, sizeof(UniformData), 0);
 
 
 		// text examples

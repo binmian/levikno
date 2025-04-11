@@ -490,7 +490,7 @@ struct LvnGraphicsContext
 	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint64_t, uint64_t);
 	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint64_t);
 	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint64_t);
-	void                        (*updateUniformBufferData)(LvnWindow*, LvnUniformBuffer*, void*, uint64_t, uint64_t);
+	void                        (*updateUniformBufferData)(LvnUniformBuffer*, void*, uint64_t, uint64_t);
 	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
 	LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
 	LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);

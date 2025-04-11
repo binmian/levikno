@@ -1501,7 +1501,7 @@ namespace lvn
 	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
 	LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
-	LVN_API void                        updateUniformBufferData(LvnWindow* window, LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);  // update the data stored in a uniform or storage buffer
+	LVN_API void                        updateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);                     // update the data stored in a uniform or storage buffer
 	LVN_API void                        updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);           // update the descriptor content within a descroptor set
 
 	LVN_API LvnTexture*                 frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);                                               // get the texture image data (render pass attachment) from the framebuffer via the attachment index
@@ -2090,11 +2090,11 @@ namespace lvn
 
 		if(cosTheta > static_cast<T>(1) - std::numeric_limits<T>::epsilon())
 		{
-			return LvnQuat_t<T>(
+			return lvn::normalize(LvnQuat_t<T>(
 				lvn::lerp(q1.w, q2s.w, t),
 				lvn::lerp(q1.x, q2s.x, t),
 				lvn::lerp(q1.y, q2s.y, t),
-				lvn::lerp(q1.z, q2s.z, t));
+				lvn::lerp(q1.z, q2s.z, t)));
 		}
 		else
 		{
@@ -5490,7 +5490,6 @@ struct LvnBufferCreateInfo
 struct LvnUniformBufferCreateInfo
 {
 	LvnBufferType type;
-	uint32_t binding;
 	uint64_t size;
 };
 
@@ -5542,9 +5541,10 @@ struct LvnVertex
 	LvnVec4 color;
 	LvnVec2 texUV;
 	LvnVec3 normal;
-
 	LvnVec3 tangent;
 	LvnVec3 bitangent;
+	LvnVec4 joints;
+	LvnVec4 weights;
 };
 
 struct LvnTransform
@@ -5602,7 +5602,7 @@ struct LvnSkin
 	std::string name;
 	std::vector<LvnMat4> inverseBindMatrices;
 	std::vector<LvnNode*> joints;
-	LvnBuffer* ssbo;
+	LvnUniformBuffer* ssbo;
 };
 
 struct LvnAnimationChannel

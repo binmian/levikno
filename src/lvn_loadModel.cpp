@@ -23,6 +23,7 @@ namespace gltfs
 		int          bufferView;
 		uint32_t     byteOffset;
 		int          componentType;
+		bool         normalized;
 		int          count;
 		std::string  type;
 		LvnVec3      min;
@@ -143,6 +144,8 @@ namespace gltfs
 	static std::vector<LvnAnimation>   bindAnimationsToNodes(const GLTFLoadData& gltfData);
 	static std::vector<LvnSkin>        bindSkinsToNodes(const GLTFLoadData& gltfData);
 	static size_t                      getCompType(int compType);
+	static bool                        isNormalizedType(int compType);
+	static std::vector<float>          getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor);
 	static LvnTextureFilter            getSamplerFilterEnum(int filter);
 	static LvnTextureMode              getSamplerWrapModeEnum(int mode);
 	static LvnTopologyType             getTopologyEnum(int mode);
@@ -153,6 +156,7 @@ namespace gltfs
 	static LvnMesh                     loadMesh(GLTFLoadData* gltfData, int meshIndex);
 	static LvnMaterial                 getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex);
 	static void                        loadDefaultTextures(GLTFLoadData* gltfData);
+
 
 	static std::vector<LvnBin> loadBuffers(const nlm::json& JSON, std::string_view filepath)
 	{
@@ -178,6 +182,7 @@ namespace gltfs
 			accessors[i].bufferView = JSON["accessors"][i].value("bufferView", 0);
 			accessors[i].byteOffset = JSON["accessors"][i].value("byteOffset", 0);
 			accessors[i].componentType = JSON["accessors"][i]["componentType"];
+			accessors[i].normalized = JSON["accessors"][i].value("normalized", false);
 			accessors[i].count = JSON["accessors"][i]["count"];
 			accessors[i].type = JSON["accessors"][i]["type"];
 
@@ -461,6 +466,20 @@ namespace gltfs
 			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return 0; }
 		}
 	}
+	static bool isNormalizedType(int compType)
+	{
+		switch (compType)
+		{
+			case 5120: { return true; }
+			case 5121: { return true; }
+			case 5122: { return true; }
+			case 5123: { return true; }
+			case 5125: { return false; }
+			case 5126: { return false; }
+
+			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return false; }
+		}
+	}
 	static std::vector<LvnAnimation> bindAnimationsToNodes(const GLTFLoadData& gltfData)
 	{
 		std::vector<LvnAnimation> animations(gltfData.animations.size());
@@ -553,7 +572,11 @@ namespace gltfs
 
 			skins[i].joints.resize(skinData.joints.size());
 			for (uint32_t j = 0; j < skinData.joints.size(); j++)
-				skins[i].joints[j] = gltfData.nodeArray[skinData.joints[j]];
+			{
+				LvnNode* node = gltfData.nodeArray[skinData.joints[j]];
+				skins[i].joints[j] = node;
+				node->skin = i;
+			}
 
 			if (skinData.inverseBindMatrices >= 0)
 			{
@@ -564,9 +587,104 @@ namespace gltfs
 				skins[i].inverseBindMatrices.resize(accessor.count);
 				memcpy(skins[i].inverseBindMatrices.data(), &buffer[accessor.byteOffset + bufferView.byteOffset], accessor.count * 16 * sizeof(float));
 			}
+
+			skins[i].ssbo;
+			LvnUniformBufferCreateInfo ssboCreateInfo{};
+			ssboCreateInfo.type = Lvn_BufferType_Storage;
+			ssboCreateInfo.size = 16 * sizeof(float) * skins[i].inverseBindMatrices.size();
+
+			lvn::createUniformBuffer(&skins[i].ssbo, &ssboCreateInfo);
+			lvn::updateUniformBufferData(skins[i].ssbo, skins[i].inverseBindMatrices.data(), skins[i].inverseBindMatrices.size() * 16 * sizeof(float), 0);
 		}
 
 		return skins;
+	}
+	static std::vector<float> getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor)
+	{
+		GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
+		LvnBin buffer = gltfData->buffers[bufferView.buffer];
+
+		uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
+
+		size_t compSize = gltfs::getCompType(accessor.componentType);
+
+		uint32_t type = 2;
+		if (accessor.type == "VEC2")
+			type = 2;
+		else if (accessor.type == "VEC3")
+			type = 3;
+		else if (accessor.type == "VEC4")
+			type = 4;
+
+		std::vector<float> att(accessor.count * type);
+
+		if (accessor.componentType == 5126) // float
+		{
+			for (uint32_t i = 0; i < accessor.count; i++)
+			{
+				for (uint32_t j = 0; j < type; j++)
+				{
+					att[i * type + j] = *reinterpret_cast<float*>(&buffer[beginningOfData] + i * type * sizeof(float) + j * sizeof(float));
+				}
+			}
+		}
+		else if (accessor.componentType == 5125) // unsigned int (uint32_t)
+		{
+			for (uint32_t i = 0; i < accessor.count; i++)
+			{
+				for (uint32_t j = 0; j < type; j++)
+				{
+					uint32_t at = *reinterpret_cast<uint32_t*>(&buffer[beginningOfData] + i * type * sizeof(uint32_t) + j * sizeof(uint32_t));
+					att[i * type + j] = static_cast<float>(at);
+				}
+			}
+		}
+		else if (accessor.componentType == 5120) // signed byte (int8_t)
+		{
+			for (uint32_t i = 0; i < accessor.count; i++)
+			{
+				for (uint32_t j = 0; j < type; j++)
+				{
+					int8_t at = *reinterpret_cast<int8_t*>(&buffer[beginningOfData] + i * type * sizeof(int8_t) + j * sizeof(int8_t));
+					att[i * type + j] = accessor.normalized ? static_cast<float>(at) / INT8_MAX : static_cast<float>(at);
+				}
+			}
+		}
+		else if (accessor.componentType == 5121) // unsigned byte (uint8_t)
+		{
+			for (uint32_t i = 0; i < accessor.count; i++)
+			{
+				for (uint32_t j = 0; j < type; j++)
+				{
+					uint8_t at = *reinterpret_cast<uint8_t*>(&buffer[beginningOfData] + i * type * sizeof(uint8_t) + j * sizeof(uint8_t));
+					att[i * type + j] = accessor.normalized ? static_cast<float>(at) / UINT8_MAX : static_cast<float>(at);
+				}
+			}
+		}
+		else if (accessor.componentType == 5122) // signed short (int16_t)
+		{
+			for (uint32_t i = 0; i < accessor.count; i++)
+			{
+				for (uint32_t j = 0; j < type; j++)
+				{
+					int16_t at = *reinterpret_cast<int16_t*>(&buffer[beginningOfData] + i * type * sizeof(int16_t) + j * sizeof(int16_t));
+					att[i * type + j] = accessor.normalized ? static_cast<float>(at) / INT16_MAX : static_cast<float>(at);
+				}
+			}
+		}
+		else if (accessor.componentType == 5123) // unsigned short (uint16_t)
+		{
+			for (uint32_t i = 0; i < accessor.count; i++)
+			{
+				for (uint32_t j = 0; j < type; j++)
+				{
+					uint16_t at = *reinterpret_cast<uint16_t*>(&buffer[beginningOfData] + i * type * sizeof(uint16_t) + j * sizeof(uint16_t));
+					att[i * type + j] = accessor.normalized ? static_cast<float>(at) / UINT16_MAX : static_cast<float>(at);
+				}
+			}
+		}
+
+		return att;
 	}
 	static LvnTextureFilter getSamplerFilterEnum(int filter)
 	{
@@ -704,6 +822,11 @@ namespace gltfs
 		nlm::json JSON = gltfData->JSON;
 		nlm::json node = JSON["nodes"][nextNodeIndex];
 
+		if (node.contains("skin"))
+			nextNode->skin = node["skin"];
+		else
+			nextNode->skin = -1;
+
 		LvnVec3 translationVec = LvnVec3(0.0f, 0.0f, 0.0f);
 		if (node.find("translation") != node.end())
 		{
@@ -743,15 +866,15 @@ namespace gltfs
 		LvnMat4 translation = lvn::translate(LvnMat4(1.0f), translationVec);
 		LvnMat4 rotate = lvn::quatToMat4(rotationQuat);
 		LvnMat4 scale = lvn::scale(LvnMat4(1.0f), scaleVec);
-		nextNode->matrix = matrix * translation * rotate * scale;
+		nextNode->matrix = matrix;
 
-		if (node.find("mesh") != node.end())
+		if (node.contains("mesh"))
 		{
 			nextNode->mesh = gltfs::loadMesh(gltfData, node["mesh"]);
 		}
 
 		// Check if the node has children
-		if (node.find("children") != node.end())
+		if (node.contains("children"))
 		{
 			nextNode->children.resize(node["children"].size());
 
@@ -776,9 +899,12 @@ namespace gltfs
 			nlm::json primitiveNode = JSON["meshes"][meshIndex]["primitives"][i];
 
 			int posIndex      = primitiveNode["attributes"]["POSITION"];
+			int colorIndex    = primitiveNode["attributes"].value("COLOR_0", -1);
 			int texIndex      = primitiveNode["attributes"].value("TEXCOORD_0", -1);
 			int normalIndex   = primitiveNode["attributes"].value("NORMAL", -1);
 			int tangentIndex  = primitiveNode["attributes"].value("TANGENT", -1);
+			int jointsIndex   = primitiveNode["attributes"].value("JOINTS_0", -1);
+			int weightsIndex  = primitiveNode["attributes"].value("WEIGHTS_0", -1);
 			int indicesIndex  = primitiveNode.value("indices", -1);
 			int materialIndex = primitiveNode.value("material", -1);
 
@@ -812,25 +938,35 @@ namespace gltfs
 			}
 
 			// color
-			LvnVec4 color = materialIndex >= 0 ? gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor : LvnVec4(1, 1, 1, 1);
+			std::vector<LvnVec4> colors;
+			if (colorIndex >= 0)
+			{
+				accessor = gltfData->accessors[colorIndex];
+				colors.resize(accessor.count);
+				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+				memcpy(colors.data(), data.data(), data.size() * sizeof(float));
+			}
+			else if (materialIndex >= 0) // check material for base color if no color attribute exists
+			{
+				colors.resize(positions.size());
+				for (uint32_t j = 0; j < positions.size(); j++)
+					colors[j] = gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor;
+			}
+			else // default vertex color if no material exists
+			{
+				colors.resize(positions.size());
+				for (uint32_t j = 0; j < positions.size(); j++)
+					colors[j] = LvnVec4(1, 1, 1, 1);
+			}
 
 			// texcoords
 			std::vector<LvnVec2> texcoords;
 			if (texIndex >= 0)
 			{
 				accessor = gltfData->accessors[texIndex];
-				bufferView = gltfData->bufferViews[accessor.bufferView];
-				buffer = gltfData->buffers[bufferView.buffer];
-
-				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
-				size_t compType = gltfs::getCompType(accessor.componentType);
-
 				texcoords.resize(accessor.count);
-				for (uint32_t j = 0; j < accessor.count; j++)
-				{
-					memcpy(&texcoords[j].x, &buffer[beginningOfData] + j * 2 * compType + 0 * compType, compType);
-					memcpy(&texcoords[j].y, &buffer[beginningOfData] + j * 2 * compType + 1 * compType, compType);
-				}
+				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+				memcpy(texcoords.data(), data.data(), data.size() * sizeof(float));
 			}
 			else
 			{
@@ -898,6 +1034,34 @@ namespace gltfs
 				bitangents.resize(positions.size(), 0);
 			}
 
+			// joints
+			std::vector<LvnVec4> joints;
+			if (jointsIndex >= 0)
+			{
+				accessor = gltfData->accessors[jointsIndex];
+				joints.resize(accessor.count);
+				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+				memcpy(joints.data(), data.data(), data.size() * sizeof(float));
+			}
+			else
+			{
+				joints.resize(positions.size(), 0);
+			}
+
+			// weights
+			std::vector<LvnVec4> weights;
+			if (weightsIndex >= 0)
+			{
+				accessor = gltfData->accessors[weightsIndex];
+				weights.resize(accessor.count);
+				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+				memcpy(weights.data(), data.data(), data.size() * sizeof(float));
+			}
+			else
+			{
+				weights.resize(positions.size(), 0);
+			}
+
 			// combine vertex data
 			std::vector<LvnVertex> vertices;
 			vertices.resize(positions.size());
@@ -906,11 +1070,13 @@ namespace gltfs
 			{
 				vertices[j] = LvnVertex {
 					positions[j],
-					color,
+					colors[j],
 					texcoords[j],
 					normals[j],
 					LvnVec3(tangents[j]),
 					bitangents[j],
+					joints[j],
+					weights[j],
 				};
 			}
 

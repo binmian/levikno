@@ -392,7 +392,6 @@ int main(int argc, char** argv)
 
 	// uniform buffer create info
 	LvnUniformBufferCreateInfo uniformBufferInfo{};
-	uniformBufferInfo.binding = 0;
 	uniformBufferInfo.type = Lvn_BufferType_Uniform;
 	uniformBufferInfo.size = sizeof(UniformData);
 
@@ -507,7 +506,7 @@ int main(int argc, char** argv)
 		LvnMat4 camera = proj * view;
 
 		uniformData.matrix = camera;
-		lvn::updateUniformBufferData(window, uniformBuffer, &uniformData, sizeof(uniformData), 0);
+		lvn::updateUniformBufferData(uniformBuffer, &uniformData, sizeof(uniformData), 0);
 
 
 		float paddleSpeed = height;
