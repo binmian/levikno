@@ -5,6 +5,7 @@
 #include <ctime>
 
 #include "stb_image.h"
+#include "stb_image_write.h"
 #include "miniaudio.h"
 #include "freetype/freetype.h"
 #include "enet/enet.h"
@@ -2892,6 +2893,115 @@ LvnImageHdrData loadHdrImageData(const char* filepath, int forceChannels, bool f
 	stbi_image_free(pixels);
 
 	return imageData;
+}
+
+LvnResult writeImagePng(const LvnImageData* imageData, const char* filename)
+{
+	int stride = imageData->width * imageData->channels;
+	int result = stbi_write_png(filename, (int)imageData->width, (int)imageData->height, (int)imageData->channels, imageData->pixels.data(), stride);
+	return result ? Lvn_Result_Success : Lvn_Result_Failure;
+}
+
+LvnResult writeImageJpg(const LvnImageData* imageData, const char* filename, int quality)
+{
+	int result = stbi_write_jpg(filename, imageData->width, imageData->height, imageData->channels, imageData->pixels.data(), quality);
+	return result ? Lvn_Result_Success : Lvn_Result_Failure;
+}
+
+LvnResult writeImageBmp(const LvnImageData* imageData, const char* filename)
+{
+	int result = stbi_write_bmp(filename, imageData->width, imageData->height, imageData->channels, imageData->pixels.data());
+	return result ? Lvn_Result_Success : Lvn_Result_Failure;
+}
+
+void imageFlipVertically(LvnImageData* imageData)
+{
+	uint8_t* data = imageData->pixels.data();
+	uint32_t rowSize = imageData->width * imageData->channels;
+	std::vector<uint8_t> tempRow(rowSize);
+
+	for (uint32_t y = 0; y < imageData->height / 2; y++)
+	{
+		uint8_t* rowTop = data + y * rowSize;
+		uint8_t* rowBottom = data + (imageData->height - y - 1) * rowSize;
+
+		memcpy(tempRow.data(), rowTop, rowSize);
+		memcpy(rowTop, rowBottom, rowSize);
+		memcpy(rowBottom, tempRow.data(), rowSize);
+	}
+}
+
+void imageFlipHorizontally(LvnImageData* imageData)
+{
+	uint8_t* data = imageData->pixels.data();
+
+	for (uint32_t y = 0; y < imageData->height; y++)
+	{
+		uint8_t* row = data + y * imageData->width * imageData->channels;
+
+		for (uint32_t x = 0; x < imageData->width / 2; x++)
+		{
+			uint8_t* leftpx = row + x * imageData->channels;
+			uint8_t* rightpx = row + (imageData->width - x - 1) * imageData->channels;
+
+			for (uint32_t c = 0; c < imageData->channels; c++)
+				std::swap(leftpx[c], rightpx[c]);
+		}
+	}
+}
+
+void imageRotateCW(LvnImageData* imageData)
+{
+	uint8_t* data = imageData->pixels.data();
+	uint32_t newWidth = imageData->height;
+	uint32_t newHeight = imageData->width;
+
+	std::vector<uint8_t> rotated(newWidth * newHeight * imageData->channels);
+
+	for (uint32_t y = 0; y < imageData->height; y++)
+	{
+		for (uint32_t x = 0; x < imageData->width; x++)
+		{
+			for (uint32_t c = 0; c < imageData->channels; c++)
+			{
+				uint32_t srcIndex = (y * imageData->width + x) * imageData->channels + c;
+				uint32_t dstx = imageData->height - 1 - y;
+				uint32_t dsty = x;
+				uint32_t dstIndex = (dsty * newWidth + dstx) * imageData->channels + c;
+				rotated[dstIndex] = data[srcIndex];
+			}
+		}
+	}
+
+	imageData->pixels = std::move(LvnData<uint8_t>(rotated.data(), rotated.size()));
+	std::swap(imageData->width, imageData->height);
+}
+
+void imageRotateCCW(LvnImageData* imageData)
+{
+	uint8_t* data = imageData->pixels.data();
+	uint32_t newWidth = imageData->height;
+	uint32_t newHeight = imageData->width;
+
+	std::vector<uint8_t> rotated(newWidth * newHeight * imageData->channels);
+
+	for (uint32_t y = 0; y < imageData->height; y++)
+	{
+		for (uint32_t x = 0; x < imageData->width; x++)
+		{
+			for (uint32_t c = 0; c < imageData->channels; c++)
+			{
+				uint32_t srcIndex = (y * imageData->width + x) * imageData->channels + c;
+				uint32_t dstx = y;
+				uint32_t dsty = imageData->width - 1 - x;
+				uint32_t dstIndex = (dsty * newWidth + dstx) * imageData->channels + c;
+				rotated[dstIndex] = data[srcIndex];
+			}
+		}
+	}
+
+	imageData->pixels = std::move(LvnData<uint8_t>(rotated.data(), rotated.size()));
+	std::swap(imageData->width, imageData->height);
 }
 
 LvnModel loadModel(const char* filepath)

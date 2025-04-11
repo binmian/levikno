@@ -106,6 +106,8 @@ set(LVN_SOURCES
 	# stb
 	src/external/stb_image.c
 	src/external/stb_image.h
+	src/external/stb_image_write.c
+	src/external/stb_image_write.h
 
 	# json
 	src/external/json.h

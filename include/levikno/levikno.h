@@ -330,6 +330,15 @@ enum LvnFileMode
 	Lvn_FileMode_Append,
 };
 
+enum LvnImageChannel
+{
+   Lvn_ImageChannel_Default    = 0,
+   Lvn_ImageChannel_Grey       = 1,
+   Lvn_ImageChannel_Grey_Alpha = 2,
+   Lvn_ImageChannel_RGB        = 3,
+   Lvn_ImageChannel_RGBA       = 4,
+};
+
 
 // -- [SUBSECT]: Key Code Enums
 // ------------------------------------------------------------
@@ -1516,6 +1525,15 @@ namespace lvn
 	LVN_API LvnImageData                loadImageDataMemoryThread(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageHdrData             loadHdrImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 
+	LVN_API LvnResult                   writeImagePng(const LvnImageData* imageData, const char* filename);               // writes the image data into a png file with the filename/filepath
+	LVN_API LvnResult                   writeImageJpg(const LvnImageData* imageData, const char* filename, int quality);  // writes the image data into a jpg file with the filename/filepath and the jpg quality (from 0...100)
+	LVN_API LvnResult                   writeImageBmp(const LvnImageData* imageData, const char* filename);               // writes the image data into a bmp file with the filename/filepath
+
+	LVN_API void                        imageFlipVertically(LvnImageData* imageData);                                     // flips the image vertically
+	LVN_API void                        imageFlipHorizontally(LvnImageData* imageData);                                   // flips the image horizontally
+	LVN_API void                        imageRotateCW(LvnImageData* imageData);                                           // rotates the image clockwise (right)
+	LVN_API void                        imageRotateCCW(LvnImageData* imageData);                                          // rotates the image counter clockwise (left)
+
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        unloadModel(LvnModel* model);
 
@@ -2533,14 +2551,20 @@ public:
 		return m_Data[i];
 	}
 
-	const T* const data() const { return m_Data; }
-	const size_t size() const { return m_Size; }
-	const size_t memsize() const { return m_MemSize; }
+	size_t            size() { return m_Size; }
+	size_t            memsize() { return m_MemSize; }
 
-	const T* const begin() const { return &m_Data[0]; }
-	const T* const end() const { return &m_Data[0] + m_Size; }
-	const T* const front() const { return &m_Data[0]; }
-	const T* const back() const { return &m_Data[m_Size - 1]; }
+	T*                data() { return m_Data; }
+	const T* const    data() const { return m_Data; }
+
+	T*                begin() { return &m_Data[0]; }
+	const T* const    begin() const { return &m_Data[0]; }
+	T*                end() { return &m_Data[0] + m_Size; }
+	const T* const    end() const { return &m_Data[0] + m_Size; }
+	T*                front() { return &m_Data[0]; }
+	const T* const    front() const { return &m_Data[0]; }
+	T*                back() { return &m_Data[m_Size - 1]; }
+	const T* const    back() const { return &m_Data[m_Size - 1]; }
 };
 
 class LvnTimer
