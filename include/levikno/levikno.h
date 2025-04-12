@@ -330,15 +330,6 @@ enum LvnFileMode
 	Lvn_FileMode_Append,
 };
 
-enum LvnImageChannel
-{
-   Lvn_ImageChannel_Default    = 0,
-   Lvn_ImageChannel_Grey       = 1,
-   Lvn_ImageChannel_Grey_Alpha = 2,
-   Lvn_ImageChannel_RGB        = 3,
-   Lvn_ImageChannel_RGBA       = 4,
-};
-
 
 // -- [SUBSECT]: Key Code Enums
 // ------------------------------------------------------------
@@ -1261,7 +1252,7 @@ namespace lvn
 	// -- [SUBSECT]: Core Functions
 	// ------------------------------------------------------------
 
-	LvnContext*                     getContext();                                       // pointer to the Levikno Context created from the library
+	LVN_API LvnContext*             getContext();                                       // pointer to the Levikno Context created from the library
 
 	LVN_API LvnResult               createContext(LvnContextCreateInfo* createInfo);
 	LVN_API void                    terminateContext();
@@ -5075,9 +5066,9 @@ struct LvnContextCreateInfo
 	struct
 	{
 		LvnMemAllocMode           memAllocMode;                  // memory allocation mode, how memory should be allocated when creating new object
-		LvnMemoryBindingInfo*     memoryBindings;                // array of object alloc info structs to tell how many objects of each type to allocate if using memory pool
+		LvnMemoryBindingInfo*     pMemoryBindings;               // array of object alloc info structs to tell how many objects of each type to allocate if using memory pool
 		uint32_t                  memoryBindingCount;            // number of object alloc inso structs;
-		LvnMemoryBindingInfo*     blockMemoryBindings;           // array of objects alloc info structs of each type to allocate for further memory blocks in case if the first block is full
+		LvnMemoryBindingInfo*     pBlockMemoryBindings;          // array of objects alloc info structs of each type to allocate for further memory blocks in case if the first block is full
 		uint32_t                  blockMemoryBindingCount;       // number of block object alloc info structs
 	} memoryInfo;
 };

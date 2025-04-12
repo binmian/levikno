@@ -212,7 +212,17 @@ public:
 
 	void                 set_next_memory_binding(LvnMemoryBinding* next) { m_Next = next; }
 	LvnMemoryBinding*    get_next_memory_binding() { return m_Next; }
-	bool                 full() { return m_Size == m_Capacity; }
+	bool                 full() { return m_Size == m_Capacity && m_Available.empty(); }
+
+	LvnMemoryBinding* find_empty_memory_binding()
+	{
+		if (!LvnMemoryBinding::full()) { return this; }
+
+		if (m_Next != nullptr)
+			return m_Next->find_empty_memory_binding();
+
+		return nullptr;
+	}
 
 	void* take_next()
 	{
@@ -223,8 +233,9 @@ public:
 			return value;
 		}
 
-		if (full()) // current memory block is full, get next memory block
+		if (m_Size == m_Capacity) // current memory block is full, get next memory block
 		{
+			LVN_CORE_ASSERT(m_Next != nullptr, "cannot take next memory index, next memory binding not set");
 			return m_Next->take_next();
 		}
 
@@ -243,8 +254,8 @@ public:
 
 struct LvnMemoryPool
 {
-	LvnList<LvnMemoryBlock> memBlocks;
-
+	LvnMemoryBlock baseMemoryBlock;
+	std::vector<LvnList<LvnMemoryBlock>> memBlocks;
 	std::vector<LvnList<LvnMemoryBinding>> memBindings;
 };
 
@@ -645,7 +656,6 @@ struct LvnContext
 	LvnMemoryPool                        memoryPool;
 	std::vector<LvnStructureTypeInfo>    sTypeMemAllocInfos;
 	std::vector<LvnStructureTypeInfo>    blockMemAllocInfos;
-	uint64_t                             blockMemSize;
 
 	// memory object allocations
 	size_t                               numMemoryAllocations;

@@ -90,9 +90,8 @@ static void                         initStandardPipelineSpecification(LvnContext
 static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
 static const char*                  getStructTypeEnumStr(LvnStructureType stype);
 static uint64_t                     getStructTypeSize(LvnStructureType sType);
-static void                         setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount);
-static void                         createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
-static void                         createBlockMemoryPool(LvnContext* lvnctx);
+static LvnResult                    createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
+static void                         createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType);
 
 template <typename T>
 static T* createObject(LvnContext* lvnctx, LvnStructureType sType);
@@ -450,71 +449,91 @@ static uint64_t getStructTypeSize(LvnStructureType sType)
 	return lvn::getContext()->sTypeMemAllocInfos[sType].size;
 }
 
-static void setMemoryBlockBindings(LvnMemoryPool* memPool, uint32_t blockIndex, LvnStructureTypeInfo* pStructInfos, uint32_t structInfoCount)
+static LvnResult createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo)
 {
-	uint64_t memIndex = 0;
+	lvn::setDefaultStructTypeMemAllocInfos(lvnctx);
 
-	for (uint32_t i = 0; i < structInfoCount; i++)
-	{
-		auto& memBinding = memPool->memBindings[pStructInfos[i].sType];
-
-		LvnMemoryBinding* prevMemBinding = nullptr;
-		if (!memBinding.empty())
-			prevMemBinding = &memBinding.back();
-
-		uint64_t count = pStructInfos[i].count;
-		memBinding.push_back(LvnMemoryBinding(memPool->memBlocks[blockIndex][memIndex], pStructInfos[i].size, count));
-		memIndex += count * pStructInfos[i].size;
-
-		if (prevMemBinding != nullptr)
-			prevMemBinding->set_next_memory_binding(&memBinding.back());
-	}
-}
-
-static void createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo)
-{
 	lvnctx->memoryMode = createInfo->memoryInfo.memAllocMode;
-	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { return; }
+	if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual) { return Lvn_Result_Success; }
 
 	// set struct memory configs
-	auto structTypes = lvnctx->sTypeMemAllocInfos;
+	lvnctx->blockMemAllocInfos = lvnctx->sTypeMemAllocInfos;
+	auto& structTypes = lvnctx->sTypeMemAllocInfos;
 	for (uint64_t i = 0; i < createInfo->memoryInfo.memoryBindingCount; i++)
-		structTypes[createInfo->memoryInfo.memoryBindings[i].sType].count = createInfo->memoryInfo.memoryBindings[i].count;
+	{
+		if (createInfo->memoryInfo.pMemoryBindings[i].count == 0)
+		{
+			LVN_CORE_ERROR("[context]: createInfo->memoryInfo.pMemoryBindings[%u].count is 0, cannot have a memory binding with a count of 0", i);
+			return Lvn_Result_Failure;
+		}
+
+		structTypes[createInfo->memoryInfo.pMemoryBindings[i].sType].count = createInfo->memoryInfo.pMemoryBindings[i].count;
+	}
 
 	// get total memory in bytes for memory pool
 	uint64_t memSize = 0;
 	for (uint64_t i = 0; i < structTypes.size(); i++)
-		memSize += lvn::getStructTypeSize(structTypes[i].sType) * structTypes[i].count;
+		memSize += structTypes[i].size * structTypes[i].count;
 
 	// create the first memory block
 	LvnMemoryPool* memPool = &lvnctx->memoryPool;
-	memPool->memBlocks.push_back(LvnMemoryBlock(memSize));
+	memPool->baseMemoryBlock = LvnMemoryBlock(memSize);
 
+	memPool->memBlocks.resize(Lvn_Stype_Max); // future memory blocks
 	memPool->memBindings.resize(Lvn_Stype_Max);
-	lvn::setMemoryBlockBindings(memPool, 0, structTypes.data(), structTypes.size());
 
+	// set memory block bindings (all the first bindings are within the first memory block)
+	// newly created memory bindings will have their own indicidual memory blocks
+	uint64_t memIndex = 0;
+	for (uint32_t i = 0; i < structTypes.size(); i++)
+	{
+		auto& memBinding = memPool->memBindings[structTypes[i].sType];
+
+		uint64_t count = structTypes[i].count;
+		memBinding.push_back(LvnMemoryBinding(memPool->baseMemoryBlock[memIndex], structTypes[i].size, count));
+		memIndex += count * structTypes[i].size;
+	}
 
 	// set struct block memory configs
-	lvnctx->blockMemAllocInfos = lvnctx->sTypeMemAllocInfos;
 	for (uint64_t i = 0; i < createInfo->memoryInfo.blockMemoryBindingCount; i++)
-		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.blockMemoryBindings[i].sType].count = createInfo->memoryInfo.blockMemoryBindings[i].count;
+	{
+		if (createInfo->memoryInfo.pBlockMemoryBindings[i].count == 0)
+		{
+			LVN_CORE_ERROR("[context]: createInfo->memoryInfo.pBlockMemoryBindings[%u].count is 0, cannot have a memory binding with a count of 0", i);
+			return Lvn_Result_Failure;
+		}
 
-	// get total memory in bytes for memory pool
-	lvnctx->blockMemSize = 0;
-	for (uint64_t i = 0; i < lvnctx->blockMemAllocInfos.size(); i++)
-		lvnctx->blockMemSize += lvnctx->blockMemAllocInfos[i].size * lvnctx->blockMemAllocInfos[i].count;
+		lvnctx->blockMemAllocInfos[createInfo->memoryInfo.pBlockMemoryBindings[i].sType].count = createInfo->memoryInfo.pBlockMemoryBindings[i].count;
+	}
 
+	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom base memory bindings created, %u custom memory block bindings created, total base memory pool size: %zu", createInfo->memoryInfo.memoryBindingCount, createInfo->memoryInfo.blockMemoryBindingCount, memSize);
 
-	LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom memory bindings created, total memory block size: %zu bytes", createInfo->memoryInfo.memoryBindingCount, memSize);
+	return Lvn_Result_Success;
 }
 
-static void createBlockMemoryPool(LvnContext* lvnctx)
+static void createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType)
 {
-	// create the next memory block
-	LvnMemoryPool* memPool = &lvnctx->memoryPool;
-	memPool->memBlocks.push_back(LvnMemoryBlock(lvnctx->blockMemSize));
+	uint64_t size = lvnctx->blockMemAllocInfos[sType].size;
+	uint64_t count = lvnctx->blockMemAllocInfos[sType].count;
+	uint64_t memsize = size * count;
 
-	lvn::setMemoryBlockBindings(memPool, memPool->memBlocks.size() - 1, lvnctx->blockMemAllocInfos.data(), lvnctx->blockMemAllocInfos.size());
+	// create the next memory block in the list for sType
+	LvnMemoryPool* memPool = &lvnctx->memoryPool;
+	memPool->memBlocks[sType].push_back(LvnMemoryBlock(memsize));
+
+	// set memory binding for sType
+	auto& memBinding = memPool->memBindings[sType];
+
+	LvnMemoryBinding* prevMemBinding = nullptr;
+	if (!memBinding.empty())
+		prevMemBinding = &memBinding.back();
+
+	// bind the memory binding for sType to the newly created memory block
+	memBinding.push_back(LvnMemoryBinding(memPool->memBlocks[sType].back()[0], size, count));
+
+	// set the previous memory binding to the newly created memory binding
+	if (prevMemBinding != nullptr)
+		prevMemBinding->set_next_memory_binding(&memBinding.back());
 }
 
 template <typename T>
@@ -528,8 +547,8 @@ static T* createObject(LvnContext* lvnctx, LvnStructureType sType)
 	else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
 	{
 		auto& memBinding = lvnctx->memoryPool.memBindings[sType][0];
-		if (memBinding.full() && memBinding.get_next_memory_binding() == nullptr)
-			lvn::createBlockMemoryPool(lvnctx);
+		if (memBinding.find_empty_memory_binding() == nullptr)
+			lvn::createMemoryBlock(lvnctx, sType);
 
 		object = new (static_cast<T*>(memBinding.take_next())) T();
 	}
@@ -586,8 +605,6 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	lvnctx->entityIndexID = 0;
 	lvnctx->maxEntityIDs = UINT64_MAX;
 
-	lvn::setDefaultStructTypeMemAllocInfos(lvnctx);
-
 	// logging
 	lvn::initLogging(createInfo);
 
@@ -598,10 +615,12 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 		lvnctx->objectMemoryAllocations.sTypes[i] = { (LvnStructureType)i, 0 };
 	}
 
-	lvn::createContextMemoryPool(lvnctx, createInfo);
+	// memory pool
+	LvnResult result = lvn::createContextMemoryPool(lvnctx, createInfo);
+	if (result != Lvn_Result_Success) { return result; }
 
 	// window context
-	LvnResult result = setWindowContext(lvnctx, createInfo->windowapi);
+	result = setWindowContext(lvnctx, createInfo->windowapi);
 	if (result != Lvn_Result_Success) { return result; }
 
 	// graphics context

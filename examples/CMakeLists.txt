@@ -14,6 +14,7 @@ set(LVN_SOURCES
 	loadingShader.cpp
 	logging.cpp
 	loggingToFile.cpp
+	memoryPool.cpp
 	pbrScene.cpp
 	pbrSpheres.cpp
 	pong.cpp
