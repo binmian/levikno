@@ -1532,7 +1532,7 @@ namespace lvn
 	// -- [SUBSECT]: Audio Functions
 	// ------------------------------------------------------------
 
-	LVN_API LvnResult                   createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo);
+	LVN_API LvnResult                   createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo);
 	LVN_API void                        destroySound(LvnSound* sound);
 	LVN_API LvnSoundCreateInfo          soundConfigInit(const char* filepath);
 

@@ -3098,7 +3098,7 @@ uint32_t getVertexDataTypeSize(LvnVertexDataType type)
 // [SECTION]: Audio Functions
 // ------------------------------------------------------------
 
-LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
+LvnResult createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
@@ -3127,6 +3127,7 @@ LvnResult createSoundFromFile(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 	ma_sound_set_volume(&soundPtr->sound, createInfo->volume);
 	ma_sound_set_pan(&soundPtr->sound, createInfo->pan);
 	ma_sound_set_pitch(&soundPtr->sound, createInfo->pitch);
+	ma_sound_set_position(&soundPtr->sound, createInfo->pos.x, createInfo->pos.y, createInfo->pos.z);
 	ma_sound_set_looping(&soundPtr->sound, createInfo->looping);
 
 	LVN_CORE_TRACE("created sound: (%p), volume: %.2f, pan: %.2f, pitch: %.2f", *sound, createInfo->volume, createInfo->pan, createInfo->pitch);

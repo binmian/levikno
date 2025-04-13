@@ -446,12 +446,12 @@ int main(int argc, char** argv)
 	LvnSoundCreateInfo soundCreateInfo = lvn::soundConfigInit("res/audio/beep.wav");
 
 	LvnSound* sound;
-	lvn::createSoundFromFile(&sound, &soundCreateInfo);
+	lvn::createSound(&sound, &soundCreateInfo);
 
 	LvnSoundCreateInfo soundWinCreateInfo = lvn::soundConfigInit("res/audio/winBeep.wav");
 
 	LvnSound* soundWin;
-	lvn::createSoundFromFile(&soundWin, &soundWinCreateInfo);
+	lvn::createSound(&soundWin, &soundWinCreateInfo);
 
 
 	// draw list and game objects

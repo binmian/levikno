@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 
 	// create sound source
 	LvnSound* sound;
-	lvn::createSoundFromFile(&sound, &soundCreateInfo);
+	lvn::createSound(&sound, &soundCreateInfo);
 
 	// play sound
 	lvn::soundPlayStart(sound);

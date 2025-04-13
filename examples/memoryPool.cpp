@@ -30,20 +30,20 @@
 //            /-------------------------------------\ /----------------------\ /-------\
 //                  v                                            v
 //           +---------------------------------------+------------------------+---------+
-//  memory:  | X  |    | X  | X  | X  |    | X  | X  | X  | X  |    |    |    | X  | X  |   <---- Logger LvnBinding is full, levikno allocates a second memory block/binding
+//  memory:  | X  |    |    |    |    |    |    |    | X  | X  |    |    |    | X  | X  |   <---- Logger LvnBinding is full, levikno allocates a second memory block/binding
 //           +---------------------------------------+------------------------+---------+         and links the second binding to the end of the first
 //  count:   | 1    2    3    4    5    6    7    8  | 1    2    3    4    5  | 1    2
 //                                                |                        |         |
 //                     +--------------------------+                        |         |
-//                     |                             +---------------------+ +-------+
-//  Block Memories:    |                             |                       |              - Note that block memories for each sType are seperate from each other unlike
-//                     |                             |                       |                the base memory block where evert sType binding is contained within on block
+//                     |                             +---------------------+         |
+//  Block Memories:    |                             |                       +-------+      - Note that block memories for each sType are seperate from each other unlike
+//                     |                             |                       |                the base memory block where every sType binding is contained within one block
 //  Bindings:       Buffers                       Textures                Loggers
 //                     |                             |                       |
 //            /-----------------\        /----------------------\        /-------\
 //                                                                             v  <---- next memory index to be used when creating new object
 //           +-------------------+      +------------------------+      +---------+
-//  memory:  | X  | X  |    |    |      |    |    |    |    |    |      | X  |    |
+//  memory:  |    |    |    |    |      |    |    |    |    |    |      | X  |    |
 //           +-------------------+      +-------------------+----+      +---------+
 //  count:     1    2    3    4           1    2    3    4    5           1    2
 //                            |                               |                |
