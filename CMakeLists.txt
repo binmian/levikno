@@ -98,28 +98,28 @@ set(LVN_API_SRC
 
 set(LVN_EXTERNAL_SRC
 	# glad
-	external/glad/include/glad/glad.h
-	external/glad/src/glad.c
+	src/external/glad/include/glad/glad.h
+	src/external/glad/src/glad.c
 
 	# vma
-	external/vk_mem_alloc.h
+	src/external/vk_mem_alloc.h
 
 	# stb
-	external/stb_image.c
-	external/stb_image.h
-	external/stb_image_write.c
-	external/stb_image_write.h
+	src/external/stb_image.c
+	src/external/stb_image.h
+	src/external/stb_image_write.c
+	src/external/stb_image_write.h
 
 	# json
-	external/json.h
+	src/external/json.h
 
 	# miniaudio
-	external/miniaudio.c
-	external/miniaudio.h
+	src/external/miniaudio.c
+	src/external/miniaudio.h
 
 	# mikktspace
-	external/mikktspace.c
-	external/mikktspace.h
+	src/external/mikktspace.c
+	src/external/mikktspace.h
 )
 
 set(LVN_SRC
@@ -130,7 +130,8 @@ set(LVN_SRC
 	src/lvn_loadModel.h
 )
 
-# Subdirectories ---------------------------------------- /
+
+# Subdirectories
 
 # GLFW
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -139,10 +140,10 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 set(GLFW_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
 
-add_subdirectory(external/glfw)
+add_subdirectory(src/external/glfw)
 
 list(APPEND LVN_EXTERNAL_SRC $<TARGET_OBJECTS:glfw>)
-include_directories(BEFORE SYSTEM external/glfw/include)
+include_directories(BEFORE SYSTEM src/external/glfw/include)
 
 
 # freetype
@@ -153,19 +154,19 @@ set(FT_DISABLE_HARFBUZZ TRUE CACHE BOOL "")
 set(FT_DISABLE_BROTLI TRUE CACHE BOOL "")
 set(FT_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
 
-add_subdirectory(external/freetype)
+add_subdirectory(src/external/freetype)
 
 list(APPEND LVN_EXTERNAL_SRC $<TARGET_OBJECTS:freetype>)
-include_directories(BEFORE SYSTEM external/freetype/include)
+include_directories(BEFORE SYSTEM src/external/freetype/include)
 
 
 # enet
 set(ENET_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
 
-add_subdirectory(external/enet)
+add_subdirectory(src/external/enet)
 
 list(APPEND LVN_EXTERNAL_SRC $<TARGET_OBJECTS:enet>)
-include_directories(BEFORE SYSTEM external/enet/include)
+include_directories(BEFORE SYSTEM src/external/enet/include)
 
 
 # library
@@ -189,9 +190,9 @@ target_include_directories(levikno
 		src/api/graphics/vulkan
 		src/api/graphics/opengl
 		src/api/window/glfw
-		external
-		external/glad/include
-		external/vulkan/include
+		src/external
+		src/external/glad/include
+		src/external/vulkan/include
 )
 
 

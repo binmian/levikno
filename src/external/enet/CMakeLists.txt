@@ -89,7 +89,7 @@ if(WIN32 AND BUILD_SHARED_LIBS AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang
     add_definitions(-DENET_BUILDING_LIB)
 endif()
 
-add_library(enet
+add_library(enet ${ENET_LIBRARY_TYPE}
     ${INCLUDE_FILES}
     ${SOURCE_FILES}
 )
