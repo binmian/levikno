@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
+include(CMakeDependentOption)
+
 set(CMAKE_CXX_STANDARD 17)
 
 # Levikno
@@ -31,6 +33,12 @@ else()
 	add_definitions(-DLVN_PLATFORM_UNKNOWN)
 endif()
 
+# build shared
+if (BUILD_SHARED_LIBS)
+	set(CMAKE_C_VISIBILITY_PRESET hidden)
+	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+	set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+endif()
 
 
 # Find VulkanSDK
@@ -75,11 +83,10 @@ endif()
 
 # Source build files
 
-# Graphics
-set(LVN_GRAPHICS_SRC
-	# glad
-	src/external/glad/include/glad/glad.h
-	src/external/glad/src/glad.c
+set(LVN_API_SRC
+	# glfw
+	src/api/window/glfw/lvn_glfw.cpp
+	src/api/window/glfw/lvn_glfw.h
 
 	# opengl
 	src/api/graphics/opengl/lvn_opengl.cpp
@@ -89,42 +96,84 @@ set(LVN_GRAPHICS_SRC
 	${LVN_VULKAN_SRC}
 )
 
-set(LVN_SOURCES
+set(LVN_EXTERNAL_SRC
+	# glad
+	external/glad/include/glad/glad.h
+	external/glad/src/glad.c
+
+	# vma
+	external/vk_mem_alloc.h
+
+	# stb
+	external/stb_image.c
+	external/stb_image.h
+	external/stb_image_write.c
+	external/stb_image_write.h
+
+	# json
+	external/json.h
+
+	# miniaudio
+	external/miniaudio.c
+	external/miniaudio.h
+
+	# mikktspace
+	external/mikktspace.c
+	external/mikktspace.h
+)
+
+set(LVN_SRC
 	include/levikno/levikno.h
 	src/levikno.cpp
 	src/levikno_internal.h
 	src/lvn_loadModel.cpp
 	src/lvn_loadModel.h
-
-	# glfw
-	src/api/window/glfw/lvn_glfw.cpp
-	src/api/window/glfw/lvn_glfw.h
-
-	# vma
-	src/external/vk_mem_alloc.h
-
-	# stb
-	src/external/stb_image.c
-	src/external/stb_image.h
-	src/external/stb_image_write.c
-	src/external/stb_image_write.h
-
-	# json
-	src/external/json.h
-
-	# miniaudio
-	src/external/miniaudio.c
-	src/external/miniaudio.h
-
-	# mikktspace
-	src/external/mikktspace.c
-	src/external/mikktspace.h
-
-	${LVN_GRAPHICS_SRC}
 )
 
+# Subdirectories ---------------------------------------- /
+
+# GLFW
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+set(GLFW_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
+
+add_subdirectory(external/glfw)
+
+list(APPEND LVN_EXTERNAL_SRC $<TARGET_OBJECTS:glfw>)
+include_directories(BEFORE SYSTEM external/glfw/include)
+
+
+# freetype
+set(FT_DISABLE_ZLIB TRUE CACHE BOOL "")
+set(FT_DISABLE_BZIP2 TRUE CACHE BOOL "")
+set(FT_DISABLE_PNG TRUE CACHE BOOL "")
+set(FT_DISABLE_HARFBUZZ TRUE CACHE BOOL "")
+set(FT_DISABLE_BROTLI TRUE CACHE BOOL "")
+set(FT_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
+
+add_subdirectory(external/freetype)
+
+list(APPEND LVN_EXTERNAL_SRC $<TARGET_OBJECTS:freetype>)
+include_directories(BEFORE SYSTEM external/freetype/include)
+
+
+# enet
+set(ENET_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
+
+add_subdirectory(external/enet)
+
+list(APPEND LVN_EXTERNAL_SRC $<TARGET_OBJECTS:enet>)
+include_directories(BEFORE SYSTEM external/enet/include)
+
+
 # library
-add_library(levikno STATIC ${LVN_SOURCES})
+add_library(levikno STATIC
+	${LVN_API_SRC}
+	${LVN_EXTERNAL_SRC}
+	${LVN_SRC}
+)
 
 if (MSVC)
 	target_compile_options(levikno PRIVATE "/W2")
@@ -132,30 +181,17 @@ elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clan
 	target_compile_options(levikno PRIVATE -w)
 endif()
 
-# Subdirectories ---------------------------------------- /
-# GLFW
-add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/glfw)
-
-# freetype
-add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/freetype)
-
-# enet
-add_subdirectory(${CMAKE_SOURCE_DIR}/src/external/enet)
-
 
 target_include_directories(levikno
 	PRIVATE
-		${PROJECT_SOURCE_DIR}/src
-		${PROJECT_SOURCE_DIR}/include/levikno
-		${PROJECT_SOURCE_DIR}/src/api/graphics/vulkan
-		${PROJECT_SOURCE_DIR}/src/api/graphics/opengl
-		${PROJECT_SOURCE_DIR}/src/api/window/glfw
-		${PROJECT_SOURCE_DIR}/src/external
-		${PROJECT_SOURCE_DIR}/src/external/glfw/include
-		${PROJECT_SOURCE_DIR}/src/external/glad/include
-		${PROJECT_SOURCE_DIR}/src/external/vulkan/include
-		${PROJECT_SOURCE_DIR}/src/external/freetype/include
-		${PROJECT_SOURCE_DIR}/src/external/enet/include
+		src
+		include/levikno
+		src/api/graphics/vulkan
+		src/api/graphics/opengl
+		src/api/window/glfw
+		external
+		external/glad/include
+		external/vulkan/include
 )
 
 

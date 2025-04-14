@@ -3105,7 +3105,7 @@ LvnResult createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 
 	if (createInfo->filepath.empty())
 	{
-		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | createInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file");
+		LVN_CORE_ERROR("createSound(LvnSound**, LvnSoundCreateInfo*) | createInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file");
 		return Lvn_Result_Failure;
 	}
 
@@ -3120,7 +3120,7 @@ LvnResult createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo)
 
 	if (ma_sound_init_from_file(pEngine, createInfo->filepath.c_str(), 0, NULL, NULL, &soundPtr->sound) != MA_SUCCESS)
 	{
-		LVN_CORE_ERROR("createSoundFromFile(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
+		LVN_CORE_ERROR("createSound(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
 		return Lvn_Result_Failure;
 	}
 

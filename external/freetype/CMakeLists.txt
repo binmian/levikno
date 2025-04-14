@@ -443,7 +443,7 @@ if (NOT DISABLE_FORCE_DEBUG_POSTFIX)
 endif ()
 
 
-add_library(freetype
+add_library(freetype ${FT_LIBRARY_TYPE}
   ${PUBLIC_HEADERS}
   ${PUBLIC_CONFIG_HEADERS}
   ${PRIVATE_HEADERS}
