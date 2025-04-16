@@ -1,4 +1,5 @@
-#include "lvn_loadModel.h"
+#include "levikno.h"
+#include "lvn_loaders.h"
 
 #include <future>
 
@@ -124,6 +125,7 @@ namespace gltfs
 		std::vector<LvnSampler*> samplers;
 		std::vector<LvnTexture*> textures;
 		std::vector<LvnBuffer*> meshBuffers;
+		std::vector<LvnMesh> meshes;
 
 		LvnSampler* defaultSampler;
 		LvnTexture* defaultBaseColorTexture;
@@ -153,9 +155,10 @@ namespace gltfs
 	static std::vector<LvnVec3>        calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents);
 	static std::vector<LvnVec4>        calculateTangents(GLTFTangentCalcInfo* calcInfo);
 	static void                        traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex);
-	static LvnMesh                     loadMesh(GLTFLoadData* gltfData, int meshIndex);
 	static LvnMaterial                 getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex);
 	static void                        loadDefaultTextures(GLTFLoadData* gltfData);
+	static std::vector<LvnMesh>        loadMeshes(GLTFLoadData* gltfData);
+	static void                        bindMeshToNodes(GLTFLoadData* gltfData);
 
 
 	static std::vector<LvnBin> loadBuffers(const nlm::json& JSON, std::string_view filepath)
@@ -452,34 +455,6 @@ namespace gltfs
 
 		return samplers;
 	}
-	static size_t getCompType(int compType)
-	{
-		switch (compType)
-		{
-			case 5120: { return sizeof(int8_t); }
-			case 5121: { return sizeof(uint8_t); }
-			case 5122: { return sizeof(int16_t); }
-			case 5123: { return sizeof(uint16_t); }
-			case 5125: { return sizeof(uint32_t); }
-			case 5126: { return sizeof(float); }
-
-			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return 0; }
-		}
-	}
-	static bool isNormalizedType(int compType)
-	{
-		switch (compType)
-		{
-			case 5120: { return true; }
-			case 5121: { return true; }
-			case 5122: { return true; }
-			case 5123: { return true; }
-			case 5125: { return false; }
-			case 5126: { return false; }
-
-			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return false; }
-		}
-	}
 	static std::vector<LvnAnimation> bindAnimationsToNodes(const GLTFLoadData& gltfData)
 	{
 		std::vector<LvnAnimation> animations(gltfData.animations.size());
@@ -598,6 +573,34 @@ namespace gltfs
 		}
 
 		return skins;
+	}
+	static size_t getCompType(int compType)
+	{
+		switch (compType)
+		{
+			case 5120: { return sizeof(int8_t); }
+			case 5121: { return sizeof(uint8_t); }
+			case 5122: { return sizeof(int16_t); }
+			case 5123: { return sizeof(uint16_t); }
+			case 5125: { return sizeof(uint32_t); }
+			case 5126: { return sizeof(float); }
+
+			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return 0; }
+		}
+	}
+	static bool isNormalizedType(int compType)
+	{
+		switch (compType)
+		{
+			case 5120: { return true; }
+			case 5121: { return true; }
+			case 5122: { return true; }
+			case 5123: { return true; }
+			case 5125: { return false; }
+			case 5126: { return false; }
+
+			default: { LVN_CORE_ERROR("unknown component type: %d", compType); return false; }
+		}
 	}
 	static std::vector<float> getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor)
 	{
@@ -868,11 +871,6 @@ namespace gltfs
 		LvnMat4 scale = lvn::scale(LvnMat4(1.0f), scaleVec);
 		nextNode->matrix = matrix;
 
-		if (node.contains("mesh"))
-		{
-			nextNode->mesh = gltfs::loadMesh(gltfData, node["mesh"]);
-		}
-
 		// Check if the node has children
 		if (node.contains("children"))
 		{
@@ -888,266 +886,6 @@ namespace gltfs
 				gltfs::traverseNode(gltfData, nextNode->children[i].get(), nodeIndex);
 			}
 		}
-	}
-	static LvnMesh loadMesh(GLTFLoadData* gltfData, int meshIndex)
-	{
-		nlm::json JSON = gltfData->JSON;
-
-		std::vector<LvnPrimitive> meshPrimitives(JSON["meshes"][meshIndex]["primitives"].size());
-		for (uint32_t i = 0; i < JSON["meshes"][meshIndex]["primitives"].size(); i++)
-		{
-			nlm::json primitiveNode = JSON["meshes"][meshIndex]["primitives"][i];
-
-			int posIndex      = primitiveNode["attributes"]["POSITION"];
-			int colorIndex    = primitiveNode["attributes"].value("COLOR_0", -1);
-			int texIndex      = primitiveNode["attributes"].value("TEXCOORD_0", -1);
-			int normalIndex   = primitiveNode["attributes"].value("NORMAL", -1);
-			int tangentIndex  = primitiveNode["attributes"].value("TANGENT", -1);
-			int jointsIndex   = primitiveNode["attributes"].value("JOINTS_0", -1);
-			int weightsIndex  = primitiveNode["attributes"].value("WEIGHTS_0", -1);
-			int indicesIndex  = primitiveNode.value("indices", -1);
-			int materialIndex = primitiveNode.value("material", -1);
-
-			// position
-			GLTFAccessor accessor = gltfData->accessors[posIndex];
-			GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
-			LvnBin buffer = gltfData->buffers[bufferView.buffer];
-
-			uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
-
-			std::vector<LvnVec3> positions(accessor.count);
-			for (uint32_t j = 0; j < accessor.count; j++)
-				positions[j] = *reinterpret_cast<LvnVec3*>(&buffer[beginningOfData] + j * 3 * sizeof(float));
-
-			// indices
-			std::vector<uint32_t> indices;
-			if (indicesIndex >= 0)
-			{
-				accessor = gltfData->accessors[indicesIndex];
-				bufferView = gltfData->bufferViews[accessor.bufferView];
-				buffer = gltfData->buffers[bufferView.buffer];
-
-				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
-				size_t compType = gltfs::getCompType(accessor.componentType);
-
-				indices.resize(accessor.count);
-				for (uint32_t j = 0; j < accessor.count; j++)
-				{
-					memcpy(&indices[j], &buffer[beginningOfData] + j * compType, compType);
-				}
-			}
-
-			// color
-			std::vector<LvnVec4> colors;
-			if (colorIndex >= 0)
-			{
-				accessor = gltfData->accessors[colorIndex];
-				colors.resize(accessor.count);
-				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
-				memcpy(colors.data(), data.data(), data.size() * sizeof(float));
-			}
-			else if (materialIndex >= 0) // check material for base color if no color attribute exists
-			{
-				colors.resize(positions.size());
-				for (uint32_t j = 0; j < positions.size(); j++)
-					colors[j] = gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor;
-			}
-			else // default vertex color if no material exists
-			{
-				colors.resize(positions.size());
-				for (uint32_t j = 0; j < positions.size(); j++)
-					colors[j] = LvnVec4(1, 1, 1, 1);
-			}
-
-			// texcoords
-			std::vector<LvnVec2> texcoords;
-			if (texIndex >= 0)
-			{
-				accessor = gltfData->accessors[texIndex];
-				texcoords.resize(accessor.count);
-				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
-				memcpy(texcoords.data(), data.data(), data.size() * sizeof(float));
-			}
-			else
-			{
-				texcoords.resize(positions.size(), 0);
-			}
-
-			// normals
-			std::vector<LvnVec3> normals;
-			if (normalIndex >= 0)
-			{
-				accessor = gltfData->accessors[normalIndex];
-				bufferView = gltfData->bufferViews[accessor.bufferView];
-				buffer = gltfData->buffers[bufferView.buffer];
-
-				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
-
-				normals.resize(accessor.count);
-				for (uint32_t j = 0; j < accessor.count; j++)
-					normals[j] = *reinterpret_cast<LvnVec3*>(&buffer[beginningOfData] + j * 3 * sizeof(float));
-			}
-			else
-			{
-				normals.resize(positions.size(), 0);
-			}
-
-			// tangents
-			std::vector<LvnVec4> tangents;
-			if (tangentIndex >= 0)
-			{
-				accessor = gltfData->accessors[tangentIndex];
-				bufferView = gltfData->bufferViews[accessor.bufferView];
-				buffer = gltfData->buffers[bufferView.buffer];
-
-				beginningOfData = accessor.byteOffset + bufferView.byteOffset;
-
-				tangents.resize(accessor.count);
-				for (uint32_t j = 0; j < accessor.count; j++)
-					tangents[j] = *reinterpret_cast<LvnVec4*>(&buffer[beginningOfData] + j * 4 * sizeof(float));
-			}
-			else if (primitiveNode.value("mode", 4) >= 4 && posIndex >= 0 && normalIndex >= 0 && texIndex >= 0) // calculate tangents
-			{
-				GLTFTangentCalcInfo calcInfo{};
-				calcInfo.positions = positions;
-				calcInfo.normals = normals;
-				calcInfo.texUVs = texcoords;
-				calcInfo.indices = indices;
-				calcInfo.vertexPerFace = 3;
-				calcInfo.numFaces = indices.size() / 3;
-
-				tangents = gltfs::calculateTangents(&calcInfo);
-			}
-			else // mesh has no tangents
-			{
-				tangents.resize(positions.size(), 0);
-			}
-
-			// bitangents
-			std::vector<LvnVec3> bitangents;
-			if (normalIndex >= 0 && tangentIndex >= 0)
-			{
-				bitangents = gltfs::calculateBitangents(normals, tangents);
-			}
-			else
-			{
-				bitangents.resize(positions.size(), 0);
-			}
-
-			// joints
-			std::vector<LvnVec4> joints;
-			if (jointsIndex >= 0)
-			{
-				accessor = gltfData->accessors[jointsIndex];
-				joints.resize(accessor.count);
-				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
-				memcpy(joints.data(), data.data(), data.size() * sizeof(float));
-			}
-			else
-			{
-				joints.resize(positions.size(), 0);
-			}
-
-			// weights
-			std::vector<LvnVec4> weights;
-			if (weightsIndex >= 0)
-			{
-				accessor = gltfData->accessors[weightsIndex];
-				weights.resize(accessor.count);
-				std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
-				memcpy(weights.data(), data.data(), data.size() * sizeof(float));
-			}
-			else
-			{
-				weights.resize(positions.size(), 0);
-			}
-
-			// combine vertex data
-			std::vector<LvnVertex> vertices;
-			vertices.resize(positions.size());
-
-			for (uint32_t j = 0; j < positions.size(); j++)
-			{
-				vertices[j] = LvnVertex {
-					positions[j],
-					colors[j],
-					texcoords[j],
-					normals[j],
-					LvnVec3(tangents[j]),
-					bitangents[j],
-					joints[j],
-					weights[j],
-				};
-			}
-
-			// create buffer
-
-			LvnVertexAttribute meshVertexAttributes[] =
-			{
-				{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
-				{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
-				{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
-				{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
-				{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
-				{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
-			};
-
-			LvnVertexBindingDescription meshVertexBindingDescription;
-			meshVertexBindingDescription.binding = 0;
-			meshVertexBindingDescription.stride = sizeof(LvnVertex);
-
-			LvnBufferCreateInfo bufferCreateInfo{};
-			bufferCreateInfo.type = Lvn_BufferType_Vertex;
-			if (!indices.empty()) bufferCreateInfo.type |= Lvn_BufferType_Index;
-			bufferCreateInfo.vertexAttributeCount = sizeof(meshVertexAttributes) / sizeof(LvnVertexAttribute);
-			bufferCreateInfo.pVertexAttributes = meshVertexAttributes;
-			bufferCreateInfo.vertexBindingDescriptionCount = 1;
-			bufferCreateInfo.pVertexBindingDescriptions = &meshVertexBindingDescription;
-			bufferCreateInfo.vertexBufferSize = vertices.size() * sizeof(LvnVertex);
-			bufferCreateInfo.pVertices = vertices.data();
-			bufferCreateInfo.indexBufferSize = indices.size() * sizeof(uint32_t);
-			bufferCreateInfo.pIndices = indices.data();
-
-			LvnBuffer* meshBuffer;
-			lvn::createBuffer(&meshBuffer, &bufferCreateInfo);
-			meshPrimitives[i].buffer = meshBuffer;
-			gltfData->meshBuffers.push_back(meshBuffer);
-
-			meshPrimitives[i].vertexCount = vertices.size();
-			meshPrimitives[i].indexCount = indices.size();
-
-			// material textures
-			if (materialIndex >= 0)
-			{
-				meshPrimitives[i].material = gltfs::getMaterial(gltfData, materialIndex);
-			}
-			else
-			{
-				meshPrimitives[i].material.albedo = gltfData->defaultBaseColorTexture;
-				meshPrimitives[i].material.metallicRoughnessOcclusion = gltfData->defaultMetalicRoughnessTexture;
-				meshPrimitives[i].material.normal = gltfData->defaultNormalTexture;
-				meshPrimitives[i].material.emissive = gltfData->defaultEmissiveTexture;
-				meshPrimitives[i].material.baseColorFactor = LvnVec4(1, 1, 1, 1);
-				meshPrimitives[i].material.metallicFactor = 1.0f;
-				meshPrimitives[i].material.roughnessFactor = 1.0f;
-				meshPrimitives[i].material.emissiveFactor = LvnVec3(0, 0, 0);
-				meshPrimitives[i].material.doubleSided = false;
-
-				// load all default textures if no material found
-				gltfs::loadDefaultTextures(gltfData);
-				meshPrimitives[i].material.albedo = gltfData->defaultBaseColorTexture;
-				meshPrimitives[i].material.metallicRoughnessOcclusion = gltfData->defaultMetalicRoughnessTexture;
-				meshPrimitives[i].material.normal = gltfData->defaultNormalTexture;
-				meshPrimitives[i].material.emissive = gltfData->defaultEmissiveTexture;
-			}
-
-			meshPrimitives[i].topology = gltfs::getTopologyEnum(primitiveNode.value("mode", 4));
-		}
-
-		LvnMesh mesh{};
-		mesh.primitives = std::move(meshPrimitives);
-
-		return mesh;
 	}
 	static LvnMaterial getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex)
 	{
@@ -1455,11 +1193,295 @@ namespace gltfs
 			gltfData->textures.push_back(gltfData->defaultEmissiveTexture);
 		}
 	}
+	static std::vector<LvnMesh> loadMeshes(GLTFLoadData* gltfData)
+	{
+		const nlm::json JSON = gltfData->JSON;
+
+		if (!JSON.contains("meshes"))
+			return {};
+
+		std::vector<LvnMesh> meshes(JSON["meshes"].size());
+
+		for (uint32_t meshIndex = 0; meshIndex < JSON["meshes"].size(); meshIndex++)
+		{
+			std::vector<LvnPrimitive> meshPrimitives(JSON["meshes"][meshIndex]["primitives"].size());
+			for (uint32_t i = 0; i < JSON["meshes"][meshIndex]["primitives"].size(); i++)
+			{
+				nlm::json primitiveNode = JSON["meshes"][meshIndex]["primitives"][i];
+
+				int posIndex      = primitiveNode["attributes"]["POSITION"];
+				int colorIndex    = primitiveNode["attributes"].value("COLOR_0", -1);
+				int texIndex      = primitiveNode["attributes"].value("TEXCOORD_0", -1);
+				int normalIndex   = primitiveNode["attributes"].value("NORMAL", -1);
+				int tangentIndex  = primitiveNode["attributes"].value("TANGENT", -1);
+				int jointsIndex   = primitiveNode["attributes"].value("JOINTS_0", -1);
+				int weightsIndex  = primitiveNode["attributes"].value("WEIGHTS_0", -1);
+				int indicesIndex  = primitiveNode.value("indices", -1);
+				int materialIndex = primitiveNode.value("material", -1);
+
+				// position
+				GLTFAccessor accessor = gltfData->accessors[posIndex];
+				GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
+				LvnBin buffer = gltfData->buffers[bufferView.buffer];
+
+				uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
+
+				std::vector<LvnVec3> positions(accessor.count);
+				for (uint32_t j = 0; j < accessor.count; j++)
+					positions[j] = *reinterpret_cast<LvnVec3*>(&buffer[beginningOfData] + j * 3 * sizeof(float));
+
+				// indices
+				std::vector<uint32_t> indices;
+				if (indicesIndex >= 0)
+				{
+					accessor = gltfData->accessors[indicesIndex];
+					bufferView = gltfData->bufferViews[accessor.bufferView];
+					buffer = gltfData->buffers[bufferView.buffer];
+
+					beginningOfData = accessor.byteOffset + bufferView.byteOffset;
+					size_t compType = gltfs::getCompType(accessor.componentType);
+
+					indices.resize(accessor.count);
+					for (uint32_t j = 0; j < accessor.count; j++)
+					{
+						memcpy(&indices[j], &buffer[beginningOfData] + j * compType, compType);
+					}
+				}
+
+				// color
+				std::vector<LvnVec4> colors;
+				if (colorIndex >= 0)
+				{
+					accessor = gltfData->accessors[colorIndex];
+					colors.resize(accessor.count);
+					std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+					memcpy(colors.data(), data.data(), data.size() * sizeof(float));
+				}
+				else if (materialIndex >= 0) // check material for base color if no color attribute exists
+				{
+					colors.resize(positions.size());
+					for (uint32_t j = 0; j < positions.size(); j++)
+						colors[j] = gltfData->materials[materialIndex].pbrMetallicRoughness.baseColorFactor;
+				}
+				else // default vertex color if no material exists
+				{
+					colors.resize(positions.size());
+					for (uint32_t j = 0; j < positions.size(); j++)
+						colors[j] = LvnVec4(1, 1, 1, 1);
+				}
+
+				// texcoords
+				std::vector<LvnVec2> texcoords;
+				if (texIndex >= 0)
+				{
+					accessor = gltfData->accessors[texIndex];
+					texcoords.resize(accessor.count);
+					std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+					memcpy(texcoords.data(), data.data(), data.size() * sizeof(float));
+				}
+				else
+				{
+					texcoords.resize(positions.size(), 0);
+				}
+
+				// normals
+				std::vector<LvnVec3> normals;
+				if (normalIndex >= 0)
+				{
+					accessor = gltfData->accessors[normalIndex];
+					bufferView = gltfData->bufferViews[accessor.bufferView];
+					buffer = gltfData->buffers[bufferView.buffer];
+
+					beginningOfData = accessor.byteOffset + bufferView.byteOffset;
+
+					normals.resize(accessor.count);
+					for (uint32_t j = 0; j < accessor.count; j++)
+						normals[j] = *reinterpret_cast<LvnVec3*>(&buffer[beginningOfData] + j * 3 * sizeof(float));
+				}
+				else
+				{
+					normals.resize(positions.size(), 0);
+				}
+
+				// tangents
+				std::vector<LvnVec4> tangents;
+				if (tangentIndex >= 0)
+				{
+					accessor = gltfData->accessors[tangentIndex];
+					bufferView = gltfData->bufferViews[accessor.bufferView];
+					buffer = gltfData->buffers[bufferView.buffer];
+
+					beginningOfData = accessor.byteOffset + bufferView.byteOffset;
+
+					tangents.resize(accessor.count);
+					for (uint32_t j = 0; j < accessor.count; j++)
+						tangents[j] = *reinterpret_cast<LvnVec4*>(&buffer[beginningOfData] + j * 4 * sizeof(float));
+				}
+				else if (primitiveNode.value("mode", 4) >= 4 && posIndex >= 0 && normalIndex >= 0 && texIndex >= 0) // calculate tangents
+				{
+					GLTFTangentCalcInfo calcInfo{};
+					calcInfo.positions = positions;
+					calcInfo.normals = normals;
+					calcInfo.texUVs = texcoords;
+					calcInfo.indices = indices;
+					calcInfo.vertexPerFace = 3;
+					calcInfo.numFaces = indices.size() / 3;
+
+					tangents = gltfs::calculateTangents(&calcInfo);
+				}
+				else // mesh has no tangents
+				{
+					tangents.resize(positions.size(), 0);
+				}
+
+				// bitangents
+				std::vector<LvnVec3> bitangents;
+				if (normalIndex >= 0 && tangentIndex >= 0)
+				{
+					bitangents = gltfs::calculateBitangents(normals, tangents);
+				}
+				else
+				{
+					bitangents.resize(positions.size(), 0);
+				}
+
+				// joints
+				std::vector<LvnVec4> joints;
+				if (jointsIndex >= 0)
+				{
+					accessor = gltfData->accessors[jointsIndex];
+					joints.resize(accessor.count);
+					std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+					memcpy(joints.data(), data.data(), data.size() * sizeof(float));
+				}
+				else
+				{
+					joints.resize(positions.size(), 0);
+				}
+
+				// weights
+				std::vector<LvnVec4> weights;
+				if (weightsIndex >= 0)
+				{
+					accessor = gltfData->accessors[weightsIndex];
+					weights.resize(accessor.count);
+					std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+					memcpy(weights.data(), data.data(), data.size() * sizeof(float));
+				}
+				else
+				{
+					weights.resize(positions.size(), 0);
+				}
+
+				// combine vertex data
+				std::vector<LvnVertex> vertices;
+				vertices.resize(positions.size());
+
+				for (uint32_t j = 0; j < positions.size(); j++)
+				{
+					vertices[j] = LvnVertex {
+						positions[j],
+						colors[j],
+						texcoords[j],
+						normals[j],
+						LvnVec3(tangents[j]),
+						bitangents[j],
+						joints[j],
+						weights[j],
+					};
+				}
+
+				// create buffer
+
+				LvnVertexAttribute meshVertexAttributes[] =
+				{
+					{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
+					{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
+					{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
+					{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
+					{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
+					{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
+					{ 0, 6, Lvn_VertexDataType_Vec4f, 18 * sizeof(float) },  // joints
+					{ 0, 7, Lvn_VertexDataType_Vec4f, 22 * sizeof(float) },  // weights
+				};
+
+				LvnVertexBindingDescription meshVertexBindingDescription;
+				meshVertexBindingDescription.binding = 0;
+				meshVertexBindingDescription.stride = sizeof(LvnVertex);
+
+				LvnBufferCreateInfo bufferCreateInfo{};
+				bufferCreateInfo.type = Lvn_BufferType_Vertex;
+				if (!indices.empty()) bufferCreateInfo.type |= Lvn_BufferType_Index;
+				bufferCreateInfo.vertexAttributeCount = sizeof(meshVertexAttributes) / sizeof(LvnVertexAttribute);
+				bufferCreateInfo.pVertexAttributes = meshVertexAttributes;
+				bufferCreateInfo.vertexBindingDescriptionCount = 1;
+				bufferCreateInfo.pVertexBindingDescriptions = &meshVertexBindingDescription;
+				bufferCreateInfo.vertexBufferSize = vertices.size() * sizeof(LvnVertex);
+				bufferCreateInfo.pVertices = vertices.data();
+				bufferCreateInfo.indexBufferSize = indices.size() * sizeof(uint32_t);
+				bufferCreateInfo.pIndices = indices.data();
+
+				LvnBuffer* meshBuffer;
+				lvn::createBuffer(&meshBuffer, &bufferCreateInfo);
+				meshPrimitives[i].buffer = meshBuffer;
+				gltfData->meshBuffers.push_back(meshBuffer);
+
+				meshPrimitives[i].vertexCount = vertices.size();
+				meshPrimitives[i].indexCount = indices.size();
+
+				// material textures
+				if (materialIndex >= 0)
+				{
+					meshPrimitives[i].material = gltfs::getMaterial(gltfData, materialIndex);
+				}
+				else
+				{
+					meshPrimitives[i].material.albedo = gltfData->defaultBaseColorTexture;
+					meshPrimitives[i].material.metallicRoughnessOcclusion = gltfData->defaultMetalicRoughnessTexture;
+					meshPrimitives[i].material.normal = gltfData->defaultNormalTexture;
+					meshPrimitives[i].material.emissive = gltfData->defaultEmissiveTexture;
+					meshPrimitives[i].material.baseColorFactor = LvnVec4(1, 1, 1, 1);
+					meshPrimitives[i].material.metallicFactor = 1.0f;
+					meshPrimitives[i].material.roughnessFactor = 1.0f;
+					meshPrimitives[i].material.emissiveFactor = LvnVec3(0, 0, 0);
+					meshPrimitives[i].material.doubleSided = false;
+
+					// load all default textures if no material found
+					gltfs::loadDefaultTextures(gltfData);
+					meshPrimitives[i].material.albedo = gltfData->defaultBaseColorTexture;
+					meshPrimitives[i].material.metallicRoughnessOcclusion = gltfData->defaultMetalicRoughnessTexture;
+					meshPrimitives[i].material.normal = gltfData->defaultNormalTexture;
+					meshPrimitives[i].material.emissive = gltfData->defaultEmissiveTexture;
+				}
+
+				meshPrimitives[i].topology = gltfs::getTopologyEnum(primitiveNode.value("mode", 4));
+			}
+
+			LvnMesh mesh{};
+			mesh.primitives = std::move(meshPrimitives);
+
+			meshes[meshIndex] = std::move(mesh);
+		}
+
+		return meshes;
+	}
+	static void bindMeshToNodes(GLTFLoadData* gltfData)
+	{
+		const nlm::json& JSON = gltfData->JSON;
+
+		for (uint32_t i = 0; i < JSON["nodes"].size(); i++)
+		{
+			if (JSON["nodes"][i].contains("mesh"))
+				gltfData->nodeArray[i]->mesh = gltfData->meshes[JSON["nodes"][i]["mesh"]];
+		}
+	}
 
 } /* namespace gltf */
 
 LvnModel loadGltfModel(const char* filepath)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	gltfs::GLTFLoadData gltfData{};
 	std::string jsonText = lvn::loadFileSrc(filepath);
 	gltfData.JSON = nlm::json::parse(jsonText);
@@ -1497,19 +1519,36 @@ LvnModel loadGltfModel(const char* filepath)
 		gltfs::traverseNode(&gltfData, gltfData.nodes[i].get(), nodeIndex);
 	}
 
+	std::vector<LvnAnimation> modelAnimations;
+	std::future<std::vector<LvnAnimation>> animationFuture;
+
+	if (lvnctx->multithreading)
+		animationFuture = std::async(std::launch::async, gltfs::bindAnimationsToNodes, gltfData);
+	else
+		modelAnimations = std::move(gltfs::bindAnimationsToNodes(gltfData));
+
+	gltfData.meshes = std::move(gltfs::loadMeshes(&gltfData));
+	gltfs::bindMeshToNodes(&gltfData);
+
+	if (lvnctx->multithreading)
+		modelAnimations = std::move(animationFuture.get());
+
 	LvnModel model{};
 	model.matrix = LvnMat4(1.0f);
 	model.buffers = std::move(gltfData.meshBuffers);
 	model.textures = std::move(gltfData.textures);
 	model.samplers = std::move(gltfData.samplers);
 	model.nodes = std::move(gltfData.nodes);
-	model.animations = gltfs::bindAnimationsToNodes(gltfData);
-	model.skins = gltfs::bindSkinsToNodes(gltfData);
+	model.animations = std::move(modelAnimations);
+	model.skins = std::move(gltfs::bindSkinsToNodes(gltfData));
+
 
 	return model;
 }
 LvnModel loadGlbModel(const char* filepath)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	LvnBin binData = lvn::loadFileSrcBin(filepath);
 
 	// chunk 0 (JSON)
@@ -1568,14 +1607,29 @@ LvnModel loadGlbModel(const char* filepath)
 		gltfs::traverseNode(&gltfData, gltfData.nodes[i].get(), nodeIndex);
 	}
 
+	std::vector<LvnAnimation> modelAnimations;
+	std::future<std::vector<LvnAnimation>> animationFuture;
+
+	if (lvnctx->multithreading)
+		animationFuture = std::async(std::launch::async, gltfs::bindAnimationsToNodes, gltfData);
+	else
+		modelAnimations = std::move(gltfs::bindAnimationsToNodes(gltfData));
+
+	gltfData.meshes = std::move(gltfs::loadMeshes(&gltfData));
+	gltfs::bindMeshToNodes(&gltfData);
+
+	if (lvnctx->multithreading)
+		modelAnimations = std::move(animationFuture.get());
+
 	LvnModel model{};
 	model.matrix = LvnMat4(1.0f);
 	model.buffers = std::move(gltfData.meshBuffers);
 	model.textures = std::move(gltfData.textures);
 	model.samplers = std::move(gltfData.samplers);
 	model.nodes = std::move(gltfData.nodes);
-	model.animations = gltfs::bindAnimationsToNodes(gltfData);
-	model.skins = gltfs::bindSkinsToNodes(gltfData);
+	model.animations = std::move(modelAnimations);
+	model.skins = std::move(gltfs::bindSkinsToNodes(gltfData));
+
 
 	return model;
 }

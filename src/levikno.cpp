@@ -26,7 +26,7 @@
 
 #include "lvn_opengl.h"
 
-#include "lvn_loadModel.h"
+#include "lvn_loaders.h"
 
 static LvnContext* s_LvnContext = nullptr;
 
@@ -598,8 +598,10 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	lvnctx->graphicsapi = createInfo->graphicsapi;
 	lvnctx->multithreading = createInfo->enableMultithreading;
 
+	lvnctx->graphicsContext.graphicsapi = createInfo->graphicsapi;
 	lvnctx->graphicsContext.enableValidationLayers = createInfo->logging.enableVulkanValidationLayers;
-	lvnctx->graphicsContext.frameBufferColorFormat = createInfo->frameBufferColorFormat;
+	lvnctx->graphicsContext.frameBufferColorFormat = createInfo->rendering.frameBufferColorFormat;
+	lvnctx->graphicsContext.maxFramesInFlight = createInfo->rendering.maxFramesInFlight;
 
 	// ecs entity id
 	lvnctx->entityIndexID = 0;
@@ -638,7 +640,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	// config
 	initStandardPipelineSpecification(lvnctx);
 
-	if (createInfo->matrixClipRegion == Lvn_ClipRegion_ApiSpecific)
+	if (createInfo->rendering.matrixClipRegion == Lvn_ClipRegion_ApiSpecific)
 	{
 		switch(createInfo->graphicsapi)
 		{
@@ -658,7 +660,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	}
 	else
 	{
-		lvnctx->matrixClipRegion = createInfo->matrixClipRegion;
+		lvnctx->matrixClipRegion = createInfo->rendering.matrixClipRegion;
 	}
 
 	return Lvn_Result_Success;
@@ -1810,7 +1812,7 @@ LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
 
 	*window = lvn::createObject<LvnWindow>(lvnctx, Lvn_Stype_Window);
 
-	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title, createInfo->width, createInfo->height);
+	LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title.c_str(), createInfo->width, createInfo->height);
 	return lvnctx->windowContext.createWindow(*window, createInfo);
 }
 
@@ -1820,6 +1822,27 @@ void destroyWindow(LvnWindow* window)
 	LvnContext* lvnctx = lvn::getContext();
 	lvnctx->windowContext.destroyWindow(window);
 	lvn::destroyObject(lvnctx, window, Lvn_Stype_Window);
+}
+
+LvnWindowCreateInfo configWindowInit(const char* title, int width, int height)
+{
+	LvnWindowCreateInfo windowCreateInfo{};
+	windowCreateInfo.width = width;
+	windowCreateInfo.height = height;
+	windowCreateInfo.title = title;
+	windowCreateInfo.minWidth = 0;
+	windowCreateInfo.minHeight = 0;
+	windowCreateInfo.maxWidth = -1;
+	windowCreateInfo.maxHeight = -1;
+	windowCreateInfo.fullscreen = false;
+	windowCreateInfo.resizable = true;
+	windowCreateInfo.vSync = false;
+	windowCreateInfo.pIcons = nullptr;
+	windowCreateInfo.iconCount = 0;
+	windowCreateInfo.eventCallBack = nullptr;
+	windowCreateInfo.userData = nullptr;
+
+	return windowCreateInfo;
 }
 
 void windowUpdate(LvnWindow* window)
@@ -1876,16 +1899,6 @@ LvnRenderPass* windowGetRenderPass(LvnWindow* window)
 void windowSetContextCurrent(LvnWindow* window)
 {
 	lvn::getContext()->windowContext.setWindowContextCurrent(window);
-}
-
-LvnWindowCreateInfo windowCreateInfoGetConfig(int width, int height, const char* title)
-{
-	LvnWindowCreateInfo windowCreateInfo{};
-	windowCreateInfo.width = width;
-	windowCreateInfo.height = height;
-	windowCreateInfo.title = title;
-
-	 return windowCreateInfo;
 }
 
 // ------------------------------------------------------------
@@ -1989,49 +2002,47 @@ void getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCo
 	uint32_t getDeviceCount;
 	lvn::getContext()->graphicsContext.getPhysicalDevices(nullptr, &getDeviceCount);
 
-	if (pPhysicalDevices == nullptr)
-	{
+	if (deviceCount != nullptr)
 		*deviceCount = getDeviceCount;
+
+	if (pPhysicalDevices == nullptr)
 		return;
-	}
 
 	lvn::getContext()->graphicsContext.getPhysicalDevices(pPhysicalDevices, &getDeviceCount);
 
 	return;
 }
 
-LvnPhysicalDeviceInfo getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice)
+LvnPhysicalDeviceProperties getPhysicalDeviceProperties(LvnPhysicalDevice* physicalDevice)
 {
-	return physicalDevice->info;
+	return physicalDevice->properties;
+}
+
+LvnPhysicalDeviceFeatures getPhysicalDeviceFeatures(LvnPhysicalDevice* physicalDevice)
+{
+	return physicalDevice->features;
 }
 
 LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 {
+	if (physicalDevice == nullptr)
+	{
+		LVN_CORE_ERROR("cannot check physical device support, physicalDevice is nullptr");
+		return Lvn_Result_Failure;
+	}
+
 	return lvn::getContext()->graphicsContext.checkPhysicalDeviceSupport(physicalDevice);
 }
 
-LvnResult renderInit(LvnRenderInitInfo* renderInfo)
+LvnResult setPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 {
-	LvnContext* lvnctx = lvn::getContext();
-
-	if (renderInfo->physicalDevice == nullptr)
+	if (physicalDevice == nullptr)
 	{
-		LVN_CORE_ERROR("renderInit(LvnRenderInitInfo*) | renderInfo->physicalDevice is nullptr, cannot initialize rendering without a specified physical device (GPU)");
+		LVN_CORE_ERROR("cannot set physical device, physicalDevice is nullptr");
 		return Lvn_Result_Failure;
 	}
 
-	if (renderInfo->maxFramesInFlight == 0)
-	{
-		LVN_CORE_WARN("renderInit(LvnRenderInitInfo*) | renderInfo->maxFramesInFlight is 0, cannot have zero frames in flight during rendering; defaulting to one frame in flight");
-	}
-
-	if (lvnctx->graphicsContext.renderInit(renderInfo) != Lvn_Result_Success)
-	{
-		LVN_CORE_ERROR("failed to initialize back end rendering");
-		return Lvn_Result_Failure;
-	}
-
-	return Lvn_Result_Success;
+	return lvn::getContext()->graphicsContext.setPhysicalDevice(physicalDevice);
 }
 
 LvnClipRegion getRenderClipRegionEnum()
@@ -2623,7 +2634,7 @@ void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecificat
 	lvnctx->defaultPipelineSpecification = *pipelineSpecification;
 }
 
-LvnPipelineSpecification pipelineSpecificationGetConfig()
+LvnPipelineSpecification configPipelineSpecificationInit()
 {
 	LvnContext* lvnctx = lvn::getContext();
 	return lvnctx->defaultPipelineSpecification;
@@ -3036,6 +3047,10 @@ LvnModel loadModel(const char* filepath)
 	{
 		return lvn::loadGlbModel(filepath);
 	}
+	else if (extensionType == "obj")
+	{
+		return lvn::loadObjModel(filepath);
+	}
 
 	LVN_CORE_WARN("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
 	return {};
@@ -3144,7 +3159,7 @@ void destroySound(LvnSound* sound)
 	lvn::destroyObject(lvnctx, sound, Lvn_Stype_Sound);
 }
 
-LvnSoundCreateInfo soundConfigInit(const char* filepath)
+LvnSoundCreateInfo configSoundInit(const char* filepath)
 {
 	LvnSoundCreateInfo soundInit{};
 	soundInit.pos = { 0.0f, 0.0f, 0.0f };
@@ -3262,7 +3277,7 @@ void destroySocket(LvnSocket* socket)
 	lvn::destroyObject(lvnctx, socket, Lvn_Stype_Socket);
 }
 
-LvnSocketCreateInfo socketClientConfigInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
+LvnSocketCreateInfo configSocketClientInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
 {
 	LvnSocketCreateInfo createInfo{};
 	createInfo.type = Lvn_SocketType_Client;
@@ -3274,7 +3289,7 @@ LvnSocketCreateInfo socketClientConfigInit(uint32_t connectionCount, uint32_t ch
 	return createInfo;
 }
 
-LvnSocketCreateInfo socketServerConfigInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
+LvnSocketCreateInfo configSocketServerInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
 {
 	LvnSocketCreateInfo createInfo{};
 	createInfo.type = Lvn_SocketType_Client;

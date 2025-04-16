@@ -102,13 +102,11 @@ namespace lvn
 
 	struct VulkanBackends
 	{
-		bool                                renderInit;
 		bool                                enableValidationLayers;
 		VkInstance                          instance;
 		VkDebugUtilsMessengerEXT            debugMessenger;
-		std::vector<VkPhysicalDevice>       physicalDevices;
+
 		std::vector<LvnPhysicalDevice>      lvnPhysicalDevices;
-		
 		VkPhysicalDevice                    physicalDevice;
 		VkDevice                            device;
 		VkQueue                             graphicsQueue;

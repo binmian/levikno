@@ -1,4 +1,5 @@
 #include "lvn_vulkan.h"
+#include "levikno.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -52,6 +53,8 @@ namespace vks
 	static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
 	static void                                 setupDebugMessenger(VulkanBackends* vkBackends);
 	static LvnPhysicalDeviceType                getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type);
+	static std::vector<VkPhysicalDevice>        getPhysicalDevices(VkInstance instance);
+	static VkPhysicalDevice                     getBestPhysicalDevice(VkInstance instance, const std::vector<VkPhysicalDevice>& physicalDevices);
 	static bool                                 checkDeviceExtensionSupport(VkPhysicalDevice device);
 	static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
 	static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
@@ -73,6 +76,7 @@ namespace vks
 	static LvnResult                            createOffscreenFrameBuffer(VulkanBackends* vkBackends, LvnFrameBuffer* frameBuffer);
 	static void                                 cleanSwapChain(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
 	static void                                 recreateSwapChain(VulkanBackends* vkBackends, LvnWindow* window);
+	static LvnResult                            setupRenderInit(VulkanBackends* vkBackends, VkPhysicalDevice physicalDevice);
 	static VkPrimitiveTopology                  getVulkanTopologyTypeEnum(LvnTopologyType topologyType);
 	static VkCullModeFlags                      getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode);
 	static VkFrontFace                          getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace);
@@ -105,7 +109,7 @@ namespace vks
 
 	static LvnResult createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers)
 	{
-		// Create Vulkan Instance
+		// create vulkan instance
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "levikno";
@@ -134,7 +138,7 @@ namespace vks
 			createInfo.pNext = &debugCreateInfo;
 		}
 
-		// Create Instance
+		// create instance
 		if (vkCreateInstance(&createInfo, nullptr, &vkBackends->instance) != VK_SUCCESS)
 		{
 			LVN_CORE_ERROR("[vulkan] failed to create instance at (%p)", vkBackends->instance);
@@ -144,11 +148,7 @@ namespace vks
 		return Lvn_Result_Success;
 	}
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-		VkDebugUtilsMessageTypeFlagsEXT messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void* pUserData)
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 	{
 		switch (messageSeverity)
 		{
@@ -215,9 +215,9 @@ namespace vks
 	}
 		
 	static VkResult createDebugUtilsMessengerEXT(
-		VkInstance instance, 
-		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
-		const VkAllocationCallbacks* pAllocator, 
+		VkInstance instance,
+		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+		const VkAllocationCallbacks* pAllocator,
 		VkDebugUtilsMessengerEXT* pDebugMessenger)
 	{
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -229,7 +229,7 @@ namespace vks
 
 	static void destroyDebugUtilsMessengerEXT(
 		VkInstance instance, 
-		VkDebugUtilsMessengerEXT debugMessenger, 
+		VkDebugUtilsMessengerEXT debugMessenger,
 		const VkAllocationCallbacks* pAllocator)
 	{
 		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -275,6 +275,78 @@ namespace vks
 
 		LVN_CORE_WARN("[vulkan] No physical device matches type");
 		return Lvn_PhysicalDeviceType_Unknown;
+	}
+
+	static std::vector<VkPhysicalDevice> getPhysicalDevices(VkInstance instance)
+	{
+		// get physical devices
+		uint32_t deviceCount = 0;
+		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+		// create vulkan physical devices
+		std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+		vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data());
+		return physicalDevices;
+	}
+
+	static VkPhysicalDevice getBestPhysicalDevice(VkInstance instance, const std::vector<VkPhysicalDevice>& physicalDevices)
+	{
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+		VkSurfaceKHR surface;
+		GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+
+		if (glfwCreateWindowSurface(instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
+		{
+			LVN_CORE_ERROR("[vulkan] check physical device support, failed to create temporary window surface at (%p) when checking physical device support", surface);
+			return VK_NULL_HANDLE;
+		}
+
+		size_t bestScore = 0;
+		VkPhysicalDevice bestDevice = VK_NULL_HANDLE;
+
+		for (const auto& physicalDevice : physicalDevices)
+		{
+			VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(physicalDevice, surface);
+
+			// check queue families
+			if (!queueIndices.has_graphics || !queueIndices.has_present)
+				continue;
+
+			// check device extension support
+			if (!vks::checkDeviceExtensionSupport(physicalDevice))
+				continue;
+
+			VkPhysicalDeviceProperties deviceProperties{};
+			vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+
+			VkPhysicalDeviceFeatures deviceFeatures{};
+			vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+
+			size_t score = 0;
+
+			if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+				score += 1000;
+			else if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+				score += 500;
+			else if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU)
+				score += 100;
+			else if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
+				score += 10;
+			else
+				score += 1;
+
+			if (score > bestScore)
+			{
+				bestScore = score;
+				bestDevice = physicalDevice;
+			}
+		}
+
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+		glfwDestroyWindow(glfwWindow);
+		glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+
+		return bestDevice;
 	}
 
 	static VulkanQueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -943,6 +1015,84 @@ namespace vks
 		vks::createImageViews(vkBackends, surfaceData);
 		vks::createDepthResources(vkBackends, surfaceData);
 		vks::createFrameBuffers(vkBackends, surfaceData);
+	}
+
+	static LvnResult setupRenderInit(VulkanBackends* vkBackends, VkPhysicalDevice physicalDevice)
+	{
+		if (vkBackends->device != VK_NULL_HANDLE)
+			vkDeviceWaitIdle(vkBackends->device);
+
+		if (vkBackends->commandPool != VK_NULL_HANDLE)
+		{
+			vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
+			vkBackends->commandPool = VK_NULL_HANDLE;
+		}
+
+		if (vkBackends->vmaAllocator != VK_NULL_HANDLE)
+		{
+			vmaDestroyAllocator(vkBackends->vmaAllocator);
+			vkBackends->vmaAllocator = VK_NULL_HANDLE;
+		}
+
+		if (vkBackends->device != VK_NULL_HANDLE)
+		{
+			vkDestroyDevice(vkBackends->device, nullptr);
+			vkBackends->device = VK_NULL_HANDLE;
+		}
+
+		vkBackends->physicalDevice = physicalDevice;
+
+		VkPhysicalDeviceProperties physicalDeviceProperties{};
+		vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
+		LVN_CORE_TRACE("[vulkan] physical device (GPU) selected for rendering: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
+		vkBackends->deviceProperties = physicalDeviceProperties;
+
+		VkPhysicalDeviceFeatures supportedFeatures;
+		vkGetPhysicalDeviceFeatures(vkBackends->physicalDevice, &supportedFeatures);
+		vkBackends->deviceSupportedFeatures = supportedFeatures;
+
+		// create dummy window and surface to get device queue indices support
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+		VkSurfaceKHR surface;
+		GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+
+		if (glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
+		{
+			LVN_CORE_ERROR("[vulkan] failed to create temporary window surface at (%p)", surface);
+			return Lvn_Result_Failure;
+		}
+
+		// create logical device once
+		if (vks::createLogicalDevice(vkBackends, surface) != Lvn_Result_Success)
+			return Lvn_Result_Failure;
+
+		// get and check swap chain specs
+		VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surface, vkBackends->physicalDevice);
+		LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] selected physical device does not have supported swap chain formats or present modes");
+
+		// destroy dummy window and surface
+		vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
+		glfwDestroyWindow(glfwWindow);
+		glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+
+		// create command buffer pool
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		poolInfo.queueFamilyIndex = vkBackends->deviceIndices.graphicsIndex;
+
+		LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "[vulkan] failed to create command pool!");
+
+
+		// create VmaAllocator
+		VmaAllocatorCreateInfo allocatorInfo{};
+		allocatorInfo.device = vkBackends->device;
+		allocatorInfo.physicalDevice = vkBackends->physicalDevice;
+		allocatorInfo.instance = vkBackends->instance;
+
+		vmaCreateAllocator(&allocatorInfo, &vkBackends->vmaAllocator);
+
+		return Lvn_Result_Success;
 	}
 
 	static VkPrimitiveTopology getVulkanTopologyTypeEnum(LvnTopologyType topologyType)
@@ -2007,7 +2157,8 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	VulkanBackends* vkBackends = s_VkBackends;
 
 	vkBackends->enableValidationLayers = graphicsContext->enableValidationLayers;
-	vkBackends->maxFramesInFlight = graphicsContext->maxFramesInFlight;
+	vkBackends->defaultPipelineSpecification = lvn::configPipelineSpecificationInit();
+	vkBackends->maxFramesInFlight = graphicsContext->maxFramesInFlight > 0 ? graphicsContext->maxFramesInFlight : 1;
 
 	switch (graphicsContext->frameBufferColorFormat)
 	{
@@ -2021,9 +2172,28 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 		}
 	}
 
+	// create vulkan instance
+	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableValidationLayers) != Lvn_Result_Success)
+	{
+		LVN_CORE_ERROR("[vulkan] failed to create vulkan instance when creating graphics context");
+		return Lvn_Result_Failure;
+	}
+
+	if (vkBackends->enableValidationLayers && !vks::checkValidationLayerSupport())
+		LVN_CORE_WARN("vulkan validation layers enabled, but not available!");
+	else
+		vks::setupDebugMessenger(vkBackends);
+
+
+	// get physical devices and setup render init
+	std::vector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
+	VkPhysicalDevice physicalDevice = vks::getBestPhysicalDevice(vkBackends->instance, physicalDevices);
+	vks::setupRenderInit(vkBackends, physicalDevice);
+
+	// bind function pointers
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
 	graphicsContext->checkPhysicalDeviceSupport = vksImplCheckPhysicalDeviceSupport;
-	graphicsContext->renderInit = vksImplRenderInit;
+	graphicsContext->setPhysicalDevice = vksImplSetPhysicalDevice;
 	graphicsContext->createShaderFromSrc = vksImplCreateShaderFromSrc;
 	graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
@@ -2081,36 +2251,25 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->frameBufferSetClearColor = vksImplFrameBufferSetClearColor;
 	graphicsContext->findSupportedDepthImageFormat = vksImplFindSupportedDepthImageFormat;
 
-	// Create Vulkan Instance
-	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableValidationLayers) != Lvn_Result_Success)
-	{
-		LVN_CORE_ERROR("[vulkan] failed to create vulkan instance when creating graphics context");
-		return Lvn_Result_Failure;
-	}
-
 	return Lvn_Result_Success;
 }
 
 void vksImplTerminateContext()
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	vkDeviceWaitIdle(vkBackends->device);
 
-	if (vkBackends->renderInit)
-	{
-		vkDeviceWaitIdle(vkBackends->device);
+	vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
 
-		vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
+	// VmaAllocator
+	vmaDestroyAllocator(vkBackends->vmaAllocator);
 
-		// VmaAllocator
-		vmaDestroyAllocator(vkBackends->vmaAllocator);
+	// logical device
+	vkDestroyDevice(vkBackends->device, nullptr);
 
-		// logical device
-		vkDestroyDevice(vkBackends->device, nullptr);
-
-		// debug validation layers
-		if (vkBackends->enableValidationLayers)
-			vks::destroyDebugUtilsMessengerEXT(vkBackends->instance, vkBackends->debugMessenger, nullptr);
-	}
+	// debug validation layers
+	if (vkBackends->enableValidationLayers)
+		vks::destroyDebugUtilsMessengerEXT(vkBackends->instance, vkBackends->debugMessenger, nullptr);
 
 	// instance
 	vkDestroyInstance(vkBackends->instance, nullptr);
@@ -2122,41 +2281,39 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
-
-	// Get Physical Devices
+	// get physical devices
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, nullptr);
 
-	if (pPhysicalDevices == nullptr)
-	{
+	if (physicalDeviceCount != nullptr)
 		*physicalDeviceCount = deviceCount;
-		return;
-	}
-	if (!deviceCount)
-	{
-		LVN_CORE_ERROR("[vulkan] failed to find physical devices with vulkan support");
-		return;
-	}
 
+	if (pPhysicalDevices == nullptr)
+		return;
 
-	// Create vulkan physical devices
+	// create vulkan physical devices
+	std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, physicalDevices.data());
+
 	vkBackends->lvnPhysicalDevices.resize(deviceCount);
-	vkBackends->physicalDevices.resize(deviceCount);
-	vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, vkBackends->physicalDevices.data());
-
-	for (uint32_t i = 0; i < vkBackends->physicalDevices.size(); i++)
+	for (uint32_t i = 0; i < physicalDevices.size(); i++)
 	{
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(vkBackends->physicalDevices[i], &deviceProperties);
+		VkPhysicalDeviceProperties deviceProperties{};
+		vkGetPhysicalDeviceProperties(physicalDevices[i], &deviceProperties);
 
-		LvnPhysicalDeviceInfo deviceInfo{};
-		deviceInfo.type = vks::getPhysicalDeviceTypeEnum(deviceProperties.deviceType);
-			
-		deviceInfo.apiVersion = deviceProperties.apiVersion;
-		deviceInfo.driverVersion = deviceProperties.driverVersion;
-		memcpy(deviceInfo.name, deviceProperties.deviceName, 226);
-		vkBackends->lvnPhysicalDevices[i].info = deviceInfo;
-		vkBackends->lvnPhysicalDevices[i].device = vkBackends->physicalDevices[i];
+		VkPhysicalDeviceFeatures deviceFeatures{};
+		vkGetPhysicalDeviceFeatures(physicalDevices[i], &deviceFeatures);
+
+		LvnPhysicalDeviceProperties props{};
+		props.type = vks::getPhysicalDeviceTypeEnum(deviceProperties.deviceType);
+		props.name = std::string(deviceProperties.deviceName);
+		props.apiVersion = deviceProperties.apiVersion;
+		props.driverVersion = deviceProperties.driverVersion;
+		props.vendorID = deviceProperties.vendorID;
+
+		vkBackends->lvnPhysicalDevices[i].properties = props;
+		vkBackends->lvnPhysicalDevices[i].features = *reinterpret_cast<LvnPhysicalDeviceFeatures*>(&deviceFeatures);
+		vkBackends->lvnPhysicalDevices[i].physicalDevice = physicalDevices[i];
 	}
 
 	*pPhysicalDevices = vkBackends->lvnPhysicalDevices.data();
@@ -2165,7 +2322,13 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
 LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
-	VkPhysicalDevice vkDevice = static_cast<VkPhysicalDevice>(physicalDevice->device);
+	VkPhysicalDevice vkDevice = static_cast<VkPhysicalDevice>(physicalDevice->physicalDevice);
+
+	if (vkDevice == VK_NULL_HANDLE)
+	{
+		LVN_CORE_ERROR("[vulkan]: physical device <VkPhysicalDevice> is nullptr, cannot check for physical device support");
+		return Lvn_Result_Failure;
+	}
 
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 	VkSurfaceKHR surface;
@@ -2177,17 +2340,16 @@ LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 		return Lvn_Result_Failure;
 	}
 
-
 	VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(vkDevice, surface);
 
-	// Check queue families
+	// check queue families
 	if (!queueIndices.has_graphics || !queueIndices.has_present)
 	{
 		LVN_CORE_ERROR("[vulkan] check physical device support, physical device does not support queue families needed");
 		return Lvn_Result_Failure;
 	}
 
-	// Check device extension support
+	// check device extension support
 	if (!vks::checkDeviceExtensionSupport(vkDevice))
 	{
 		LVN_CORE_ERROR("[vulkan] check physical device support, physical device does not support required extensions");
@@ -2201,80 +2363,11 @@ LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplRenderInit(LvnRenderInitInfo* renderInfo)
+LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
-	vkBackends->renderInit = true;
-	vkBackends->defaultPipelineSpecification = lvn::pipelineSpecificationGetConfig();
-
-	vkBackends->physicalDevice = static_cast<VkPhysicalDevice>(renderInfo->physicalDevice->device);
-	vkBackends->maxFramesInFlight = renderInfo->maxFramesInFlight != 0 ? renderInfo->maxFramesInFlight : 1;
-
-	if (vkBackends->enableValidationLayers && !vks::checkValidationLayerSupport())
-		LVN_CORE_WARN("vulkan validation layers enabled, but not available!");
-	else
-		vks::setupDebugMessenger(vkBackends);
-
-	VkPhysicalDeviceProperties physicalDeviceProperties{};
-	vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
-	LVN_CORE_TRACE("[vulkan] physical device (GPU) will be used: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
-	vkBackends->deviceProperties = physicalDeviceProperties;
-
-	VkPhysicalDeviceFeatures supportedFeatures;
-	vkGetPhysicalDeviceFeatures(vkBackends->physicalDevice, &supportedFeatures);
-	vkBackends->deviceSupportedFeatures = supportedFeatures;
-
-	// create dummy window and surface to get device queue indices support
-	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-	VkSurfaceKHR surface;
-	GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-
-	if (glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
-	{
-		LVN_CORE_ERROR("[vulkan] failed to create temporary window surface at (%p)", surface);
-		return Lvn_Result_Failure;
-	}
-
-	// create logical device once
-	vks::createLogicalDevice(vkBackends, surface);
-
-	// get and check swap chain specs
-	VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surface, vkBackends->physicalDevice);
-	LVN_CORE_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] selected physical device does not have supported swap chain formats or present modes");
-
-	// destroy dummy window and surface
-	vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
-	glfwDestroyWindow(glfwWindow);
-	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-
-	// create command buffer pool
-	VkCommandPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = vkBackends->deviceIndices.graphicsIndex;
-
-	LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "[vulkan] failed to create command pool!");
-
-
-	// create VmaAllocator
-	VmaAllocatorCreateInfo allocatorInfo{};
-	allocatorInfo.device = vkBackends->device;
-	allocatorInfo.physicalDevice = vkBackends->physicalDevice;
-	allocatorInfo.instance = vkBackends->instance;
-
-	vmaCreateAllocator(&allocatorInfo, &vkBackends->vmaAllocator);
-
-	return Lvn_Result_Success;
-}
-
-void vksImplRenderCmdClearColor(const float r, const float g, const float b, const float w)
-{
-
-}
-
-void vksImplRenderCmdClear()
-{
-
+	VkPhysicalDevice vkPhysicalDevice = static_cast<VkPhysicalDevice>(physicalDevice->physicalDevice);
+	return vks::setupRenderInit(vkBackends, vkPhysicalDevice);;
 }
 
 void vksImplRenderClearColor(LvnWindow* window, float r, float g, float b, float a)

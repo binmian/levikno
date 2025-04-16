@@ -88,6 +88,11 @@ set(LVN_API_SRC
 	src/api/window/glfw/lvn_glfw.cpp
 	src/api/window/glfw/lvn_glfw.h
 
+	# loaders
+	src/api/loaders/lvn_loader_gltf.cpp
+	src/api/loaders/lvn_loader_obj.cpp
+	src/api/loaders/lvn_loaders.h
+
 	# opengl
 	src/api/graphics/opengl/lvn_opengl.cpp
 	src/api/graphics/opengl/lvn_opengl.h
@@ -126,8 +131,6 @@ set(LVN_SRC
 	include/levikno/levikno.h
 	src/levikno.cpp
 	src/levikno_internal.h
-	src/lvn_loadModel.cpp
-	src/lvn_loadModel.h
 )
 
 
@@ -189,6 +192,7 @@ target_include_directories(levikno
 		include/levikno
 		src/api/graphics/vulkan
 		src/api/graphics/opengl
+		src/api/loaders
 		src/api/window/glfw
 		src/external
 		src/external/glad/include

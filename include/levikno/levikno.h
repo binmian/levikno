@@ -68,7 +68,7 @@
 	#include <cassert> /* assert() */
 
 #else
-	#error "Levikno does not support the current platform."
+	#error "levikno does not support the current platform."
 #endif
 
 // dll
@@ -816,6 +816,7 @@ struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
 struct LvnCharset;
+struct LvnCircle;
 struct LvnColor;
 struct LvnContext;
 struct LvnContextCreateInfo;
@@ -860,7 +861,8 @@ struct LvnNode;
 struct LvnOrthoCamera;
 struct LvnPacket;
 struct LvnPhysicalDevice;
-struct LvnPhysicalDeviceInfo;
+struct LvnPhysicalDeviceFeatures;
+struct LvnPhysicalDeviceProperties;
 struct LvnPipeline;
 struct LvnPipelineColorBlend;
 struct LvnPipelineColorBlendAttachment;
@@ -875,10 +877,9 @@ struct LvnPipelineSpecification;
 struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
 struct LvnPoly;
+struct LvnPoint;
 struct LvnRect;
 struct LvnRenderer;
-struct LvnRendererCreateInfo;
-struct LvnRenderInitInfo;
 struct LvnRenderPass;
 struct LvnSampler;
 struct LvnSamplerCreateInfo;
@@ -1392,6 +1393,7 @@ namespace lvn
 
 	LVN_API LvnResult                   createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo);
 	LVN_API void                        destroyWindow(LvnWindow* window);
+	LVN_API LvnWindowCreateInfo         configWindowInit(const char* title, int width, int height);
 
 	LVN_API void                        windowUpdate(LvnWindow* window);
 	LVN_API bool                        windowOpen(LvnWindow* window);
@@ -1404,7 +1406,6 @@ namespace lvn
 	LVN_API void*                       windowGetNativeWindow(LvnWindow* window);
 	LVN_API LvnRenderPass*              windowGetRenderPass(LvnWindow* window);
 	LVN_API void                        windowSetContextCurrent(LvnWindow* window);
-	LVN_API LvnWindowCreateInfo         windowCreateInfoGetConfig(int width, int height, const char* title);
 
 
 	// -- [SUBSECT]: Input Functions
@@ -1439,9 +1440,10 @@ namespace lvn
 	LVN_API LvnGraphicsApi              getGraphicsApi();
 	LVN_API const char*                 getGraphicsApiName();
 	LVN_API void                        getPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* deviceCount);
-	LVN_API LvnPhysicalDeviceInfo       getPhysicalDeviceInfo(LvnPhysicalDevice* physicalDevice);
+	LVN_API LvnPhysicalDeviceProperties getPhysicalDeviceProperties(LvnPhysicalDevice* physicalDevice);
+	LVN_API LvnPhysicalDeviceFeatures   getPhysicalDeviceFeatures(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnResult                   checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
-	LVN_API LvnResult                   renderInit(LvnRenderInitInfo* renderInfo);
+	LVN_API LvnResult                   setPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnClipRegion               getRenderClipRegionEnum();
 
 	LVN_API void                        renderClearColor(LvnWindow* window, float r, float g, float b, float a);
@@ -1490,7 +1492,7 @@ namespace lvn
 	LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                              // destroy cubemap object
 
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
-	LVN_API LvnPipelineSpecification    pipelineSpecificationGetConfig();
+	LVN_API LvnPipelineSpecification    configPipelineSpecificationInit();
 	LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
 
 	LVN_API void                        bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
@@ -1534,7 +1536,7 @@ namespace lvn
 
 	LVN_API LvnResult                   createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo);
 	LVN_API void                        destroySound(LvnSound* sound);
-	LVN_API LvnSoundCreateInfo          soundConfigInit(const char* filepath);
+	LVN_API LvnSoundCreateInfo          configSoundInit(const char* filepath);
 
 	LVN_API void                        soundSetVolume(LvnSound* sound, float volume);
 	LVN_API void                        soundSetPan(LvnSound* sound, float pan);
@@ -1553,8 +1555,8 @@ namespace lvn
 
 	LVN_API LvnResult                   createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo);
 	LVN_API void                        destroySocket(LvnSocket* socket);
-	LVN_API LvnSocketCreateInfo         socketClientConfigInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
-	LVN_API LvnSocketCreateInfo         socketServerConfigInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
+	LVN_API LvnSocketCreateInfo         configSocketClientInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
+	LVN_API LvnSocketCreateInfo         configSocketServerInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
 
 	LVN_API uint32_t                    socketGetHostFromStr(const char* host);
 	LVN_API LvnResult                   socketConnect(LvnSocket* socket, LvnAddress* address, uint32_t channelCount, uint32_t milliseconds);
@@ -5060,8 +5062,12 @@ struct LvnContextCreateInfo
 		bool                      enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
 	} logging;
 
-	LvnTextureFormat              frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
-	LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
+	struct
+	{
+		LvnTextureFormat              frameBufferColorFormat;        // set the color image format of the window framebuffer when rendering
+		LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
+		uint32_t                      maxFramesInFlight;             // set the max frames in flight (vulkan only)
+	} rendering;
 	
 	struct
 	{
@@ -5255,7 +5261,7 @@ struct LvnWindowIconData
 struct LvnWindowCreateInfo
 {
 	int width, height;                  // width and height of window
-	const char* title;                  // title of window
+	std::string title;                  // title of window
 	int minWidth, minHeight;            // minimum width and height of window (set to 0 if not specified)
 	int maxWidth, maxHeight;            // maximum width and height of window (set to -1 if not specified)
 	bool fullscreen, resizable, vSync;  // sets window to fullscreen if true; enables window resizing if true; vSync controls window framerate, sets framerate to 60fps if true
@@ -5269,7 +5275,6 @@ struct LvnWindowCreateInfo
 	{
 		width = 0;
 		height = 0;
-		title = nullptr;
 		minWidth = 0, minHeight = 0;
 		maxWidth = -1, maxHeight = -1;
 		fullscreen = false, resizable = true, vSync = false;
@@ -5284,25 +5289,72 @@ struct LvnWindowCreateInfo
 // -- [SUBSECT]: Graphics Struct Implementation
 // ------------------------------------------------------------
 
-struct LvnPhysicalDeviceInfo
+struct LvnPhysicalDeviceProperties
 {
-	char name[256];
+	std::string name;
 	LvnPhysicalDeviceType type;
 	uint32_t apiVersion;
 	uint32_t driverVersion;
+	uint32_t vendorID;
 };
 
-struct LvnRendererCreateInfo
+struct LvnPhysicalDeviceFeatures
 {
-	LvnWindowCreateInfo* windowCreateInfo;
-	uint64_t maxSprites;
-};
-
-struct LvnRenderInitInfo
-{
-	LvnPhysicalDevice*       physicalDevice;
-	LvnRendererCreateInfo*   rendererCreateInfo;
-	uint32_t                 maxFramesInFlight;
+	bool robustBufferAccess;
+	bool fullDrawIndexUint32;
+	bool imageCubeArray;
+	bool independentBlend;
+	bool geometryShader;
+	bool tessellationShader;
+	bool sampleRateShading;
+	bool dualSrcBlend;
+	bool logicOp;
+	bool multiDrawIndirect;
+	bool drawIndirectFirstInstance;
+	bool depthClamp;
+	bool depthBiasClamp;
+	bool fillModeNonSolid;
+	bool depthBounds;
+	bool wideLines;
+	bool largePoints;
+	bool alphaToOne;
+	bool multiViewport;
+	bool samplerAnisotropy;
+	bool textureCompressionETC2;
+	bool textureCompressionASTC_LDR;
+	bool textureCompressionBC;
+	bool occlusionQueryPrecise;
+	bool pipelineStatisticsQuery;
+	bool vertexPipelineStoresAndAtomics;
+	bool fragmentStoresAndAtomics;
+	bool shaderTessellationAndGeometryPointSize;
+	bool shaderImageGatherExtended;
+	bool shaderStorageImageExtendedFormats;
+	bool shaderStorageImageMultisample;
+	bool shaderStorageImageReadWithoutFormat;
+	bool shaderStorageImageWriteWithoutFormat;
+	bool shaderUniformBufferArrayDynamicIndexing;
+	bool shaderSampledImageArrayDynamicIndexing;
+	bool shaderStorageBufferArrayDynamicIndexing;
+	bool shaderStorageImageArrayDynamicIndexing;
+	bool shaderClipDistance;
+	bool shaderCullDistance;
+	bool shaderFloat64;
+	bool shaderInt64;
+	bool shaderInt16;
+	bool shaderResourceResidency;
+	bool shaderResourceMinLod;
+	bool sparseBinding;
+	bool sparseResidencyBuffer;
+	bool sparseResidencyImage2D;
+	bool sparseResidencyImage3D;
+	bool sparseResidency2Samples;
+	bool sparseResidency4Samples;
+	bool sparseResidency8Samples;
+	bool sparseResidency16Samples;
+	bool sparseResidencyAliased;
+	bool variableMultisampleRate;
+	bool inheritedQueries;
 };
 
 struct LvnPipelineInputAssembly
@@ -5749,5 +5801,35 @@ struct LvnPacket
 	size_t size;
 };
 
+
+
+struct LvnPoint
+{
+	float x, y;
+};
+
+struct LvnTriangle
+{
+	LvnVec2 v1;
+	LvnVec2 v2;
+	LvnVec2 v3;
+};
+
+struct LvnRect
+{
+	LvnVec2 pos;
+	LvnVec2 size;
+};
+
+struct LvnCircle
+{
+	LvnVec2 pos;
+	float radius;
+};
+
+struct LvnPoly
+{
+
+};
 
 #endif

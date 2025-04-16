@@ -900,40 +900,10 @@ int main()
 	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-	lvnCreateInfo.frameBufferColorFormat = Lvn_TextureFormat_Unorm;
+	lvnCreateInfo.rendering.frameBufferColorFormat = Lvn_TextureFormat_Unorm;
+	lvnCreateInfo.rendering.maxFramesInFlight = 2;
 
 	lvn::createContext(&lvnCreateInfo);
-
-
-	uint32_t deviceCount = 0;
-	std::vector<LvnPhysicalDevice*> devices;
-	lvn::getPhysicalDevices(nullptr, &deviceCount);
-
-	devices.resize(deviceCount);
-	lvn::getPhysicalDevices(devices.data(), &deviceCount);
-
-	LvnPhysicalDevice* selectedPhysicalDevice = nullptr;
-
-	for (uint32_t i = 0; i < deviceCount; i++)
-	{
-		LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
-		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
-		{
-			selectedPhysicalDevice = devices[i];
-			break;
-		}
-	}
-
-	if (selectedPhysicalDevice == nullptr)
-	{
-		LVN_ERROR("no physical device supported");
-		return -1;
-	}
-
-	LvnRenderInitInfo renderInfo{};
-	renderInfo.physicalDevice = selectedPhysicalDevice;
-	renderInfo.maxFramesInFlight = 2;
-	lvn::renderInit(&renderInfo);
 
 
 	// create window
@@ -948,7 +918,7 @@ int main()
 
 
 	// load model
-	lvnmodel = lvn::loadModel("res/models/teapot.gltf");
+	lvnmodel = lvn::loadModel("/home/bma/Documents/models/gltf/stormtrooper/scene.gltf");
 
 
 	// create framebuffer
@@ -1085,7 +1055,7 @@ int main()
 	colorAttachment.dstAlphaBlendFactor = Lvn_ColorBlendFactor_Zero;
 	colorAttachment.alphaBlendOp = Lvn_ColorBlendOp_Add;
 
-	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
+	LvnPipelineSpecification pipelineSpec = lvn::configPipelineSpecificationInit();
 	pipelineSpec.depthstencil.enableDepth = true;
 	pipelineSpec.depthstencil.depthOpCompare = Lvn_CompareOp_LessOrEqual;
 	pipelineSpec.rasterizer.cullMode = Lvn_CullFaceMode_Back;

@@ -450,7 +450,7 @@ struct LvnGraphicsContext
 
 	void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
 	LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
-	LvnResult                   (*renderInit)(LvnRenderInitInfo*);
+	LvnResult                   (*setPhysicalDevice)(LvnPhysicalDevice*);
 
 	LvnResult                   (*createShaderFromSrc)(LvnShader*, LvnShaderCreateInfo*);
 	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, LvnShaderCreateInfo*);
@@ -513,10 +513,9 @@ struct LvnGraphicsContext
 
 struct LvnPhysicalDevice
 {
-	typedef void* LvnPhysicalDeviceHandle;
-
-	LvnPhysicalDeviceInfo info;
-	LvnPhysicalDeviceHandle device;
+	LvnPhysicalDeviceProperties properties;
+	LvnPhysicalDeviceFeatures features;
+	void* physicalDevice;
 };
 
 struct LvnShader

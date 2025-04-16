@@ -599,13 +599,53 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	s_OglBackends->deviceName = "opengl device";
 	s_OglBackends->versionMajor = 4;
 	s_OglBackends->versionMinor = 6;
-	s_OglBackends->defaultOglPipelineSpecification = lvn::pipelineSpecificationGetConfig();
+	s_OglBackends->defaultOglPipelineSpecification = lvn::configPipelineSpecificationInit();
 	s_OglBackends->maxTextureUnitSlots = 32;
 	s_OglBackends->framebufferColorFormatSrgb = graphicsContext->frameBufferColorFormat == Lvn_TextureFormat_Srgb ? true : false;
 
+
+	// NOTE: opengl does not support any enumerated physical devices so we just create a dummy device
+	LvnPhysicalDeviceProperties props{};
+	props.name = s_OglBackends->deviceName;
+	props.type = Lvn_PhysicalDeviceType_Other;
+	props.apiVersion = (((uint32_t)(s_OglBackends->versionMajor)) << 22) | (((uint32_t)(s_OglBackends->versionMinor)) << 12);
+	props.driverVersion = 0;
+	props.vendorID = 0;
+
+	LvnPhysicalDevice physicalDevice{};
+	physicalDevice.physicalDevice = nullptr;
+	physicalDevice.properties = props;
+
+	s_OglBackends->physicalDevice = physicalDevice;
+
+
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	// create dummy window to init opengl
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+	GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+	glfwMakeContextCurrent(glfwWindow);
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		LVN_CORE_ERROR("[opengl] failed to initialize glad");
+		return Lvn_Result_Failure;
+	}
+
+	glfwDestroyWindow(glfwWindow);
+	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+
+	// set error callback
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(ogls::debugCallback, 0);
+
+
+	// bind function pointers
 	graphicsContext->getPhysicalDevices = oglsImplGetPhysicalDevices;
 	graphicsContext->checkPhysicalDeviceSupport = oglsImplCheckPhysicalDeviceSupport;
-	graphicsContext->renderInit = oglsImplRenderInit;
+	graphicsContext->setPhysicalDevice = oglsImplSetPhysicalDevice;
 	graphicsContext->createShaderFromSrc = oglsImplCreateShaderFromSrc;
 	graphicsContext->createShaderFromFileSrc = oglsImplCreateShaderFromFileSrc;
 	graphicsContext->createShaderFromFileBin = oglsImplCreateShaderFromFileBin;
@@ -664,20 +704,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->findSupportedDepthImageFormat = oglsImplFindSupportedDepthImageFormat;
 
 
-	// NOTE: opengl does not support any enumerated physical devices so we just create a dummy device
-	LvnPhysicalDeviceInfo info{};
-	memcpy(info.name, s_OglBackends->deviceName, strlen(s_OglBackends->deviceName) + 1);
-	info.type = Lvn_PhysicalDeviceType_Other;
-	info.apiVersion = (((uint32_t)(s_OglBackends->versionMajor)) << 22) | (((uint32_t)(s_OglBackends->versionMinor)) << 12);
-	info.driverVersion = 0;
-
-	LvnPhysicalDevice physicalDevice{};
-	physicalDevice.device = nullptr;
-	physicalDevice.info = info;
-
-	s_OglBackends->physicalDevice = physicalDevice;
-
-
 	return Lvn_Result_Success;
 }
 
@@ -695,11 +721,11 @@ void oglsImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* 
 {
 	OglBackends* oglBackends = s_OglBackends;
 
-	if (pPhysicalDevices == nullptr)
-	{
+	if (physicalDeviceCount != nullptr)
 		*physicalDeviceCount = 1;
+
+	if (pPhysicalDevices == nullptr)
 		return;
-	}
 
 	*pPhysicalDevices = &oglBackends->physicalDevice;
 }
@@ -709,33 +735,10 @@ LvnResult oglsImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplRenderInit(LvnRenderInitInfo* renderBackends)
+LvnResult oglsImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 {
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	// create dummy window to init opengl
-	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-	GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-	glfwMakeContextCurrent(glfwWindow);
-
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-	{
-		LVN_CORE_ERROR("[opengl] failed to initialize glad");
-		return Lvn_Result_Failure;
-	}
-
-	glfwDestroyWindow(glfwWindow);
-	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-
-	// set error callback
-	glEnable(GL_DEBUG_OUTPUT);
-	glDebugMessageCallback(ogls::debugCallback, 0);
-
 	return Lvn_Result_Success;
 }
-
 
 LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
 {

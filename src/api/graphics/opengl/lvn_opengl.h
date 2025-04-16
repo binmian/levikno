@@ -9,7 +9,7 @@ namespace lvn
 	void oglsImplTerminateContext();
 	void oglsImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
 	LvnResult oglsImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
-	LvnResult oglsImplRenderInit(LvnRenderInitInfo* renderBackends);
+	LvnResult oglsImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 
 	LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);

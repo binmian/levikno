@@ -1,8 +1,5 @@
 #include <levikno/levikno.h>
 
-#include <vector>
-#include <chrono>
-
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
@@ -198,30 +195,6 @@ int main(int argc, char** argv)
 	lvn::createContext(&lvnCreateInfo);
 
 
-	uint32_t deviceCount = 0;
-	std::vector<LvnPhysicalDevice*> devices;
-
-	lvn::getPhysicalDevices(nullptr, &deviceCount);
-
-	devices.resize(deviceCount);
-	lvn::getPhysicalDevices(devices.data(), &deviceCount);
-
-
-	LvnRenderInitInfo renderInfo{};
-	renderInfo.maxFramesInFlight = 1;
-
-	for (uint32_t i = 0; i < deviceCount; i++)
-	{
-		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
-		{
-			renderInfo.physicalDevice = devices[i];
-			break;
-		}
-	}
-
-	lvn::renderInit(&renderInfo);
-
-
 	// create window
 	LvnWindowCreateInfo windowInfo{};
 	windowInfo.title = "Pong";
@@ -312,7 +285,7 @@ int main(int argc, char** argv)
 	LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
 
 	// create pipeline specification or fixed functions
-	LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
+	LvnPipelineSpecification pipelineSpec = lvn::configPipelineSpecificationInit();
 
 	// pipeline create info struct
 	LvnPipelineCreateInfo pipelineCreateInfo{};
@@ -443,12 +416,12 @@ int main(int argc, char** argv)
 	lvn::updateDescriptorSetData(fontDescriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
 
 	// sound
-	LvnSoundCreateInfo soundCreateInfo = lvn::soundConfigInit("res/audio/beep.wav");
+	LvnSoundCreateInfo soundCreateInfo = lvn::configSoundInit("res/audio/beep.wav");
 
 	LvnSound* sound;
 	lvn::createSound(&sound, &soundCreateInfo);
 
-	LvnSoundCreateInfo soundWinCreateInfo = lvn::soundConfigInit("res/audio/winBeep.wav");
+	LvnSoundCreateInfo soundWinCreateInfo = lvn::configSoundInit("res/audio/winBeep.wav");
 
 	LvnSound* soundWin;
 	lvn::createSound(&soundWin, &soundWinCreateInfo);

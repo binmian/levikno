@@ -119,36 +119,6 @@ int main(int argc, char** argv)
 	lvn::createContext(&lvnCreateInfo);
 
 
-	// [Choose Device]
-	// choose a physical device to render to
-
-	uint32_t deviceCount = 0;
-	std::vector<LvnPhysicalDevice*> devices;
-
-	// first get number of devices, note that the first parameter is null
-	lvn::getPhysicalDevices(nullptr, &deviceCount);
-
-	// get an array of physical devices now that we know the number of devices
-	devices.resize(deviceCount);
-	lvn::getPhysicalDevices(devices.data(), &deviceCount);
-
-
-	// initialize rendering, pass the physical device in the init struct
-	LvnRenderInitInfo renderInfo{};
-
-	// find and check if physical device is supported
-	for (uint32_t i = 0; i < deviceCount; i++)
-	{
-		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
-		{
-			renderInfo.physicalDevice = devices[i];
-			break;
-		}
-	}
-
-	lvn::renderInit(&renderInfo);
-
-
 	// window create info struct
 	LvnWindowCreateInfo windowInfo{};
 	windowInfo.title = "simpleWindow";

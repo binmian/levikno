@@ -9,7 +9,7 @@ namespace lvn
 	void vksImplTerminateContext();
 	void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
 	LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
-	LvnResult vksImplRenderInit(LvnRenderInitInfo* renderBackends);
+	LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 
 	LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
 	LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo);
