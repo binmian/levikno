@@ -1,7 +1,5 @@
 #include <levikno/levikno.h>
 
-#include <vector>
-
 
 bool keyHold(LvnKeyHoldEvent* event, void* userData)
 {

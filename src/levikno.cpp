@@ -2413,9 +2413,9 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
 	{
-		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
+		if (createInfo->pVertexAttributes[i].format == Lvn_AttributeFormat_Undefined)
 		{
-			LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_VertexDataType_None, cannot create vertex buffer without a vertex data type", i);
+			LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_AttributeFormat_Undefined, cannot create vertex buffer without a vertex data type", i);
 			return Lvn_Result_Failure;
 		}
 	}
@@ -2625,6 +2625,94 @@ void destroyCubemap(LvnCubemap* cubemap)
 
 	lvnctx->graphicsContext.destroyCubemap(cubemap);
 	lvn::destroyObject(lvnctx, cubemap, Lvn_Stype_Cubemap);
+}
+
+uint32_t getAttributeFormatSize(LvnAttributeFormat format)
+{
+	switch (format)
+	{
+		case Lvn_AttributeFormat_Undefined:    { return 0; }
+		case Lvn_AttributeFormat_Scalar_f32:   { return sizeof(float); }
+		case Lvn_AttributeFormat_Scalar_f64:   { return sizeof(double); }
+		case Lvn_AttributeFormat_Scalar_i32:   { return sizeof(int32_t); }
+		case Lvn_AttributeFormat_Scalar_ui32:  { return sizeof(uint32_t); }
+		case Lvn_AttributeFormat_Scalar_i8:    { return sizeof(int8_t); }
+		case Lvn_AttributeFormat_Scalar_ui8:   { return sizeof(uint8_t); }
+		case Lvn_AttributeFormat_Vec2_f32:     { return 2 * sizeof(float); }
+		case Lvn_AttributeFormat_Vec3_f32:     { return 3 * sizeof(float); }
+		case Lvn_AttributeFormat_Vec4_f32:     { return 4 * sizeof(float); }
+		case Lvn_AttributeFormat_Vec2_f64:     { return 2 * sizeof(double); }
+		case Lvn_AttributeFormat_Vec3_f64:     { return 3 * sizeof(double); }
+		case Lvn_AttributeFormat_Vec4_f64:     { return 4 * sizeof(double); }
+		case Lvn_AttributeFormat_Vec2_i32:     { return 2 * sizeof(int32_t); }
+		case Lvn_AttributeFormat_Vec3_i32:     { return 3 * sizeof(int32_t); }
+		case Lvn_AttributeFormat_Vec4_i32:     { return 4 * sizeof(int32_t); }
+		case Lvn_AttributeFormat_Vec2_ui32:    { return 2 * sizeof(uint32_t); }
+		case Lvn_AttributeFormat_Vec3_ui32:    { return 3 * sizeof(uint32_t); }
+		case Lvn_AttributeFormat_Vec4_ui32:    { return 4 * sizeof(uint32_t); }
+		case Lvn_AttributeFormat_Vec2_i8:      { return 2 * sizeof(int8_t); }
+		case Lvn_AttributeFormat_Vec3_i8:      { return 3 * sizeof(int8_t); }
+		case Lvn_AttributeFormat_Vec4_i8:      { return 4 * sizeof(int8_t); }
+		case Lvn_AttributeFormat_Vec2_ui8:     { return 2 * sizeof(uint8_t); }
+		case Lvn_AttributeFormat_Vec3_ui8:     { return 3 * sizeof(uint8_t); }
+		case Lvn_AttributeFormat_Vec4_ui8:     { return 4 * sizeof(uint8_t); }
+		case Lvn_AttributeFormat_Vec2_n8:      { return 2 * sizeof(int8_t); }
+		case Lvn_AttributeFormat_Vec3_n8:      { return 3 * sizeof(int8_t); }
+		case Lvn_AttributeFormat_Vec4_n8:      { return 4 * sizeof(int8_t); }
+		case Lvn_AttributeFormat_Vec2_un8:     { return 2 * sizeof(uint8_t); }
+		case Lvn_AttributeFormat_Vec3_un8:     { return 3 * sizeof(uint8_t); }
+		case Lvn_AttributeFormat_Vec4_un8:     { return 4 * sizeof(uint8_t); }
+
+		default:
+		{
+			LVN_CORE_WARN("unknown vertex data type enum: (%u)", format);
+			return 0;
+		}
+	}
+}
+
+uint32_t getAttributeFormatComponentSize(LvnAttributeFormat format)
+{
+	switch (format)
+	{
+		case Lvn_AttributeFormat_Undefined:    { return 0; }
+		case Lvn_AttributeFormat_Scalar_f32:   { return 1; }
+		case Lvn_AttributeFormat_Scalar_f64:   { return 1; }
+		case Lvn_AttributeFormat_Scalar_i32:   { return 1; }
+		case Lvn_AttributeFormat_Scalar_ui32:  { return 1; }
+		case Lvn_AttributeFormat_Scalar_i8:    { return 1; }
+		case Lvn_AttributeFormat_Scalar_ui8:   { return 1; }
+		case Lvn_AttributeFormat_Vec2_f32:     { return 2; }
+		case Lvn_AttributeFormat_Vec3_f32:     { return 3; }
+		case Lvn_AttributeFormat_Vec4_f32:     { return 4; }
+		case Lvn_AttributeFormat_Vec2_f64:     { return 2; }
+		case Lvn_AttributeFormat_Vec3_f64:     { return 3; }
+		case Lvn_AttributeFormat_Vec4_f64:     { return 4; }
+		case Lvn_AttributeFormat_Vec2_i32:     { return 2; }
+		case Lvn_AttributeFormat_Vec3_i32:     { return 3; }
+		case Lvn_AttributeFormat_Vec4_i32:     { return 4; }
+		case Lvn_AttributeFormat_Vec2_ui32:    { return 2; }
+		case Lvn_AttributeFormat_Vec3_ui32:    { return 3; }
+		case Lvn_AttributeFormat_Vec4_ui32:    { return 4; }
+		case Lvn_AttributeFormat_Vec2_i8:      { return 2; }
+		case Lvn_AttributeFormat_Vec3_i8:      { return 3; }
+		case Lvn_AttributeFormat_Vec4_i8:      { return 4; }
+		case Lvn_AttributeFormat_Vec2_ui8:     { return 2; }
+		case Lvn_AttributeFormat_Vec3_ui8:     { return 3; }
+		case Lvn_AttributeFormat_Vec4_ui8:     { return 4; }
+		case Lvn_AttributeFormat_Vec2_n8:      { return 2; }
+		case Lvn_AttributeFormat_Vec3_n8:      { return 3; }
+		case Lvn_AttributeFormat_Vec4_n8:      { return 4; }
+		case Lvn_AttributeFormat_Vec2_un8:     { return 2; }
+		case Lvn_AttributeFormat_Vec3_un8:     { return 3; }
+		case Lvn_AttributeFormat_Vec4_un8:     { return 4; }
+
+		default:
+		{
+			LVN_CORE_WARN("unknown vertex data type enum: (%u)", format);
+			return 0;
+		}
+	}
 }
 
 void pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification)
@@ -3073,38 +3161,6 @@ void unloadModel(LvnModel* model)
 	for (uint32_t i = 0; i < model->skins.size(); i++)
 	{
 		lvn::destroyUniformBuffer(model->skins[i].ssbo);
-	}
-}
-
-
-uint32_t getVertexDataTypeSize(LvnVertexDataType type)
-{
-	switch (type)
-	{
-		case Lvn_VertexDataType_None:        { return 0; }
-		case Lvn_VertexDataType_Float:       { return sizeof(float); }
-		case Lvn_VertexDataType_Double:      { return sizeof(double); }
-		case Lvn_VertexDataType_Int:         { return sizeof(int); }
-		case Lvn_VertexDataType_UnsignedInt: { return sizeof(uint32_t); }
-		case Lvn_VertexDataType_Bool:        { return sizeof(bool); }
-		case Lvn_VertexDataType_Vec2:        { return sizeof(float) * 2; }
-		case Lvn_VertexDataType_Vec3:        { return sizeof(float) * 3; }
-		case Lvn_VertexDataType_Vec4:        { return sizeof(float) * 4; }
-		case Lvn_VertexDataType_Vec2i:       { return sizeof(int32_t) * 2; }
-		case Lvn_VertexDataType_Vec3i:       { return sizeof(int32_t) * 3; }
-		case Lvn_VertexDataType_Vec4i:       { return sizeof(int32_t) * 4; }
-		case Lvn_VertexDataType_Vec2ui:      { return sizeof(uint32_t) * 2; }
-		case Lvn_VertexDataType_Vec3ui:      { return sizeof(uint32_t) * 3; }
-		case Lvn_VertexDataType_Vec4ui:      { return sizeof(uint32_t) * 4; }
-		case Lvn_VertexDataType_Vec2d:       { return sizeof(double) * 2; }
-		case Lvn_VertexDataType_Vec3d:       { return sizeof(double) * 3; }
-		case Lvn_VertexDataType_Vec4d:       { return sizeof(double) * 4; }
-
-		default:
-		{
-			LVN_CORE_WARN("unknown vertex data type enum: (%u)", type);
-			return 0;
-		}
 	}
 }
 

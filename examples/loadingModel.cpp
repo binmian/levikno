@@ -150,12 +150,12 @@ int main(int argc, char** argv)
 
 	LvnVertexAttribute attributes[6] =
 	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },                   // pos
-		{ 0, 1, Lvn_VertexDataType_Vec4f, 3 * sizeof(float) },   // color
-		{ 0, 2, Lvn_VertexDataType_Vec2f, 7 * sizeof(float) },   // texUV
-		{ 0, 3, Lvn_VertexDataType_Vec3f, 9 * sizeof(float) },   // normal
-		{ 0, 4, Lvn_VertexDataType_Vec3f, 12 * sizeof(float) },  // tangent
-		{ 0, 5, Lvn_VertexDataType_Vec3f, 15 * sizeof(float) },  // bitangent
+		{ 0, 0, Lvn_AttributeFormat_Vec3_f32, 0 },                   // pos
+		{ 0, 1, Lvn_AttributeFormat_Vec4_f32, 3 * sizeof(float) },   // color
+		{ 0, 2, Lvn_AttributeFormat_Vec2_f32, 7 * sizeof(float) },   // texUV
+		{ 0, 3, Lvn_AttributeFormat_Vec3_f32, 9 * sizeof(float) },   // normal
+		{ 0, 4, Lvn_AttributeFormat_Vec3_f32, 12 * sizeof(float) },  // tangent
+		{ 0, 5, Lvn_AttributeFormat_Vec3_f32, 15 * sizeof(float) },  // bitangent
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};

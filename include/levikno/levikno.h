@@ -754,29 +754,39 @@ enum LvnTopologyType
 	Lvn_TopologyType_TriangleStrip,
 };
 
-enum LvnVertexDataType
+enum LvnAttributeFormat
 {
-	Lvn_VertexDataType_None = 0,
-	Lvn_VertexDataType_Float,
-	Lvn_VertexDataType_Double,
-	Lvn_VertexDataType_Int,
-	Lvn_VertexDataType_UnsignedInt,
-	Lvn_VertexDataType_Bool,
-	Lvn_VertexDataType_Vec2,
-	Lvn_VertexDataType_Vec3,
-	Lvn_VertexDataType_Vec4,
-	Lvn_VertexDataType_Vec2i,
-	Lvn_VertexDataType_Vec3i,
-	Lvn_VertexDataType_Vec4i,
-	Lvn_VertexDataType_Vec2ui,
-	Lvn_VertexDataType_Vec3ui,
-	Lvn_VertexDataType_Vec4ui,
-	Lvn_VertexDataType_Vec2d,
-	Lvn_VertexDataType_Vec3d,
-	Lvn_VertexDataType_Vec4d,
-	Lvn_VertexDataType_Vec2f = Lvn_VertexDataType_Vec2,
-	Lvn_VertexDataType_Vec3f = Lvn_VertexDataType_Vec3,
-	Lvn_VertexDataType_Vec4f = Lvn_VertexDataType_Vec4,
+	Lvn_AttributeFormat_Undefined = 0,
+	Lvn_AttributeFormat_Scalar_f32,
+	Lvn_AttributeFormat_Scalar_f64,
+	Lvn_AttributeFormat_Scalar_i32,
+	Lvn_AttributeFormat_Scalar_ui32,
+	Lvn_AttributeFormat_Scalar_i8,
+	Lvn_AttributeFormat_Scalar_ui8,
+	Lvn_AttributeFormat_Vec2_f32,
+	Lvn_AttributeFormat_Vec3_f32,
+	Lvn_AttributeFormat_Vec4_f32,
+	Lvn_AttributeFormat_Vec2_f64,
+	Lvn_AttributeFormat_Vec3_f64,
+	Lvn_AttributeFormat_Vec4_f64,
+	Lvn_AttributeFormat_Vec2_i32,
+	Lvn_AttributeFormat_Vec3_i32,
+	Lvn_AttributeFormat_Vec4_i32,
+	Lvn_AttributeFormat_Vec2_ui32,
+	Lvn_AttributeFormat_Vec3_ui32,
+	Lvn_AttributeFormat_Vec4_ui32,
+	Lvn_AttributeFormat_Vec2_i8,
+	Lvn_AttributeFormat_Vec3_i8,
+	Lvn_AttributeFormat_Vec4_i8,
+	Lvn_AttributeFormat_Vec2_ui8,
+	Lvn_AttributeFormat_Vec3_ui8,
+	Lvn_AttributeFormat_Vec4_ui8,
+	Lvn_AttributeFormat_Vec2_n8,
+	Lvn_AttributeFormat_Vec3_n8,
+	Lvn_AttributeFormat_Vec4_n8,
+	Lvn_AttributeFormat_Vec2_un8,
+	Lvn_AttributeFormat_Vec3_un8,
+	Lvn_AttributeFormat_Vec4_un8,
 };
 
 enum LvnInterpolationMode
@@ -1491,6 +1501,8 @@ namespace lvn
 	LVN_API void                        destroyTexture(LvnTexture* texture);                                                                              // destroy texture object
 	LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                              // destroy cubemap object
 
+	LVN_API uint32_t                    getAttributeFormatSize(LvnAttributeFormat format);
+	LVN_API uint32_t                    getAttributeFormatComponentSize(LvnAttributeFormat format);
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    configPipelineSpecificationInit();
 	LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
@@ -1500,7 +1512,6 @@ namespace lvn
 	LVN_API void                        bufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size);
 	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
 
-	LVN_API uint32_t                    getVertexDataTypeSize(LvnVertexDataType type);
 	LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
 	LVN_API void                        updateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);                     // update the data stored in a uniform or storage buffer
@@ -1563,6 +1574,14 @@ namespace lvn
 	LVN_API LvnResult                   socketDisconnect(LvnSocket* socket, uint32_t milliseconds);
 	LVN_API void                        socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet);
 	LVN_API LvnResult                   socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds);
+
+
+	// -- [SUBSECT]: Renderer Functions
+	// ------------------------------------------------------------
+	// - high end api functions
+
+	LVN_API LvnResult                   renderInit(int width, int height, const char* title);
+	LVN_API LvnResult                   renderInit(const LvnWindowCreateInfo* createInfo);
 
 
 	// -- [SUBSECT]: ECS Functions
@@ -5470,7 +5489,7 @@ struct LvnVertexAttribute
 {
 	uint32_t binding;
 	uint32_t layout;
-	LvnVertexDataType type;
+	LvnAttributeFormat format;
 	uint32_t offset;
 };
 

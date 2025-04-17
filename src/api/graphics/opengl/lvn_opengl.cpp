@@ -15,8 +15,7 @@ namespace ogls
 	static LvnResult          checkErrorCode();
 	static void GLAPIENTRY    debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam );
 	static LvnResult          checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
-	static uint32_t           getVertexAttributeSizeEnum(LvnVertexDataType type);
-	static GLenum             getVertexAttributeFormatEnum(LvnVertexDataType type);
+	static GLenum             getVertexAttributeFormatEnum(LvnAttributeFormat format);
 	static GLenum             getTextureFilterEnum(LvnTextureFilter filter);
 	static GLenum             getTextureWrapModeEnum(LvnTextureMode mode);
 	static uint32_t           getSampleCountEnum(LvnSampleCount samples);
@@ -92,61 +91,45 @@ namespace ogls
 		return Lvn_Result_Success;
 	}
 
-	static uint32_t getVertexAttributeSizeEnum(LvnVertexDataType type)
+	static GLenum getVertexAttributeFormatEnum(LvnAttributeFormat format)
 	{
-		switch (type)
+		switch (format)
 		{
-			case Lvn_VertexDataType_None: { return 0; }
-			case Lvn_VertexDataType_Float: { return 1; }
-			case Lvn_VertexDataType_Double: { return 1; }
-			case Lvn_VertexDataType_Int: { return 1; }
-			case Lvn_VertexDataType_UnsignedInt: { return 1; }
-			case Lvn_VertexDataType_Bool: { return 1; }
-			case Lvn_VertexDataType_Vec2: { return 2; }
-			case Lvn_VertexDataType_Vec3: { return 3; }
-			case Lvn_VertexDataType_Vec4: { return 4; }
-			case Lvn_VertexDataType_Vec2i: { return 2; }
-			case Lvn_VertexDataType_Vec3i: { return 3; }
-			case Lvn_VertexDataType_Vec4i: { return 4; }
-			case Lvn_VertexDataType_Vec2ui: { return 2; }
-			case Lvn_VertexDataType_Vec3ui: { return 3; }
-			case Lvn_VertexDataType_Vec4ui: { return 4; }
-			case Lvn_VertexDataType_Vec2d: { return 2; }
-			case Lvn_VertexDataType_Vec3d: { return 3; }
-			case Lvn_VertexDataType_Vec4d: { return 4; }
-			default:
-			{
-				LVN_CORE_WARN("unknown vertex attribute format type enum (%d)", type);
-				return 0;
-			}
-		}
-	}
+			case Lvn_AttributeFormat_Undefined:    { return GL_NONE; }
+			case Lvn_AttributeFormat_Scalar_f32:   { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Scalar_f64:   { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Scalar_i32:   { return GL_INT; }
+			case Lvn_AttributeFormat_Scalar_ui32:  { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Scalar_i8:    { return GL_BYTE; }
+			case Lvn_AttributeFormat_Scalar_ui8:   { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec2_f32:     { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec3_f32:     { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec4_f32:     { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec2_f64:     { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec3_f64:     { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec4_f64:     { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec2_i32:     { return GL_INT; }
+			case Lvn_AttributeFormat_Vec3_i32:     { return GL_INT; }
+			case Lvn_AttributeFormat_Vec4_i32:     { return GL_INT; }
+			case Lvn_AttributeFormat_Vec2_ui32:    { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec3_ui32:    { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec4_ui32:    { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec2_i8:      { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec3_i8:      { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec4_i8:      { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec2_ui8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec3_ui8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec4_ui8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec2_n8:      { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec3_n8:      { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec4_n8:      { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec2_un8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec3_un8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec4_un8:     { return GL_UNSIGNED_BYTE; }
 
-	static GLenum getVertexAttributeFormatEnum(LvnVertexDataType type)
-	{
-		switch (type)
-		{
-			case Lvn_VertexDataType_None: { return GL_NONE; }
-			case Lvn_VertexDataType_Float: { return GL_FLOAT; }
-			case Lvn_VertexDataType_Double: { return GL_DOUBLE; }
-			case Lvn_VertexDataType_Int: { return GL_INT; }
-			case Lvn_VertexDataType_UnsignedInt: { return GL_UNSIGNED_INT; }
-			case Lvn_VertexDataType_Bool: { return GL_BOOL; }
-			case Lvn_VertexDataType_Vec2: { return GL_FLOAT; }
-			case Lvn_VertexDataType_Vec3: { return GL_FLOAT; }
-			case Lvn_VertexDataType_Vec4: { return GL_FLOAT; }
-			case Lvn_VertexDataType_Vec2i: { return GL_INT; }
-			case Lvn_VertexDataType_Vec3i: { return GL_INT; }
-			case Lvn_VertexDataType_Vec4i: { return GL_INT; }
-			case Lvn_VertexDataType_Vec2ui: { return GL_UNSIGNED_INT; }
-			case Lvn_VertexDataType_Vec3ui: { return GL_UNSIGNED_INT; }
-			case Lvn_VertexDataType_Vec4ui: { return GL_UNSIGNED_INT; }
-			case Lvn_VertexDataType_Vec2d: { return GL_DOUBLE; }
-			case Lvn_VertexDataType_Vec3d: { return GL_DOUBLE; }
-			case Lvn_VertexDataType_Vec4d: { return GL_DOUBLE; }
 			default:
 			{
-				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", type);
+				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", format);
 				return GL_NONE;
 			}
 		}
@@ -995,11 +978,12 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 	// attributes
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
 	{ 
+		// TODO: set different vertex attrib pointers for float types, ints, doubles
 		glEnableVertexAttribArray(createInfo->pVertexAttributes[i].layout);
 		glVertexAttribPointer(
 			createInfo->pVertexAttributes[i].layout,
-			ogls::getVertexAttributeSizeEnum(createInfo->pVertexAttributes[i].type),
-			ogls::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].type),
+			lvn::getAttributeFormatComponentSize(createInfo->pVertexAttributes[i].format),
+			ogls::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].format),
 			GL_FALSE,
 			createInfo->pVertexBindingDescriptions[0].stride,
 			(void*)((uint64_t)createInfo->pVertexAttributes[i].offset));

@@ -1,7 +1,5 @@
 #include <levikno/levikno.h>
 
-#include <vector>
-#include <cstdint>
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
@@ -90,8 +88,8 @@ int main(int argc, char** argv)
 	// create the vertex attributes and descriptor bindings to layout our vertex data
 	LvnVertexAttribute attributes[2] =
 	{
-		{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-		{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
+		{ 0, 0, Lvn_AttributeFormat_Vec3_f32, 0 },
+		{ 0, 1, Lvn_AttributeFormat_Vec3_f32, (3 * sizeof(float)) },
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};

@@ -87,7 +87,7 @@ namespace vks
 	static VkBlendOp                            getBlendOperationEnum(LvnColorBlendOperation blendOp);
 	static VkCompareOp                          getCompareOpEnum(LvnCompareOperation compare);
 	static VkStencilOp                          getStencilOpEnum(LvnStencilOperation stencilOp);
-	static VkFormat                             getVertexAttributeFormatEnum(LvnVertexDataType type);
+	static VkFormat                             getVertexAttributeFormatEnum(LvnAttributeFormat format);
 	static VkPipelineColorBlendAttachmentState  createColorAttachment();
 	static VkSampleCountFlagBits                getMaxUsableSampleCount(VulkanBackends* vkBackends);
 	static VkSampleCountFlagBits                getSampleCountFlagEnum(LvnSampleCount samples);
@@ -1286,31 +1286,45 @@ namespace vks
 		}
 	}
 
-	static VkFormat getVertexAttributeFormatEnum(LvnVertexDataType type)
+	static VkFormat getVertexAttributeFormatEnum(LvnAttributeFormat format)
 	{
-		switch (type)
+		switch (format)
 		{
-			case Lvn_VertexDataType_None: { return VK_FORMAT_UNDEFINED; }
-			case Lvn_VertexDataType_Float: { return VK_FORMAT_R32_SFLOAT; }
-			case Lvn_VertexDataType_Double: { return VK_FORMAT_R64_SFLOAT; }
-			case Lvn_VertexDataType_Int: { return VK_FORMAT_R32_SINT; }
-			case Lvn_VertexDataType_UnsignedInt: { return VK_FORMAT_R32_UINT; }
-			case Lvn_VertexDataType_Bool: { return VK_FORMAT_R8_SINT; }
-			case Lvn_VertexDataType_Vec2: { return VK_FORMAT_R32G32_SFLOAT; }
-			case Lvn_VertexDataType_Vec3: { return VK_FORMAT_R32G32B32_SFLOAT; }
-			case Lvn_VertexDataType_Vec4: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
-			case Lvn_VertexDataType_Vec2i: { return VK_FORMAT_R32G32_SINT; }
-			case Lvn_VertexDataType_Vec3i: { return VK_FORMAT_R32G32B32_SINT; }
-			case Lvn_VertexDataType_Vec4i: { return VK_FORMAT_R32G32B32A32_SINT; }
-			case Lvn_VertexDataType_Vec2ui: { return VK_FORMAT_R32G32_UINT; }
-			case Lvn_VertexDataType_Vec3ui: { return VK_FORMAT_R32G32B32_UINT; }
-			case Lvn_VertexDataType_Vec4ui: { return VK_FORMAT_R32G32B32A32_UINT; }
-			case Lvn_VertexDataType_Vec2d: { return VK_FORMAT_R64G64_SFLOAT; }
-			case Lvn_VertexDataType_Vec3d: { return VK_FORMAT_R64G64B64_SFLOAT; }
-			case Lvn_VertexDataType_Vec4d: { return VK_FORMAT_R64G64B64A64_SFLOAT; }
+			case Lvn_AttributeFormat_Undefined:    { return VK_FORMAT_UNDEFINED; }
+			case Lvn_AttributeFormat_Scalar_f32:   { return VK_FORMAT_R32_SFLOAT; }
+			case Lvn_AttributeFormat_Scalar_f64:   { return VK_FORMAT_R64_SFLOAT; }
+			case Lvn_AttributeFormat_Scalar_i32:   { return VK_FORMAT_R32_SINT; }
+			case Lvn_AttributeFormat_Scalar_ui32:  { return VK_FORMAT_R32_UINT; }
+			case Lvn_AttributeFormat_Scalar_i8:    { return VK_FORMAT_R8_SINT; }
+			case Lvn_AttributeFormat_Scalar_ui8:   { return VK_FORMAT_R8_UINT; }
+			case Lvn_AttributeFormat_Vec2_f32:     { return VK_FORMAT_R32G32_SFLOAT; }
+			case Lvn_AttributeFormat_Vec3_f32:     { return VK_FORMAT_R32G32B32_SFLOAT; }
+			case Lvn_AttributeFormat_Vec4_f32:     { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+			case Lvn_AttributeFormat_Vec2_f64:     { return VK_FORMAT_R64G64_SFLOAT; }
+			case Lvn_AttributeFormat_Vec3_f64:     { return VK_FORMAT_R64G64B64_SFLOAT; }
+			case Lvn_AttributeFormat_Vec4_f64:     { return VK_FORMAT_R64G64B64A64_SFLOAT; }
+			case Lvn_AttributeFormat_Vec2_i32:     { return VK_FORMAT_R32G32_SINT; }
+			case Lvn_AttributeFormat_Vec3_i32:     { return VK_FORMAT_R32G32B32_SINT; }
+			case Lvn_AttributeFormat_Vec4_i32:     { return VK_FORMAT_R32G32B32A32_SINT; }
+			case Lvn_AttributeFormat_Vec2_ui32:    { return VK_FORMAT_R32G32_UINT; }
+			case Lvn_AttributeFormat_Vec3_ui32:    { return VK_FORMAT_R32G32B32_UINT; }
+			case Lvn_AttributeFormat_Vec4_ui32:    { return VK_FORMAT_R32G32B32A32_UINT; }
+			case Lvn_AttributeFormat_Vec2_i8:      { return VK_FORMAT_R8G8_SINT; }
+			case Lvn_AttributeFormat_Vec3_i8:      { return VK_FORMAT_R8G8B8_SINT; }
+			case Lvn_AttributeFormat_Vec4_i8:      { return VK_FORMAT_R8G8B8A8_SINT; }
+			case Lvn_AttributeFormat_Vec2_ui8:     { return VK_FORMAT_R8G8_UINT; }
+			case Lvn_AttributeFormat_Vec3_ui8:     { return VK_FORMAT_R8G8B8_UINT; }
+			case Lvn_AttributeFormat_Vec4_ui8:     { return VK_FORMAT_R8G8B8A8_UINT; }
+			case Lvn_AttributeFormat_Vec2_n8:      { return VK_FORMAT_R8G8_SNORM; }
+			case Lvn_AttributeFormat_Vec3_n8:      { return VK_FORMAT_R8G8B8_SNORM; }
+			case Lvn_AttributeFormat_Vec4_n8:      { return VK_FORMAT_R8G8B8A8_SNORM; }
+			case Lvn_AttributeFormat_Vec2_un8:     { return VK_FORMAT_R8G8_UNORM; }
+			case Lvn_AttributeFormat_Vec3_un8:     { return VK_FORMAT_R8G8B8_UNORM; }
+			case Lvn_AttributeFormat_Vec4_un8:     { return VK_FORMAT_R8G8B8A8_UNORM; }
+
 			default:
 			{
-				LVN_CORE_WARN("uknown vertex attribute format type enum (%d), setting to format type undefined", type);
+				LVN_CORE_WARN("uknown vertex attribute format type enum (%d), setting to format type undefined", format);
 				return VK_FORMAT_UNDEFINED;
 			}
 		}
@@ -2818,13 +2832,13 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
 	{
-		if (createInfo->pVertexAttributes[i].type == Lvn_VertexDataType_None)
+		if (createInfo->pVertexAttributes[i].format == Lvn_AttributeFormat_Undefined)
 			LVN_CORE_WARN("createPipeline(LvnPipeline**, LvnPipelineCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
 
 		VkVertexInputAttributeDescription attributeDescription{};
 		attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
 		attributeDescription.location = createInfo->pVertexAttributes[i].layout;
-		attributeDescription.format = vks::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].type);
+		attributeDescription.format = vks::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].format);
 		attributeDescription.offset = createInfo->pVertexAttributes[i].offset;
 
 		vertexAttributes[i] = attributeDescription;

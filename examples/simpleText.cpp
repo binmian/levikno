@@ -208,9 +208,9 @@ int main(int argc, char** argv)
 	// create the vertex attributes and descriptor bindings to layout our vertex data
 	LvnVertexAttribute attributes[] = 
 	{
-		{ 0, 0, Lvn_VertexDataType_Vec2f, 0 },
-		{ 0, 1, Lvn_VertexDataType_Vec3f, (2 * sizeof(float)) },
-		{ 0, 2, Lvn_VertexDataType_Vec2f, (5 * sizeof(float)) },
+		{ 0, 0, Lvn_AttributeFormat_Vec2_f32, 0 },
+		{ 0, 1, Lvn_AttributeFormat_Vec3_f32, (2 * sizeof(float)) },
+		{ 0, 2, Lvn_AttributeFormat_Vec2_f32, (5 * sizeof(float)) },
 	};
 
 	LvnVertexBindingDescription vertexBindingDescription{};
