@@ -787,6 +787,10 @@ enum LvnAttributeFormat
 	Lvn_AttributeFormat_Vec2_un8,
 	Lvn_AttributeFormat_Vec3_un8,
 	Lvn_AttributeFormat_Vec4_un8,
+	Lvn_AttributeFormat_2_10_10_10_ile,
+	Lvn_AttributeFormat_2_10_10_10_uile,
+	Lvn_AttributeFormat_2_10_10_10_nle,
+	Lvn_AttributeFormat_2_10_10_10_unle,
 };
 
 enum LvnInterpolationMode
@@ -1503,6 +1507,7 @@ namespace lvn
 
 	LVN_API uint32_t                    getAttributeFormatSize(LvnAttributeFormat format);
 	LVN_API uint32_t                    getAttributeFormatComponentSize(LvnAttributeFormat format);
+	LVN_API bool                        isAttributeFormatNormalizedType(LvnAttributeFormat format);
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    configPipelineSpecificationInit();
 	LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
@@ -5078,7 +5083,7 @@ struct LvnContextCreateInfo
 	{
 		bool                      enableLogging;                 // enable or diable logging
 		bool                      disableCoreLogging;            // whether to disable core logging in the library
-		bool                      enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
+		bool                      enableGraphicsApiDebugLogs;    // enable debug output for graphics api calls (eg. vulkan validation layer, opengl debug callbacks)
 	} logging;
 
 	struct
@@ -5490,7 +5495,7 @@ struct LvnVertexAttribute
 	uint32_t binding;
 	uint32_t layout;
 	LvnAttributeFormat format;
-	uint32_t offset;
+	uint64_t offset;
 };
 
 struct LvnDescriptorBinding

@@ -5,6 +5,13 @@
 #include <GLFW/glfw3.h>
 
 
+enum LvnVertexAttribType
+{
+	Lvn_VertexAttrib_N,
+	Lvn_VertexAttrib_I,
+	Lvn_VertexAttrib_L,
+};
+
 namespace lvn
 {
 
@@ -12,23 +19,24 @@ static OglBackends* s_OglBackends = nullptr;
 
 namespace ogls
 {
-	static LvnResult          checkErrorCode();
-	static void GLAPIENTRY    debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam );
-	static LvnResult          checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
-	static GLenum             getVertexAttributeFormatEnum(LvnAttributeFormat format);
-	static GLenum             getTextureFilterEnum(LvnTextureFilter filter);
-	static GLenum             getTextureWrapModeEnum(LvnTextureMode mode);
-	static uint32_t           getSampleCountEnum(LvnSampleCount samples);
-	static GLenum             getColorFormat(LvnColorImageFormat texFormat);
-	static GLenum             getDataFormat(LvnColorImageFormat texFormat);
-	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
-	static GLenum             getCompareOpEnum(LvnCompareOperation compareOp);
-	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
-	static GLenum             getBlendFactorType(LvnColorBlendFactor factor);
-	static GLenum             getCullFaceModeEnum(LvnCullFaceMode mode);
-	static GLenum             getCullFrontFaceEnum(LvnCullFrontFace frontFace);
-	static GLenum             getUniformBufferTypeEnum(LvnDescriptorType type);
-	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
+	static LvnResult           checkErrorCode();
+	static void GLAPIENTRY     debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam );
+	static LvnResult           checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
+	static GLenum              getVertexAttributeFormatEnum(LvnAttributeFormat format);
+	static LvnVertexAttribType getVertexAttribType(LvnAttributeFormat format);
+	static GLenum              getTextureFilterEnum(LvnTextureFilter filter);
+	static GLenum              getTextureWrapModeEnum(LvnTextureMode mode);
+	static uint32_t            getSampleCountEnum(LvnSampleCount samples);
+	static GLenum              getColorFormat(LvnColorImageFormat texFormat);
+	static GLenum              getDataFormat(LvnColorImageFormat texFormat);
+	static void                getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
+	static GLenum              getCompareOpEnum(LvnCompareOperation compareOp);
+	static GLenum              getTopologyTypeEnum(LvnTopologyType type);
+	static GLenum              getBlendFactorType(LvnColorBlendFactor factor);
+	static GLenum              getCullFaceModeEnum(LvnCullFaceMode mode);
+	static GLenum              getCullFrontFaceEnum(LvnCullFrontFace frontFace);
+	static GLenum              getUniformBufferTypeEnum(LvnDescriptorType type);
+	static LvnResult           updateFrameBuffer(OglFramebufferData* frameBufferData);
 
 	static LvnResult checkErrorCode()
 	{
@@ -51,9 +59,47 @@ namespace ogls
 		return errOccurred ? Lvn_Result_Failure : Lvn_Result_Success;
 	}
 
-	static void GLAPIENTRY debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam )
+	static void GLAPIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 	{
-		LVN_CORE_ERROR("opengl callback: %s type = 0x%x, severity = 0x%x, message = %s\n", (type == GL_DEBUG_TYPE_ERROR ? "opengl error" : "" ), type, severity, message );
+		const char* srcstr = [source]()
+		{
+			switch (source)
+			{
+				case GL_DEBUG_SOURCE_API: return "API";
+				case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
+				case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
+				case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
+				case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
+				case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+			}
+		}();
+
+		const char* typestr = [type]()
+		{
+			switch (type)
+			{
+				case GL_DEBUG_TYPE_ERROR: return "ERROR";
+				case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
+				case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
+				case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
+				case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
+				case GL_DEBUG_TYPE_MARKER: return "MARKER";
+				case GL_DEBUG_TYPE_OTHER: return "OTHER";
+			}
+		}();
+
+		const char* severitystr = [severity]()
+		{
+			switch (severity)
+			{
+				case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
+				case GL_DEBUG_SEVERITY_LOW: return "LOW";
+				case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
+				case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
+			}
+		}();
+
+		LVN_CORE_ERROR("[opengl] [%s] | type: %s, severity: %s, message: %s", srcstr, typestr, severitystr, message);
 	}
 
 	static LvnResult checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc)
@@ -95,42 +141,94 @@ namespace ogls
 	{
 		switch (format)
 		{
-			case Lvn_AttributeFormat_Undefined:    { return GL_NONE; }
-			case Lvn_AttributeFormat_Scalar_f32:   { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Scalar_f64:   { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Scalar_i32:   { return GL_INT; }
-			case Lvn_AttributeFormat_Scalar_ui32:  { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Scalar_i8:    { return GL_BYTE; }
-			case Lvn_AttributeFormat_Scalar_ui8:   { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec2_f32:     { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Vec3_f32:     { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Vec4_f32:     { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Vec2_f64:     { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Vec3_f64:     { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Vec4_f64:     { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Vec2_i32:     { return GL_INT; }
-			case Lvn_AttributeFormat_Vec3_i32:     { return GL_INT; }
-			case Lvn_AttributeFormat_Vec4_i32:     { return GL_INT; }
-			case Lvn_AttributeFormat_Vec2_ui32:    { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Vec3_ui32:    { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Vec4_ui32:    { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Vec2_i8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec3_i8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec4_i8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec2_ui8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec3_ui8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec4_ui8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec2_n8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec3_n8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec4_n8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec2_un8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec3_un8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec4_un8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Undefined:        { return GL_NONE; }
+			case Lvn_AttributeFormat_Scalar_f32:       { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Scalar_f64:       { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Scalar_i32:       { return GL_INT; }
+			case Lvn_AttributeFormat_Scalar_ui32:      { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Scalar_i8:        { return GL_BYTE; }
+			case Lvn_AttributeFormat_Scalar_ui8:       { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec2_f32:         { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec3_f32:         { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec4_f32:         { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec2_f64:         { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec3_f64:         { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec4_f64:         { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec2_i32:         { return GL_INT; }
+			case Lvn_AttributeFormat_Vec3_i32:         { return GL_INT; }
+			case Lvn_AttributeFormat_Vec4_i32:         { return GL_INT; }
+			case Lvn_AttributeFormat_Vec2_ui32:        { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec3_ui32:        { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec4_ui32:        { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec2_i8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec3_i8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec4_i8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec2_ui8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec3_ui8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec4_ui8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec2_n8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec3_n8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec4_n8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec2_un8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec3_un8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec4_un8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_2_10_10_10_ile:   { return GL_INT_2_10_10_10_REV; }
+			case Lvn_AttributeFormat_2_10_10_10_uile:  { return GL_UNSIGNED_INT_2_10_10_10_REV; }
+			case Lvn_AttributeFormat_2_10_10_10_nle:   { return GL_INT_2_10_10_10_REV; }
+			case Lvn_AttributeFormat_2_10_10_10_unle:  { return GL_UNSIGNED_INT_2_10_10_10_REV; }
 
 			default:
 			{
 				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", format);
 				return GL_NONE;
+			}
+		}
+	}
+
+	static LvnVertexAttribType getVertexAttribType(LvnAttributeFormat format)
+	{
+		switch (format)
+		{
+			case Lvn_AttributeFormat_Undefined:        { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Scalar_f32:       { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Scalar_f64:       { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Scalar_i32:       { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Scalar_ui32:      { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Scalar_i8:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Scalar_ui8:       { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_f32:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec3_f32:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec4_f32:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec2_f64:         { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Vec3_f64:         { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Vec4_f64:         { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Vec2_i32:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_i32:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_i32:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_ui32:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_ui32:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_ui32:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_i8:          { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_i8:          { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_i8:          { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_ui8:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_ui8:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_ui8:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_n8:          { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec3_n8:          { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec4_n8:          { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec2_un8:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec3_un8:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec4_un8:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_2_10_10_10_ile:   { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_2_10_10_10_uile:  { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_2_10_10_10_nle:   { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_2_10_10_10_unle:  { return Lvn_VertexAttrib_N; }
+
+			default:
+			{
+				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", format);
+				return Lvn_VertexAttrib_N;
 			}
 		}
 	}
@@ -621,9 +719,12 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
 	// set error callback
-	glEnable(GL_DEBUG_OUTPUT);
-	glDebugMessageCallback(ogls::debugCallback, 0);
-
+	if (graphicsContext->enableGraphicsApiDebugLogs)
+	{
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(ogls::debugCallback, nullptr);
+	}
 
 	// bind function pointers
 	graphicsContext->getPhysicalDevices = oglsImplGetPhysicalDevices;
@@ -944,22 +1045,18 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferC
 
 LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
-	glGenVertexArrays(1, &buffer->id);
-	glGenBuffers(1, &buffer->vboId);
-	glGenBuffers(1, &buffer->iboId);
+	glCreateVertexArrays(1, &buffer->id);
+	glCreateBuffers(1, &buffer->vboId);
+	glCreateBuffers(1, &buffer->iboId);
 
-	glBindVertexArray(buffer->id);
+	bool dynamicVertex = createInfo->type & Lvn_BufferType_DynamicVertex;
+	bool dynamicIndex = createInfo->type & Lvn_BufferType_DynamicIndex;
 
-	bool dynamicVertex = false, dynamicIndex = false;
-
-	if (createInfo->type & Lvn_BufferType_DynamicVertex)
-		dynamicVertex = true;
-	if (createInfo->type & Lvn_BufferType_DynamicIndex)
-		dynamicIndex = true;
+	GLenum vertexUsage = dynamicVertex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
+	GLenum indexUsage = dynamicIndex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
 
 	// vertex buffer
-	glBindBuffer(GL_ARRAY_BUFFER, buffer->vboId);
-	glBufferData(GL_ARRAY_BUFFER, createInfo->vertexBufferSize, createInfo->pVertices, dynamicVertex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glNamedBufferData(buffer->vboId, createInfo->vertexBufferSize, createInfo->pVertices, vertexUsage);
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[opengl] last error check occurance when creating [vertex] buffer, id: %u, size: %u", buffer->vboId, createInfo->vertexBufferSize);
@@ -967,31 +1064,45 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 	}
 
 	// index buffer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->iboId);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, createInfo->indexBufferSize, createInfo->pIndices, dynamicIndex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glNamedBufferData(buffer->iboId, createInfo->indexBufferSize, createInfo->pIndices, indexUsage);
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[opengl] last error check occurance when creating [index] buffer, id: %u, size: %u", buffer->iboId, createInfo->indexBufferSize);
 		return Lvn_Result_Failure;
 	}
 
+	GLuint bindingIndex = 0;
+	uint32_t vertexStride = createInfo->pVertexBindingDescriptions[0].stride;
+
+	glVertexArrayVertexBuffer(buffer->id, bindingIndex, buffer->vboId, 0, vertexStride);
+	glVertexArrayElementBuffer(buffer->id, buffer->iboId);
+
 	// attributes
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
-	{ 
-		// TODO: set different vertex attrib pointers for float types, ints, doubles
-		glEnableVertexAttribArray(createInfo->pVertexAttributes[i].layout);
-		glVertexAttribPointer(
-			createInfo->pVertexAttributes[i].layout,
-			lvn::getAttributeFormatComponentSize(createInfo->pVertexAttributes[i].format),
-			ogls::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].format),
-			GL_FALSE,
-			createInfo->pVertexBindingDescriptions[0].stride,
-			(void*)((uint64_t)createInfo->pVertexAttributes[i].offset));
-	}
+	{
+		const LvnVertexAttribute& attribute = createInfo->pVertexAttributes[i];
+		LvnVertexAttribType type = ogls::getVertexAttribType(attribute.format);
+		GLenum format = ogls::getVertexAttributeFormatEnum(attribute.format);
+		GLint  componentCount = lvn::getAttributeFormatComponentSize(attribute.format);
+		GLboolean normalized = lvn::isAttributeFormatNormalizedType(attribute.format) ? GL_TRUE : GL_FALSE;
 
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glEnableVertexArrayAttrib(buffer->id, attribute.layout);
+		glVertexArrayAttribBinding(buffer->id, attribute.layout, bindingIndex);
+		// glVertexAttribDivisor(attribute.layout, 0);
+
+		switch (type)
+		{
+			case Lvn_VertexAttrib_N:
+				glVertexArrayAttribFormat(buffer->id, attribute.layout, componentCount, format, normalized, attribute.offset);
+				break;
+			case Lvn_VertexAttrib_I:
+				glVertexArrayAttribIFormat(buffer->id, attribute.layout, componentCount, format, attribute.offset);
+				break;
+			case Lvn_VertexAttrib_L:
+				glVertexArrayAttribLFormat(buffer->id, attribute.layout, componentCount, format, attribute.offset);
+				break;
+		}
+	}
 
 	buffer->type = createInfo->type;
 	buffer->vertexBuffer = nullptr;

@@ -58,7 +58,7 @@ int main(int argc, char** argv)
 
 	LvnContextCreateInfo lvnCreateInfo{};
 	lvnCreateInfo.logging.enableLogging = true;
-	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
+	lvnCreateInfo.logging.enableGraphicsApiDebugLogs = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
