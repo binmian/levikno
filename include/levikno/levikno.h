@@ -787,6 +787,10 @@ enum LvnAttributeFormat
 	Lvn_AttributeFormat_Vec2_un8,
 	Lvn_AttributeFormat_Vec3_un8,
 	Lvn_AttributeFormat_Vec4_un8,
+	Lvn_AttributeFormat_2_10_10_10_ile,
+	Lvn_AttributeFormat_2_10_10_10_uile,
+	Lvn_AttributeFormat_2_10_10_10_nle,
+	Lvn_AttributeFormat_2_10_10_10_unle,
 };
 
 enum LvnInterpolationMode
@@ -1456,6 +1460,10 @@ namespace lvn
 	LVN_API LvnResult                   setPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 	LVN_API LvnClipRegion               getRenderClipRegionEnum();
 
+	LVN_API void                        renderBeginNextFrame(LvnWindow* window);                                                                          // begins the next frame of the window
+	LVN_API void                        renderDrawSubmit(LvnWindow* window);                                                                              // submits all draw commands recorded and presents to window
+	LVN_API void                        renderBeginCommandRecording(LvnWindow* window);                                                                   // begins command buffer when recording draw commands start
+	LVN_API void                        renderEndCommandRecording(LvnWindow* window);                                                                     // ends command buffer when finished recording draw commands
 	LVN_API void                        renderClearColor(LvnWindow* window, float r, float g, float b, float a);
 	LVN_API void                        renderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	LVN_API void                        renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
@@ -1463,10 +1471,6 @@ namespace lvn
 	LVN_API void                        renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	LVN_API void                        renderCmdSetStencilReference(uint32_t reference);
 	LVN_API void                        renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	LVN_API void                        renderBeginNextFrame(LvnWindow* window);                                                                          // begins the next frame of the window
-	LVN_API void                        renderDrawSubmit(LvnWindow* window);                                                                              // submits all draw commands recorded and presents to window
-	LVN_API void                        renderBeginCommandRecording(LvnWindow* window);                                                                   // begins command buffer when recording draw commands start
-	LVN_API void                        renderEndCommandRecording(LvnWindow* window);                                                                     // ends command buffer when finished recording draw commands
 	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window);                                                                      // begins renderpass when rendering starts
 	LVN_API void                        renderCmdEndRenderPass(LvnWindow* window);                                                                        // ends renderpass when rendering has finished
 	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                                  // bind a pipeline to begin shading during rendering
@@ -1503,6 +1507,7 @@ namespace lvn
 
 	LVN_API uint32_t                    getAttributeFormatSize(LvnAttributeFormat format);
 	LVN_API uint32_t                    getAttributeFormatComponentSize(LvnAttributeFormat format);
+	LVN_API bool                        isAttributeFormatNormalizedType(LvnAttributeFormat format);
 	LVN_API void                        pipelineSpecificationSetConfig(LvnPipelineSpecification* pipelineSpecification);
 	LVN_API LvnPipelineSpecification    configPipelineSpecificationInit();
 	LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
@@ -5078,7 +5083,7 @@ struct LvnContextCreateInfo
 	{
 		bool                      enableLogging;                 // enable or diable logging
 		bool                      disableCoreLogging;            // whether to disable core logging in the library
-		bool                      enableVulkanValidationLayers;  // enable vulkan validation layer messages when using vulkan
+		bool                      enableGraphicsApiDebugLogging; // enables debug logging output from graphics api calls (opengl/vulkan)
 	} logging;
 
 	struct
@@ -5490,7 +5495,7 @@ struct LvnVertexAttribute
 	uint32_t binding;
 	uint32_t layout;
 	LvnAttributeFormat format;
-	uint32_t offset;
+	uint64_t offset;
 };
 
 struct LvnDescriptorBinding

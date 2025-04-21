@@ -96,6 +96,7 @@ set(LVN_API_SRC
 	# opengl
 	src/api/graphics/opengl/lvn_opengl.cpp
 	src/api/graphics/opengl/lvn_opengl.h
+	src/api/graphics/opengl/lvn_openglBackends.h
 
 	# vulkan
 	${LVN_VULKAN_SRC}

@@ -1,9 +1,19 @@
 #include "lvn_opengl.h"
+#include "levikno_internal.h"
+#include "lvn_openglBackends.h"
+
 #include "levikno.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+
+enum LvnVertexAttribType
+{
+	Lvn_VertexAttrib_N,
+	Lvn_VertexAttrib_I,
+	Lvn_VertexAttrib_L,
+};
 
 namespace lvn
 {
@@ -12,23 +22,24 @@ static OglBackends* s_OglBackends = nullptr;
 
 namespace ogls
 {
-	static LvnResult          checkErrorCode();
-	static void GLAPIENTRY    debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam );
-	static LvnResult          checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
-	static GLenum             getVertexAttributeFormatEnum(LvnAttributeFormat format);
-	static GLenum             getTextureFilterEnum(LvnTextureFilter filter);
-	static GLenum             getTextureWrapModeEnum(LvnTextureMode mode);
-	static uint32_t           getSampleCountEnum(LvnSampleCount samples);
-	static GLenum             getColorFormat(LvnColorImageFormat texFormat);
-	static GLenum             getDataFormat(LvnColorImageFormat texFormat);
-	static void               getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
-	static GLenum             getCompareOpEnum(LvnCompareOperation compareOp);
-	static GLenum             getTopologyTypeEnum(LvnTopologyType type);
-	static GLenum             getBlendFactorType(LvnColorBlendFactor factor);
-	static GLenum             getCullFaceModeEnum(LvnCullFaceMode mode);
-	static GLenum             getCullFrontFaceEnum(LvnCullFrontFace frontFace);
-	static GLenum             getUniformBufferTypeEnum(LvnDescriptorType type);
-	static LvnResult          updateFrameBuffer(OglFramebufferData* frameBufferData);
+	static LvnResult           checkErrorCode();
+	static void GLAPIENTRY     debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam );
+	static LvnResult           checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc);;
+	static GLenum              getVertexAttributeFormatEnum(LvnAttributeFormat format);
+	static LvnVertexAttribType getVertexAttribType(LvnAttributeFormat format);
+	static GLenum              getTextureFilterEnum(LvnTextureFilter filter);
+	static GLenum              getTextureWrapModeEnum(LvnTextureMode mode);
+	static uint32_t            getSampleCountEnum(LvnSampleCount samples);
+	static GLenum              getColorFormat(LvnColorImageFormat texFormat);
+	static GLenum              getDataFormat(LvnColorImageFormat texFormat);
+	static void                getDepthFormat(LvnDepthImageFormat texFormat, GLenum* format, GLenum* attachmentType);
+	static GLenum              getCompareOpEnum(LvnCompareOperation compareOp);
+	static GLenum              getTopologyTypeEnum(LvnTopologyType type);
+	static GLenum              getBlendFactorType(LvnColorBlendFactor factor);
+	static GLenum              getCullFaceModeEnum(LvnCullFaceMode mode);
+	static GLenum              getCullFrontFaceEnum(LvnCullFrontFace frontFace);
+	static GLenum              getUniformBufferTypeEnum(LvnDescriptorType type);
+	static LvnResult           updateFrameBuffer(OglFramebufferData* frameBufferData);
 
 	static LvnResult checkErrorCode()
 	{
@@ -51,9 +62,47 @@ namespace ogls
 		return errOccurred ? Lvn_Result_Failure : Lvn_Result_Success;
 	}
 
-	static void GLAPIENTRY debugCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam )
+	static void GLAPIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 	{
-		LVN_CORE_ERROR("opengl callback: %s type = 0x%x, severity = 0x%x, message = %s\n", (type == GL_DEBUG_TYPE_ERROR ? "opengl error" : "" ), type, severity, message );
+		const char* srcstr = [source]()
+ 		{
+ 			switch (source)
+ 			{
+ 				case GL_DEBUG_SOURCE_API: return "API";
+ 				case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
+ 				case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
+ 				case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
+ 				case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
+ 				case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+ 			}
+ 		}();
+ 
+ 		const char* typestr = [type]()
+ 		{
+ 			switch (type)
+ 			{
+ 				case GL_DEBUG_TYPE_ERROR: return "ERROR";
+ 				case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
+ 				case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
+ 				case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
+ 				case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
+ 				case GL_DEBUG_TYPE_MARKER: return "MARKER";
+ 				case GL_DEBUG_TYPE_OTHER: return "OTHER";
+ 			}
+ 		}();
+ 
+ 		const char* severitystr = [severity]()
+ 		{
+ 			switch (severity)
+ 			{
+ 				case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
+ 				case GL_DEBUG_SEVERITY_LOW: return "LOW";
+ 				case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
+ 				case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
+ 			}
+ 		}();
+ 
+ 		LVN_CORE_ERROR("[opengl] [%s] | type: %s, severity: %s, message: %s", srcstr, typestr, severitystr, message);
 	}
 
 	static LvnResult checkShaderError(uint32_t shader, GLenum type, const char* shaderSrc)
@@ -95,42 +144,94 @@ namespace ogls
 	{
 		switch (format)
 		{
-			case Lvn_AttributeFormat_Undefined:    { return GL_NONE; }
-			case Lvn_AttributeFormat_Scalar_f32:   { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Scalar_f64:   { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Scalar_i32:   { return GL_INT; }
-			case Lvn_AttributeFormat_Scalar_ui32:  { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Scalar_i8:    { return GL_BYTE; }
-			case Lvn_AttributeFormat_Scalar_ui8:   { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec2_f32:     { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Vec3_f32:     { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Vec4_f32:     { return GL_FLOAT; }
-			case Lvn_AttributeFormat_Vec2_f64:     { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Vec3_f64:     { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Vec4_f64:     { return GL_DOUBLE; }
-			case Lvn_AttributeFormat_Vec2_i32:     { return GL_INT; }
-			case Lvn_AttributeFormat_Vec3_i32:     { return GL_INT; }
-			case Lvn_AttributeFormat_Vec4_i32:     { return GL_INT; }
-			case Lvn_AttributeFormat_Vec2_ui32:    { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Vec3_ui32:    { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Vec4_ui32:    { return GL_UNSIGNED_INT; }
-			case Lvn_AttributeFormat_Vec2_i8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec3_i8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec4_i8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec2_ui8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec3_ui8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec4_ui8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec2_n8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec3_n8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec4_n8:      { return GL_BYTE; }
-			case Lvn_AttributeFormat_Vec2_un8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec3_un8:     { return GL_UNSIGNED_BYTE; }
-			case Lvn_AttributeFormat_Vec4_un8:     { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Undefined:        { return GL_NONE; }
+			case Lvn_AttributeFormat_Scalar_f32:       { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Scalar_f64:       { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Scalar_i32:       { return GL_INT; }
+			case Lvn_AttributeFormat_Scalar_ui32:      { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Scalar_i8:        { return GL_BYTE; }
+			case Lvn_AttributeFormat_Scalar_ui8:       { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec2_f32:         { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec3_f32:         { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec4_f32:         { return GL_FLOAT; }
+			case Lvn_AttributeFormat_Vec2_f64:         { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec3_f64:         { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec4_f64:         { return GL_DOUBLE; }
+			case Lvn_AttributeFormat_Vec2_i32:         { return GL_INT; }
+			case Lvn_AttributeFormat_Vec3_i32:         { return GL_INT; }
+			case Lvn_AttributeFormat_Vec4_i32:         { return GL_INT; }
+			case Lvn_AttributeFormat_Vec2_ui32:        { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec3_ui32:        { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec4_ui32:        { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_Vec2_i8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec3_i8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec4_i8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec2_ui8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec3_ui8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec4_ui8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec2_n8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec3_n8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec4_n8:          { return GL_BYTE; }
+			case Lvn_AttributeFormat_Vec2_un8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec3_un8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_Vec4_un8:         { return GL_UNSIGNED_BYTE; }
+			case Lvn_AttributeFormat_2_10_10_10_ile:   { return GL_INT; }
+			case Lvn_AttributeFormat_2_10_10_10_uile:  { return GL_UNSIGNED_INT; }
+			case Lvn_AttributeFormat_2_10_10_10_nle:   { return GL_INT; }
+			case Lvn_AttributeFormat_2_10_10_10_unle:  { return GL_UNSIGNED_INT; }
 
 			default:
 			{
 				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", format);
 				return GL_NONE;
+			}
+		}
+	}
+
+	static LvnVertexAttribType getVertexAttribType(LvnAttributeFormat format)
+	{
+		switch (format)
+		{
+			case Lvn_AttributeFormat_Undefined:        { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Scalar_f32:       { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Scalar_f64:       { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Scalar_i32:       { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Scalar_ui32:      { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Scalar_i8:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Scalar_ui8:       { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_f32:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec3_f32:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec4_f32:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec2_f64:         { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Vec3_f64:         { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Vec4_f64:         { return Lvn_VertexAttrib_L; }
+			case Lvn_AttributeFormat_Vec2_i32:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_i32:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_i32:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_ui32:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_ui32:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_ui32:        { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_i8:          { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_i8:          { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_i8:          { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_ui8:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec3_ui8:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec4_ui8:         { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_Vec2_n8:          { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec3_n8:          { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec4_n8:          { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec2_un8:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec3_un8:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_Vec4_un8:         { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_2_10_10_10_ile:   { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_2_10_10_10_uile:  { return Lvn_VertexAttrib_I; }
+			case Lvn_AttributeFormat_2_10_10_10_nle:   { return Lvn_VertexAttrib_N; }
+			case Lvn_AttributeFormat_2_10_10_10_unle:  { return Lvn_VertexAttrib_N; }
+
+			default:
+			{
+				LVN_CORE_WARN("uknown vertex attribute format type enum (%d)", format);
+				return Lvn_VertexAttrib_N;
 			}
 		}
 	}
@@ -574,6 +675,8 @@ namespace ogls
 
 LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 {
+	LvnContext* lvnctx = lvn::getContext();
+
 	if (s_OglBackends == nullptr)
 	{
 		s_OglBackends = new OglBackends();
@@ -621,8 +724,12 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
 	// set error callback
-	glEnable(GL_DEBUG_OUTPUT);
-	glDebugMessageCallback(ogls::debugCallback, 0);
+	if (graphicsContext->enableGraphicsApiDebugLogging)
+ 	{
+ 		glEnable(GL_DEBUG_OUTPUT);
+ 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+ 		glDebugMessageCallback(ogls::debugCallback, nullptr);
+ 	}
 
 
 	// bind function pointers
@@ -653,25 +760,46 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->destroyTexture = oglsImplDestroyTexture;
 	graphicsContext->destroyCubemap = oglsImplDestroyCubemap;
 
-	graphicsContext->renderClearColor = oglsImplRenderClearColor;
-	graphicsContext->renderCmdDraw = oglsImplRenderCmdDraw;
-	graphicsContext->renderCmdDrawIndexed = oglsImplRenderCmdDrawIndexed;
-	graphicsContext->renderCmdDrawInstanced = oglsImplRenderCmdDrawInstanced;
-	graphicsContext->renderCmdDrawIndexedInstanced = oglsImplRenderCmdDrawIndexedInstanced;
-	graphicsContext->renderCmdSetStencilReference = oglsImplRenderCmdSetStencilReference;
-	graphicsContext->renderCmdSetStencilMask = oglsImplRenderCmdSetStencilMask;
 	graphicsContext->renderBeginNextFrame = oglsImplRenderBeginNextFrame;
 	graphicsContext->renderDrawSubmit = oglsImplRenderDrawSubmit;
 	graphicsContext->renderBeginCommandRecording = oglsImplRenderBeginCommandRecording;
 	graphicsContext->renderEndCommandRecording = oglsImplRenderEndCommandRecording;
-	graphicsContext->renderCmdBeginRenderPass = oglsImplRenderCmdBeginRenderPass;
-	graphicsContext->renderCmdEndRenderPass = oglsImplRenderCmdEndRenderPass;
-	graphicsContext->renderCmdBindPipeline = oglsImplRenderCmdBindPipeline;
-	graphicsContext->renderCmdBindVertexBuffer = oglsImplRenderCmdBindVertexBuffer;
-	graphicsContext->renderCmdBindIndexBuffer = oglsImplRenderCmdBindIndexBuffer;
-	graphicsContext->renderCmdBindDescriptorSets = oglsImplRenderCmdBindDescriptorSets;
-	graphicsContext->renderCmdBeginFrameBuffer = oglsImplRenderCmdBeginFrameBuffer;
-	graphicsContext->renderCmdEndFrameBuffer = oglsImplRenderCmdEndFrameBuffer;
+	graphicsContext->renderClearColor = oglsImplRenderClearColor;
+
+	if (lvnctx->multithreading)
+	{
+		graphicsContext->renderCmdDraw = oglsImplRecordCmdDraw;
+		graphicsContext->renderCmdDrawIndexed = oglsImplRecordCmdDrawIndexed;
+		graphicsContext->renderCmdDrawInstanced = oglsImplRecordCmdDrawInstanced;
+		graphicsContext->renderCmdDrawIndexedInstanced = oglsImplRecordCmdDrawIndexedInstanced;
+		graphicsContext->renderCmdSetStencilReference = oglsImplRecordCmdSetStencilReference;
+		graphicsContext->renderCmdSetStencilMask = oglsImplRecordCmdSetStencilMask;
+		graphicsContext->renderCmdBeginRenderPass = oglsImplRecordCmdBeginRenderPass;
+		graphicsContext->renderCmdEndRenderPass = oglsImplRecordCmdEndRenderPass;
+		graphicsContext->renderCmdBindPipeline = oglsImplRecordCmdBindPipeline;
+		graphicsContext->renderCmdBindVertexBuffer = oglsImplRecordCmdBindVertexBuffer;
+		graphicsContext->renderCmdBindIndexBuffer = oglsImplRecordCmdBindIndexBuffer;
+		graphicsContext->renderCmdBindDescriptorSets = oglsImplRecordCmdBindDescriptorSets;
+		graphicsContext->renderCmdBeginFrameBuffer = oglsImplRecordCmdBeginFrameBuffer;
+		graphicsContext->renderCmdEndFrameBuffer = oglsImplRecordCmdEndFrameBuffer;
+	}
+	else
+	{
+		graphicsContext->renderCmdDraw = oglsImplRenderCmdDraw;
+		graphicsContext->renderCmdDrawIndexed = oglsImplRenderCmdDrawIndexed;
+		graphicsContext->renderCmdDrawInstanced = oglsImplRenderCmdDrawInstanced;
+		graphicsContext->renderCmdDrawIndexedInstanced = oglsImplRenderCmdDrawIndexedInstanced;
+		graphicsContext->renderCmdSetStencilReference = oglsImplRenderCmdSetStencilReference;
+		graphicsContext->renderCmdSetStencilMask = oglsImplRenderCmdSetStencilMask;
+		graphicsContext->renderCmdBeginRenderPass = oglsImplRenderCmdBeginRenderPass;
+		graphicsContext->renderCmdEndRenderPass = oglsImplRenderCmdEndRenderPass;
+		graphicsContext->renderCmdBindPipeline = oglsImplRenderCmdBindPipeline;
+		graphicsContext->renderCmdBindVertexBuffer = oglsImplRenderCmdBindVertexBuffer;
+		graphicsContext->renderCmdBindIndexBuffer = oglsImplRenderCmdBindIndexBuffer;
+		graphicsContext->renderCmdBindDescriptorSets = oglsImplRenderCmdBindDescriptorSets;
+		graphicsContext->renderCmdBeginFrameBuffer = oglsImplRenderCmdBeginFrameBuffer;
+		graphicsContext->renderCmdEndFrameBuffer = oglsImplRenderCmdEndFrameBuffer;
+	}
 
 	graphicsContext->bufferUpdateVertexData = oglsImplBufferUpdateVertexData;
 	graphicsContext->bufferUpdateIndexData = oglsImplBufferUpdateIndexData;
@@ -944,22 +1072,18 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferC
 
 LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
-	glGenVertexArrays(1, &buffer->id);
-	glGenBuffers(1, &buffer->vboId);
-	glGenBuffers(1, &buffer->iboId);
+	glCreateVertexArrays(1, &buffer->id);
+	glCreateBuffers(1, &buffer->vboId);
+	glCreateBuffers(1, &buffer->iboId);
 
-	glBindVertexArray(buffer->id);
+	bool dynamicVertex = createInfo->type & Lvn_BufferType_DynamicVertex;
+	bool dynamicIndex = createInfo->type & Lvn_BufferType_DynamicIndex;
 
-	bool dynamicVertex = false, dynamicIndex = false;
-
-	if (createInfo->type & Lvn_BufferType_DynamicVertex)
-		dynamicVertex = true;
-	if (createInfo->type & Lvn_BufferType_DynamicIndex)
-		dynamicIndex = true;
+	GLenum vertexUsage = dynamicVertex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
+	GLenum indexUsage = dynamicIndex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
 
 	// vertex buffer
-	glBindBuffer(GL_ARRAY_BUFFER, buffer->vboId);
-	glBufferData(GL_ARRAY_BUFFER, createInfo->vertexBufferSize, createInfo->pVertices, dynamicVertex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glNamedBufferData(buffer->vboId, createInfo->vertexBufferSize, createInfo->pVertices, vertexUsage);
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[opengl] last error check occurance when creating [vertex] buffer, id: %u, size: %u", buffer->vboId, createInfo->vertexBufferSize);
@@ -967,31 +1091,45 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 	}
 
 	// index buffer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->iboId);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, createInfo->indexBufferSize, createInfo->pIndices, dynamicIndex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glNamedBufferData(buffer->iboId, createInfo->indexBufferSize, createInfo->pIndices, indexUsage);
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
 		LVN_CORE_ERROR("[opengl] last error check occurance when creating [index] buffer, id: %u, size: %u", buffer->iboId, createInfo->indexBufferSize);
 		return Lvn_Result_Failure;
 	}
 
+	GLuint bindingIndex = 0;
+	uint32_t vertexStride = createInfo->pVertexBindingDescriptions[0].stride;
+
+	glVertexArrayVertexBuffer(buffer->id, bindingIndex, buffer->vboId, 0, vertexStride);
+	glVertexArrayElementBuffer(buffer->id, buffer->iboId);
+
 	// attributes
 	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
-	{ 
-		// TODO: set different vertex attrib pointers for float types, ints, doubles
-		glEnableVertexAttribArray(createInfo->pVertexAttributes[i].layout);
-		glVertexAttribPointer(
-			createInfo->pVertexAttributes[i].layout,
-			lvn::getAttributeFormatComponentSize(createInfo->pVertexAttributes[i].format),
-			ogls::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].format),
-			GL_FALSE,
-			createInfo->pVertexBindingDescriptions[0].stride,
-			(void*)((uint64_t)createInfo->pVertexAttributes[i].offset));
-	}
+	{
+		const LvnVertexAttribute& attribute = createInfo->pVertexAttributes[i];
+		LvnVertexAttribType type = ogls::getVertexAttribType(attribute.format);
+		GLenum format = ogls::getVertexAttributeFormatEnum(attribute.format);
+		GLint  componentCount = lvn::getAttributeFormatComponentSize(attribute.format);
+		GLboolean normalized = lvn::isAttributeFormatNormalizedType(attribute.format) ? GL_TRUE : GL_FALSE;
 
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glEnableVertexArrayAttrib(buffer->id, attribute.layout);
+		glVertexArrayAttribBinding(buffer->id, attribute.layout, bindingIndex);
+		// glVertexAttribDivisor(attribute.layout, 0);
+
+		switch (type)
+		{
+			case Lvn_VertexAttrib_N:
+				glVertexArrayAttribFormat(buffer->id, attribute.layout, componentCount, format, normalized, attribute.offset);
+				break;
+			case Lvn_VertexAttrib_I:
+				glVertexArrayAttribIFormat(buffer->id, attribute.layout, componentCount, format, attribute.offset);
+				break;
+			case Lvn_VertexAttrib_L:
+				glVertexArrayAttribLFormat(buffer->id, attribute.layout, componentCount, format, attribute.offset);
+				break;
+		}
+	}
 
 	buffer->type = createInfo->type;
 	buffer->vertexBuffer = nullptr;
@@ -1301,12 +1439,20 @@ void oglsImplRenderDrawSubmit(LvnWindow* window)
 
 void oglsImplRenderBeginCommandRecording(LvnWindow* window)
 {
-	
+	window->cmdBuffer.clear();
 }
 
 void oglsImplRenderEndCommandRecording(LvnWindow* window)
 {
-	
+	uint64_t offset = 0;
+	uint8_t* data = window->cmdBuffer.data();
+
+	while (offset < window->cmdBuffer.size())
+	{
+		LvnDrawCmdHeader* header = reinterpret_cast<LvnDrawCmdHeader*>(&data[offset]);
+		header->callFunc(&data[offset]);
+		offset += header->size;
+	}
 }
 
 void oglsImplRenderCmdBeginRenderPass(LvnWindow* window)
@@ -1364,6 +1510,7 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	glUseProgram(pipeline->id);
 
 	window->topologyTypeEnum = pipelineEnums->topologyType;
+	window->vao = pipeline->vaoId;
 }
 
 void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
@@ -1382,14 +1529,14 @@ void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
 	// glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 }
 
-void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSet)
+void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
 	OglBackends* oglBackends = s_OglBackends;
 	int texCount = 0;
 
 	for (uint32_t i = 0; i < descriptorSetCount; i++)
 	{
-		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(pDescriptorSet[i]->singleSet);
+		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(pDescriptorSets[i]->singleSet);
 
 		// uniform/storage buffers
 		for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
@@ -1629,5 +1776,342 @@ void setOglWindowContextValues()
 	if (oglBackends->framebufferColorFormatSrgb)
 		glEnable(GL_FRAMEBUFFER_SRGB);
 }
+
+
+// draw command functions
+void oglsImplRecordCmdDraw(LvnWindow* window, uint32_t vertexCount)
+{
+	LvnCmdDraw cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdDraw;
+	cmd.header.size = sizeof(LvnCmdDraw);
+	cmd.window = window;
+	cmd.vertexCount = vertexCount;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
+{
+	LvnCmdDrawIndexed cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdDrawIndexed;
+	cmd.header.size = sizeof(LvnCmdDrawIndexed);
+	cmd.window = window;
+	cmd.indexCount = indexCount;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
+{
+	LvnCmdDrawInstanced cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdDrawInstanced;
+	cmd.header.size = sizeof(LvnCmdDrawInstanced);
+	cmd.window = window;
+	cmd.vertexCount = vertexCount;
+	cmd.instanceCount = instanceCount;
+	cmd.firstInstance = firstInstance;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+{
+	LvnCmdDrawIndexedInstanced cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdDrawIndexedInstanced;
+	cmd.header.size = sizeof(LvnCmdDrawIndexedInstanced);
+	cmd.window = window;
+	cmd.indexCount = indexCount;
+	cmd.instanceCount = instanceCount;
+	cmd.firstInstance = firstInstance;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdSetStencilReference(uint32_t reference)
+{
+	LvnCmdSetStencilReference cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdSetStencilReference;
+	cmd.header.size = sizeof(LvnCmdSetStencilReference);
+	cmd.reference = reference;
+
+	// window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
+{
+
+}
+
+void oglsImplRecordCmdBeginRenderPass(LvnWindow* window)
+{
+	LvnCmdBeginRenderPass cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBeginRenderPass;
+	cmd.header.size = sizeof(LvnCmdBeginRenderPass);
+	cmd.window = window;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdEndRenderPass(LvnWindow* window)
+{
+	LvnCmdEndRenderPass cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdEndRenderPass;
+	cmd.header.size = sizeof(LvnCmdEndRenderPass);
+	cmd.window = window;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
+{
+	LvnCmdBindPipeline cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBindPipeline;
+	cmd.header.size = sizeof(LvnCmdBindPipeline);
+	cmd.window = window;
+	cmd.pipeline = pipeline;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
+{
+	LvnCmdBindVertexBuffer cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBindVertexBuffer;
+	cmd.header.size = sizeof(LvnCmdBindVertexBuffer);
+	cmd.window = window;
+	cmd.buffer = buffer;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+{
+	LvnCmdBindIndexBuffer cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBindIndexBuffer;
+	cmd.header.size = sizeof(LvnCmdBindIndexBuffer);
+	cmd.window = window;
+	cmd.buffer = buffer;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
+{
+	LvnCmdBindDescriptorSets cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBindDescriptorSets;
+	cmd.header.size = sizeof(LvnCmdBindDescriptorSets);
+	cmd.window = window;
+	cmd.pipeline = pipeline;
+	cmd.firstSetIndex = firstSetIndex;
+	cmd.descriptorSetCount = descriptorSetCount;
+	cmd.pDescriptorSets = pDescriptorSets;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
+{
+	LvnCmdBeginFrameBuffer cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBeginFrameBuffer;
+	cmd.header.size = sizeof(LvnCmdBeginFrameBuffer);
+	cmd.window = window;
+	cmd.frameBuffer = frameBuffer;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+void oglsImplRecordCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
+{
+	LvnCmdEndFrameBuffer cmd{};
+	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdEndFrameBuffer;
+	cmd.header.size = sizeof(LvnCmdEndFrameBuffer);
+	cmd.window = window;
+	cmd.frameBuffer = frameBuffer;
+
+	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
+}
+
+
+void oglsImplDrawBuffCmdDraw(void* data)
+{
+	LvnCmdDraw* cmd = static_cast<LvnCmdDraw*>(data);
+	glDrawArrays(cmd->window->topologyTypeEnum, 0, cmd->vertexCount);
+}
+
+void oglsImplDrawBuffCmdDrawIndexed(void* data)
+{
+	LvnCmdDrawIndexed* cmd = static_cast<LvnCmdDrawIndexed*>(data);
+	glDrawElements(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, 0);
+}
+
+void oglsImplDrawBuffCmdDrawInstanced(void* data)
+{
+	LvnCmdDrawInstanced* cmd = static_cast<LvnCmdDrawInstanced*>(data);
+	glDrawArraysInstancedBaseInstance(cmd->window->topologyTypeEnum, 0, cmd->vertexCount, cmd->instanceCount, cmd->firstInstance);
+}
+
+void oglsImplDrawBuffCmdDrawIndexedInstanced(void* data)
+{
+	LvnCmdDrawIndexedInstanced* cmd = static_cast<LvnCmdDrawIndexedInstanced*>(data);
+	glDrawElementsInstancedBaseInstance(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, 0, cmd->instanceCount, cmd->firstInstance);
+}
+
+void oglsImplDrawBuffCmdSetStencilReference(void* data)
+{
+	LvnCmdSetStencilReference* cmd = static_cast<LvnCmdSetStencilReference*>(data);
+}
+
+void oglsImplDrawBuffCmdSetStencilMask(void* data)
+{
+	LvnCmdSetStencilMask* cmd = static_cast<LvnCmdSetStencilMask*>(data);
+}
+
+void oglsImplDrawBuffCmdBeginRenderPass(void* data)
+{
+	LvnCmdBeginRenderPass* cmd = static_cast<LvnCmdBeginRenderPass*>(data);
+
+	GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(cmd->window->nativeWindow);
+
+	int width, height;
+	glfwGetFramebufferSize(glfwWindow, &width, &height);
+	glfwMakeContextCurrent(glfwWindow);
+	glViewport(0, 0, width, height);
+}
+
+void oglsImplDrawBuffCmdEndRenderPass(void* data)
+{
+	LvnCmdEndRenderPass* cmd = static_cast<LvnCmdEndRenderPass*>(data);
+}
+
+void oglsImplDrawBuffCmdBindPipeline(void* data)
+{
+	LvnCmdBindPipeline* cmd = static_cast<LvnCmdBindPipeline*>(data);
+
+	OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(cmd->pipeline->nativePipeline);
+
+	// depth
+	if (pipelineEnums->enableDepth)
+	{
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(pipelineEnums->depthCompareOp);
+	}
+	else
+	{
+		glDisable(GL_DEPTH_TEST);
+	}
+
+	// color blend
+	if (pipelineEnums->enableBlending)
+	{
+		glEnable(GL_BLEND);
+		glBlendFunc(pipelineEnums->srcBlendFactor, pipelineEnums->dstBlendFactor);
+	}
+	else
+	{
+		glDisable(GL_BLEND);
+	}
+
+	if (pipelineEnums->enableCulling)
+	{
+		glEnable(GL_CULL_FACE);
+		glCullFace(pipelineEnums->cullMode);
+		glFrontFace(pipelineEnums->frontFace);
+	}
+	else
+	{
+		glDisable(GL_CULL_FACE);
+	}
+
+	glUseProgram(cmd->pipeline->id);
+
+	cmd->window->topologyTypeEnum = pipelineEnums->topologyType;
+	cmd->window->vao = cmd->pipeline->vaoId;
+}
+
+void oglsImplDrawBuffCmdBindVertexBuffer(void* data)
+{
+	LvnCmdBindVertexBuffer* cmd = static_cast<LvnCmdBindVertexBuffer*>(data);
+	glBindVertexArray(cmd->buffer->id);
+}
+
+void oglsImplDrawBuffCmdBindIndexBuffer(void* data)
+{
+	LvnCmdBindIndexBuffer* cmd = static_cast<LvnCmdBindIndexBuffer*>(data);
+	glBindVertexArray(cmd->buffer->id);
+}
+
+void oglsImplDrawBuffCmdBindDescriptorSets(void* data)
+{
+	LvnCmdBindDescriptorSets* cmd = static_cast<LvnCmdBindDescriptorSets*>(data);
+
+	OglBackends* oglBackends = s_OglBackends;
+	int texCount = 0;
+
+	for (uint32_t i = 0; i < cmd->descriptorSetCount; i++)
+	{
+		OglDescriptorSet* descriptorSetPtr = static_cast<OglDescriptorSet*>(cmd->pDescriptorSets[i]->singleSet);
+
+		// uniform/storage buffers
+		for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
+		{
+			glBindBufferRange(ogls::getUniformBufferTypeEnum(descriptorSetPtr->uniformBuffers[j].type),
+			    descriptorSetPtr->uniformBuffers[j].binding,
+			    descriptorSetPtr->uniformBuffers[j].id,
+			    static_cast<GLintptr>(descriptorSetPtr->uniformBuffers[j].offset),
+			    static_cast<GLsizeiptr>(descriptorSetPtr->uniformBuffers[j].range));
+		}
+
+		// textures
+		for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
+		{
+			if (texCount >= oglBackends->maxTextureUnitSlots)
+			{
+				LVN_CORE_WARN("maximum texture unit slots exceeded, cannot bind more texture unit slots to one shader pipeline. Max slots: %u", oglBackends->maxTextureUnitSlots);
+				return;
+			}
+
+			glBindTextureUnit(descriptorSetPtr->textures[j].binding, descriptorSetPtr->textures[j].id);
+			texCount++;
+		}
+
+		// bindless textures
+		for (const OglBindlessTextureBinding& bindlessTextureBinding : descriptorSetPtr->bindlessTextures)
+		{
+			for (const uint64_t& handle : bindlessTextureBinding.textureHandles)
+			{
+				glMakeTextureHandleResidentARB(handle);
+			}
+
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindlessTextureBinding.binding, bindlessTextureBinding.ssbo);
+		}
+	}
+}
+
+void oglsImplDrawBuffCmdBeginFrameBuffer(void* data)
+{
+	LvnCmdBeginFrameBuffer* cmd = static_cast<LvnCmdBeginFrameBuffer*>(data);
+
+	OglFramebufferData* frameBufferData = static_cast<OglFramebufferData*>(cmd->frameBuffer->frameBufferData);
+
+	glViewport(frameBufferData->x, frameBufferData->y, frameBufferData->width, frameBufferData->height);
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBufferData->id);
+}
+
+void oglsImplDrawBuffCmdEndFrameBuffer(void* data)
+{
+	LvnCmdEndFrameBuffer* cmd = static_cast<LvnCmdEndFrameBuffer*>(data);
+
+	OglFramebufferData* frameBufferData = static_cast<OglFramebufferData*>(cmd->frameBuffer->frameBufferData);
+
+	if (frameBufferData->multisampling)
+	{
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, frameBufferData->id);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBufferData->msaaId);
+		glBlitFramebuffer(0, 0, frameBufferData->width, frameBufferData->height, 0, 0, frameBufferData->width, frameBufferData->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	}
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 
 } /* namespace lvn */

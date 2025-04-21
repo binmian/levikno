@@ -48,7 +48,7 @@ struct Ball
 static const char* s_VertexShaderSrc = R"(
 #version 460
 
-layout(location = 0) in vec3 inPos;
+layout(location = 0) in vec2 inPos;
 layout(location = 1) in vec3 inColor;
 layout(location = 2) in vec2 inTexCoord;
 
@@ -63,7 +63,7 @@ layout (binding = 0) uniform ObjectBuffer
 
 void main()
 {
-	gl_Position = ubo.matrix * vec4(inPos, 1.0);
+	gl_Position = ubo.matrix * vec4(inPos, 0.0, 1.0);
 	fragColor = inColor;
 }
 )";
@@ -123,7 +123,7 @@ void main()
 
 void drawRect(LvnDrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
 {
-	Vertex vertices[] = 
+	Vertex vertices[] =
 	{
 		{{ pos.x, pos.y + size.y },          color, {0.0f, 1.0f} },
 		{{ pos.x, pos.y },                   color, {0.0f, 0.0f} },
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
 	// create contex and render init
 	LvnContextCreateInfo lvnCreateInfo{};
 	lvnCreateInfo.logging.enableLogging = true;
-	lvnCreateInfo.logging.enableVulkanValidationLayers = true;
+	lvnCreateInfo.logging.enableGraphicsApiDebugLogging = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
@@ -374,7 +374,7 @@ int main(int argc, char** argv)
 
 
 	// [Create font]
-	LvnFont font = lvn::loadFontFromFileTTF("/home/bma/Documents/dev/levikno/examples/res/fonts/PressStart2P.ttf", 32, {32, 126});
+	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/PressStart2P.ttf", 32, {32, 126});
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};

@@ -36,6 +36,10 @@ namespace lvn
 	void vksImplDestroyTexture(LvnTexture* texture);
 	void vksImplDestroyCubemap(LvnCubemap* cubemap);
 
+	void vksImplRenderBeginNextFrame(LvnWindow* window);
+	void vksImplRenderDrawSubmit(LvnWindow* window);
+	void vksImplRenderBeginCommandRecording(LvnWindow* window);
+	void vksImplRenderEndCommandRecording(LvnWindow* window);
 	void vksImplRenderClearColor(LvnWindow* window, float r, float g, float b, float a);
 	void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	void vksImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
@@ -43,16 +47,12 @@ namespace lvn
 	void vksImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	void vksImplRenderCmdSetStencilReference(uint32_t reference);
 	void vksImplRenderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	void vksImplRenderBeginNextFrame(LvnWindow* window);
-	void vksImplRenderDrawSubmit(LvnWindow* window);
-	void vksImplRenderBeginCommandRecording(LvnWindow* window);
-	void vksImplRenderEndCommandRecording(LvnWindow* window);
 	void vksImplRenderCmdBeginRenderPass(LvnWindow* window);
 	void vksImplRenderCmdEndRenderPass(LvnWindow* window);
 	void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
 	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
 	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
-	void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSet);
+	void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets);
 	void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 

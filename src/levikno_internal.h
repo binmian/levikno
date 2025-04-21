@@ -11,7 +11,7 @@
 // ------------------------------------------------------------
 
 
-// [SUBSECTION]: -- Internal Data Structures
+// [SUBSECT]: -- Internal Data Structures
 // ------------------------------------------------------------
 
 template <typename T>
@@ -317,7 +317,7 @@ typedef LvnIDQueue<uint32_t> LvnIDQueue32;
 typedef LvnIDQueue<uint64_t> LvnIDQueue64;
 
 
-// [SUBSECTION]: -- Logging
+// [SUBSECT]: -- Logging
 // ------------------------------------------------------------
 
 struct LvnLogger
@@ -336,7 +336,7 @@ struct LvnLogger
 // ------------------------------------------------------------
 
 
-// [SUBSECTION]: -- Events
+// [SUBSECT]: -- Events
 // ------------------------------------------------------------
 struct LvnEvent
 {
@@ -366,7 +366,7 @@ struct LvnEvent
 };
 
 
-// [SUBSECTION]: -- Windows
+// [SUBSECT]: -- Windows
 // ------------------------------------------------------------
 struct LvnWindowData
 {                                        // [Same use with LvnWindowCreateinfo]
@@ -401,6 +401,8 @@ struct LvnWindow
 	void* apiData;                   // used for graphics api related uses
 	LvnRenderPass renderPass;        // pointer to native render pass for this window (vulkan)
 	uint32_t topologyTypeEnum;       // topologyType used to render primitives (opengl)
+	uint32_t vao;                    // vertex array object per pipeline object (opengl)
+	std::vector<uint8_t> cmdBuffer;  // command buffer to store draw commands in byte data
 };
 
 struct LvnWindowContext
@@ -444,7 +446,7 @@ struct LvnWindowContext
 struct LvnGraphicsContext
 {
 	LvnGraphicsApi              graphicsapi;
-	bool                        enableValidationLayers;
+	bool                        enableGraphicsApiDebugLogging;
 	LvnTextureFormat            frameBufferColorFormat;
 	uint32_t                    maxFramesInFlight;
 
@@ -518,6 +520,114 @@ struct LvnPhysicalDevice
 	void* physicalDevice;
 };
 
+struct LvnDrawCmdHeader
+{
+	uint64_t size;
+	void (*callFunc)(void*);
+};
+
+struct LvnCmdDraw
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	uint32_t vertexCount;
+};
+
+struct LvnCmdDrawIndexed
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	uint32_t indexCount;
+};
+
+struct LvnCmdDrawInstanced
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	uint32_t vertexCount;
+	uint32_t instanceCount;
+	uint32_t firstInstance;
+};
+
+struct LvnCmdDrawIndexedInstanced
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	uint32_t indexCount;
+	uint32_t instanceCount;
+	uint32_t firstInstance;
+};
+
+struct LvnCmdSetStencilReference
+{
+	LvnDrawCmdHeader header;
+	uint32_t reference;
+};
+
+struct LvnCmdSetStencilMask
+{
+	LvnDrawCmdHeader header;
+	uint32_t compareMask;
+	uint32_t writeMask;
+};
+
+struct LvnCmdBeginRenderPass
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+};
+
+struct LvnCmdEndRenderPass
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+};
+
+struct LvnCmdBindPipeline
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	LvnPipeline* pipeline;
+};
+
+struct LvnCmdBindVertexBuffer
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	LvnBuffer* buffer;
+};
+
+struct LvnCmdBindIndexBuffer
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	LvnBuffer* buffer;
+};
+
+struct LvnCmdBindDescriptorSets
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	LvnPipeline* pipeline;
+	uint32_t firstSetIndex;
+	uint32_t descriptorSetCount;
+	LvnDescriptorSet** pDescriptorSets;
+};
+
+struct LvnCmdBeginFrameBuffer
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	LvnFrameBuffer* frameBuffer;
+};
+
+struct LvnCmdEndFrameBuffer
+{
+	LvnDrawCmdHeader header;
+	LvnWindow* window;
+	LvnFrameBuffer* frameBuffer;
+};
+
 struct LvnShader
 {
 	void* nativeVertexShaderModule;
@@ -548,6 +658,7 @@ struct LvnPipeline
 	void* nativePipelineLayout;
 
 	uint32_t id;
+	uint32_t vaoId;
 };
 
 struct LvnBuffer
