@@ -555,7 +555,7 @@ int main()
 {
 	LvnContextCreateInfo lvnCreateInfo{};
 	lvnCreateInfo.logging.enableLogging = true;
-	lvnCreateInfo.logging.enableGraphicsApiDebugLogging = true;
+	lvnCreateInfo.logging.enableGraphicsApiDebugLogs = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 	lvnCreateInfo.rendering.frameBufferColorFormat = Lvn_TextureFormat_Srgb;

@@ -446,7 +446,7 @@ struct LvnWindowContext
 struct LvnGraphicsContext
 {
 	LvnGraphicsApi              graphicsapi;
-	bool                        enableGraphicsApiDebugLogging;
+	bool                        enableGraphicsApiDebugLogs;
 	LvnTextureFormat            frameBufferColorFormat;
 	uint32_t                    maxFramesInFlight;
 

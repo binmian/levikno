@@ -2174,7 +2174,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 
 	VulkanBackends* vkBackends = s_VkBackends;
 
-	vkBackends->enableValidationLayers = graphicsContext->enableGraphicsApiDebugLogging;
+	vkBackends->enableValidationLayers = graphicsContext->enableGraphicsApiDebugLogs;
 	vkBackends->defaultPipelineSpecification = lvn::configPipelineSpecificationInit();
 	vkBackends->maxFramesInFlight = graphicsContext->maxFramesInFlight > 0 ? graphicsContext->maxFramesInFlight : 1;
 
@@ -2191,7 +2191,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	}
 
 	// create vulkan instance
-	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableGraphicsApiDebugLogging) != Lvn_Result_Success)
+	if (vks::createVulkanInstace(vkBackends, graphicsContext->enableGraphicsApiDebugLogs) != Lvn_Result_Success)
 	{
 		LVN_CORE_ERROR("[vulkan] failed to create vulkan instance when creating graphics context");
 		return Lvn_Result_Failure;
