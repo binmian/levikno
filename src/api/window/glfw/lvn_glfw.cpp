@@ -31,7 +31,7 @@ namespace lvn
 			case Lvn_GraphicsApi_vulkan:
 			{
 			#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-				createVulkanWindowSurfaceData(window);
+				lvn::createVulkanWindowSurfaceData(window);
 			#else
 				LVN_CORE_ASSERT(false, "vulkan graphics api not included on platform, cannot create vulkan related surface data");
 			#endif
@@ -58,7 +58,7 @@ namespace lvn
 			case Lvn_GraphicsApi_vulkan:
 			{
 			#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-				destroyVulkanWindowSurfaceData(window);
+				lvn::destroyVulkanWindowSurfaceData(window);
 			#endif
 				break;
 			}
@@ -186,10 +186,12 @@ namespace lvn
 
 		LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
 
+		// get shared context (opengl)
 		GLFWwindow* windowContext = nullptr;
 		if (graphicsapi == Lvn_GraphicsApi_opengl)
 			windowContext = static_cast<GLFWwindow*>(lvn::getMainOglWindowContext());
 
+		// create window
 		GLFWwindow* nativeWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title.c_str(), fullScreen, windowContext);
 		LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", nativeWindow, window->data.title.c_str(), window->data.width, window->data.height);
 
@@ -215,15 +217,20 @@ namespace lvn
 			glfwSetWindowIcon(nativeWindow, static_cast<int>(window->data.iconCount), images.data());
 		}
 
-		glfwSetWindowSizeLimits(nativeWindow, window->data.minWidth, window->data.minHeight, window->data.maxWidth, window->data.maxHeight);
-		glfwSetWindowUserPointer(nativeWindow, window);
-
+		// set window graphics api related data (eg. swapchains, framebuffers)
 		window->nativeWindow = nativeWindow;
 		if (createGraphicsRelatedAPIData(window) != Lvn_Result_Success)
 		{
 			LVN_CORE_ERROR("[glfw] failed to create graphics api related data for window: (%p), native glfw window <GLFWwindow*> (%p)", window, nativeWindow);
 			return Lvn_Result_Failure;
 		}
+
+		// set window size parameters & vsync
+		glfwSetWindowSizeLimits(nativeWindow, window->data.minWidth, window->data.minHeight, window->data.maxWidth, window->data.maxHeight);
+		glfwSetWindowUserPointer(nativeWindow, window);
+
+		if (graphicsapi == Lvn_GraphicsApi_opengl)
+			glfwSwapInterval(createInfo->vSync);
 
 		// Set GLFW Callbacks
 		glfwSetWindowSizeCallback(nativeWindow, [](GLFWwindow* window, int width, int height)
@@ -490,9 +497,24 @@ namespace lvn
 
 	void glfwImplSetWindowVSync(LvnWindow* window, bool enable)
 	{
-		// opengl
-		glfwSwapInterval(enable);
 		window->data.vSync = enable;
+
+		switch (lvn::getGraphicsApi())
+		{
+			case Lvn_GraphicsApi_opengl:
+			{
+				glfwSwapInterval(enable);
+				break;
+			}
+			case Lvn_GraphicsApi_vulkan:
+			{
+			#if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
+				VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+				surfaceData->frameBufferResized = true; // set resize to true to recreate swapchain
+			#endif
+				break;
+			}
+		}
 	}
 
 	bool glfwImplGetWindowVSync(LvnWindow* window)
@@ -503,7 +525,10 @@ namespace lvn
 	void glfwImplSetWindowContextCurrent(LvnWindow* window)
 	{
 		if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
-			glfwMakeContextCurrent(window ? static_cast<GLFWwindow*>(window->nativeWindow) : nullptr);
+		{
+			GLFWwindow* sharedContext = static_cast<GLFWwindow*>(lvn::getMainOglWindowContext());
+			glfwMakeContextCurrent(window ? static_cast<GLFWwindow*>(window->nativeWindow) : sharedContext);
+		}
 	}
 
 	void glfwImplDestroyWindow(LvnWindow* window)
