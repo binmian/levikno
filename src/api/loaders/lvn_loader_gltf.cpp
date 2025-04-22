@@ -1409,17 +1409,16 @@ namespace gltfs
 				meshVertexBindingDescription.binding = 0;
 				meshVertexBindingDescription.stride = sizeof(LvnVertex);
 
+				std::vector<uint8_t> bufferData(vertices.size() * sizeof(LvnVertex) + indices.size() * sizeof(uint32_t));
+				memcpy(bufferData.data(), vertices.data(), vertices.size() * sizeof(LvnVertex));
+				memcpy(bufferData.data() + vertices.size() * sizeof(LvnVertex), indices.data(), indices.size() * sizeof(uint32_t));
+
 				LvnBufferCreateInfo bufferCreateInfo{};
 				bufferCreateInfo.type = Lvn_BufferType_Vertex;
 				if (!indices.empty()) bufferCreateInfo.type |= Lvn_BufferType_Index;
-				bufferCreateInfo.vertexAttributeCount = sizeof(meshVertexAttributes) / sizeof(LvnVertexAttribute);
-				bufferCreateInfo.pVertexAttributes = meshVertexAttributes;
-				bufferCreateInfo.vertexBindingDescriptionCount = 1;
-				bufferCreateInfo.pVertexBindingDescriptions = &meshVertexBindingDescription;
-				bufferCreateInfo.vertexBufferSize = vertices.size() * sizeof(LvnVertex);
-				bufferCreateInfo.pVertices = vertices.data();
-				bufferCreateInfo.indexBufferSize = indices.size() * sizeof(uint32_t);
-				bufferCreateInfo.pIndices = indices.data();
+				bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+				bufferCreateInfo.size = vertices.size() * sizeof(LvnVertex) + indices.size() * sizeof(uint32_t);
+				bufferCreateInfo.data = bufferData.data();
 
 				LvnBuffer* meshBuffer;
 				lvn::createBuffer(&meshBuffer, &bufferCreateInfo);

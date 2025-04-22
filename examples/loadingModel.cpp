@@ -304,6 +304,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);

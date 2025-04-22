@@ -709,18 +709,18 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	// create dummy window to init opengl
+	// create hidden window with main context to init opengl
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-	GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-	glfwMakeContextCurrent(glfwWindow);
+	s_OglBackends->windowContext = glfwCreateWindow(1, 1, "", nullptr, nullptr);
+	glfwMakeContextCurrent(s_OglBackends->windowContext);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		LVN_CORE_ERROR("[opengl] failed to initialize glad");
+		glfwDestroyWindow(s_OglBackends->windowContext);
 		return Lvn_Result_Failure;
 	}
 
-	glfwDestroyWindow(glfwWindow);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
 	// set error callback
@@ -800,10 +800,8 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 		graphicsContext->renderCmdEndFrameBuffer = oglsImplRenderCmdEndFrameBuffer;
 	}
 
-	graphicsContext->bufferUpdateVertexData = oglsImplBufferUpdateVertexData;
-	graphicsContext->bufferUpdateIndexData = oglsImplBufferUpdateIndexData;
-	graphicsContext->bufferResizeVertexBuffer = oglsImplBufferResizeVertexBuffer;
-	graphicsContext->bufferResizeIndexBuffer = oglsImplBufferResizeIndexBuffer;
+	graphicsContext->bufferUpdateData = oglsImplBufferUpdateData;
+	graphicsContext->bufferResize = oglsImplBufferResize;
 	graphicsContext->allocateDescriptorSet = oglsImplAllocateDescriptorSet;
 	graphicsContext->updateUniformBufferData = oglsImplUpdateUniformBufferData;
 	graphicsContext->updateDescriptorSetData = oglsImplUpdateDescriptorSetData;
@@ -819,6 +817,8 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 
 void oglsImplTerminateContext()
 {
+	glfwDestroyWindow(s_OglBackends->windowContext);
+
 	if (s_OglBackends != nullptr)
 	{
 		delete s_OglBackends;
@@ -1042,6 +1042,40 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 		pipelineEnums->frontFace = ogls::getCullFrontFaceEnum(createInfo->pipelineSpecification->rasterizer.frontFace);
 	}
 
+	// NOTE: create the vertex array, vertex arrays and attribute bindings are bound per buffer
+	glCreateVertexArrays(1, &pipeline->vaoId);
+
+	// attributes
+	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
+	{
+		const LvnVertexAttribute& attribute = createInfo->pVertexAttributes[i];
+		LvnVertexAttribType type = ogls::getVertexAttribType(attribute.format);
+		GLenum format = ogls::getVertexAttributeFormatEnum(attribute.format);
+		GLint  componentCount = lvn::getAttributeFormatComponentSize(attribute.format);
+		GLboolean normalized = lvn::isAttributeFormatNormalizedType(attribute.format) ? GL_TRUE : GL_FALSE;
+
+		glEnableVertexArrayAttrib(pipeline->vaoId, attribute.layout);
+		glVertexArrayAttribBinding(pipeline->vaoId, attribute.layout, attribute.binding);
+		// glVertexAttribDivisor(attribute.layout, 0);
+
+		switch (type)
+		{
+			case Lvn_VertexAttrib_N:
+				glVertexArrayAttribFormat(pipeline->vaoId, attribute.layout, componentCount, format, normalized, attribute.offset);
+				break;
+			case Lvn_VertexAttrib_I:
+				glVertexArrayAttribIFormat(pipeline->vaoId, attribute.layout, componentCount, format, attribute.offset);
+				break;
+			case Lvn_VertexAttrib_L:
+				glVertexArrayAttribLFormat(pipeline->vaoId, attribute.layout, componentCount, format, attribute.offset);
+				break;
+		}
+	}
+
+	for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
+		pipeline->bindingDescriptions[createInfo->pVertexBindingDescriptions[i].binding] = createInfo->pVertexBindingDescriptions[i].stride;
+
+
 	return Lvn_Result_Success;
 }
 
@@ -1071,74 +1105,21 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferC
 
 LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
-	glCreateVertexArrays(1, &buffer->id);
-	glCreateBuffers(1, &buffer->vboId);
-	glCreateBuffers(1, &buffer->iboId);
+	glCreateBuffers(1, &buffer->id);
 
-	bool dynamicVertex = createInfo->type & Lvn_BufferType_DynamicVertex;
-	bool dynamicIndex = createInfo->type & Lvn_BufferType_DynamicIndex;
-
-	GLenum vertexUsage = dynamicVertex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
-	GLenum indexUsage = dynamicIndex ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
-
-	// vertex buffer
-	glNamedBufferData(buffer->vboId, createInfo->vertexBufferSize, createInfo->pVertices, vertexUsage);
-	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	if (createInfo->usage == Lvn_BufferUsage_Resize)
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when creating [vertex] buffer, id: %u, size: %u", buffer->vboId, createInfo->vertexBufferSize);
-		return Lvn_Result_Failure;
+		glNamedBufferData(buffer->id, createInfo->size, createInfo->data, GL_DYNAMIC_DRAW);
 	}
-
-	// index buffer
-	glNamedBufferData(buffer->iboId, createInfo->indexBufferSize, createInfo->pIndices, indexUsage);
-	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	else
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when creating [index] buffer, id: %u, size: %u", buffer->iboId, createInfo->indexBufferSize);
-		return Lvn_Result_Failure;
-	}
-
-	GLuint bindingIndex = 0;
-	uint32_t vertexStride = createInfo->pVertexBindingDescriptions[0].stride;
-
-	glVertexArrayVertexBuffer(buffer->id, bindingIndex, buffer->vboId, 0, vertexStride);
-	glVertexArrayElementBuffer(buffer->id, buffer->iboId);
-
-	// attributes
-	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
-	{
-		const LvnVertexAttribute& attribute = createInfo->pVertexAttributes[i];
-		LvnVertexAttribType type = ogls::getVertexAttribType(attribute.format);
-		GLenum format = ogls::getVertexAttributeFormatEnum(attribute.format);
-		GLint  componentCount = lvn::getAttributeFormatComponentSize(attribute.format);
-		GLboolean normalized = lvn::isAttributeFormatNormalizedType(attribute.format) ? GL_TRUE : GL_FALSE;
-
-		glEnableVertexArrayAttrib(buffer->id, attribute.layout);
-		glVertexArrayAttribBinding(buffer->id, attribute.layout, bindingIndex);
-		// glVertexAttribDivisor(attribute.layout, 0);
-
-		switch (type)
-		{
-			case Lvn_VertexAttrib_N:
-				glVertexArrayAttribFormat(buffer->id, attribute.layout, componentCount, format, normalized, attribute.offset);
-				break;
-			case Lvn_VertexAttrib_I:
-				glVertexArrayAttribIFormat(buffer->id, attribute.layout, componentCount, format, attribute.offset);
-				break;
-			case Lvn_VertexAttrib_L:
-				glVertexArrayAttribLFormat(buffer->id, attribute.layout, componentCount, format, attribute.offset);
-				break;
-		}
+		GLbitfield usage = createInfo->usage == Lvn_BufferUsage_Dynamic ? GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT : 0;
+		glNamedBufferStorage(buffer->id, createInfo->size, createInfo->data, usage);
 	}
 
 	buffer->type = createInfo->type;
-	buffer->vertexBuffer = nullptr;
-	buffer->vertexBufferSize = createInfo->vertexBufferSize;
-	buffer->vertexBufferMemory = nullptr;
-	buffer->indexBuffer = nullptr;
-	buffer->indexBufferSize = createInfo->indexBufferSize;
-	buffer->indexBufferMemory = nullptr;
-	buffer->indexOffset = 0;
-
+	buffer->usage = createInfo->usage;
+	buffer->size = createInfo->size;
 	return Lvn_Result_Success;
 }
 
@@ -1341,6 +1322,7 @@ void oglsImplDestroyPipeline(LvnPipeline* pipeline)
 	delete pipelineEnums;
 
 	glDeleteProgram(pipeline->id);
+	glDeleteVertexArrays(1, &pipeline->vaoId);
 }
 
 void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
@@ -1363,9 +1345,7 @@ void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 
 void oglsImplDestroyBuffer(LvnBuffer* buffer)
 {
-	glDeleteBuffers(1, &buffer->vboId);
-	glDeleteBuffers(1, &buffer->iboId);
-	glDeleteVertexArrays(1, &buffer->id);
+	glDeleteBuffers(1, &buffer->id);
 }
 
 void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
@@ -1403,7 +1383,7 @@ void oglsImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 
 void oglsImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 {
-	glDrawElements(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, 0);
+	glDrawElements(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, (void*)window->indexOffset);
 }
 
 void oglsImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
@@ -1413,7 +1393,7 @@ void oglsImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uin
 
 void oglsImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-	glDrawElementsInstancedBaseInstance(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, 0, instanceCount, firstInstance);
+	glDrawElementsInstancedBaseInstance(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, (void*)window->indexOffset, instanceCount, firstInstance);
 }
 
 void oglsImplRenderCmdSetStencilReference(uint32_t reference)
@@ -1507,25 +1487,27 @@ void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	}
 
 	glUseProgram(pipeline->id);
+	glBindVertexArray(pipeline->vaoId);
 
 	window->topologyTypeEnum = pipelineEnums->topologyType;
 	window->vao = pipeline->vaoId;
+	window->bindingDescriptions = &pipeline->bindingDescriptions;
 }
 
-void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
 {
-	glBindVertexArray(buffer->id);
+	auto& bindingDescriptions = window->bindingDescriptions;
 
-	// uint32_t vertexBuffer = *static_cast<uint32_t*>(buffer->vertexBuffer);
-	// glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	for (uint32_t i = firstBinding; i < bindingCount; i++)
+	{
+		glVertexArrayVertexBuffer(window->vao, i, pBuffers[i]->id, pOffsets[i], (*bindingDescriptions)[i]);
+	}
 }
 
-void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset)
 {
-	glBindVertexArray(buffer->id);
-
-	// uint32_t indexBuffer = *static_cast<uint32_t*>(buffer->indexBuffer);
-	// glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glVertexArrayElementBuffer(window->vao, buffer->id);
+	window->indexOffset = offset;
 }
 
 void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
@@ -1595,38 +1577,26 @@ void oglsImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuf
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
+void oglsImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
 {
-	glNamedBufferSubData(buffer->vboId, offset, size, vertices);
-}
-
-void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset)
-{
-	glNamedBufferSubData(buffer->iboId, offset, size, indices);
-}
-
-void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size)
-{
-	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[opengl] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
-
-	glNamedBufferData(buffer->vboId, size, nullptr, GL_DYNAMIC_DRAW);
-
-	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	if (buffer->usage & Lvn_BufferUsage_Static)
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when resizing [vertex] buffer, id: %u", buffer->vboId);
+		LVN_CORE_ERROR("[opengl] cannot change data of buffer that has static buffer usage set Lvn_BufferUsage_Static, buffer: (%p)", buffer);
+		return;
 	}
+
+	glNamedBufferSubData(buffer->id, offset, size, vertices);
 }
 
-void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
+void oglsImplBufferResize(LvnBuffer* buffer, uint64_t size)
 {
-	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[opengl] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
-
-	glNamedBufferData(buffer->iboId, size, nullptr, GL_DYNAMIC_DRAW);
-
-	if (ogls::checkErrorCode() == Lvn_Result_Failure)
+	if (!(buffer->usage & Lvn_BufferUsage_Resize))
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when resizing [index] buffer, id: %u", buffer->iboId);
+		LVN_CORE_ERROR("[opengl] cannot change data of buffer that does not have resize buffer usage set Lvn_BufferUsage_Resize, buffer: (%p)", buffer);
+		return;
 	}
+
+	glNamedBufferData(buffer->id, size, nullptr, GL_DYNAMIC_DRAW);
 }
 
 void oglsImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
@@ -1776,6 +1746,12 @@ void setOglWindowContextValues()
 		glEnable(GL_FRAMEBUFFER_SRGB);
 }
 
+void* getMainOglWindowContext()
+{
+	OglBackends* oglBackends = s_OglBackends;
+	return oglBackends->windowContext;
+}
+
 
 // draw command functions
 void oglsImplRecordCmdDraw(LvnWindow* window, uint32_t vertexCount)
@@ -1872,24 +1848,28 @@ void oglsImplRecordCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
 }
 
-void oglsImplRecordCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void oglsImplRecordCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
 {
 	LvnCmdBindVertexBuffer cmd{};
 	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBindVertexBuffer;
 	cmd.header.size = sizeof(LvnCmdBindVertexBuffer);
 	cmd.window = window;
-	cmd.buffer = buffer;
+	cmd.firstBinding = firstBinding;
+	cmd.bindingCount = bindingCount;
+	cmd.pBuffers = pBuffers;
+	cmd.pOffsets = pOffsets;
 
 	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
 }
 
-void oglsImplRecordCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void oglsImplRecordCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset)
 {
 	LvnCmdBindIndexBuffer cmd{};
 	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBindIndexBuffer;
 	cmd.header.size = sizeof(LvnCmdBindIndexBuffer);
 	cmd.window = window;
 	cmd.buffer = buffer;
+	cmd.offset = offset;
 
 	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
 }
@@ -1940,7 +1920,7 @@ void oglsImplDrawBuffCmdDraw(void* data)
 void oglsImplDrawBuffCmdDrawIndexed(void* data)
 {
 	LvnCmdDrawIndexed* cmd = static_cast<LvnCmdDrawIndexed*>(data);
-	glDrawElements(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, 0);
+	glDrawElements(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, (void*)cmd->window->indexOffset);
 }
 
 void oglsImplDrawBuffCmdDrawInstanced(void* data)
@@ -1952,7 +1932,7 @@ void oglsImplDrawBuffCmdDrawInstanced(void* data)
 void oglsImplDrawBuffCmdDrawIndexedInstanced(void* data)
 {
 	LvnCmdDrawIndexedInstanced* cmd = static_cast<LvnCmdDrawIndexedInstanced*>(data);
-	glDrawElementsInstancedBaseInstance(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, 0, cmd->instanceCount, cmd->firstInstance);
+	glDrawElementsInstancedBaseInstance(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, (void*)cmd->window->indexOffset, cmd->instanceCount, cmd->firstInstance);
 }
 
 void oglsImplDrawBuffCmdSetStencilReference(void* data)
@@ -2025,18 +2005,26 @@ void oglsImplDrawBuffCmdBindPipeline(void* data)
 
 	cmd->window->topologyTypeEnum = pipelineEnums->topologyType;
 	cmd->window->vao = cmd->pipeline->vaoId;
+	cmd->window->bindingDescriptions = &cmd->pipeline->bindingDescriptions;
 }
 
 void oglsImplDrawBuffCmdBindVertexBuffer(void* data)
 {
 	LvnCmdBindVertexBuffer* cmd = static_cast<LvnCmdBindVertexBuffer*>(data);
-	glBindVertexArray(cmd->buffer->id);
+	auto& bindingDescriptions = cmd->window->bindingDescriptions;
+
+	for (uint32_t i = cmd->firstBinding; i < cmd->bindingCount; i++)
+	{
+		glVertexArrayVertexBuffer(cmd->window->vao, i, cmd->pBuffers[i]->id, 0, (*bindingDescriptions)[i]);
+	}
 }
 
 void oglsImplDrawBuffCmdBindIndexBuffer(void* data)
 {
 	LvnCmdBindIndexBuffer* cmd = static_cast<LvnCmdBindIndexBuffer*>(data);
-	glBindVertexArray(cmd->buffer->id);
+
+	glVertexArrayElementBuffer(cmd->window->vao, cmd->buffer->id);
+	cmd->window->indexOffset = cmd->offset;
 }
 
 void oglsImplDrawBuffCmdBindDescriptorSets(void* data)

@@ -54,29 +54,39 @@ struct VulkanFrameBufferData
 
 struct VulkanWindowSurfaceData
 {
+	// core surface/swapchain data
 	VkSurfaceKHR surface;
-	VkRenderPass renderPass;
 	VkSwapchainKHR swapChain;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	std::vector<VkImage> swapChainImages;
 	std::vector<VkImageView> swapChainImageViews;
+
+	// depth resources
 	VkImage depthImage;
 	VmaAllocation depthImageMemory;
 	VkImageView depthImageView;
+
+	// render pass & framebuffers
+	VkRenderPass renderPass;
 	std::vector<VkFramebuffer> frameBuffers;
 
-	/* command buffers and semaphore/fence object count are dependent on the max frames in flight */
+	// command pool recording
+	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
+
+	// synchronization
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
 
-	VkClearColorValue clearColor;
-
-	uint32_t imageIndex, currentFrame;
-
+	// per frame data
+	uint32_t imageIndex;
+	uint32_t currentFrame;
 	bool frameBufferResized;
+
+	// presentation
+	VkClearColorValue clearColor;
 };
 
 struct VulkanPipelineCreateData
@@ -113,7 +123,6 @@ struct VulkanBackends
 	VulkanQueueFamilyIndices            deviceIndices;
 	VkPhysicalDeviceProperties          deviceProperties;
 	VkPhysicalDeviceFeatures            deviceSupportedFeatures;
-
 	VkCommandPool                       commandPool;
 	VmaAllocator                        vmaAllocator;
 

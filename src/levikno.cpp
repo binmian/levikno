@@ -672,8 +672,8 @@ void terminateContext()
 
 	LvnContext* lvnctx = s_LvnContext;
 
-	lvn::terminateWindowContext(lvnctx);
 	lvn::terminateGraphicsContext(lvnctx);
+	lvn::terminateWindowContext(lvnctx);
 	lvn::terminateAudioContext(lvnctx);
 	lvn::terminateNetworkingContext();
 
@@ -1855,6 +1855,11 @@ bool windowOpen(LvnWindow* window)
 	return lvn::getContext()->windowContext.windowOpen(window);
 }
 
+void windowPollEvents()
+{
+	lvn::getContext()->windowContext.windowPollEvents();
+}
+
 LvnPair<int> windowGetDimensions(LvnWindow* window)
 {
 	return lvn::getContext()->windowContext.getWindowSize(window);
@@ -2164,22 +2169,23 @@ void renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	lvn::getContext()->graphicsContext.renderCmdBindPipeline(window, pipeline);
 }
 
-void renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void renderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
 {
 	int width, height;
 	lvn::windowGetSize(window, &width, &height);
 	if (width * height <= 0) { return; }
 
-	lvn::getContext()->graphicsContext.renderCmdBindVertexBuffer(window, buffer);
+	uint64_t offsets[] = {0};
+	lvn::getContext()->graphicsContext.renderCmdBindVertexBuffer(window, firstBinding, bindingCount, pBuffers, pOffsets ? pOffsets : offsets);
 }
 
-void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset)
 {
 	int width, height;
 	lvn::windowGetSize(window, &width, &height);
 	if (width * height <= 0) { return; }
 
-	lvn::getContext()->graphicsContext.renderCmdBindIndexBuffer(window, buffer);
+	lvn::getContext()->graphicsContext.renderCmdBindIndexBuffer(window, buffer, offset);
 }
 
 void renderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
@@ -2324,6 +2330,39 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 {
 	LvnContext* lvnctx = lvn::getContext();
 
+	// vertex binding descriptions
+	if (!createInfo->pVertexBindingDescriptions)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexBindingDescriptions is nullptr; cannot create vertex buffer without the vertex binding descriptions");
+		return Lvn_Result_Failure;
+	}
+	else if (!createInfo->vertexBindingDescriptionCount)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexBindingDescriptionCount is 0; cannot create vertex buffer without the vertex binding descriptions");
+		return Lvn_Result_Failure;
+	}
+
+	// vertex attributes
+	if (!createInfo->pVertexAttributes)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes is nullptr; cannot create vertex buffer without the vertex attributes");
+		return Lvn_Result_Failure;
+	}
+	else if (!createInfo->vertexAttributeCount)
+	{
+		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexAttributeCount is 0; cannot create vertex buffer without the vertex attributes");
+		return Lvn_Result_Failure;
+	}
+
+	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
+	{
+		if (createInfo->pVertexAttributes[i].format == Lvn_AttributeFormat_Undefined)
+		{
+			LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_AttributeFormat_Undefined, cannot create vertex buffer without a vertex data type", i);
+			return Lvn_Result_Failure;
+		}
+	}
+
 	*pipeline = lvn::createObject<LvnPipeline>(lvnctx, Lvn_Stype_Pipeline);
 
 	LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
@@ -2385,39 +2424,6 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 	{
 		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type does not have vertex or index buffer type (%u); cannot create vertexbuffer that does not have a vertex or index buffer type", createInfo->type);
 		return Lvn_Result_Failure;
-	}
-
-	// vertex binding descriptions
-	if (!createInfo->pVertexBindingDescriptions)
-	{
-		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexBindingDescriptions is nullptr; cannot create vertex buffer without the vertex binding descriptions");
-		return Lvn_Result_Failure;
-	}
-	else if (!createInfo->vertexBindingDescriptionCount)
-	{
-		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexBindingDescriptionCount is 0; cannot create vertex buffer without the vertex binding descriptions");
-		return Lvn_Result_Failure;
-	}
-
-	// vertex attributes
-	if (!createInfo->pVertexAttributes)
-	{
-		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes is nullptr; cannot create vertex buffer without the vertex attributes");
-		return Lvn_Result_Failure;
-	}
-	else if (!createInfo->vertexAttributeCount)
-	{
-		LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexAttributeCount is 0; cannot create vertex buffer without the vertex attributes");
-		return Lvn_Result_Failure;
-	}
-
-	for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
-	{
-		if (createInfo->pVertexAttributes[i].format == Lvn_AttributeFormat_Undefined)
-		{
-			LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_AttributeFormat_Undefined, cannot create vertex buffer without a vertex data type", i);
-			return Lvn_Result_Failure;
-		}
 	}
 
 	*buffer = lvn::createObject<LvnBuffer>(lvnctx, Lvn_Stype_Buffer);
@@ -2753,24 +2759,26 @@ LvnPipelineSpecification configPipelineSpecificationInit()
 	return lvnctx->defaultPipelineSpecification;
 }
 
-void bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
+void bufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
 {
-	lvn::getContext()->graphicsContext.bufferUpdateVertexData(buffer, vertices, size, offset);
+	if (buffer->usage == Lvn_BufferUsage_Static)
+	{
+		LVN_CORE_ERROR("[opengl] cannot change data of buffer that has static buffer usage set Lvn_BufferUsage_Static, buffer: (%p)", buffer);
+		return;
+	}
+
+	lvn::getContext()->graphicsContext.bufferUpdateData(buffer, vertices, size, offset);
 }
 
-void bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset)
+void bufferResize(LvnBuffer* buffer, uint64_t size)
 {
-	lvn::getContext()->graphicsContext.bufferUpdateIndexData(buffer, indices, size, offset);
-}
+	if (buffer->usage != Lvn_BufferUsage_Resize)
+	{
+		LVN_CORE_ERROR("[opengl] cannot change data of buffer that does not have resize buffer usage set Lvn_BufferUsage_Resize, buffer: (%p)", buffer);
+		return;
+	}
 
-void bufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size)
-{
-	lvn::getContext()->graphicsContext.bufferResizeVertexBuffer(buffer, size);
-}
-
-void bufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
-{
-	lvn::getContext()->graphicsContext.bufferResizeIndexBuffer(buffer, size);
+	lvn::getContext()->graphicsContext.bufferResize(buffer, size);
 }
 
 LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)

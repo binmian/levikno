@@ -13,6 +13,7 @@ namespace lvn
 
 	void glfwImplUpdateWindow(LvnWindow* window);
 	bool glfwImplWindowOpen(LvnWindow* window);
+	void glfwImplWindowPollEvents();
 	LvnPair<int> glfwImplGetDimensions(LvnWindow* window);
 	unsigned int glfwImplGetWindowWidth(LvnWindow* window);
 	unsigned int glfwImplGetWindowHeight(LvnWindow* window);

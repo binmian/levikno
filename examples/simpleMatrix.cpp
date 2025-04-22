@@ -99,19 +99,24 @@ int main(int argc, char** argv)
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = s_Vertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(s_Vertices);
-	bufferCreateInfo.pIndices = s_Indices;
-	bufferCreateInfo.indexBufferSize = sizeof(s_Indices);
+	bufferCreateInfo.type = Lvn_BufferType_Vertex;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+	bufferCreateInfo.data = s_Vertices;
+	bufferCreateInfo.size = sizeof(s_Vertices);
 
 	// create buffer
-	LvnBuffer* buffer;
-	lvn::createBuffer(&buffer, &bufferCreateInfo);
+	LvnBuffer* vertexBuffer;
+	lvn::createBuffer(&vertexBuffer, &bufferCreateInfo);
+
+	// index buffer create info struct
+	bufferCreateInfo.type = Lvn_BufferType_Index;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+	bufferCreateInfo.data = s_Indices;
+	bufferCreateInfo.size = sizeof(s_Indices);
+
+	// create buffer
+	LvnBuffer* indexBuffer;
+	lvn::createBuffer(&indexBuffer, &bufferCreateInfo);
 
 
 	// [Create Pipeline]
@@ -206,6 +211,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);
@@ -233,8 +239,8 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		// bind vertex and index buffer
-		lvn::renderCmdBindVertexBuffer(window, buffer);
-		lvn::renderCmdBindIndexBuffer(window, buffer);
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &vertexBuffer, 0);
+		lvn::renderCmdBindIndexBuffer(window, indexBuffer, 0);
 
 		// draw sqaure
 		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices)); // number of elements in indices array (6)
@@ -246,7 +252,8 @@ int main(int argc, char** argv)
 	}
 
 	// destroy objects after they are finished being used
-	lvn::destroyBuffer(buffer);
+	lvn::destroyBuffer(vertexBuffer);
+	lvn::destroyBuffer(indexBuffer);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);

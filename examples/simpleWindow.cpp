@@ -9,7 +9,7 @@ int main(int argc, char** argv)
 	lvnCreateInfo.logging.enableLogging = true;
 	lvnCreateInfo.logging.enableGraphicsApiDebugLogs = true;
 	lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
-	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_opengl;
+	lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
 
 	lvn::createContext(&lvnCreateInfo);
 
@@ -29,6 +29,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 
 		// get next window swapchain image

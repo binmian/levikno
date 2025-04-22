@@ -955,6 +955,7 @@ int main()
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		float timeNow = deltaTime.elapsed();
 		float dt = timeNow - oldTime;

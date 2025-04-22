@@ -149,33 +149,33 @@ int main(int argc, char** argv)
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = s_Vertices1;
-	bufferCreateInfo.vertexBufferSize = sizeof(s_Vertices1);
-	bufferCreateInfo.pIndices = s_Indices;
-	bufferCreateInfo.indexBufferSize = sizeof(s_Indices);
+	bufferCreateInfo.type = Lvn_BufferType_Vertex;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+	bufferCreateInfo.data = s_Vertices1;
+	bufferCreateInfo.size = sizeof(s_Vertices1);
 
 	// create buffer
 	LvnBuffer* buffer1;
 	lvn::createBuffer(&buffer1, &bufferCreateInfo);
 
-	bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = s_Vertices2;
-	bufferCreateInfo.vertexBufferSize = sizeof(s_Vertices2);
-	bufferCreateInfo.pIndices = s_Indices;
-	bufferCreateInfo.indexBufferSize = sizeof(s_Indices);
+	bufferCreateInfo.type = Lvn_BufferType_Vertex;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+	bufferCreateInfo.data = s_Vertices2;
+	bufferCreateInfo.size = sizeof(s_Vertices2);
 
 	// create buffer
 	LvnBuffer* buffer2;
 	lvn::createBuffer(&buffer2, &bufferCreateInfo);
+
+	// index buffer create info struct
+	bufferCreateInfo.type = Lvn_BufferType_Index;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+	bufferCreateInfo.data = s_Indices;
+	bufferCreateInfo.size = sizeof(s_Indices);
+
+	// create buffer
+	LvnBuffer* indexBuffer;
+	lvn::createBuffer(&indexBuffer, &bufferCreateInfo);
 
 
 	// [Create Pipeline]
@@ -273,6 +273,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);
@@ -299,16 +300,14 @@ int main(int argc, char** argv)
 		// bind descriptor set
 		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
-		lvn::renderCmdBindVertexBuffer(window, buffer1);
-		lvn::renderCmdBindIndexBuffer(window, buffer1);
+		lvn::renderCmdBindIndexBuffer(window, indexBuffer, 0);
 
 		// draw first sqaure
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &buffer1, 0);
 		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices));
 
-		lvn::renderCmdBindVertexBuffer(window, buffer2);
-		lvn::renderCmdBindIndexBuffer(window, buffer2);
-
 		// draw second sqaure
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &buffer2, 0);
 		lvn::renderCmdDrawIndexed(window, ARRAY_LEN(s_Indices));
 
 		// end render pass and submit rendering
@@ -320,6 +319,7 @@ int main(int argc, char** argv)
 	// destroy objects after they are finished being used
 	lvn::destroyBuffer(buffer1);
 	lvn::destroyBuffer(buffer2);
+	lvn::destroyBuffer(indexBuffer);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);

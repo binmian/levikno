@@ -41,6 +41,7 @@ namespace lvn
 {
 
 static VulkanBackends* s_VkBackends = nullptr;
+static std::mutex s_QueueSubmitMutex;
 
 namespace vks
 {
@@ -782,9 +783,18 @@ namespace vks
 
 	static void createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
 	{
+		// create command buffer pool
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		poolInfo.queueFamilyIndex = vkBackends->deviceIndices.graphicsIndex;
+
+		LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &surfaceData->commandPool) == VK_SUCCESS, "[vulkan] failed to create command pool!");
+
+		// create command buffers
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = vkBackends->commandPool;
+		allocInfo.commandPool = surfaceData->commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = vkBackends->maxFramesInFlight;
 
@@ -1027,13 +1037,11 @@ namespace vks
 			vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
 			vkBackends->commandPool = VK_NULL_HANDLE;
 		}
-
 		if (vkBackends->vmaAllocator != VK_NULL_HANDLE)
 		{
 			vmaDestroyAllocator(vkBackends->vmaAllocator);
 			vkBackends->vmaAllocator = VK_NULL_HANDLE;
 		}
-
 		if (vkBackends->device != VK_NULL_HANDLE)
 		{
 			vkDestroyDevice(vkBackends->device, nullptr);
@@ -1075,14 +1083,13 @@ namespace vks
 		glfwDestroyWindow(glfwWindow);
 		glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
-		// create command buffer pool
+		// create general command pool
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		poolInfo.queueFamilyIndex = vkBackends->deviceIndices.graphicsIndex;
 
 		LVN_CORE_CALL_ASSERT(vkCreateCommandPool(vkBackends->device, &poolInfo, nullptr, &vkBackends->commandPool) == VK_SUCCESS, "[vulkan] failed to create command pool!");
-
 
 		// create VmaAllocator
 		VmaAllocatorCreateInfo allocatorInfo{};
@@ -1882,8 +1889,11 @@ namespace vks
 		return Lvn_Result_Success;
 	}
 
+	static std::mutex s_CopyBufferMutex;
 	void copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset)
 	{
+		std::lock_guard<std::mutex> lock(s_CopyBufferMutex);
+
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1947,8 +1957,11 @@ namespace vks
 		return Lvn_Result_Success;
 	}
 
+	static std::mutex s_TransitionImageLayoutMutex;
 	static void transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
 	{
+		std::lock_guard<std::mutex> lock(s_TransitionImageLayoutMutex);
+
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -2034,8 +2047,11 @@ namespace vks
 		vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
 	}
 
+	static std::mutex s_CopyBufferToImageMutex;
 	static void copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount)
 	{
+		std::lock_guard<std::mutex> lock(s_CopyBufferToImageMutex);
+
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -2123,6 +2139,8 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 {
 	if (!window->apiData) { return; }
 
+	std::lock_guard<std::mutex> lock(s_QueueSubmitMutex);
+
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
@@ -2145,6 +2163,9 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
 	vkDestroyImageView(vkBackends->device, surfaceData->depthImageView, nullptr);
     vkDestroyImage(vkBackends->device, surfaceData->depthImage, nullptr);
 	vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
+
+	// command pool
+	vkDestroyCommandPool(vkBackends->device, surfaceData->commandPool, nullptr);
 
 	// frame buffers
 	for (uint32_t i = 0; i < surfaceData->frameBuffers.size(); i++)
@@ -2202,11 +2223,11 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	else
 		vks::setupDebugMessenger(vkBackends);
 
-
 	// get physical devices and setup render init
 	std::vector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
 	VkPhysicalDevice physicalDevice = vks::getBestPhysicalDevice(vkBackends->instance, physicalDevices);
 	vks::setupRenderInit(vkBackends, physicalDevice);
+
 
 	// bind function pointers
 	graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
@@ -2256,10 +2277,8 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->renderCmdBeginFrameBuffer = vksImplRenderCmdBeginFrameBuffer;
 	graphicsContext->renderCmdEndFrameBuffer = vksImplRenderCmdEndFrameBuffer;
 
-	graphicsContext->bufferUpdateVertexData = vksImplBufferUpdateVertexData;
-	graphicsContext->bufferUpdateIndexData = vksImplBufferUpdateIndexData;
-	graphicsContext->bufferResizeVertexBuffer = vksImplBufferResizeVertexBuffer;
-	graphicsContext->bufferResizeIndexBuffer = vksImplBufferResizeIndexBuffer;
+	graphicsContext->bufferUpdateData = vksImplBufferUpdateData;
+	graphicsContext->bufferResize = vksImplBufferResize;
 	graphicsContext->allocateDescriptorSet = vksImplAllocateDescriptorSet;
 	graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
 	graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
@@ -2277,6 +2296,7 @@ void vksImplTerminateContext()
 	VulkanBackends* vkBackends = s_VkBackends;
 	vkDeviceWaitIdle(vkBackends->device);
 
+	// command pool
 	vkDestroyCommandPool(vkBackends->device, vkBackends->commandPool, nullptr);
 
 	// VmaAllocator
@@ -2431,14 +2451,12 @@ void vksImplRenderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 void vksImplRenderBeginNextFrame(LvnWindow* window)
 {
 	GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
-	int width, height;
-	glfwGetFramebufferSize(glfwWin, &width, &height);
-	if (width == 0 || height == 0) { return; }
 
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
 	vkWaitForFences(vkBackends->device, 1, &surfaceData->inFlightFences[surfaceData->currentFrame], VK_TRUE, UINT64_MAX);
+	vkResetFences(vkBackends->device, 1, &surfaceData->inFlightFences[surfaceData->currentFrame]);
 
     VkResult result = vkAcquireNextImageKHR(vkBackends->device, surfaceData->swapChain, UINT64_MAX, surfaceData->imageAvailableSemaphores[surfaceData->currentFrame], VK_NULL_HANDLE, &surfaceData->imageIndex);
 
@@ -2448,17 +2466,13 @@ void vksImplRenderBeginNextFrame(LvnWindow* window)
 		return;
 	}
 	LVN_CORE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR, "[vulkan] failed to acquire swap chain image!");
-
-	vkResetFences(vkBackends->device, 1, &surfaceData->inFlightFences[surfaceData->currentFrame]);
-
 }
 
 void vksImplRenderDrawSubmit(LvnWindow* window)
 {
+	std::lock_guard<std::mutex> lock(s_QueueSubmitMutex);
+
 	GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
-	int width, height;
-	glfwGetFramebufferSize(glfwWin, &width, &height);
-	if (width == 0 || height == 0) { return; }
 
 	VulkanBackends* vkBackends = s_VkBackends;
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
@@ -2577,21 +2591,23 @@ void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline)
 	vkCmdBindPipeline(surfaceData->commandBuffers[surfaceData->currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 }
 
-void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
-	VkDeviceSize offsets[] = {0};
 
-	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], 0, 1, &vertexBuffer, offsets);
+	std::vector<VkBuffer> buffers(bindingCount);
+	for (uint32_t i = 0; i < bindingCount; i++)
+		buffers[i] = static_cast<VkBuffer>(pBuffers[i]->buffer);
+
+	vkCmdBindVertexBuffers(surfaceData->commandBuffers[surfaceData->currentFrame], firstBinding, bindingCount, buffers.data(), pOffsets);
 }
 
-void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer)
+void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
+	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->buffer);
 
-	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], indexBuffer, buffer->indexOffset, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(surfaceData->commandBuffers[surfaceData->currentFrame], indexBuffer, offset, VK_INDEX_TYPE_UINT32);
 }
 
 void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
@@ -3073,62 +3089,17 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
+	VkDeviceSize bufferSize = createInfo->size;
 
-	buffer->type = createInfo->type;
-	buffer->vertexBufferSize = createInfo->vertexBufferSize;
-	buffer->indexBufferSize = createInfo->indexBufferSize;
+	VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	if (createInfo->type & Lvn_BufferType_Vertex)
+		usageFlags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	if (createInfo->type & Lvn_BufferType_Index)
+		usageFlags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-	bool vertexOnly = createInfo->type & (Lvn_BufferType_Index | Lvn_BufferType_DynamicIndex) ? false : true;
-	bool dynamicVertex = createInfo->type & Lvn_BufferType_DynamicVertex;
-	bool dynamicIndex = createInfo->type & Lvn_BufferType_DynamicIndex;
-
-	if (dynamicVertex || dynamicIndex) // buffers need to be seperate if either buffer is dynamic
+	// if buffer is static, transfer memory to gpu
+	if (createInfo->usage == Lvn_BufferUsage_Static)
 	{
-		// dynamic buffers will have their memory stored on the cpu
-
-		// vertex
-		VkBuffer vertexBuffer;
-		VmaAllocation vertexMemory;
-
-		vks::createBuffer(vkBackends, &vertexBuffer, &vertexMemory, createInfo->vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-
-		if (createInfo->pVertices)
-		{
-			void* data;
-			vmaMapMemory(vkBackends->vmaAllocator, vertexMemory, &data);
-			memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
-			vmaUnmapMemory(vkBackends->vmaAllocator, vertexMemory);
-		}
-
-		buffer->vertexBuffer = vertexBuffer;
-		buffer->vertexBufferMemory = vertexMemory;
-
-		// index
-		if (!vertexOnly)
-		{
-			VkBuffer indexBuffer;
-			VmaAllocation indexMemory;
-
-			vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, createInfo->indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-
-			if (createInfo->pIndices)
-			{
-				void* data;
-				vmaMapMemory(vkBackends->vmaAllocator, indexMemory, &data);
-				memcpy(data, createInfo->pIndices, createInfo->indexBufferSize);
-				vmaUnmapMemory(vkBackends->vmaAllocator, indexMemory);
-			}
-
-			buffer->indexBuffer = indexBuffer;
-			buffer->indexBufferMemory = indexMemory;
-		}
-
-		buffer->indexOffset = 0;
-	}
-	else
-	{
-		VkDeviceSize bufferSize = createInfo->vertexBufferSize + createInfo->indexBufferSize;
-
 		VkBuffer stagingBuffer;
 		VmaAllocation stagingMemory;
 
@@ -3138,36 +3109,42 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 		// create staging buffer to pass vertex data into
 		vks::createBuffer(vkBackends, &stagingBuffer, &stagingMemory, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-		void* data;
-		vmaMapMemory(vkBackends->vmaAllocator, stagingMemory, &data);
-
-		if (createInfo->pVertices)
+		if (createInfo->data)
 		{
-			memcpy(data, createInfo->pVertices, createInfo->vertexBufferSize);
+			void* data;
+			vmaMapMemory(vkBackends->vmaAllocator, stagingMemory, &data);
+			memcpy(data, createInfo->data, bufferSize);
+			vmaUnmapMemory(vkBackends->vmaAllocator, stagingMemory);
 		}
-		if (createInfo->pIndices)
-		{
-			memcpy((char*)data + createInfo->vertexBufferSize, createInfo->pIndices, createInfo->indexBufferSize);
-		}
-
-		vmaUnmapMemory(vkBackends->vmaAllocator, stagingMemory);
 
 		// create the main buffer to be used
-		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-		vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, bufferUsage, VMA_MEMORY_USAGE_GPU_ONLY);
+		vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 		vks::copyBuffer(vkBackends, stagingBuffer, vkBuffer, bufferSize, 0, 0);
 
 		vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
 		vmaFreeMemory(vkBackends->vmaAllocator, stagingMemory);
 
-		// copy data to buffer object
-		buffer->vertexBuffer = vkBuffer;
-		buffer->vertexBufferMemory = bufferMemory;
-		buffer->indexBuffer = vkBuffer;
-		buffer->indexBufferMemory = bufferMemory;
-		buffer->indexOffset = createInfo->vertexBufferSize;
+		buffer->buffer = vkBuffer;
+		buffer->bufferMemory = bufferMemory;
+	}
+	else // dynamic buffers will have their memory stored on the cpu
+	{
+		VkBuffer vkBuffer;
+		VmaAllocation bufferMemory;
+
+		vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, usageFlags, VMA_MEMORY_USAGE_CPU_ONLY);
+
+		vmaMapMemory(vkBackends->vmaAllocator, bufferMemory, &buffer->bufferMap);
+		if (createInfo->data)
+			memcpy(buffer->bufferMap, createInfo->data, bufferSize);
+
+		buffer->buffer = vkBuffer;
+		buffer->bufferMemory = bufferMemory;
 	}
 
+	buffer->type = createInfo->type;
+	buffer->usage = createInfo->usage;
+	buffer->size = createInfo->size;
 
 	return Lvn_Result_Success;
 }
@@ -3752,28 +3729,14 @@ void vksImplDestroyBuffer(LvnBuffer* buffer)
 	VulkanBackends* vkBackends = s_VkBackends;
 	vkDeviceWaitIdle(vkBackends->device);
 
-	bool dynamic = buffer->type & (Lvn_BufferType_DynamicVertex | Lvn_BufferType_DynamicIndex);
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
 
-	if (dynamic)
-	{
-		VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
-		VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
-		VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
-		VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
+	if (buffer->usage != Lvn_BufferUsage_Static)
+		vmaUnmapMemory(vkBackends->vmaAllocator, bufferMemory);
 
-		vkDestroyBuffer(vkBackends->device, vertexBuffer, nullptr);
-		vmaFreeMemory(vkBackends->vmaAllocator, vertexMemory);
-		vkDestroyBuffer(vkBackends->device, indexBuffer, nullptr);
-		vmaFreeMemory(vkBackends->vmaAllocator, indexMemory);
-	}
-	else
-	{
-		VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
-		VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
-
-		vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
-		vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
-	}
+	vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
+	vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
 }
 
 void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
@@ -3835,76 +3798,41 @@ void vksImplDestroyCubemap(LvnCubemap* cubemap)
 	vkDestroySampler(vkBackends->device, textureSampler, nullptr);
 }
 
-void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
+void vksImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
 {
-	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[vulkan] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
-
 	VulkanBackends* vkBackends = s_VkBackends;
 	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
-	VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
 
-	void* data;
-	vmaMapMemory(vmaAllocator, vertexMemory, &data);
-	memcpy((char*)data + offset, vertices, size);
-	vmaUnmapMemory(vmaAllocator, vertexMemory);
+	memcpy((uint8_t*)buffer->bufferMap + offset, vertices, size);
 }
 
-void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset)
+void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
 {
-	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[vulkan] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
-
-	VulkanBackends* vkBackends = s_VkBackends;
-	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
-	VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
-
-	void* data;
-	vmaMapMemory(vmaAllocator, indexMemory, &data);
-	memcpy((char*)data + offset, indices, size);
-	vmaUnmapMemory(vmaAllocator, indexMemory);
-
-}
-
-void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size)
-{
-	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicVertex, "[vulkan] cannot change vertex data of buffer that does not have dynamic vertex buffer type set (Lvn_BufferType_DynamicVertex)");
-
 	VulkanBackends* vkBackends = s_VkBackends;
 	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
 
-	VkBuffer vertexBuffer = static_cast<VkBuffer>(buffer->vertexBuffer);
-	VmaAllocation vertexMemory = static_cast<VmaAllocation>(buffer->vertexBufferMemory);
+	VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+	VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
 
-	vkDestroyBuffer(vkBackends->device, vertexBuffer, nullptr);
-	vmaFreeMemory(vmaAllocator, vertexMemory);
+	vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
+	vmaFreeMemory(vmaAllocator, bufferMemory);
 
-	vks::createBuffer(vkBackends, &vertexBuffer, &vertexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+	VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	if (buffer->type & Lvn_BufferType_Vertex)
+		usageFlags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	if (buffer->type & Lvn_BufferType_Index)
+		usageFlags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-	buffer->vertexBuffer = vertexBuffer;
-	buffer->vertexBufferMemory = vertexMemory;
-}
+	vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, size, usageFlags, VMA_MEMORY_USAGE_CPU_ONLY);
 
-void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size)
-{
-	LVN_CORE_ASSERT(buffer->type & Lvn_BufferType_DynamicIndex, "[vulkan] cannot change index data of buffer that does not have dynamic index buffer type set (Lvn_BufferType_DynamicIndex)");
-
-	VulkanBackends* vkBackends = s_VkBackends;
-	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
-
-	VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->indexBuffer);
-	VmaAllocation indexMemory = static_cast<VmaAllocation>(buffer->indexBufferMemory);
-
-	vkDestroyBuffer(vkBackends->device, indexBuffer, nullptr);
-	vmaFreeMemory(vmaAllocator, indexMemory);
-
-	vks::createBuffer(vkBackends, &indexBuffer, &indexMemory, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-
-	buffer->indexBuffer = indexBuffer;
-	buffer->indexBufferMemory = indexMemory;
+	buffer->buffer = vkBuffer;
+	buffer->bufferMemory = bufferMemory;
 }
 
 void vksImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
 {
-	memcpy(static_cast<char*>(uniformBuffer->uniformBufferMapped) + offset, data, size);
+	memcpy(static_cast<uint8_t*>(uniformBuffer->uniformBufferMapped) + offset, data, size);
 }
 
 void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)

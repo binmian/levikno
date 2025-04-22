@@ -402,6 +402,8 @@ struct LvnWindow
 	LvnRenderPass renderPass;        // pointer to native render pass for this window (vulkan)
 	uint32_t topologyTypeEnum;       // topologyType used to render primitives (opengl)
 	uint32_t vao;                    // vertex array object per pipeline object (opengl)
+	uint32_t indexOffset;            // index offset when binding index buffer (opengl)
+	std::unordered_map<uint32_t, uint32_t>* bindingDescriptions;
 	std::vector<uint8_t> cmdBuffer;  // command buffer to store draw commands in byte data
 };
 
@@ -413,6 +415,7 @@ struct LvnWindowContext
 	void                (*destroyWindow)(LvnWindow*);
 	void                (*updateWindow)(LvnWindow*);
 	bool                (*windowOpen)(LvnWindow*);
+	void                (*windowPollEvents)();
 	LvnPair<int>        (*getDimensions)(LvnWindow*);
 	unsigned int        (*getWindowWidth)(LvnWindow*);
 	unsigned int        (*getWindowHeight)(LvnWindow*);
@@ -493,16 +496,14 @@ struct LvnGraphicsContext
 	void                        (*renderCmdBeginRenderPass)(LvnWindow*);
 	void                        (*renderCmdEndRenderPass)(LvnWindow*);
 	void                        (*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
-	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, LvnBuffer*);
-	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*);
+	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, uint32_t, uint32_t, LvnBuffer**, uint64_t*);
+	void                        (*renderCmdBindIndexBuffer)(LvnWindow*, LvnBuffer*, uint64_t);
 	void                        (*renderCmdBindDescriptorSets)(LvnWindow*, LvnPipeline*, uint32_t, uint32_t, LvnDescriptorSet**);
 	void                        (*renderCmdBeginFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 	void                        (*renderCmdEndFrameBuffer)(LvnWindow*, LvnFrameBuffer*);
 
-	void                        (*bufferUpdateVertexData)(LvnBuffer*, void*, uint64_t, uint64_t);
-	void                        (*bufferUpdateIndexData)(LvnBuffer*, uint32_t*, uint64_t, uint64_t);
-	void                        (*bufferResizeVertexBuffer)(LvnBuffer*, uint64_t);
-	void                        (*bufferResizeIndexBuffer)(LvnBuffer*, uint64_t);
+	void                        (*bufferUpdateData)(LvnBuffer*, void*, uint64_t, uint64_t);
+	void                        (*bufferResize)(LvnBuffer*, uint64_t);
 	void                        (*updateUniformBufferData)(LvnUniformBuffer*, void*, uint64_t, uint64_t);
 	void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
 	LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
@@ -594,7 +595,10 @@ struct LvnCmdBindVertexBuffer
 {
 	LvnDrawCmdHeader header;
 	LvnWindow* window;
-	LvnBuffer* buffer;
+	uint32_t firstBinding;
+	uint32_t bindingCount;
+	LvnBuffer** pBuffers;
+	uint64_t* pOffsets;
 };
 
 struct LvnCmdBindIndexBuffer
@@ -602,6 +606,7 @@ struct LvnCmdBindIndexBuffer
 	LvnDrawCmdHeader header;
 	LvnWindow* window;
 	LvnBuffer* buffer;
+	uint64_t offset;
 };
 
 struct LvnCmdBindDescriptorSets
@@ -659,25 +664,20 @@ struct LvnPipeline
 
 	uint32_t id;
 	uint32_t vaoId;
+
+	std::unordered_map<uint32_t, uint32_t> bindingDescriptions;
 };
 
 struct LvnBuffer
 {
-	uint32_t type;
-
-	uint32_t vertexBufferSize;
-	uint32_t indexBufferSize;
-
-	void* vertexBuffer;
-	void* vertexBufferMemory;
-	void* indexBuffer;
-	void* indexBufferMemory;
-
-	uint64_t indexOffset;
-
+	LvnBufferTypeFlagBits type;
+	LvnBufferUsage usage;
 	uint32_t id;
-	uint32_t vboId;
-	uint32_t iboId;
+	uint64_t size;
+
+	void* buffer;
+	void* bufferMemory;
+	void* bufferMap;
 };
 
 struct LvnUniformBuffer

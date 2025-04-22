@@ -3,6 +3,8 @@
 
 #include "levikno_internal.h"
 
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 struct OglDescriptorBinding
 {
@@ -66,6 +68,7 @@ struct OglSampler
 
 struct OglBackends
 {
+	GLFWwindow* windowContext;
 	const char* deviceName;
 	uint32_t versionMajor;
 	uint32_t versionMinor;
@@ -88,8 +91,8 @@ namespace lvn
 	void oglsImplRecordCmdBeginRenderPass(LvnWindow* window);
 	void oglsImplRecordCmdEndRenderPass(LvnWindow* window);
 	void oglsImplRecordCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
-	void oglsImplRecordCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
-	void oglsImplRecordCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	void oglsImplRecordCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets);
+	void oglsImplRecordCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset);
 	void oglsImplRecordCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets);
 	void oglsImplRecordCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void oglsImplRecordCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);

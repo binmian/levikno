@@ -50,16 +50,14 @@ namespace lvn
 	void oglsImplRenderCmdBeginRenderPass(LvnWindow* window);
 	void oglsImplRenderCmdEndRenderPass(LvnWindow* window);
 	void oglsImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
-	void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
-	void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	void oglsImplRenderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets);
+	void oglsImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset);
 	void oglsImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets);
 	void oglsImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void oglsImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
-	void oglsImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
-	void oglsImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset);
-	void oglsImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size);
-	void oglsImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
+	void oglsImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
+	void oglsImplBufferResize(LvnBuffer* buffer, uint64_t size);
 	void oglsImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);
 	void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
 	LvnTexture* oglsImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
@@ -69,6 +67,7 @@ namespace lvn
 
 	LvnDepthImageFormat oglsImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count);
 	void setOglWindowContextValues();
+	void* getMainOglWindowContext();
 }
 
 #endif

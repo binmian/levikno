@@ -219,19 +219,24 @@ int main(int argc, char** argv)
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_DynamicVertex | Lvn_BufferType_DynamicIndex;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = nullptr;
-	bufferCreateInfo.vertexBufferSize = MAX_VERTEX_COUNT * sizeof(Vertex);
-	bufferCreateInfo.pIndices = nullptr;
-	bufferCreateInfo.indexBufferSize = MAX_INDEX_COUNT * sizeof(uint32_t);
+	bufferCreateInfo.type = Lvn_BufferType_Vertex;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
+	bufferCreateInfo.data = nullptr;
+	bufferCreateInfo.size = MAX_VERTEX_COUNT * sizeof(Vertex);
 
 	// create buffer
-	LvnBuffer* buffer;
-	lvn::createBuffer(&buffer, &bufferCreateInfo);
+	LvnBuffer* vertexBuffer;
+	lvn::createBuffer(&vertexBuffer, &bufferCreateInfo);
+
+	// index buffer create info struct
+	bufferCreateInfo.type = Lvn_BufferType_Index;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
+	bufferCreateInfo.data = nullptr;
+	bufferCreateInfo.size = MAX_INDEX_COUNT * sizeof(uint32_t);
+
+	// create buffer
+	LvnBuffer* indexBuffer;
+	lvn::createBuffer(&indexBuffer, &bufferCreateInfo);
 
 
 	// [Create Pipeline]
@@ -376,6 +381,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);
@@ -432,8 +438,8 @@ int main(int argc, char** argv)
 
 
 		// update buffers
-		lvn::bufferUpdateVertexData(buffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
-		lvn::bufferUpdateIndexData(buffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
+		lvn::bufferUpdateData(vertexBuffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
+		lvn::bufferUpdateData(indexBuffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);
@@ -450,8 +456,8 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		// bind vertex and index buffer
-		lvn::renderCmdBindVertexBuffer(window, buffer);
-		lvn::renderCmdBindIndexBuffer(window, buffer);
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &vertexBuffer, 0);
+		lvn::renderCmdBindIndexBuffer(window, indexBuffer, 0);
 
 		lvn::renderCmdDrawIndexed(window, list.indices.size());
 
@@ -465,7 +471,8 @@ int main(int argc, char** argv)
 
 	// destroy objects after they are finished being used
 	lvn::destroyTexture(texture);
-	lvn::destroyBuffer(buffer);
+	lvn::destroyBuffer(vertexBuffer);
+	lvn::destroyBuffer(indexBuffer);
 	lvn::destroyUniformBuffer(uniformBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);

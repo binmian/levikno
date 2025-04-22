@@ -133,6 +133,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		// get next window swapchain image
 		lvn::renderBeginNextFrame(window);

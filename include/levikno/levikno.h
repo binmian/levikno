@@ -569,14 +569,19 @@ enum LvnWindowApi
 
 enum LvnBufferType
 {
-	Lvn_BufferType_Unknown         = 0,
-	Lvn_BufferType_Vertex          = (1U << 0),
-	Lvn_BufferType_Index           = (1U << 1),
-	Lvn_BufferType_Uniform         = (1U << 2),
-	Lvn_BufferType_Storage         = (1U << 3),
-	Lvn_BufferType_DynamicVertex   = (1U << 4),
-	Lvn_BufferType_DynamicIndex    = (1U << 5),
-	Lvn_BufferType_DynamicUniform  = (1U << 6),
+	Lvn_BufferType_Unknown  = 0,
+	Lvn_BufferType_Vertex   = (1U << 0),
+	Lvn_BufferType_Index    = (1U << 1),
+	Lvn_BufferType_Uniform  = (1U << 2),
+	Lvn_BufferType_Storage  = (1U << 3),
+};
+typedef uint32_t LvnBufferTypeFlagBits;
+
+enum LvnBufferUsage
+{
+	Lvn_BufferUsage_Static,
+	Lvn_BufferUsage_Dynamic,
+	Lvn_BufferUsage_Resize,
 };
 
 enum LvnCullFaceMode
@@ -1411,6 +1416,7 @@ namespace lvn
 
 	LVN_API void                        windowUpdate(LvnWindow* window);
 	LVN_API bool                        windowOpen(LvnWindow* window);
+	LVN_API void                        windowPollEvents();
 	LVN_API LvnPair<int>                windowGetDimensions(LvnWindow* window);
 	LVN_API int                         windowGetWidth(LvnWindow* window);
 	LVN_API int                         windowGetHeight(LvnWindow* window);
@@ -1474,8 +1480,8 @@ namespace lvn
 	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window);                                                                      // begins renderpass when rendering starts
 	LVN_API void                        renderCmdEndRenderPass(LvnWindow* window);                                                                        // ends renderpass when rendering has finished
 	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                                  // bind a pipeline to begin shading during rendering
-	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);                                                  // binds the vertex buffer within an LvnBuffer object
-	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);                                                   // binds the index buffer within an LvnBuffer object
+	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets); // binds the vertex buffer within an LvnBuffer object
+	LVN_API void                        renderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset);                                  // binds the index buffer within an LvnBuffer object
 	LVN_API void                        renderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets); // bind multiple descriptor sets to the shader (if multiple sets are used), Note that descriptor sets must be in order to how the sets are ordered in the pipeline
 	LVN_API void                        renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);                                        // begins the framebuffer for recording offscreen render calls, similar to beginning the render pass
 	LVN_API void                        renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);                                          // ends recording to the framebuffer
@@ -1512,10 +1518,8 @@ namespace lvn
 	LVN_API LvnPipelineSpecification    configPipelineSpecificationInit();
 	LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
 
-	LVN_API void                        bufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
-	LVN_API void                        bufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset);
-	LVN_API void                        bufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size);
-	LVN_API void                        bufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
+	LVN_API void                        bufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
+	LVN_API void                        bufferResize(LvnBuffer* buffer, uint64_t size);
 
 	LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
@@ -5567,15 +5571,10 @@ struct LvnFrameBufferCreateInfo
 
 struct LvnBufferCreateInfo
 {
-	uint32_t type;
-	LvnVertexBindingDescription* pVertexBindingDescriptions;
-	uint32_t vertexBindingDescriptionCount;
-	LvnVertexAttribute* pVertexAttributes;
-	uint32_t vertexAttributeCount;
-	const void* pVertices;
-	uint64_t vertexBufferSize;
-	const uint32_t* pIndices;
-	uint64_t indexBufferSize;
+	LvnBufferTypeFlagBits type;
+	LvnBufferUsage usage;
+	uint64_t size;
+	const void* data;
 };
 
 struct LvnUniformBufferCreateInfo

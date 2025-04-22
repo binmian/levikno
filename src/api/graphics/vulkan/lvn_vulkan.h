@@ -50,16 +50,14 @@ namespace lvn
 	void vksImplRenderCmdBeginRenderPass(LvnWindow* window);
 	void vksImplRenderCmdEndRenderPass(LvnWindow* window);
 	void vksImplRenderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
-	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, LvnBuffer* buffer);
-	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer);
+	void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets);
+	void vksImplRenderCmdBindIndexBuffer(LvnWindow* window, LvnBuffer* buffer, uint64_t offset);
 	void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets);
 	void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 	void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
-	void vksImplBufferUpdateVertexData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
-	void vksImplBufferUpdateIndexData(LvnBuffer* buffer, uint32_t* indices, uint64_t size, uint64_t offset);
-	void vksImplBufferResizeVertexBuffer(LvnBuffer* buffer, uint64_t size);
-	void vksImplBufferResizeIndexBuffer(LvnBuffer* buffer, uint64_t size);
+	void vksImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
+	void vksImplBufferResize(LvnBuffer* buffer, uint64_t size);
 	void vksImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);
 	void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
 	LvnTexture* vksImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);

@@ -257,14 +257,9 @@ int main(int argc, char** argv)
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.type = Lvn_BufferType_Vertex;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = vertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(vertices);
-	bufferCreateInfo.pIndices = nullptr;
-	bufferCreateInfo.indexBufferSize = 0;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+	bufferCreateInfo.data = vertices;
+	bufferCreateInfo.size = sizeof(vertices);
 
 	// create buffer
 	LvnBuffer* buffer;
@@ -282,8 +277,8 @@ int main(int argc, char** argv)
 		-1.0f, -1.0f, 0.0f,    0.0f, 0.0f,
 	};
 
-	bufferCreateInfo.pVertices = fbVertices;
-	bufferCreateInfo.vertexBufferSize = sizeof(fbVertices);
+	bufferCreateInfo.data = fbVertices;
+	bufferCreateInfo.size = sizeof(fbVertices);
 
 	// create framebuffer buffer
 	LvnBuffer* fbBuffer;
@@ -460,6 +455,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -490,7 +486,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		// bind vertex buffer
-		lvn::renderCmdBindVertexBuffer(window, buffer);
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &buffer, 0);
 
 		// draw vertices
 		lvn::renderCmdDraw(window, ARRAY_LEN(vertices));
@@ -510,7 +506,7 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindDescriptorSets(window, fbPipeline, 0, 1, &fbDescriptorSet);
 
 		// bind framebuffer vertex buffer
-		lvn::renderCmdBindVertexBuffer(window, fbBuffer);
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &fbBuffer, 0);
 
 		// draw vertices
 		lvn::renderCmdDraw(window, ARRAY_LEN(fbVertices));

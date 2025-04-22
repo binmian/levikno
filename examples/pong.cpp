@@ -221,34 +221,29 @@ int main(int argc, char** argv)
 
 	// vertex buffer create info struct
 	LvnBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.type = Lvn_BufferType_DynamicVertex | Lvn_BufferType_DynamicIndex;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = nullptr;
-	bufferCreateInfo.vertexBufferSize = MAX_VERTEX_COUNT * sizeof(Vertex);
-	bufferCreateInfo.pIndices = nullptr;
-	bufferCreateInfo.indexBufferSize = MAX_INDEX_COUNT * sizeof(uint32_t);
+	bufferCreateInfo.type = Lvn_BufferType_Vertex;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
+	bufferCreateInfo.data = nullptr;
+	bufferCreateInfo.size = MAX_VERTEX_COUNT * sizeof(Vertex);
 
-	// create buffer
-	LvnBuffer* buffer;
-	lvn::createBuffer(&buffer, &bufferCreateInfo);
+	// create vertex buffer
+	LvnBuffer* vertexBuffer;
+	lvn::createBuffer(&vertexBuffer, &bufferCreateInfo);
+	LvnBuffer* fontVertexBuffer;
+	lvn::createBuffer(&fontVertexBuffer, &bufferCreateInfo);
 
-	// font buffer
-	bufferCreateInfo.type = Lvn_BufferType_DynamicVertex | Lvn_BufferType_DynamicIndex;
-	bufferCreateInfo.pVertexAttributes = attributes;
-	bufferCreateInfo.vertexAttributeCount = ARRAY_LEN(attributes);
-	bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-	bufferCreateInfo.vertexBindingDescriptionCount = 1;
-	bufferCreateInfo.pVertices = nullptr;
-	bufferCreateInfo.vertexBufferSize = MAX_VERTEX_COUNT * sizeof(Vertex);
-	bufferCreateInfo.pIndices = nullptr;
-	bufferCreateInfo.indexBufferSize = MAX_INDEX_COUNT * sizeof(uint32_t);
+	// index buffer create info struct
+	bufferCreateInfo.type = Lvn_BufferType_Index;
+	bufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
+	bufferCreateInfo.data = nullptr;
+	bufferCreateInfo.size = MAX_INDEX_COUNT * sizeof(uint32_t);
 
-	// create buffer
-	LvnBuffer* fontBuffer;
-	lvn::createBuffer(&fontBuffer, &bufferCreateInfo);
+	// create index buffer
+	LvnBuffer* indexBuffer;
+	lvn::createBuffer(&indexBuffer, &bufferCreateInfo);
+	LvnBuffer* fontIndexBuffer;
+	lvn::createBuffer(&fontIndexBuffer, &bufferCreateInfo);
+
 
 	// shader create info struct
 	LvnShaderCreateInfo shaderCreateInfo{};
@@ -470,6 +465,7 @@ int main(int argc, char** argv)
 	while (lvn::windowOpen(window))
 	{
 		lvn::windowUpdate(window);
+		lvn::windowPollEvents();
 
 		int width, height;
 		lvn::windowGetSize(window, &width, &height);
@@ -602,8 +598,8 @@ int main(int argc, char** argv)
 			drawRect(&list, {-5.0f, -halfHeight + yOff * i + yOff * 0.25f}, {10.0f, yOff * 0.5f}, {1.0f, 1.0f, 1.0f});
 		}
 
-		lvn::bufferUpdateVertexData(buffer, list.vertices(), list.vertex_size(), 0);
-		lvn::bufferUpdateIndexData(buffer, list.indices(), list.index_size(), 0);
+		lvn::bufferUpdateData(vertexBuffer, list.vertices(), list.vertex_size(), 0);
+		lvn::bufferUpdateData(indexBuffer, list.indices(), list.index_size(), 0);
 
 		// begin render
 		lvn::renderBeginNextFrame(window);
@@ -618,8 +614,8 @@ int main(int argc, char** argv)
 		lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &descriptorSet);
 
 		// bind vertex and index buffer
-		lvn::renderCmdBindVertexBuffer(window, buffer);
-		lvn::renderCmdBindIndexBuffer(window, buffer);
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &vertexBuffer, 0);
+		lvn::renderCmdBindIndexBuffer(window, indexBuffer, 0);
 
 		lvn::renderCmdDrawIndexed(window, list.index_count());
 
@@ -629,15 +625,15 @@ int main(int argc, char** argv)
 		drawText(&list, &font, std::to_string(lscore).c_str(), {-220.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 		drawText(&list, &font, std::to_string(rscore).c_str(), {150.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 
-		lvn::bufferUpdateVertexData(fontBuffer, list.vertices(), list.vertex_size(), 0);
-		lvn::bufferUpdateIndexData(fontBuffer, list.indices(), list.index_size(), 0);
+		lvn::bufferUpdateData(fontVertexBuffer, list.vertices(), list.vertex_size(), 0);
+		lvn::bufferUpdateData(fontIndexBuffer, list.indices(), list.index_size(), 0);
 
 
 		lvn::renderCmdBindPipeline(window, fontPipeline);
 		lvn::renderCmdBindDescriptorSets(window, fontPipeline, 0, 1, &fontDescriptorSet);
 
-		lvn::renderCmdBindVertexBuffer(window, fontBuffer);
-		lvn::renderCmdBindIndexBuffer(window, fontBuffer);
+		lvn::renderCmdBindVertexBuffer(window, 0, 1, &fontVertexBuffer, 0);
+		lvn::renderCmdBindIndexBuffer(window, fontIndexBuffer, 0);
 
 		lvn::renderCmdDrawIndexed(window, list.index_count());
 
@@ -653,8 +649,10 @@ int main(int argc, char** argv)
 	lvn::destroySound(sound);
 	lvn::destroySound(soundWin);
 	lvn::destroyTexture(texture);
-	lvn::destroyBuffer(buffer);
-	lvn::destroyBuffer(fontBuffer);
+	lvn::destroyBuffer(vertexBuffer);
+	lvn::destroyBuffer(indexBuffer);
+	lvn::destroyBuffer(fontVertexBuffer);
+	lvn::destroyBuffer(fontIndexBuffer);
 	lvn::destroyPipeline(pipeline);
 	lvn::destroyPipeline(fontPipeline);
 	lvn::destroyDescriptorLayout(descriptorLayout);

@@ -1,5 +1,6 @@
 #include "lvn_glfw.h"
 
+#include "levikno.h"
 #include "lvn_opengl.h"
 
 #if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
@@ -89,6 +90,7 @@ namespace lvn
 		windowContext->destroyWindow = glfwImplDestroyWindow;
 		windowContext->updateWindow	= glfwImplUpdateWindow;
 		windowContext->windowOpen = glfwImplWindowOpen;
+		windowContext->windowPollEvents = glfwImplWindowPollEvents;
 		windowContext->getDimensions = glfwImplGetDimensions;
 		windowContext->getWindowWidth = glfwImplGetWindowWidth;
 		windowContext->getWindowHeight = glfwImplGetWindowHeight;
@@ -182,7 +184,13 @@ namespace lvn
 		else
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-		GLFWwindow* nativeWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title.c_str(), fullScreen, nullptr);
+		LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
+
+		GLFWwindow* windowContext = nullptr;
+		if (graphicsapi == Lvn_GraphicsApi_opengl)
+			windowContext = static_cast<GLFWwindow*>(lvn::getMainOglWindowContext());
+
+		GLFWwindow* nativeWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title.c_str(), fullScreen, windowContext);
 		LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", nativeWindow, window->data.title.c_str(), window->data.width, window->data.height);
 
 		if (!nativeWindow)
@@ -446,18 +454,17 @@ namespace lvn
 	void glfwImplUpdateWindow(LvnWindow* window)
 	{
 		if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
-		{
-			GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
-			glfwMakeContextCurrent(glfwWindow);
-			glfwSwapBuffers(glfwWindow);
-		}
-
-		glfwPollEvents();
+			glfwSwapBuffers(static_cast<GLFWwindow*>(window->nativeWindow));
 	}
 
 	bool glfwImplWindowOpen(LvnWindow* window)
 	{
 		return (!glfwWindowShouldClose(static_cast<GLFWwindow*>(window->nativeWindow)));
+	}
+
+	void glfwImplWindowPollEvents()
+	{
+		glfwPollEvents();
 	}
 
 	LvnPair<int> glfwImplGetDimensions(LvnWindow* window)
@@ -495,7 +502,8 @@ namespace lvn
 
 	void glfwImplSetWindowContextCurrent(LvnWindow* window)
 	{
-		glfwMakeContextCurrent(static_cast<GLFWwindow*>(window->nativeWindow));
+		if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
+			glfwMakeContextCurrent(window ? static_cast<GLFWwindow*>(window->nativeWindow) : nullptr);
 	}
 
 	void glfwImplDestroyWindow(LvnWindow* window)
