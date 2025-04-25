@@ -1573,10 +1573,10 @@ namespace lvn
 	LVN_API LvnResult                   writeImageJpg(const LvnImageData& imageData, const char* filename, int quality);  // writes the image data into a jpg file with the filename/filepath and the jpg quality (from 0...100)
 	LVN_API LvnResult                   writeImageBmp(const LvnImageData& imageData, const char* filename);               // writes the image data into a bmp file with the filename/filepath
 
-	LVN_API void                        imageFlipVertically(LvnImageData* imageData);                                     // flips the image vertically
-	LVN_API void                        imageFlipHorizontally(LvnImageData* imageData);                                   // flips the image horizontally
-	LVN_API void                        imageRotateCW(LvnImageData* imageData);                                           // rotates the image clockwise (right)
-	LVN_API void                        imageRotateCCW(LvnImageData* imageData);                                          // rotates the image counter clockwise (left)
+	LVN_API void                        imageFlipVertically(LvnImageData& imageData);                                     // flips the image vertically
+	LVN_API void                        imageFlipHorizontally(LvnImageData& imageData);                                   // flips the image horizontally
+	LVN_API void                        imageRotateCW(LvnImageData& imageData);                                           // rotates the image clockwise (right)
+	LVN_API void                        imageRotateCCW(LvnImageData& imageData);                                          // rotates the image counter clockwise (left)
 
 	LVN_API LvnImageData                imageGenNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed = 0);
 
