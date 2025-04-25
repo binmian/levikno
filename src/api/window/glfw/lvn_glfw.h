@@ -8,7 +8,7 @@ namespace lvn
 	LvnResult glfwImplInitWindowContext(LvnWindowContext* windowContext);
 	void glfwImplTerminateWindowContext();
 
-	LvnResult glfwImplCreateWindow(LvnWindow* window, LvnWindowCreateInfo* createInfo);
+	LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo);
 	void glfwImplDestroyWindow(LvnWindow* window);
 
 	void glfwImplUpdateWindow(LvnWindow* window);

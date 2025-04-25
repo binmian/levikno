@@ -2130,8 +2130,6 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
 	vks::createCommandBuffers(vkBackends, surfaceData);
 	vks::createSyncObjects(vkBackends, surfaceData);
 
-	surfaceData->clearColor = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
-
 	window->renderPass.nativeRenderPass = static_cast<VulkanWindowSurfaceData*>(window->apiData)->renderPass;
 }
 
@@ -2261,7 +2259,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->renderDrawSubmit = vksImplRenderDrawSubmit;
 	graphicsContext->renderBeginCommandRecording = vksImplRenderBeginCommandRecording;
 	graphicsContext->renderEndCommandRecording = vksImplRenderEndCommandRecording;
-	graphicsContext->renderClearColor = vksImplRenderClearColor;
 	graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
 	graphicsContext->renderCmdDrawIndexed = vksImplRenderCmdDrawIndexed;
 	graphicsContext->renderCmdDrawInstanced = vksImplRenderCmdDrawInstanced;
@@ -2408,12 +2405,6 @@ LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 	return vks::setupRenderInit(vkBackends, vkPhysicalDevice);;
 }
 
-void vksImplRenderClearColor(LvnWindow* window, float r, float g, float b, float a)
-{
-	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-	surfaceData->clearColor = {{ r, g, b, a }};
-}
-
 void vksImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
@@ -2542,7 +2533,7 @@ void vksImplRenderEndCommandRecording(LvnWindow* window)
 	LVN_CORE_CALL_ASSERT(vkEndCommandBuffer(surfaceData->commandBuffers[surfaceData->currentFrame]) == VK_SUCCESS, "[vulkan] failed to record command buffer!");
 }
 
-void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
+void vksImplRenderCmdBeginRenderPass(LvnWindow* window, float r, float g, float b, float a)
 {
 	VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
@@ -2554,7 +2545,7 @@ void vksImplRenderCmdBeginRenderPass(LvnWindow* window)
 	renderPassInfo.renderArea.extent = surfaceData->swapChainExtent;
 
 	VkClearValue clearColor[2];
-	clearColor[0].color = surfaceData->clearColor;
+	clearColor[0].color = {{ r, g, b, a }};
 	clearColor[1].depthStencil = {1.0f, 0};
 
 	renderPassInfo.clearValueCount = ARRAY_LEN(clearColor);
@@ -2663,7 +2654,7 @@ void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuff
 	vkCmdEndRenderPass(surfaceData->commandBuffers[surfaceData->currentFrame]);
 }
 
-LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -2691,7 +2682,7 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cre
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -2722,7 +2713,7 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo*
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -2738,7 +2729,7 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo*
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
+LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -2817,7 +2808,7 @@ LvnResult vksImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescr
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
+LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -2909,7 +2900,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* cr
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo)
+LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -3086,7 +3077,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCr
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
+LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 	VkDeviceSize bufferSize = createInfo->size;
@@ -3149,7 +3140,7 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
+LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, const LvnUniformBufferCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -3168,7 +3159,7 @@ LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniform
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo)
+LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -3213,7 +3204,7 @@ LvnResult vksImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* create
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
+LvnResult vksImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -3240,7 +3231,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	VkImage textureImage;
 	VmaAllocation textureImageMemory;
 
-	if (vks::createImage(vkBackends, 
+	if (vks::createImage(vkBackends,
 		&textureImage,
 		&textureImageMemory,
 		createInfo->imageData.width,
@@ -3330,7 +3321,7 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* create
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCreateInfo* createInfo)
+LvnResult vksImplCreateTextureSampler(LvnTexture* texture, const LvnTextureSamplerCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = s_VkBackends;
 
@@ -3411,7 +3402,7 @@ LvnResult vksImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCrea
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo)
+LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = getVulkanBackends();
 	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
@@ -3537,7 +3528,7 @@ LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* create
 	return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo)
+LvnResult vksImplCreateCubemapHdr(LvnCubemap* cubemap, const LvnCubemapHdrCreateInfo* createInfo)
 {
 	VulkanBackends* vkBackends = getVulkanBackends();
 	VmaAllocator vmaAllocator = vkBackends->vmaAllocator;

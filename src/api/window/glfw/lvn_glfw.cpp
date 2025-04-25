@@ -153,7 +153,7 @@ namespace lvn
 		else LVN_CORE_WARN("glfw already terminated!");
 	}
 
-	LvnResult glfwImplCreateWindow(LvnWindow* window, LvnWindowCreateInfo* createInfo)
+	LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo)
 	{
 		window->data.width = createInfo->width;
 		window->data.height = createInfo->height;

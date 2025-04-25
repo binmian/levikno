@@ -403,7 +403,7 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
 {
 	auto& stInfos = lvnctx->sTypeMemAllocInfos;
 
-	stInfos.resize(Lvn_Stype_Max);
+	stInfos.resize(Lvn_Stype_Max_Value);
 
 	stInfos[Lvn_Stype_Undefined]        = { Lvn_Stype_Undefined, 0, 0 };
 	stInfos[Lvn_Stype_Window]           = { Lvn_Stype_Window, sizeof(LvnWindow), 8 };
@@ -478,8 +478,8 @@ static LvnResult createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInf
 	LvnMemoryPool* memPool = &lvnctx->memoryPool;
 	memPool->baseMemoryBlock = LvnMemoryBlock(memSize);
 
-	memPool->memBlocks.resize(Lvn_Stype_Max); // future memory blocks
-	memPool->memBindings.resize(Lvn_Stype_Max);
+	memPool->memBlocks.resize(Lvn_Stype_Max_Value); // future memory blocks
+	memPool->memBindings.resize(Lvn_Stype_Max_Value);
 
 	// set memory block bindings (all the first bindings are within the first memory block)
 	// newly created memory bindings will have their own indicidual memory blocks
@@ -610,7 +610,7 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	lvn::initLogging(createInfo);
 
 	// memory
-	lvnctx->objectMemoryAllocations.sTypes.resize(Lvn_Stype_Max);
+	lvnctx->objectMemoryAllocations.sTypes.resize(Lvn_Stype_Max_Value);
 	for (uint32_t i = 0; i < lvnctx->objectMemoryAllocations.sTypes.size(); i++)
 	{
 		lvnctx->objectMemoryAllocations.sTypes[i] = { (LvnStructureType)i, 0 };
@@ -670,6 +670,9 @@ void terminateContext()
 	if (s_LvnContext == nullptr) { return; }
 
 	LvnContext* lvnctx = s_LvnContext;
+
+	if (lvnctx->renderer)
+		lvn::renderTerminate();
 
 	lvn::terminateGraphicsContext(lvnctx);
 	lvn::terminateWindowContext(lvnctx);
@@ -936,12 +939,9 @@ void writeFileSrc(const char* filename, const char* src, LvnFileMode mode)
 	fclose(fileptr);
 }
 
-LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset)
+LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset, LvnLoadFontFlagBits flags)
 {
 	LvnFont font{};
-
-	LvnData<uint8_t> fontData = lvn::loadFileSrcBin(filepath);
-	std::vector<uint8_t> fontBuffer(fontData.data(), fontData.data() + fontData.size());
 
 	FT_Library ft;
 	FT_Face face;
@@ -970,27 +970,59 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 	// render glyphs to atlas
 	std::vector<uint8_t> pixels(width * height);
 	int penx = 0, peny = 0;
+	const int padding = 2;
+	const int lineHeight = (face->size->metrics.height >> 6) + padding;
 
 	std::vector<LvnFontGlyph> glyphs(charset.last - charset.first + 1);
 
+	uint32_t loadFlags = FT_LOAD_RENDER;
+	if (flags & Lvn_LoadFont_NoHinting)
+		loadFlags |= FT_LOAD_NO_HINTING;
+	if (flags & Lvn_LoadFont_AutoHinting)
+		loadFlags |= FT_LOAD_FORCE_AUTOHINT;
+	if (flags & Lvn_LoadFont_TargetLight)
+		loadFlags |= FT_LOAD_TARGET_LIGHT;
+	if (flags & Lvn_LoadFont_TargetMono)
+		loadFlags |= FT_LOAD_TARGET_MONO | FT_LOAD_MONOCHROME;
+
 	for (int8_t i = charset.first; i <= charset.last; i++)
 	{
-		FT_Load_Char(face, i, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT);
+		FT_Load_Char(face, i, loadFlags);
 		FT_Bitmap* bmp = &face->glyph->bitmap;
 
-		if (penx + bmp->width >= (uint32_t)width)
+		if (penx + bmp->width + padding > width)
 		{
-			penx = 0;
-			peny += ((face->size->metrics.height >> 6) + 1);
+			penx = padding;
+			peny += lineHeight;
 		}
 
-		for (uint32_t row = 0; row < bmp->rows; row++)
+		if (bmp->pixel_mode == FT_PIXEL_MODE_MONO && flags & Lvn_LoadFont_TargetMono)
 		{
-			for (uint32_t col = 0; col < bmp->width; col++)
+			for (uint32_t row = 0; row < bmp->rows; ++row)
 			{
-				int x = penx + col;
-				int y = peny + row;
-				pixels[y * width + x] = bmp->buffer[row * bmp->pitch + col];
+				for (uint32_t col = 0; col < bmp->width; ++col)
+				{
+					int byteIndex = col / 8;
+					int bitIndex = 7 - (col % 8);
+					uint8_t byte = bmp->buffer[row * bmp->pitch + byteIndex];
+					bool bitSet = (byte >> bitIndex) & 1;
+					int x = penx + col;
+					int y = peny + row;
+					if (x < width && y < height)
+						pixels[y * width + x] = bitSet ? 255 : 0;
+				}
+			}
+		}
+		else
+		{
+			for (uint32_t row = 0; row < bmp->rows; row++)
+			{
+				for (uint32_t col = 0; col < bmp->width; col++)
+				{
+					int x = penx + col;
+					int y = peny + row;
+					pixels[y * width + x] = bmp->buffer[row * abs(bmp->pitch) + col];
+				}
 			}
 		}
 
@@ -1009,7 +1041,7 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 
 		glyphs[i - charset.first] = glyph;
 
-		penx += bmp->width + 1;
+		penx += bmp->width + padding;
 	}
 
 	FT_Done_FreeType(ft);
@@ -1493,7 +1525,7 @@ LvnResult logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count)
 	return Lvn_Result_Success;
 }
 
-LvnResult createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo)
+LvnResult createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -1799,7 +1831,7 @@ const char* getWindowApiName()
 	return LVN_EMPTY_STR;
 }
 
-LvnResult createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo)
+LvnResult createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2054,11 +2086,6 @@ LvnClipRegion getRenderClipRegionEnum()
 	return lvn::getContext()->matrixClipRegion;
 }
 
-void renderClearColor(LvnWindow* window, float r, float g, float b, float a)
-{
-	lvn::getContext()->graphicsContext.renderClearColor(window, r, g, b, a);
-}
-
 void renderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
 	int width, height;
@@ -2141,13 +2168,13 @@ void renderEndCommandRecording(LvnWindow* window)
 	lvn::getContext()->graphicsContext.renderEndCommandRecording(window);
 }
 
-void renderCmdBeginRenderPass(LvnWindow* window)
+void renderCmdBeginRenderPass(LvnWindow* window, float r, float g, float b, float a)
 {
 	int width, height;
 	lvn::windowGetSize(window, &width, &height);
 	if (width * height <= 0) { return; }
 
-	lvn::getContext()->graphicsContext.renderCmdBeginRenderPass(window);
+	lvn::getContext()->graphicsContext.renderCmdBeginRenderPass(window, r, g, b, a);
 }
 
 void renderCmdEndRenderPass(LvnWindow* window)
@@ -2214,7 +2241,7 @@ void renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer)
 	lvn::getContext()->graphicsContext.renderCmdEndFrameBuffer(window, frameBuffer);
 }
 
-LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
+LvnResult createShaderFromSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2236,7 +2263,7 @@ LvnResult createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInf
 	return lvnctx->graphicsContext.createShaderFromSrc(*shader, createInfo);
 }
 
-LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo)
+LvnResult createShaderFromFileSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2258,7 +2285,7 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* creat
 	return lvnctx->graphicsContext.createShaderFromFileSrc(*shader, createInfo);
 }
 
-LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo)
+LvnResult createShaderFromFileBin(LvnShader** shader, const LvnShaderCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2280,7 +2307,7 @@ LvnResult createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* creat
 	return lvnctx->graphicsContext.createShaderFromFileBin(*shader, createInfo);
 }
 
-LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
+LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2325,7 +2352,7 @@ LvnResult allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorL
 	return lvnctx->graphicsContext.allocateDescriptorSet(*descriptorSet, descriptorLayout);
 }
 
-LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo)
+LvnResult createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2368,7 +2395,7 @@ LvnResult createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createIn
 	return lvnctx->graphicsContext.createPipeline(*pipeline, createInfo);
 }
 
-LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo)
+LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2409,7 +2436,7 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateIn
 	return lvnctx->graphicsContext.createFrameBuffer(*frameBuffer, createInfo);
 }
 
-LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
+LvnResult createBuffer(LvnBuffer** buffer, const LvnBufferCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2431,7 +2458,7 @@ LvnResult createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo)
 	return lvnctx->graphicsContext.createBuffer(*buffer, createInfo);
 }
 
-LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
+LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, const LvnUniformBufferCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2453,7 +2480,7 @@ LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBuffer
 	return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
-LvnResult createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo)
+LvnResult createSampler(LvnSampler** sampler, const LvnSamplerCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2463,7 +2490,7 @@ LvnResult createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo)
 	return lvnctx->graphicsContext.createSampler(*sampler, createInfo);
 }
 
-LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
+LvnResult createTexture(LvnTexture** texture, const LvnTextureCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2473,7 +2500,7 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo)
 	return lvnctx->graphicsContext.createTexture(*texture, createInfo);
 }
 
-LvnResult createTexture(LvnTexture** texture, LvnTextureSamplerCreateInfo* createInfo)
+LvnResult createTexture(LvnTexture** texture, const LvnTextureSamplerCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2483,7 +2510,7 @@ LvnResult createTexture(LvnTexture** texture, LvnTextureSamplerCreateInfo* creat
 	return lvnctx->graphicsContext.createTextureSampler(*texture, createInfo);
 }
 
-LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
+LvnResult createCubemap(LvnCubemap** cubemap, const LvnCubemapCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -2535,7 +2562,7 @@ LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo)
 	return lvnctx->graphicsContext.createCubemap(*cubemap, createInfo);
 }
 
-LvnResult createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInfo)
+LvnResult createCubemap(LvnCubemap** cubemap, const LvnCubemapHdrCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 
@@ -3045,22 +3072,22 @@ LvnImageHdrData loadHdrImageData(const char* filepath, int forceChannels, bool f
 	return imageData;
 }
 
-LvnResult writeImagePng(const LvnImageData* imageData, const char* filename)
+LvnResult writeImagePng(const LvnImageData& imageData, const char* filename)
 {
-	int stride = imageData->width * imageData->channels;
-	int result = stbi_write_png(filename, (int)imageData->width, (int)imageData->height, (int)imageData->channels, imageData->pixels.data(), stride);
+	int stride = imageData.width * imageData.channels;
+	int result = stbi_write_png(filename, (int)imageData.width, (int)imageData.height, (int)imageData.channels, imageData.pixels.data(), stride);
 	return result ? Lvn_Result_Success : Lvn_Result_Failure;
 }
 
-LvnResult writeImageJpg(const LvnImageData* imageData, const char* filename, int quality)
+LvnResult writeImageJpg(const LvnImageData& imageData, const char* filename, int quality)
 {
-	int result = stbi_write_jpg(filename, imageData->width, imageData->height, imageData->channels, imageData->pixels.data(), quality);
+	int result = stbi_write_jpg(filename, imageData.width, imageData.height, imageData.channels, imageData.pixels.data(), quality);
 	return result ? Lvn_Result_Success : Lvn_Result_Failure;
 }
 
-LvnResult writeImageBmp(const LvnImageData* imageData, const char* filename)
+LvnResult writeImageBmp(const LvnImageData& imageData, const char* filename)
 {
-	int result = stbi_write_bmp(filename, imageData->width, imageData->height, imageData->channels, imageData->pixels.data());
+	int result = stbi_write_bmp(filename, imageData.width, imageData.height, imageData.channels, imageData.pixels.data());
 	return result ? Lvn_Result_Success : Lvn_Result_Failure;
 }
 
@@ -3154,6 +3181,34 @@ void imageRotateCCW(LvnImageData* imageData)
 	std::swap(imageData->width, imageData->height);
 }
 
+LvnImageData imageGenNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed)
+{
+	LVN_CORE_ASSERT(channels > 0 && channels <= 4, "channels must be within 0 to 4");
+
+	seed != 0 ? srand(seed) : srand(time(0));
+
+	std::vector<uint8_t> imgBuff(width * height * channels);
+
+	for (uint32_t y = 0; y < height; y++)
+	{
+		for (uint32_t x = 0; x < width; x++)
+		{
+			int rn = rand() % 2;
+			for (uint32_t c = 0; c < channels; c++)
+				imgBuff[y * width * channels + x * channels + c] = rn ? 255 : 0;
+		}
+	}
+
+	LvnImageData imageData{};
+	imageData.width = width;
+	imageData.height = height;
+	imageData.channels = channels;
+	imageData.size = width * height * channels;
+	imageData.pixels = LvnData<uint8_t>(imgBuff.data(), imgBuff.size());
+
+	return imageData;
+}
+
 LvnModel loadModel(const char* filepath)
 {
 	std::string filepathstr(filepath);
@@ -3201,7 +3256,7 @@ void unloadModel(LvnModel* model)
 // [SECTION]: Audio Functions
 // ------------------------------------------------------------
 
-LvnResult createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo)
+LvnResult createSound(LvnSound** sound, const LvnSoundCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 	ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
@@ -3319,7 +3374,7 @@ float soundGetLengthSeconds(LvnSound* sound)
 // [SECTION]: Network Functions
 // ------------------------------------------------------------
 
-LvnResult createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo)
+LvnResult createSocket(LvnSocket** socket, const LvnSocketCreateInfo* createInfo)
 {
 	LvnContext* lvnctx = lvn::getContext();
 

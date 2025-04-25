@@ -763,7 +763,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 	graphicsContext->renderDrawSubmit = oglsImplRenderDrawSubmit;
 	graphicsContext->renderBeginCommandRecording = oglsImplRenderBeginCommandRecording;
 	graphicsContext->renderEndCommandRecording = oglsImplRenderEndCommandRecording;
-	graphicsContext->renderClearColor = oglsImplRenderClearColor;
 
 	if (lvnctx->multithreading)
 	{
@@ -850,7 +849,7 @@ LvnResult oglsImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
 	uint32_t vertexShader, fragmentShader;
 
@@ -882,7 +881,7 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, LvnShaderCreateInfo* cr
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
 	std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
 	std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
@@ -917,7 +916,7 @@ LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, LvnShaderCreateInfo
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo* createInfo)
+LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
 	LvnData<uint8_t> vertbin = lvn::loadFileSrcBin(createInfo->vertexSrc.c_str());
 	LvnData<uint8_t> fragbin = lvn::loadFileSrcBin(createInfo->fragmentSrc.c_str());
@@ -965,7 +964,7 @@ LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, LvnShaderCreateInfo
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo)
+LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo)
 {
 	descriptorLayout->descriptorLayout = nullptr;
 	descriptorLayout->descriptorPool = new OglDescriptorSet[descriptorLayout->descriptorSets.size()];
@@ -1005,7 +1004,7 @@ LvnResult oglsImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDesc
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* createInfo)
+LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo)
 {
 	uint32_t shaderProgram;
 	shaderProgram = glCreateProgram();
@@ -1079,7 +1078,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, LvnPipelineCreateInfo* c
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferCreateInfo* createInfo)
+LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
 {
 	frameBuffer->frameBufferData = new OglFramebufferData();
 	OglFramebufferData* frameBufferData = static_cast<OglFramebufferData*>(frameBuffer->frameBufferData);
@@ -1103,7 +1102,7 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, LvnFrameBufferC
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInfo)
+LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo)
 {
 	glCreateBuffers(1, &buffer->id);
 
@@ -1123,7 +1122,7 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, LvnBufferCreateInfo* createInf
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUniformBufferCreateInfo* createInfo)
+LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, const LvnUniformBufferCreateInfo* createInfo)
 {
 	uint32_t id;
 	glCreateBuffers(1, &id);
@@ -1135,7 +1134,7 @@ LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, LvnUnifor
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* createInfo)
+LvnResult oglsImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
 {
 	OglSampler* oglSampler = new OglSampler();
 
@@ -1149,7 +1148,7 @@ LvnResult oglsImplCreateSampler(LvnSampler* sampler, LvnSamplerCreateInfo* creat
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* createInfo)
+LvnResult oglsImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo)
 {
 	GLenum format = createInfo->format == Lvn_TextureFormat_Unorm ? GL_RGB8 : GL_SRGB8;
 	GLenum internalFormat = GL_RGB;
@@ -1193,7 +1192,7 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, LvnTextureCreateInfo* creat
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCreateInfo* createInfo)
+LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, const LvnTextureSamplerCreateInfo* createInfo)
 {
 	OglSampler* sampler = static_cast<OglSampler*>(createInfo->sampler->sampler);
 
@@ -1239,7 +1238,7 @@ LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, LvnTextureSamplerCre
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* createInfo)
+LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* createInfo)
 {
 	uint32_t id;
 	glGenTextures(1, &id);
@@ -1281,7 +1280,7 @@ LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, LvnCubemapCreateInfo* creat
 	return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, LvnCubemapHdrCreateInfo* createInfo)
+LvnResult oglsImplCreateCubemapHdr(LvnCubemap* cubemap, const LvnCubemapHdrCreateInfo* createInfo)
 {
 	// TODO: implement cubemap hdr
 
@@ -1369,13 +1368,6 @@ void oglsImplDestroyCubemap(LvnCubemap* cubemap)
 	glDeleteTextures(1, &cubemap->textureData.id);
 }
 
-
-void oglsImplRenderClearColor(LvnWindow* window, float r, float g, float b, float a)
-{
-	glClearColor(r, g, b, a);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
 void oglsImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 {
 	glDrawArrays(window->topologyTypeEnum, 0, vertexCount);
@@ -1434,13 +1426,14 @@ void oglsImplRenderEndCommandRecording(LvnWindow* window)
 	}
 }
 
-void oglsImplRenderCmdBeginRenderPass(LvnWindow* window)
+void oglsImplRenderCmdBeginRenderPass(LvnWindow* window, float r, float g, float b, float a)
 {
 	GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
-
 	int width, height;
 	glfwGetFramebufferSize(glfwWindow, &width, &height);
-	glfwMakeContextCurrent(glfwWindow);
+
+	glClearColor(r, g, b, a);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, width, height);
 }
 
@@ -1817,12 +1810,16 @@ void oglsImplRecordCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 
 }
 
-void oglsImplRecordCmdBeginRenderPass(LvnWindow* window)
+void oglsImplRecordCmdBeginRenderPass(LvnWindow* window, float r, float g, float b, float a)
 {
 	LvnCmdBeginRenderPass cmd{};
 	cmd.header.callFunc = lvn::oglsImplDrawBuffCmdBeginRenderPass;
 	cmd.header.size = sizeof(LvnCmdBeginRenderPass);
 	cmd.window = window;
+	cmd.r = r;
+	cmd.g = g;
+	cmd.b = b;
+	cmd.a = a;
 
 	window->cmdBuffer.insert(window->cmdBuffer.end(), reinterpret_cast<uint8_t*>(&cmd), reinterpret_cast<uint8_t*>(&cmd) + cmd.header.size);
 }
@@ -1953,7 +1950,9 @@ void oglsImplDrawBuffCmdBeginRenderPass(void* data)
 
 	int width, height;
 	glfwGetFramebufferSize(glfwWindow, &width, &height);
-	glfwMakeContextCurrent(glfwWindow);
+
+	glClearColor(cmd->r, cmd->g, cmd->b, cmd->a);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, width, height);
 }
 

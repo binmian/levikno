@@ -18,10 +18,7 @@ void renderWindow(LvnWindow* window)
 
 		lvn::renderBeginNextFrame(window);
 		lvn::renderBeginCommandRecording(window);
-
-		lvn::renderClearColor(window, 0.0f, 0.0f, 0.0f, 1.0f);
-		lvn::renderCmdBeginRenderPass(window);
-
+		lvn::renderCmdBeginRenderPass(window, 0.0f, 0.0f, 0.0f, 1.0f);
 
 		lvn::renderCmdEndRenderPass(window);
 		lvn::renderEndCommandRecording(window);

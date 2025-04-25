@@ -229,8 +229,7 @@ int main(int argc, char** argv)
 		lvn::renderBeginCommandRecording(window);
 
 		// set background color and begin render pass
-		lvn::renderClearColor(window, 0.0f, 0.0f, 0.0f, 1.0f);
-		lvn::renderCmdBeginRenderPass(window);
+		lvn::renderCmdBeginRenderPass(window, 0.0f, 0.0f, 0.0f, 1.0f);
 
 		// bind pipeline
 		lvn::renderCmdBindPipeline(window, pipeline);

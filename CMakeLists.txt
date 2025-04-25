@@ -132,6 +132,7 @@ set(LVN_SRC
 	include/levikno/levikno.h
 	src/levikno.cpp
 	src/levikno_internal.h
+	src/lvn_renderer.cpp
 )
 
 

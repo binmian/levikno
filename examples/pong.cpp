@@ -134,11 +134,11 @@ void drawRect(LvnDrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
 	uint32_t indices[] = { 0, 1, 2, 0, 2, 3 };
 
 	LvnDrawCommand drawCmd{};
-	drawCmd.pVertices = (float*)vertices;
+	drawCmd.pVertices = vertices;
 	drawCmd.vertexCount = 4;
 	drawCmd.pIndices = indices;
 	drawCmd.indexCount = 6;
-	drawCmd.vertexAttributeCount = 7;
+	drawCmd.vertexStride = sizeof(Vertex);
 
 	list->push_back(drawCmd);
 }
@@ -175,7 +175,7 @@ void drawText(LvnDrawList* list, LvnFont* font, const char* text, LvnVec2 pos, L
 		drawCmd.vertexCount = 4;
 		drawCmd.pIndices = rectIndices;
 		drawCmd.indexCount = 6;
-		drawCmd.vertexAttributeCount = 7;
+		drawCmd.vertexStride = sizeof(Vertex);
 
 		list->push_back(drawCmd);
 
@@ -606,8 +606,7 @@ int main(int argc, char** argv)
 		lvn::renderBeginCommandRecording(window);
 
 		// set background color and begin render pass
-		lvn::renderClearColor(window, 0.0f, 0.0f, 0.0f, 1.0f);
-		lvn::renderCmdBeginRenderPass(window);
+		lvn::renderCmdBeginRenderPass(window, 0.0f, 0.0f, 0.0f, 1.0f);
 
 		// bind pipeline
 		lvn::renderCmdBindPipeline(window, pipeline);

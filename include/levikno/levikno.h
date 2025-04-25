@@ -31,6 +31,7 @@
 // -- [SUBSECT]: Graphics Functions
 // -- [SUBSECT]: Audio Functions
 // -- [SUBSECT]: Networking Functions
+// -- [SUBSECT]: Renderer Functions
 // -- [SUBSECT]: ECS Functions
 // -- [SUBSECT]: Math Functions
 // [SECTION]: Struct Implementations
@@ -41,6 +42,7 @@
 // -- [SUBSECT]: Graphics Struct Implementation
 // -- [SUBSECT]: Audio Struct Implementation
 // -- [SUBSECT]: Networking Struct Implementation
+// -- [SUBSECT]: Renderer Struct Implementation
 
 
 
@@ -301,7 +303,7 @@ enum LvnStructureType
 	Lvn_Stype_Sound,
 	Lvn_Stype_Socket,
 
-	Lvn_Stype_Max,
+	Lvn_Stype_Max_Value,
 };
 
 enum LvnMemAllocMode
@@ -329,6 +331,16 @@ enum LvnFileMode
 	Lvn_FileMode_Write,
 	Lvn_FileMode_Append,
 };
+
+enum LvnLoadFont
+{
+	Lvn_LoadFont_Default              = (0),
+	Lvn_LoadFont_NoHinting            = (1U << 0),
+	Lvn_LoadFont_AutoHinting          = (1U << 1),
+	Lvn_LoadFont_TargetLight          = (1U << 2),
+	Lvn_LoadFont_TargetMono           = (1U << 3),
+};
+typedef uint32_t LvnLoadFontFlagBits;
 
 
 // -- [SUBSECT]: Key Code Enums
@@ -567,6 +579,27 @@ enum LvnWindowApi
 // -- [SUBSECT]: Graphics Enums
 // ------------------------------------------------------------
 
+enum LvnGraphicsApi
+{
+	Lvn_GraphicsApi_None = 0,
+	Lvn_GraphicsApi_OpenGL,
+	Lvn_GraphicsApi_Vulkan,
+
+	Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
+	Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
+};
+
+enum LvnPhysicalDeviceType
+{
+	Lvn_PhysicalDeviceType_Other           = 0,
+	Lvn_PhysicalDeviceType_Integrated_GPU  = 1,
+	Lvn_PhysicalDeviceType_Discrete_GPU    = 2,
+	Lvn_PhysicalDeviceType_Virtual_GPU     = 3,
+	Lvn_PhysicalDeviceType_CPU             = 4,
+
+	Lvn_PhysicalDeviceType_Unknown = Lvn_PhysicalDeviceType_Other,
+};
+
 enum LvnBufferType
 {
 	Lvn_BufferType_Unknown  = 0,
@@ -676,27 +709,6 @@ enum LvnDescriptorType
 	Lvn_DescriptorType_ImageSamplerBindless,
 	Lvn_DescriptorType_UniformBuffer,
 	Lvn_DescriptorType_StorageBuffer,
-};
-
-enum LvnGraphicsApi
-{
-	Lvn_GraphicsApi_None = 0,
-	Lvn_GraphicsApi_OpenGL,
-	Lvn_GraphicsApi_Vulkan,
-
-	Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
-	Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
-};
-
-enum LvnPhysicalDeviceType
-{
-	Lvn_PhysicalDeviceType_Other           = 0,
-	Lvn_PhysicalDeviceType_Integrated_GPU  = 1,
-	Lvn_PhysicalDeviceType_Discrete_GPU    = 2,
-	Lvn_PhysicalDeviceType_Virtual_GPU     = 3,
-	Lvn_PhysicalDeviceType_CPU             = 4,
-
-	Lvn_PhysicalDeviceType_Unknown = Lvn_PhysicalDeviceType_Other,
 };
 
 enum LvnSampleCount
@@ -809,6 +821,26 @@ enum LvnAnimationPath
 	Lvn_AnimationPath_Translation,
 	Lvn_AnimationPath_Rotation,
 	Lvn_AnimationPath_Scale,
+};
+
+enum LvnAttributeLocation
+{
+	Lvn_AttributeLocation_Position = 0,
+	Lvn_AttributeLocation_Color,
+	Lvn_AttributeLocation_TexCoords,
+	// Lvn_AttributeLocation_Normal,
+	// Lvn_AttributeLocation_Tangent,
+	// Lvn_AttributeLocation_BoneIds,
+	// Lvn_AttributeLocation_Weights,
+
+	Lvn_AttributeLocation_Max_Value,
+};
+
+enum LvnRenderModeEnum
+{
+	Lvn_RenderMode_2d,
+
+	Lvn_RenderMode_Max_Value,
 };
 
 // -- [SUBSECT]: Networking Enums
@@ -1311,7 +1343,7 @@ namespace lvn
 	LVN_API LvnBin                  loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
 	LVN_API void                    writeFileSrc(const char* filename, const char* src, LvnFileMode mode); // write to a file given the file name, the source content of the file and the mode to write to the file
 
-	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
+	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset, LvnLoadFontFlagBits flags = Lvn_LoadFont_Default);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
 	LVN_API LvnFontGlyph            fontGetGlyph(LvnFont* font, int8_t codepoint);
 
 
@@ -1383,7 +1415,7 @@ namespace lvn
 	LVN_API LvnResult                   logSetPatternFormat(LvnLogger* logger, const char* patternfmt);                   // set the log pattern of the logger; messages outputed from that logger will be in this format
 	LVN_API LvnResult                   logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);                      // add user defined log patterns to the library
 
-	LVN_API LvnResult                   createLogger(LvnLogger** logger, LvnLoggerCreateInfo* loggerCreateInfo);
+	LVN_API LvnResult                   createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo);
 	LVN_API void                        destroyLogger(LvnLogger* logger);
 
 
@@ -1410,7 +1442,7 @@ namespace lvn
 	LVN_API LvnWindowApi                getWindowApi();
 	LVN_API const char*                 getWindowApiName();
 
-	LVN_API LvnResult                   createWindow(LvnWindow** window, LvnWindowCreateInfo* createInfo);
+	LVN_API LvnResult                   createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo);
 	LVN_API void                        destroyWindow(LvnWindow* window);
 	LVN_API LvnWindowCreateInfo         configWindowInit(const char* title, int width, int height);
 
@@ -1470,14 +1502,13 @@ namespace lvn
 	LVN_API void                        renderDrawSubmit(LvnWindow* window);                                                                              // submits all draw commands recorded and presents to window
 	LVN_API void                        renderBeginCommandRecording(LvnWindow* window);                                                                   // begins command buffer when recording draw commands start
 	LVN_API void                        renderEndCommandRecording(LvnWindow* window);                                                                     // ends command buffer when finished recording draw commands
-	LVN_API void                        renderClearColor(LvnWindow* window, float r, float g, float b, float a);
 	LVN_API void                        renderCmdDraw(LvnWindow* window, uint32_t vertexCount);
 	LVN_API void                        renderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount);
 	LVN_API void                        renderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance);
 	LVN_API void                        renderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	LVN_API void                        renderCmdSetStencilReference(uint32_t reference);
 	LVN_API void                        renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window);                                                                      // begins renderpass when rendering starts
+	LVN_API void                        renderCmdBeginRenderPass(LvnWindow* window, float r, float g, float b, float a);                                  // begins renderpass when rendering starts
 	LVN_API void                        renderCmdEndRenderPass(LvnWindow* window);                                                                        // ends renderpass when rendering has finished
 	LVN_API void                        renderCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);                                                  // bind a pipeline to begin shading during rendering
 	LVN_API void                        renderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets); // binds the vertex buffer within an LvnBuffer object
@@ -1486,19 +1517,19 @@ namespace lvn
 	LVN_API void                        renderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);                                        // begins the framebuffer for recording offscreen render calls, similar to beginning the render pass
 	LVN_API void                        renderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);                                          // ends recording to the framebuffer
 
-	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                         // create shader with the source code as input
-	LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the file paths to the binary files (.spv) as input
-	LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, LvnShaderCreateInfo* createInfo);                                     // create shader with the file paths to the source files as input
-	LVN_API LvnResult                   createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, LvnDescriptorLayoutCreateInfo* createInfo);        // create descriptor layout for the pipeline
-	LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, LvnPipelineCreateInfo* createInfo);                                        // create pipeline to describe shading specifications
-	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, LvnFrameBufferCreateInfo* createInfo);                            // create framebuffer to render images to
-	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, LvnBufferCreateInfo* createInfo);                                                // create a single buffer object that can hold both the vertex and index buffers
-	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, LvnUniformBufferCreateInfo* createInfo);                    // create a uniform buffer object to send changing data to the shader pipeline
-	LVN_API LvnResult                   createSampler(LvnSampler** sampler, LvnSamplerCreateInfo* createInfo);                                            // create a sampler object to store texture sampler data
-	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureCreateInfo* createInfo);                                            // create a texture object to store image data
-	LVN_API LvnResult                   createTexture(LvnTexture** texture, LvnTextureSamplerCreateInfo* createInfo);                                     // create a texture object to store image data given a sampler object
-	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapCreateInfo* createInfo);                                            // create a cubemap texture object that holds the textures of the cubemap
-	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, LvnCubemapHdrCreateInfo* createInfo);                                         // create a cubemap texture object that holds the hdr texture of the cubemap
+	LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo);                                   // create shader with the source code as input
+	LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, const LvnShaderCreateInfo* createInfo);                               // create shader with the file paths to the binary files (.spv) as input
+	LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo);                               // create shader with the file paths to the source files as input
+	LVN_API LvnResult                   createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo);  // create descriptor layout for the pipeline
+	LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* createInfo);                                  // create pipeline to describe shading specifications
+	LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCreateInfo* createInfo);                      // create framebuffer to render images to
+	LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, const LvnBufferCreateInfo* createInfo);                                          // create a single buffer object that can hold both the vertex and index buffers
+	LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, const LvnUniformBufferCreateInfo* createInfo);              // create a uniform buffer object to send changing data to the shader pipeline
+	LVN_API LvnResult                   createSampler(LvnSampler** sampler, const LvnSamplerCreateInfo* createInfo);                                      // create a sampler object to store texture sampler data
+	LVN_API LvnResult                   createTexture(LvnTexture** texture, const LvnTextureCreateInfo* createInfo);                                      // create a texture object to store image data
+	LVN_API LvnResult                   createTexture(LvnTexture** texture, const LvnTextureSamplerCreateInfo* createInfo);                               // create a texture object to store image data given a sampler object
+	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, const LvnCubemapCreateInfo* createInfo);                                      // create a cubemap texture object that holds the textures of the cubemap
+	LVN_API LvnResult                   createCubemap(LvnCubemap** cubemap, const LvnCubemapHdrCreateInfo* createInfo);                                   // create a cubemap texture object that holds the hdr texture of the cubemap
 
 
 	LVN_API void                        destroyShader(LvnShader* shader);                                                                                 // destroy shader module object
@@ -1538,14 +1569,16 @@ namespace lvn
 	LVN_API LvnImageData                loadImageDataMemoryThread(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
 	LVN_API LvnImageHdrData             loadHdrImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 
-	LVN_API LvnResult                   writeImagePng(const LvnImageData* imageData, const char* filename);               // writes the image data into a png file with the filename/filepath
-	LVN_API LvnResult                   writeImageJpg(const LvnImageData* imageData, const char* filename, int quality);  // writes the image data into a jpg file with the filename/filepath and the jpg quality (from 0...100)
-	LVN_API LvnResult                   writeImageBmp(const LvnImageData* imageData, const char* filename);               // writes the image data into a bmp file with the filename/filepath
+	LVN_API LvnResult                   writeImagePng(const LvnImageData& imageData, const char* filename);               // writes the image data into a png file with the filename/filepath
+	LVN_API LvnResult                   writeImageJpg(const LvnImageData& imageData, const char* filename, int quality);  // writes the image data into a jpg file with the filename/filepath and the jpg quality (from 0...100)
+	LVN_API LvnResult                   writeImageBmp(const LvnImageData& imageData, const char* filename);               // writes the image data into a bmp file with the filename/filepath
 
 	LVN_API void                        imageFlipVertically(LvnImageData* imageData);                                     // flips the image vertically
 	LVN_API void                        imageFlipHorizontally(LvnImageData* imageData);                                   // flips the image horizontally
 	LVN_API void                        imageRotateCW(LvnImageData* imageData);                                           // rotates the image clockwise (right)
 	LVN_API void                        imageRotateCCW(LvnImageData* imageData);                                          // rotates the image counter clockwise (left)
+
+	LVN_API LvnImageData                imageGenNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed = 0);
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        unloadModel(LvnModel* model);
@@ -1554,7 +1587,7 @@ namespace lvn
 	// -- [SUBSECT]: Audio Functions
 	// ------------------------------------------------------------
 
-	LVN_API LvnResult                   createSound(LvnSound** sound, LvnSoundCreateInfo* createInfo);
+	LVN_API LvnResult                   createSound(LvnSound** sound, const LvnSoundCreateInfo* createInfo);
 	LVN_API void                        destroySound(LvnSound* sound);
 	LVN_API LvnSoundCreateInfo          configSoundInit(const char* filepath);
 
@@ -1573,7 +1606,7 @@ namespace lvn
 	// -- [SUBSECT]: Networking Functions
 	// ------------------------------------------------------------
 
-	LVN_API LvnResult                   createSocket(LvnSocket** socket, LvnSocketCreateInfo* createInfo);
+	LVN_API LvnResult                   createSocket(LvnSocket** socket, const LvnSocketCreateInfo* createInfo);
 	LVN_API void                        destroySocket(LvnSocket* socket);
 	LVN_API LvnSocketCreateInfo         configSocketClientInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
 	LVN_API LvnSocketCreateInfo         configSocketServerInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth);
@@ -1589,8 +1622,17 @@ namespace lvn
 	// ------------------------------------------------------------
 	// - high end api functions
 
-	LVN_API LvnResult                   renderInit(int width, int height, const char* title);
+	LVN_API LvnResult                   renderInit(const char* title, int width, int height);
 	LVN_API LvnResult                   renderInit(const LvnWindowCreateInfo* createInfo);
+	LVN_API void                        renderTerminate();
+	LVN_API LvnWindow*                  getRendererWindow();
+	LVN_API bool                        renderWindowOpen();
+	LVN_API void                        drawBegin();
+	LVN_API void                        drawEnd();
+	LVN_API void                        drawClearColor(float r, float g, float b, float a);
+	LVN_API void                        drawClearColor(const LvnColor& color);
+	LVN_API void                        drawTriangle(const LvnVec2& v1, const LvnVec2& v2, const LvnVec2& v3, const LvnColor& color);
+	LVN_API void                        drawRect(const LvnVec2& pos, const LvnVec2& size, const LvnColor& color);
 
 
 	// -- [SUBSECT]: ECS Functions
@@ -2574,6 +2616,8 @@ public:
 
 	size_t            size() { return m_Size; }
 	size_t            memsize() { return m_MemSize; }
+	const size_t      size() const { return m_Size; }
+	const size_t      memsize() const { return m_MemSize; }
 
 	T*                data() { return m_Data; }
 	const T* const    data() const { return m_Data; }
@@ -2689,20 +2733,19 @@ public:
 
 struct LvnDrawCommand
 {
-	float* pVertices;
+	void* pVertices;
 	uint32_t* pIndices;
-	uint32_t vertexCount;
-	uint32_t vertexSize;
-	uint32_t vertexAttributeCount;
-	uint32_t indexCount;
+	uint64_t vertexCount;
+	uint64_t indexCount;
+	uint64_t vertexStride;
 };
 
 class LvnDrawList
 {
-	std::vector<float> m_VerticesRaw;
+	std::vector<uint8_t> m_VerticesRaw;
 	std::vector<uint32_t> m_Indices;
 	std::vector<LvnDrawCommand> m_DrawCommands;
-	size_t m_Vertices;
+	size_t m_VertexCount;
 
 public:
 	void push_back(const LvnDrawCommand& drawCmd)
@@ -2711,29 +2754,27 @@ public:
 		
 		m_Indices.insert(m_Indices.end(), drawCmd.pIndices, drawCmd.pIndices + drawCmd.indexCount);
 		for (uint32_t i = m_Indices.size() - drawCmd.indexCount; i < m_Indices.size(); i++)
-		{
-			m_Indices[i] += m_Vertices;
-		}
+			m_Indices[i] += m_VertexCount;
 
-		m_VerticesRaw.insert(m_VerticesRaw.end(), drawCmd.pVertices, drawCmd.pVertices + drawCmd.vertexCount * drawCmd.vertexAttributeCount);
-		m_Vertices += drawCmd.vertexCount;
+		m_VerticesRaw.insert(m_VerticesRaw.end(), static_cast<uint8_t*>(drawCmd.pVertices), static_cast<uint8_t*>(drawCmd.pVertices) + drawCmd.vertexCount * drawCmd.vertexStride);
+		m_VertexCount += drawCmd.vertexCount;
 	}
 	void clear()
 	{
 		m_DrawCommands.clear();
 		m_VerticesRaw.clear();
 		m_Indices.clear();
-		m_Vertices = 0;
+		m_VertexCount = 0;
 	}
 	bool empty()
 	{
 		return m_VerticesRaw.empty() && m_Indices.empty() && m_DrawCommands.empty();
 	}
 
-	float* vertices()                         { return m_VerticesRaw.data(); }
-	const float* vertices() const             { return m_VerticesRaw.data(); }
-	size_t vertex_count()                     { return m_VerticesRaw.size(); }
-	size_t vertex_size()                      { return m_VerticesRaw.size() * sizeof(float); }
+	void* vertices()                          { return m_VerticesRaw.data(); }
+	const void* vertices() const              { return m_VerticesRaw.data(); }
+	size_t vertex_count()                     { return m_VertexCount; }
+	size_t vertex_size()                      { return m_VerticesRaw.size(); }
 
 	uint32_t* indices()                       { return m_Indices.data(); }
 	const uint32_t* indices() const           { return m_Indices.data(); }
@@ -5523,8 +5564,8 @@ struct LvnDescriptorUpdateInfo
 	uint32_t binding;
 	LvnDescriptorType descriptorType;
 	uint32_t descriptorCount;
-	LvnUniformBufferInfo* bufferInfo;
-	LvnTexture** pTextureInfos;
+	const LvnUniformBufferInfo* bufferInfo;
+	const LvnTexture* const* pTextureInfos;
 };
 
 struct LvnPipelineCreateInfo
@@ -5825,6 +5866,13 @@ struct LvnPacket
 };
 
 
+// -- [SUBSECT]: Renderer Struct Implementation
+// ------------------------------------------------------------
+
+struct LvnColor
+{
+	uint8_t r, g, b, a;
+};
 
 struct LvnPoint
 {

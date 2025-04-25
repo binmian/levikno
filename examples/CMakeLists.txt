@@ -4,6 +4,7 @@ file(COPY res DESTINATION .)
 
 set(LVN_SOURCES
 	antiAliasing.cpp
+	basicUsage.cpp
 	bindlessTexture.cpp
 	colorBlending.cpp
 	cubemap.cpp

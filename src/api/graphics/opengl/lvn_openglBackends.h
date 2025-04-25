@@ -88,7 +88,7 @@ namespace lvn
 	void oglsImplRecordCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance);
 	void oglsImplRecordCmdSetStencilReference(uint32_t reference);
 	void oglsImplRecordCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask);
-	void oglsImplRecordCmdBeginRenderPass(LvnWindow* window);
+	void oglsImplRecordCmdBeginRenderPass(LvnWindow* window, float r, float g, float b, float a);
 	void oglsImplRecordCmdEndRenderPass(LvnWindow* window);
 	void oglsImplRecordCmdBindPipeline(LvnWindow* window, LvnPipeline* pipeline);
 	void oglsImplRecordCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets);

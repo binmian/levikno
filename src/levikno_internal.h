@@ -411,7 +411,7 @@ struct LvnWindowContext
 {
 	LvnWindowApi        windowapi;    /* window api enum */
 
-	LvnResult           (*createWindow)(LvnWindow*, LvnWindowCreateInfo*);
+	LvnResult           (*createWindow)(LvnWindow*, const LvnWindowCreateInfo*);
 	void                (*destroyWindow)(LvnWindow*);
 	void                (*updateWindow)(LvnWindow*);
 	bool                (*windowOpen)(LvnWindow*);
@@ -457,20 +457,20 @@ struct LvnGraphicsContext
 	LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
 	LvnResult                   (*setPhysicalDevice)(LvnPhysicalDevice*);
 
-	LvnResult                   (*createShaderFromSrc)(LvnShader*, LvnShaderCreateInfo*);
-	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, LvnShaderCreateInfo*);
-	LvnResult                   (*createShaderFromFileBin)(LvnShader*, LvnShaderCreateInfo*);
-	LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, LvnDescriptorLayoutCreateInfo*);
+	LvnResult                   (*createShaderFromSrc)(LvnShader*, const LvnShaderCreateInfo*);
+	LvnResult                   (*createShaderFromFileSrc)(LvnShader*, const LvnShaderCreateInfo*);
+	LvnResult                   (*createShaderFromFileBin)(LvnShader*, const LvnShaderCreateInfo*);
+	LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, const LvnDescriptorLayoutCreateInfo*);
 	LvnResult                   (*allocateDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
-	LvnResult                   (*createPipeline)(LvnPipeline*, LvnPipelineCreateInfo*);
-	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, LvnFrameBufferCreateInfo*);
-	LvnResult                   (*createBuffer)(LvnBuffer*, LvnBufferCreateInfo*);
-	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, LvnUniformBufferCreateInfo*);
-	LvnResult                   (*createSampler)(LvnSampler*, LvnSamplerCreateInfo*);
-	LvnResult                   (*createTexture)(LvnTexture*, LvnTextureCreateInfo*);
-	LvnResult                   (*createTextureSampler)(LvnTexture*, LvnTextureSamplerCreateInfo*);
-	LvnResult                   (*createCubemap)(LvnCubemap*, LvnCubemapCreateInfo*);
-	LvnResult                   (*createCubemapHdr)(LvnCubemap*, LvnCubemapHdrCreateInfo*);
+	LvnResult                   (*createPipeline)(LvnPipeline*, const LvnPipelineCreateInfo*);
+	LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, const LvnFrameBufferCreateInfo*);
+	LvnResult                   (*createBuffer)(LvnBuffer*, const LvnBufferCreateInfo*);
+	LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, const LvnUniformBufferCreateInfo*);
+	LvnResult                   (*createSampler)(LvnSampler*, const LvnSamplerCreateInfo*);
+	LvnResult                   (*createTexture)(LvnTexture*, const LvnTextureCreateInfo*);
+	LvnResult                   (*createTextureSampler)(LvnTexture*, const LvnTextureSamplerCreateInfo*);
+	LvnResult                   (*createCubemap)(LvnCubemap*, const LvnCubemapCreateInfo*);
+	LvnResult                   (*createCubemapHdr)(LvnCubemap*, const LvnCubemapHdrCreateInfo*);
 
 	void                        (*destroyShader)(LvnShader*);
 	void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
@@ -482,7 +482,6 @@ struct LvnGraphicsContext
 	void                        (*destroyTexture)(LvnTexture*);
 	void                        (*destroyCubemap)(LvnCubemap*);
 
-	void                        (*renderClearColor)(LvnWindow*, float r, float g, float b, float a);
 	void                        (*renderBeginNextFrame)(LvnWindow*);
 	void                        (*renderDrawSubmit)(LvnWindow*);
 	void                        (*renderBeginCommandRecording)(LvnWindow*);
@@ -493,7 +492,7 @@ struct LvnGraphicsContext
 	void                        (*renderCmdDrawIndexedInstanced)(LvnWindow*, uint32_t, uint32_t, uint32_t);
 	void                        (*renderCmdSetStencilReference)(uint32_t);
 	void                        (*renderCmdSetStencilMask)(uint32_t, uint32_t);
-	void                        (*renderCmdBeginRenderPass)(LvnWindow*);
+	void                        (*renderCmdBeginRenderPass)(LvnWindow*, float r, float g, float b, float a);
 	void                        (*renderCmdEndRenderPass)(LvnWindow*);
 	void                        (*renderCmdBindPipeline)(LvnWindow*, LvnPipeline*);
 	void                        (*renderCmdBindVertexBuffer)(LvnWindow*, uint32_t, uint32_t, LvnBuffer**, uint64_t*);
@@ -576,6 +575,7 @@ struct LvnCmdBeginRenderPass
 {
 	LvnDrawCmdHeader header;
 	LvnWindow* window;
+	float r, g, b, a;
 };
 
 struct LvnCmdEndRenderPass
@@ -741,6 +741,36 @@ struct LvnObjectMemAllocCount
 	std::vector<LvnStructCounts> sTypes;
 };
 
+struct LvnRenderMode
+{
+	using LvnRenderModeFunc = void (*)(LvnRenderer*, LvnRenderMode&);
+
+	LvnRenderModeEnum modes;
+	LvnDrawList drawList;
+
+	std::vector<LvnVertexBindingDescription> bindingDescriptions;
+	std::vector<LvnVertexAttribute> attributes;
+	LvnPipeline* pipeline;
+	LvnDescriptorLayout* descriptorLayout;
+	LvnDescriptorSet* descriptorSet;
+	LvnBuffer* buffer;
+	LvnUniformBuffer* uniformBuffer;
+
+	uint64_t maxVertexCount;
+	uint64_t maxIndexCount;
+	uint64_t indexOffset;
+
+	LvnRenderModeFunc drawFunc;
+};
+
+struct LvnRenderer
+{
+	LvnWindow* window;
+	LvnVec4 clearColor;
+	LvnTexture* defaultWhiteTexture;
+	std::vector<LvnRenderMode> renderModes;
+};
+
 struct LvnContext
 {
 	// api specification
@@ -774,6 +804,9 @@ struct LvnContext
 	// ecs entity id manager
 	std::queue<LvnEntity>                availableEntityIDs;
 	uint64_t                             entityIndexID, maxEntityIDs;
+
+	// renderer
+	std::unique_ptr<LvnRenderer>         renderer;
 
 	// misc
 	LvnTimer                             contexTime;       // timer

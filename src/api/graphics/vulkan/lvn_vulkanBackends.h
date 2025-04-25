@@ -84,9 +84,6 @@ struct VulkanWindowSurfaceData
 	uint32_t imageIndex;
 	uint32_t currentFrame;
 	bool frameBufferResized;
-
-	// presentation
-	VkClearColorValue clearColor;
 };
 
 struct VulkanPipelineCreateData
