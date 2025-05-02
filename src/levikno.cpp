@@ -89,6 +89,7 @@ static void                         initStandardPipelineSpecification(LvnContext
 static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
 static const char*                  getStructTypeEnumStr(LvnStructureType stype);
 static uint64_t                     getStructTypeSize(LvnStructureType sType);
+static LvnData<uint32_t>            initDefaultFontCodepoints();
 static LvnResult                    createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
 static void                         createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType);
 
@@ -291,7 +292,7 @@ static void terminateGraphicsContext(LvnContext* lvnctx)
 
 static LvnResult initAudioContext(LvnContext* lvnctx)
 {
-	ma_engine* pEngine = (ma_engine*)lvn::memAlloc(sizeof(ma_engine));
+	ma_engine* pEngine = (ma_engine*)LVN_ALLOC(sizeof(ma_engine));
 
 	if (ma_engine_init(nullptr, pEngine) != MA_SUCCESS)
 	{
@@ -446,6 +447,17 @@ static const char* getStructTypeEnumStr(LvnStructureType stype)
 static uint64_t getStructTypeSize(LvnStructureType sType)
 {
 	return lvn::getContext()->sTypeMemAllocInfos[sType].size;
+}
+
+static LvnData<uint32_t> initDefaultFontCodepoints()
+{
+	std::vector<uint32_t> codepoints; codepoints.reserve(126-31+191-160);
+	for (uint32_t i = 32; i <= 126; i++)
+		codepoints.push_back(i);
+	for (uint32_t i = 160; i <= 255; i++)
+		codepoints.push_back(i);
+
+	return LvnData<uint32_t>(codepoints.data(), codepoints.size());
 }
 
 static LvnResult createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo)
@@ -615,6 +627,9 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
 	{
 		lvnctx->objectMemoryAllocations.sTypes[i] = { (LvnStructureType)i, 0 };
 	}
+
+	// default font codepoints
+	lvnctx->defaultCodePoints = lvn::initDefaultFontCodepoints();
 
 	// memory pool
 	LvnResult result = lvn::createContextMemoryPool(lvnctx, createInfo);
@@ -939,9 +954,16 @@ void writeFileSrc(const char* filename, const char* src, LvnFileMode mode)
 	fclose(fileptr);
 }
 
-LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset, LvnLoadFontFlagBits flags)
+LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, const uint32_t* pCodepoints, uint32_t codepointCount, LvnLoadFontFlagBits flags)
 {
 	LvnFont font{};
+
+	if (pCodepoints == nullptr)
+	{
+		LvnContext* lvnctx = lvn::getContext();
+		pCodepoints = lvnctx->defaultCodePoints.data();
+		codepointCount = lvnctx->defaultCodePoints.size();
+	}
 
 	FT_Library ft;
 	FT_Face face;
@@ -960,9 +982,9 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 		return font;
 	}
 
-	FT_Set_Char_Size(face, 0, fontSize << 6, 96, 96);
+	FT_Set_Pixel_Sizes(face, 0, (FT_UInt)fontSize);
 
-	int maxDim = (1 + (face->size->metrics.height >> 6)) * ceilf(sqrtf(charset.last - charset.first));
+	int maxDim = (1 + (face->size->metrics.height >> 6)) * ceilf(sqrtf(codepointCount));
 	int width = 1;
 	while (width < maxDim) width <<= 1;
 	int height = width;
@@ -973,7 +995,7 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 	const int padding = 2;
 	const int lineHeight = (face->size->metrics.height >> 6) + padding;
 
-	std::vector<LvnFontGlyph> glyphs(charset.last - charset.first + 1);
+	std::vector<LvnFontGlyph> glyphs(codepointCount);
 
 	uint32_t loadFlags = FT_LOAD_RENDER;
 	if (flags & Lvn_LoadFont_NoHinting)
@@ -985,9 +1007,140 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 	if (flags & Lvn_LoadFont_TargetMono)
 		loadFlags |= FT_LOAD_TARGET_MONO | FT_LOAD_MONOCHROME;
 
-	for (int8_t i = charset.first; i <= charset.last; i++)
+	for (uint32_t i = 0; i < codepointCount; i++)
 	{
-		FT_Load_Char(face, i, loadFlags);
+		FT_Load_Char(face, pCodepoints[i], loadFlags);
+		FT_Bitmap* bmp = &face->glyph->bitmap;
+
+		if (penx + bmp->width + padding > width)
+		{
+			penx = padding;
+			peny += lineHeight;
+		}
+
+		if (bmp->pixel_mode == FT_PIXEL_MODE_MONO && flags & Lvn_LoadFont_TargetMono)
+		{
+			for (uint32_t row = 0; row < bmp->rows; ++row)
+			{
+				for (uint32_t col = 0; col < bmp->width; ++col)
+				{
+					int byteIndex = col / 8;
+					int bitIndex = 7 - (col % 8);
+					uint8_t byte = bmp->buffer[row * bmp->pitch + byteIndex];
+					bool bitSet = (byte >> bitIndex) & 1;
+					int x = penx + col;
+					int y = peny + row;
+					if (x < width && y < height)
+						pixels[y * width + x] = bitSet ? 255 : 0;
+				}
+			}
+		}
+		else
+		{
+			for (uint32_t row = 0; row < bmp->rows; row++)
+			{
+				for (uint32_t col = 0; col < bmp->width; col++)
+				{
+					int x = penx + col;
+					int y = peny + row;
+					pixels[y * width + x] = bmp->buffer[row * abs(bmp->pitch) + col];
+				}
+			}
+		}
+
+
+		LvnFontGlyph glyph{};
+		glyph.uv.x0 = (float)penx / (float)width;
+		glyph.uv.y0 = (float)peny / (float)height;
+		glyph.uv.x1 = (float)(penx + bmp->width) / (float)width;
+		glyph.uv.y1 = (float)(peny + bmp->rows) / (float)height;
+
+		glyph.size.x = bmp->width;
+		glyph.size.y = bmp->rows;
+		glyph.bearing.x = face->glyph->bitmap_left;
+		glyph.bearing.y = face->glyph->bitmap_top;
+		glyph.advance = face->glyph->advance.x >> 6;
+		glyph.unicode = pCodepoints[i];
+
+		glyphs[i] = glyph;
+
+		penx += bmp->width + padding;
+	}
+
+	FT_Done_FreeType(ft);
+	
+	LvnImageData atlas{};
+	atlas.width = width;
+	atlas.height = height;
+	atlas.channels = 1;
+	atlas.size = width * height;
+	atlas.pixels = LvnData<uint8_t>(pixels.data(), pixels.size());
+
+	font.atlas = atlas;
+	font.glyphs = LvnData<LvnFontGlyph>(glyphs.data(), glyphs.size());
+	font.codepoints = LvnData<uint32_t>(pCodepoints, codepointCount);
+	font.fontSize = fontSize;
+
+	return font;
+}
+
+// TODO: refactor font loading and duplicate code
+LvnFont loadFontFromFileTTFMemory(const uint8_t* fontData, uint64_t fontDataSize, uint32_t fontSize, const uint32_t* pCodepoints, uint32_t codepointCount, LvnLoadFontFlagBits flags)
+{
+	LvnFont font{};
+
+	if (pCodepoints == nullptr)
+	{
+		LvnContext* lvnctx = lvn::getContext();
+		pCodepoints = lvnctx->defaultCodePoints.data();
+		codepointCount = lvnctx->defaultCodePoints.size();
+	}
+
+	FT_Library ft;
+	FT_Face face;
+
+	if (FT_Init_FreeType(&ft))
+	{
+		LVN_CORE_ERROR("[freetype]: failed to load freetype library");
+		LVN_CORE_ASSERT(false, "failed to load freetype");
+		return font;
+	}
+
+	if (FT_New_Memory_Face(ft, fontData, fontDataSize, 0, &face))
+	{
+		LVN_CORE_ERROR("[freetype]: failed to load font face!");
+		LVN_CORE_ASSERT(false, "failed to load font face");
+		return font;
+	}
+
+	FT_Set_Pixel_Sizes(face, 0, (FT_UInt)fontSize);
+
+	int maxDim = (1 + (face->size->metrics.height >> 6)) * ceilf(sqrtf(codepointCount));
+	int width = 1;
+	while (width < maxDim) width <<= 1;
+	int height = width;
+
+	// render glyphs to atlas
+	std::vector<uint8_t> pixels(width * height);
+	int penx = 0, peny = 0;
+	const int padding = 2;
+	const int lineHeight = (face->size->metrics.height >> 6) + padding;
+
+	std::vector<LvnFontGlyph> glyphs(codepointCount);
+
+	uint32_t loadFlags = FT_LOAD_RENDER;
+	if (flags & Lvn_LoadFont_NoHinting)
+		loadFlags |= FT_LOAD_NO_HINTING;
+	if (flags & Lvn_LoadFont_AutoHinting)
+		loadFlags |= FT_LOAD_FORCE_AUTOHINT;
+	if (flags & Lvn_LoadFont_TargetLight)
+		loadFlags |= FT_LOAD_TARGET_LIGHT;
+	if (flags & Lvn_LoadFont_TargetMono)
+		loadFlags |= FT_LOAD_TARGET_MONO | FT_LOAD_MONOCHROME;
+
+	for (uint32_t i = 0; i < codepointCount; i++)
+	{
+		FT_Load_Char(face, pCodepoints[i], loadFlags);
 		FT_Bitmap* bmp = &face->glyph->bitmap;
 
 		if (penx + bmp->width + padding > width)
@@ -1039,7 +1192,7 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 		glyph.bearing.y = face->glyph->bitmap_top;
 		glyph.advance = face->glyph->advance.x >> 6;
 
-		glyphs[i - charset.first] = glyph;
+		glyphs[i] = glyph;
 
 		penx += bmp->width + padding;
 	}
@@ -1055,16 +1208,68 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset 
 
 	font.atlas = atlas;
 	font.glyphs = LvnData<LvnFontGlyph>(glyphs.data(), glyphs.size());
-	font.codepoints = charset;
+	font.codepoints = LvnData<uint32_t>(pCodepoints, codepointCount);
 	font.fontSize = fontSize;
 
 	return font;
 }
 
-LvnFontGlyph fontGetGlyph(LvnFont* font, int8_t codepoint)
+LvnFontGlyph fontGetGlyph(const LvnFont& font, uint32_t codepoint)
 {
-	LVN_CORE_ASSERT(codepoint >= font->codepoints.first && codepoint <= font->codepoints.last, "codepoint out of charset range");
-	return font->glyphs[codepoint - font->codepoints.first];
+	for (uint32_t i = 0; i < font.glyphs.size(); i++)
+	{
+		if (font.glyphs[i].unicode == codepoint)
+			return font.glyphs[i];
+	}
+
+	return font.glyphs[0];
+}
+
+uint32_t decodeCodepointUTF8(const char* str, uint32_t* next)
+{
+	LVN_CORE_ASSERT(next, "next is nullptr");
+
+	const uint8_t *ptr = reinterpret_cast<const uint8_t*>(str);
+	uint32_t codepoint = 0x3f;
+	*next = 1;
+
+	if ((ptr[0] & 0xf8) == 0xf0)
+	{
+		// 4-byte sequence
+		if (((ptr[1] & 0xc0) ^ 0x80) || ((ptr[2] & 0xc0) ^ 0x80) || ((ptr[3] & 0xc0) ^ 0x80))
+			return codepoint;
+		codepoint = ((ptr[0] & 0x07) << 18) | ((ptr[1] & 0x3f) << 12) | ((ptr[2] & 0x3f) << 6) | (ptr[3] & 0x3f);
+		*next = 4;
+	}
+	else if ((ptr[0] & 0xf0) == 0xe0)
+	{
+		// 3-byte sequence
+		if (((ptr[1] & 0xc0) ^ 0x80) || ((ptr[2] & 0xc0) ^ 0x80))
+			return codepoint;
+		codepoint = ((ptr[0] & 0x0f) << 12) | ((ptr[1] & 0x3f) << 6) | (ptr[2] & 0x3f);
+		*next = 3;
+	}
+	else if ((ptr[0] & 0xe0) == 0xc0)
+	{
+		// 2-byte sequence
+		if (((ptr[1] & 0xc0) ^ 0x80))
+			return codepoint;
+		codepoint = ((ptr[0] & 0x1f) << 6) | (ptr[1] & 0x3f);
+		*next = 2;
+	}
+	else if (ptr[0] < 0x80)
+	{
+		// 1-byte ASCII
+		codepoint = ptr[0];
+		*next = 1;
+	}
+
+	return codepoint;
+}
+
+LvnData<uint32_t> getDefaultSupportedCodepoints()
+{
+	return lvn::getContext()->defaultCodePoints;
 }
 
 void* memAlloc(size_t size)
@@ -3181,7 +3386,7 @@ void imageRotateCCW(LvnImageData& imageData)
 	std::swap(imageData.width, imageData.height);
 }
 
-LvnImageData imageGenNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed)
+LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed)
 {
 	LVN_CORE_ASSERT(channels > 0 && channels <= 4, "channels must be within 0 to 4");
 

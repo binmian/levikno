@@ -19,6 +19,7 @@
 // -- [SUBSECT]: Logging Enums
 // -- [SUBSECT]: Graphics Enums
 // -- [SUBSECT]: Networking Enums
+// -- [SUBSECT]: Renderer Enums
 // [SECTION]: Struct Definitions
 // -- [SUBSECT]: Data Structure Definitions
 // -- [SUBSECT]: ECS (Entity Component System) Definitions & Implementation
@@ -148,6 +149,9 @@
 
 #define LVN_PI 3.14159265f
 #define LVN_PI_EXACT (static_cast<double>(22.0/7.0)) /* 3.1415... */
+
+#define LVN_ALLOC(x) lvn::memAlloc(x)
+#define LVN_FREE(x) lvn::memFree(x)
 
 
 // -- [SUBSECT]: Includes
@@ -823,6 +827,20 @@ enum LvnAnimationPath
 	Lvn_AnimationPath_Scale,
 };
 
+
+// -- [SUBSECT]: Networking Enums
+// ------------------------------------------------------------
+
+enum LvnSocketType
+{
+	Lvn_SocketType_Client,
+	Lvn_SocketType_Server,
+};
+
+
+// -- [SUBSECT]: Renderer Enums
+// ------------------------------------------------------------
+
 enum LvnAttributeLocation
 {
 	Lvn_AttributeLocation_Position = 0,
@@ -839,19 +857,10 @@ enum LvnAttributeLocation
 enum LvnRenderModeEnum
 {
 	Lvn_RenderMode_2d,
+	Lvn_RenderMode_2dText,
 
 	Lvn_RenderMode_Max_Value,
 };
-
-// -- [SUBSECT]: Networking Enums
-// ------------------------------------------------------------
-
-enum LvnSocketType
-{
-	Lvn_SocketType_Client,
-	Lvn_SocketType_Server,
-};
-
 
 
 // ------------------------------------------------------------
@@ -866,7 +875,6 @@ struct LvnAppTickEvent;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
-struct LvnCharset;
 struct LvnCircle;
 struct LvnColor;
 struct LvnContext;
@@ -882,6 +890,7 @@ struct LvnDescriptorUpdateInfo;
 struct LvnDrawCommand;
 struct LvnEvent;
 struct LvnFont;
+struct LvnFontConfig;
 struct LvnFontGlyph;
 struct LvnFrameBuffer;
 struct LvnFrameBufferColorAttachment;
@@ -1343,9 +1352,11 @@ namespace lvn
 	LVN_API LvnBin                  loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
 	LVN_API void                    writeFileSrc(const char* filename, const char* src, LvnFileMode mode); // write to a file given the file name, the source content of the file and the mode to write to the file
 
-	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, LvnCharset charset, LvnLoadFontFlagBits flags = Lvn_LoadFont_Default);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
-	LVN_API LvnFontGlyph            fontGetGlyph(LvnFont* font, int8_t codepoint);
-
+	LVN_API LvnFont                 loadFontFromFileTTF(const char* filepath, uint32_t fontSize, const uint32_t* pCodepoints = nullptr, uint32_t codepointCount = 0, LvnLoadFontFlagBits flags = Lvn_LoadFont_Default);    // get the font data from a ttf font file, font data will be stored in a LvnImageData struct which is an atlas texture containing all the font glyphs and their UV positions
+	LVN_API LvnFont                 loadFontFromFileTTFMemory(const uint8_t* fontData, uint64_t fontDataSize, uint32_t fontSize, const uint32_t* pCodepoints = nullptr, uint32_t codepointCount = 0, LvnLoadFontFlagBits flags = Lvn_LoadFont_Default);
+	LVN_API LvnFontGlyph            fontGetGlyph(const LvnFont& font, uint32_t codepoint);
+	LVN_API uint32_t                decodeCodepointUTF8(const char* str, uint32_t* next);
+	LVN_API LvnData<uint32_t>       getDefaultSupportedCodepoints();
 
 	LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
 	LVN_API void                    memFree(void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
@@ -1578,7 +1589,7 @@ namespace lvn
 	LVN_API void                        imageRotateCW(LvnImageData& imageData);                                           // rotates the image clockwise (right)
 	LVN_API void                        imageRotateCCW(LvnImageData& imageData);                                          // rotates the image counter clockwise (left)
 
-	LVN_API LvnImageData                imageGenNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed = 0);
+	LVN_API LvnImageData                imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed = 0);
 
 	LVN_API LvnModel                    loadModel(const char* filepath);
 	LVN_API void                        unloadModel(LvnModel* model);
@@ -1633,6 +1644,9 @@ namespace lvn
 	LVN_API void                        drawClearColor(const LvnColor& color);
 	LVN_API void                        drawTriangle(const LvnVec2& v1, const LvnVec2& v2, const LvnVec2& v3, const LvnColor& color);
 	LVN_API void                        drawRect(const LvnVec2& pos, const LvnVec2& size, const LvnColor& color);
+	LVN_API void                        drawCircle(const LvnVec2& pos, float radius, const LvnColor& color);
+	LVN_API void                        drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnColor& color);
+	LVN_API void                        drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale);
 
 
 	// -- [SUBSECT]: ECS Functions
@@ -5805,13 +5819,8 @@ struct LvnFontGlyph
 		float x, y;
 	} size, bearing;
 
-	int8_t unicode;
+	uint32_t unicode;
 	int advance;
-};
-
-struct LvnCharset
-{
-	int8_t first, last;        // first and last codepoints to iterate through when loading glyph data, the codepoints relate to ASCII digits
 };
 
 struct LvnFont
@@ -5819,7 +5828,7 @@ struct LvnFont
 	LvnImageData atlas;
 	float fontSize;
 
-	LvnCharset codepoints;
+	LvnData<uint32_t> codepoints;
 	LvnData<LvnFontGlyph> glyphs;
 };
 

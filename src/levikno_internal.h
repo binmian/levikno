@@ -748,8 +748,6 @@ struct LvnRenderMode
 	LvnRenderModeEnum modes;
 	LvnDrawList drawList;
 
-	std::vector<LvnVertexBindingDescription> bindingDescriptions;
-	std::vector<LvnVertexAttribute> attributes;
 	LvnPipeline* pipeline;
 	LvnDescriptorLayout* descriptorLayout;
 	LvnDescriptorSet* descriptorSet;
@@ -767,7 +765,9 @@ struct LvnRenderer
 {
 	LvnWindow* window;
 	LvnVec4 clearColor;
+	LvnFont defaultFont;
 	LvnTexture* defaultWhiteTexture;
+	LvnTexture* defaultFontTexture;
 	std::vector<LvnRenderMode> renderModes;
 };
 
@@ -811,6 +811,7 @@ struct LvnContext
 	// misc
 	LvnTimer                             contexTime;       // timer
 	LvnComponentManager                  componentManager; // ECS component manager
+	LvnData<uint32_t>                    defaultCodePoints;
 
 };
 

@@ -1,14 +1,12 @@
 #include <levikno/levikno.h>
 
 #include <sstream>
-#include <string>
-#include <vector>
-#include <cstdint>
 #include <chrono>
 
 
 #define MAX_VERTEX_COUNT (5000)
 #define MAX_INDEX_COUNT (5000)
+#define LVN_CONFIG_GLYPH(ux0,uy0,ux1,uy1,bx,by,u,a) {{ux0/128.0f,uy0/128.0f,ux1/128.0f,uy1/128.0f},{ux1-ux0,uy1-uy0},{bx,by},u,a}
 
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
@@ -137,14 +135,17 @@ struct UniformData
 };
 
 
-void drawText(DrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
+void drawText(DrawList* list, LvnFont& font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
 {
-	for (uint32_t i = 0; i < strlen(text); i++)
+	for (uint32_t i = 0; i < strlen(text);)
 	{
-		LvnFontGlyph glyph = lvn::fontGetGlyph(font, text[i]);
+		uint32_t codePointBytes = 0;
+		uint32_t codepoint = lvn::decodeCodepointUTF8(&text[i], &codePointBytes);
+		LvnFontGlyph glyph = lvn::fontGetGlyph(font, codepoint);
+		i += codePointBytes;
 
 		float xpos = pos.x + glyph.bearing.x * scale;
-		float ypos = pos.y + glyph.bearing.y * scale;
+		float ypos = pos.y - (glyph.size.y - glyph.bearing.y) * scale;
 
 		float w = glyph.size.x * scale;
 		float h = glyph.size.y * scale;
@@ -152,10 +153,10 @@ void drawText(DrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnV
 		Vertex rectVertices[] =
 		{
 			/*         pos         | color |         texUVs            */
-			{ {xpos, ypos - h},      color, {glyph.uv.x0, glyph.uv.y1} },
-			{ {xpos, ypos},          color, {glyph.uv.x0, glyph.uv.y0} },
-			{ {xpos + w, ypos - h},  color, {glyph.uv.x1, glyph.uv.y1} },
-			{ {xpos + w, ypos},      color, {glyph.uv.x1, glyph.uv.y0} },
+			{ {xpos, ypos + h},      color, {glyph.uv.x0, glyph.uv.y0} },
+			{ {xpos, ypos},          color, {glyph.uv.x0, glyph.uv.y1} },
+			{ {xpos + w, ypos + h},  color, {glyph.uv.x1, glyph.uv.y0} },
+			{ {xpos + w, ypos},      color, {glyph.uv.x1, glyph.uv.y1} },
 		};
 
 		uint32_t rectIndices[] =
@@ -324,7 +325,8 @@ int main(int argc, char** argv)
 
 
 	// [Create texture]
-	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/JetBrainsMonoNerdFont-Regular.ttf", 16, {32, 126});
+	auto codepoints = lvn::getDefaultSupportedCodepoints();
+	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/JetBrainsMonoNerdFont-Regular.ttf", 16, codepoints.data(), codepoints.size());
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
@@ -396,11 +398,11 @@ int main(int argc, char** argv)
 
 
 		// text examples
-		drawText(&list, &font, "hello world", {20.0f, height - 40.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
-		drawText(&list, &font, "The quick brown fox jumps over the lazy dog", {20.0f, height - 80.0f}, {1.0f, 0.0f, 1.0f}, 1.0f);
-		drawText(&list, &font, "this text changes color", {20.0f, height - 120.0f}, {0.0f, abs(sin(timer.elapsed())), abs(cos(timer.elapsed()))}, 1.0f);
-		drawText(&list, &font, "<- this text moves ->", {120.0f + sin(timer.elapsed() * 2.0f) * 100.0f, height - 160.0f}, {0.0f, 1.0f, 1.0f}, 1.0f);
-		drawText(&list, &font, "this text changes size (keep in mind the pixel quality when scaling)", {20.0f, height - 200.0f}, {1.0f, 1.0f, 0.0f}, abs(sin(timer.elapsed() * 0.5f)) * 0.5f + 0.5f);
+		drawText(&list, font, "hello world", {20.0f, height - 40.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
+		drawText(&list, font, "The quick brown fox jumps over the lazy dog", {20.0f, height - 80.0f}, {1.0f, 0.0f, 1.0f}, 1.0f);
+		drawText(&list, font, "this text changes color", {20.0f, height - 120.0f}, {0.0f, abs(sin(timer.elapsed())), abs(cos(timer.elapsed()))}, 1.0f);
+		drawText(&list, font, "<- this text moves ->", {120.0f + sin(timer.elapsed() * 2.0f) * 100.0f, height - 160.0f}, {0.0f, 1.0f, 1.0f}, 1.0f);
+		drawText(&list, font, "this text changes size (keep in mind the pixel quality when scaling)", {20.0f, height - 200.0f}, {1.0f, 1.0f, 0.0f}, abs(sin(timer.elapsed() * 0.5f)) * 0.5f + 0.5f);
 
 		// progress bar text
 		std::string str = "[";
@@ -414,28 +416,27 @@ int main(int argc, char** argv)
 
 		progress = ceil(abs(sin(timer.elapsed() * 0.1f) * 100.0f));
 
-		drawText(&list, &font, str.c_str(), {20.0f, height - 240.0f}, {1.0f, 0.3f, 0.0f}, 0.8f);
+		drawText(&list, font, str.c_str(), {20.0f, height - 240.0f}, {1.0f, 0.3f, 0.0f}, 0.8f);
 		str.clear();
 
 		// window dimension text
 		std::ostringstream ss;
 		ss << "width: " << width << ", height: " << height;
-		drawText(&list, &font, ss.str().c_str(), {20.0f, height - 280.0f}, {0.1f, 1.0f, 0.1f}, 1.0f);
+		drawText(&list, font, ss.str().c_str(), {20.0f, height - 280.0f}, {0.1f, 1.0f, 0.1f}, 1.0f);
 
 		// mouse pos text
 		float xpos, ypos;
 		lvn::mouseGetPos(window, &xpos, &ypos);
 		ss.str(""); ss.clear();
 		ss << "mouse pos: (x:" << xpos << ",y:" << ypos << ")";
-		drawText(&list, &font, ss.str().c_str(), {20.0f, height - 320.0f}, {0.1f, 1.0f, 0.1f}, 1.0f);
+		drawText(&list, font, ss.str().c_str(), {20.0f, height - 320.0f}, {0.1f, 1.0f, 0.1f}, 1.0f);
 
 		// time text
 		std::string time = std::to_string(timer.elapsed()) + " sec";
-		drawText(&list, &font, time.c_str(), {20.0f, height - 360.0f}, {0.1f, 1.0f, 0.1f}, 1.0f);
+		drawText(&list, font, time.c_str(), {20.0f, height - 360.0f}, {0.1f, 1.0f, 0.1f}, 1.0f);
 
 		// ascii
-		drawText(&list, &font, ascii.c_str(), {20.0f, height - 400.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
-
+		drawText(&list, font, ascii.c_str(), {20.0f, height - 400.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 
 		// update buffers
 		lvn::bufferUpdateData(vertexBuffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);

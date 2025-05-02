@@ -143,7 +143,7 @@ void drawRect(LvnDrawList* list, LvnVec2 pos, LvnVec2 size, LvnVec3 color)
 	list->push_back(drawCmd);
 }
 
-void drawText(LvnDrawList* list, LvnFont* font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
+void drawText(LvnDrawList* list, LvnFont& font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
 {
 	for (uint32_t i = 0; i < strlen(text); i++)
 	{
@@ -369,7 +369,7 @@ int main(int argc, char** argv)
 
 
 	// [Create font]
-	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/PressStart2P.ttf", 32, {32, 126});
+	LvnFont font = lvn::loadFontFromFileTTF("res/fonts/PressStart2P.ttf", 32);
 
 	// texture create info struct
 	LvnTextureCreateInfo textureCreateInfo{};
@@ -621,8 +621,8 @@ int main(int argc, char** argv)
 		list.clear();
 
 		// font rendering
-		drawText(&list, &font, std::to_string(lscore).c_str(), {-220.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
-		drawText(&list, &font, std::to_string(rscore).c_str(), {150.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
+		drawText(&list, font, std::to_string(lscore).c_str(), {-220.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
+		drawText(&list, font, std::to_string(rscore).c_str(), {150.0f, halfHeight - 100.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 
 		lvn::bufferUpdateData(fontVertexBuffer, list.vertices(), list.vertex_size(), 0);
 		lvn::bufferUpdateData(fontIndexBuffer, list.indices(), list.index_size(), 0);

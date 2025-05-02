@@ -1162,29 +1162,27 @@ LvnResult oglsImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo*
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-	uint32_t id;
-	glCreateTextures(GL_TEXTURE_2D, 1, &id);
-	glTextureStorage2D(id, 1, internalFormat, createInfo->imageData.width, createInfo->imageData.height);
+	glCreateTextures(GL_TEXTURE_2D, 1, &texture->id);
 
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, ogls::getTextureWrapModeEnum(createInfo->wrapS));
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, ogls::getTextureWrapModeEnum(createInfo->wrapT));
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, ogls::getTextureWrapModeEnum(createInfo->wrapT));
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));
-	glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));
+	glTextureParameteri(texture->id, GL_TEXTURE_WRAP_S, ogls::getTextureWrapModeEnum(createInfo->wrapS));
+	glTextureParameteri(texture->id, GL_TEXTURE_WRAP_T, ogls::getTextureWrapModeEnum(createInfo->wrapT));
+	glTextureParameteri(texture->id, GL_TEXTURE_WRAP_R, ogls::getTextureWrapModeEnum(createInfo->wrapT));
+	glTextureParameteri(texture->id, GL_TEXTURE_MIN_FILTER, ogls::getTextureFilterEnum(createInfo->minFilter));
+	glTextureParameteri(texture->id, GL_TEXTURE_MAG_FILTER, ogls::getTextureFilterEnum(createInfo->magFilter));
 
-	glTextureSubImage2D(id, 0, 0, 0, createInfo->imageData.width, createInfo->imageData.height, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
+	glTextureStorage2D(texture->id, 1, internalFormat, createInfo->imageData.width, createInfo->imageData.height);
+	glTextureSubImage2D(texture->id, 0, 0, 0, createInfo->imageData.width, createInfo->imageData.height, format, GL_UNSIGNED_BYTE, createInfo->imageData.pixels.data());
 
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	if (ogls::checkErrorCode() == Lvn_Result_Failure)
 	{
-		LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
+		LVN_CORE_ERROR("[opengl] last error check occurance when creating texture, id: %u, (w:%u,h%u), image data: %p", texture->id, createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.pixels.data());
 		return Lvn_Result_Failure;
 	}
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	texture->id = id;
 	texture->width = createInfo->imageData.width;
 	texture->height = createInfo->imageData.height;
 	texture->seperateSampler = false;
