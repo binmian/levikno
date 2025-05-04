@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 project(Levikno)
 
 option(LVN_BUILD_EXAMPLES "Build example programs" ON)
+option(LVN_INCLUDE_GLSLANG "include glslang libraries and shader source compile support" ON)
 
 # output dirs
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -54,25 +55,27 @@ if(Vulkan_FOUND)
 	# Find glslang
 	find_package(glslang CONFIG)
 
-	if (TARGET glslang::glslang)
-		message("glslang found")
-		set(LVN_USE_GLSLANG)
-	else()
-		message("cannot find glslang, skipping glslang source compile features")
-	endif()
-
-	if (TARGET glslang::SPIRV)
-		message("glslang-SPIRV found")
-	else()
-		message("cannot find SPIRV, skipping glslang source compile features")
-	endif()
-
 	# include libs
 	set(LVN_VULKAN_LIBS Vulkan::Vulkan)
 
-	if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
-		add_definitions(-DLVN_INCLUDE_GLSLANG_SUPPORTED)
-		list(APPEND LVN_VULKAN_LIBS glslang::glslang glslang::SPIRV)
+	if (LVN_INCLUDE_GLSLANG)
+		if (TARGET glslang::glslang)
+			message("glslang found")
+			set(LVN_USE_GLSLANG)
+		else()
+			message("cannot find glslang, skipping glslang source compile features")
+		endif()
+
+		if (TARGET glslang::SPIRV)
+			message("glslang-SPIRV found")
+		else()
+			message("cannot find SPIRV, skipping glslang source compile features")
+		endif()
+
+		if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
+			add_definitions(-DLVN_INCLUDE_GLSLANG_SUPPORTED)
+			list(APPEND LVN_VULKAN_LIBS glslang::glslang glslang::SPIRV)
+		endif()
 	endif()
 
 else()
