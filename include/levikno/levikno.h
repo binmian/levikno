@@ -125,8 +125,8 @@
 	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); } }
 	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); } }
 #elif defined (LVN_ENABLE_ASSERTS)
-	#define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_ASSERT(x, ...) { if(!(x)) { printf(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+	#define LVN_CORE_ASSERT(x, ...) { if(!(x)) { printf(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
 	#define LVN_ASSERT(x, ...)
 	#define LVN_CORE_ASSERT(x, ...)
@@ -1032,7 +1032,7 @@ private:
 public:
 	void add_entity(LvnEntity entity, const T& comp)
 	{
-		assert(m_EntityToIndex.find(entity) == m_EntityToIndex.end() && "entity already has component in component array");
+		LVN_CORE_ASSERT(m_EntityToIndex.find(entity) == m_EntityToIndex.end(), "entity already has component in component array");
 
 		if (!m_AvailableIndices.empty())
 		{
@@ -1049,10 +1049,10 @@ public:
 
 	void remove_entity(LvnEntity entity)
 	{
-		assert(m_EntityToIndex.find(entity) != m_EntityToIndex.end() && "entity not found within component array");
+		LVN_CORE_ASSERT(m_EntityToIndex.find(entity) != m_EntityToIndex.end(), "entity not found within component array");
 
 		const uint64_t index = m_EntityToIndex[entity];
-		assert(index < m_Data.size() && "index out of vector size range");
+		LVN_CORE_ASSERT(index < m_Data.size(), "index out of vector size range");
 
 		m_AvailableIndices.push(index);
 		m_EntityToIndex.erase(entity);
@@ -1060,10 +1060,10 @@ public:
 
 	T& get_entity_component(LvnEntity entity)
 	{
-		assert(m_EntityToIndex.find(entity) != m_EntityToIndex.end() && "entity not found within component array");
+		LVN_CORE_ASSERT(m_EntityToIndex.find(entity) != m_EntityToIndex.end(), "entity not found within component array");
 
 		const uint64_t index = m_EntityToIndex[entity];
-		assert(index < m_Data.size() && "index out of vector size range");
+		LVN_CORE_ASSERT(index < m_Data.size(), "index out of vector size range");
 
 		return m_Data[index];
 	}
@@ -1096,7 +1096,7 @@ public:
 	template <typename T>
 	void remove_component()
 	{
-		assert(m_Components.find(std::type_index(typeid(T))) != m_Components.end() && "component not found within registry");
+		LVN_CORE_ASSERT(m_Components.find(std::type_index(typeid(T))) != m_Components.end(), "component not found within registry");
 
 		m_Components.erase(std::type_index(typeid(T)));
 	}
@@ -1104,7 +1104,7 @@ public:
 	template <typename T>
 	LvnComponentArray<T>& get_component()
 	{
-		assert(m_Components.find(std::type_index(typeid(T))) != m_Components.end() && "component not found within registry");
+		LVN_CORE_ASSERT(m_Components.find(std::type_index(typeid(T))) != m_Components.end(), "component not found within registry");
 		auto index = std::type_index(typeid(T));
 		return *static_cast<LvnComponentArray<T>*>(m_Components[index].get());
 	}
@@ -2826,7 +2826,7 @@ struct LvnVec<2, T>
 
 	T& operator[](length_t i)
 	{
-		assert(i >= 0 && i < this->length());
+		LVN_CORE_ASSERT(i >= 0 && i < this->length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -2839,7 +2839,7 @@ struct LvnVec<2, T>
 	}
 	const T& operator[](length_t i) const
 	{
-		assert(i >= 0 && i < this->length());
+		LVN_CORE_ASSERT(i >= 0 && i < this->length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -2995,7 +2995,7 @@ struct LvnVec<3, T>
 
 	T& operator[](length_t i)
 	{
-		assert(i >= 0 && i < this->length());
+		LVN_CORE_ASSERT(i >= 0 && i < this->length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -3007,7 +3007,7 @@ struct LvnVec<3, T>
 	}
 	const T& operator[](length_t i) const
 	{
-		assert(i >= 0 && i < this->length());
+		LVN_CORE_ASSERT(i >= 0 && i < this->length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -3175,7 +3175,7 @@ struct LvnVec<4, T>
 
 	T& operator[](length_t i)
 	{
-		assert(i >= 0 && i < this->length());
+		LVN_CORE_ASSERT(i >= 0 && i < this->length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -3188,7 +3188,7 @@ struct LvnVec<4, T>
 	}
 	const T& operator[](length_t i) const
 	{
-		assert(i >= 0 && i < this->length());
+		LVN_CORE_ASSERT(i >= 0 && i < this->length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -4966,7 +4966,7 @@ struct LvnQuat_t
 
 	T& operator[](int i)
 	{
-		assert(i >= 0 && i < length());
+		LVN_CORE_ASSERT(i >= 0 && i < length(), "vector index out of range");
 
 		switch (i)
 		{
@@ -4983,7 +4983,7 @@ struct LvnQuat_t
 	}
 	const T& operator[](int i) const
 	{
-		assert(i >= 0 && i < length());
+		LVN_CORE_ASSERT(i >= 0 && i < length(), "vector index out of range");
 
 		switch (i)
 		{
