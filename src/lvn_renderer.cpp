@@ -321,7 +321,7 @@ static LvnFont getDefaultFont()
 		LVN_CONFIG_GLYPH(106,91,111,103,0,1,255,7),
 	};
 
-	uint8_t* imgbuff = (uint8_t*)LVN_ALLOC(128 * 128);
+	uint8_t* imgbuff = (uint8_t*)LVN_MALLOC(128 * 128);
 
 	for (uint32_t i = 0; i < LVN_ARRAY_LEN(c_DefaultFontData); i++)
 	{

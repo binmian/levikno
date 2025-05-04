@@ -292,7 +292,7 @@ static void terminateGraphicsContext(LvnContext* lvnctx)
 
 static LvnResult initAudioContext(LvnContext* lvnctx)
 {
-	ma_engine* pEngine = (ma_engine*)LVN_ALLOC(sizeof(ma_engine));
+	ma_engine* pEngine = (ma_engine*)LVN_MALLOC(sizeof(ma_engine));
 
 	if (ma_engine_init(nullptr, pEngine) != MA_SUCCESS)
 	{
@@ -1291,9 +1291,8 @@ void memFree(void* ptr)
 
 void* memRealloc(void* ptr, size_t size)
 {
-	void* allocmem = realloc(ptr, size);
-	if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
-	return allocmem;
+	if (!ptr) { return lvn::memAlloc(size); }
+	return realloc(ptr, size);
 }
 
 /* [Logging] */

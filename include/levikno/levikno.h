@@ -9,6 +9,7 @@
 // [SECTION]: Config
 // -- [SUBSECT]: Platform Defines
 // -- [SUBSECT]: Debug Defines
+// -- [SUBSECT]: Memory Alloc Defines
 // -- [SUBSECT]: Misc Defines
 // -- [SUBSECT]: Includes
 // -- [SUBSECT]: Log Defines
@@ -54,6 +55,7 @@
 // -- [SUBSECT]: Platform Defines
 // ------------------------------------------------------------
 
+// platform
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	#ifndef LVN_PLATFORM_WINDOWS
 		#define LVN_PLATFORM_WINDOWS
@@ -87,7 +89,7 @@
   #define LVN_API
 #endif 
 
-// Compiler
+// compiler
 #ifdef _MSC_VER
 	#define LVN_ASSERT_BREAK __debugbreak()
 	#pragma warning (disable : 4267)
@@ -109,6 +111,12 @@
 	#define LVN_ASSERT_BREAK assert(false)
 #endif
 
+// api
+
+// glslang
+#ifdef LVN_INCLUDE_GLSLANG_SUPPORTED
+	#define LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
+#endif
 
 // -- [SUBSECT]: Debug Defines
 // ------------------------------------------------------------
@@ -133,6 +141,22 @@
 #endif
 
 
+// -- [SUBSECT]: Memory Alloc Defines
+// ------------------------------------------------------------
+
+#ifndef LVN_ALLOC
+	#define LVN_MALLOC(sz) ::lvn::memAlloc(sz)
+#endif
+
+#ifndef LVN_FREE
+	#define LVN_FREE(p) ::lvn::memFree(p)
+#endif
+
+#ifndef LVN_REALLOC
+	#define LVN_REALLOC(p,sz) ::lvn::memRealloc(p,sz)
+#endif
+
+
 // -- [SUBSECT]: Misc Defines
 // ------------------------------------------------------------
 
@@ -147,11 +171,12 @@
 #define LVN_STR(x) #x
 #define LVN_STRINGIFY(x) LVN_STR(x)
 
-#define LVN_PI 3.14159265f
-#define LVN_PI_EXACT (static_cast<double>(22.0/7.0)) /* 3.1415... */
+#ifndef M_PI
+	#define M_PI 3.1415926535897932384626433832795
+#endif
 
-#define LVN_ALLOC(x) lvn::memAlloc(x)
-#define LVN_FREE(x) lvn::memFree(x)
+#define LVN_PI ((float)M_PI)
+#define LVN_PI_EXACT (22.0/7.0) /* 3.1415... */
 
 
 // -- [SUBSECT]: Includes

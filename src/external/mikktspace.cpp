@@ -21,6 +21,10 @@
  *  3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "levikno.h"
+#define MIKKTS_MALLOC(sz)  LVN_MALLOC(sz)
+#define MIKKTS_FREE(p)     LVN_FREE(p)
+
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -258,12 +262,12 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 	if (iNrTrianglesIn<=0) return TFALSE;
 
 	// allocate memory for an index list
-	piTriListIn = (int *) malloc(sizeof(int)*3*iNrTrianglesIn);
-	pTriInfos = (STriInfo *) malloc(sizeof(STriInfo)*iNrTrianglesIn);
+	piTriListIn = (int *) MIKKTS_MALLOC(sizeof(int)*3*iNrTrianglesIn);
+	pTriInfos = (STriInfo *) MIKKTS_MALLOC(sizeof(STriInfo)*iNrTrianglesIn);
 	if (piTriListIn==NULL || pTriInfos==NULL)
 	{
-		if (piTriListIn!=NULL) free(piTriListIn);
-		if (pTriInfos!=NULL) free(pTriInfos);
+		if (piTriListIn!=NULL) MIKKTS_FREE(piTriListIn);
+		if (pTriInfos!=NULL) MIKKTS_FREE(pTriInfos);
 		return TFALSE;
 	}
 
@@ -310,14 +314,14 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 	
 	// based on the 4 rules, identify groups based on connectivity
 	iNrMaxGroups = iNrTrianglesIn*3;
-	pGroups = (SGroup *) malloc(sizeof(SGroup)*iNrMaxGroups);
-	piGroupTrianglesBuffer = (int *) malloc(sizeof(int)*iNrTrianglesIn*3);
+	pGroups = (SGroup *) MIKKTS_MALLOC(sizeof(SGroup)*iNrMaxGroups);
+	piGroupTrianglesBuffer = (int *) MIKKTS_MALLOC(sizeof(int)*iNrTrianglesIn*3);
 	if (pGroups==NULL || piGroupTrianglesBuffer==NULL)
 	{
-		if (pGroups!=NULL) free(pGroups);
-		if (piGroupTrianglesBuffer!=NULL) free(piGroupTrianglesBuffer);
-		free(piTriListIn);
-		free(pTriInfos);
+		if (pGroups!=NULL) MIKKTS_FREE(pGroups);
+		if (piGroupTrianglesBuffer!=NULL) MIKKTS_FREE(piGroupTrianglesBuffer);
+		MIKKTS_FREE(piTriListIn);
+		MIKKTS_FREE(pTriInfos);
 		return TFALSE;
 	}
 	//printf("gen 4rule groups begin\n");
@@ -327,13 +331,13 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 
 	//
 
-	psTspace = (STSpace *) malloc(sizeof(STSpace)*iNrTSPaces);
+	psTspace = (STSpace *) MIKKTS_MALLOC(sizeof(STSpace)*iNrTSPaces);
 	if (psTspace==NULL)
 	{
-		free(piTriListIn);
-		free(pTriInfos);
-		free(pGroups);
-		free(piGroupTrianglesBuffer);
+		MIKKTS_FREE(piTriListIn);
+		MIKKTS_FREE(pTriInfos);
+		MIKKTS_FREE(pGroups);
+		MIKKTS_FREE(piGroupTrianglesBuffer);
 		return TFALSE;
 	}
 	memset(psTspace, 0, sizeof(STSpace)*iNrTSPaces);
@@ -351,13 +355,13 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 	//printf("gen tspaces end\n");
 	
 	// clean up
-	free(pGroups);
-	free(piGroupTrianglesBuffer);
+	MIKKTS_FREE(pGroups);
+	MIKKTS_FREE(piGroupTrianglesBuffer);
 
 	if (!bRes)	// if an allocation in GenerateTSpaces() failed
 	{
 		// clean up and return false
-		free(pTriInfos); free(piTriListIn); free(psTspace);
+		MIKKTS_FREE(pTriInfos); MIKKTS_FREE(piTriListIn); MIKKTS_FREE(psTspace);
 		return TFALSE;
 	}
 
@@ -368,7 +372,7 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 	// with the same welded index in piTriListIn[].
 	DegenEpilogue(psTspace, pTriInfos, piTriListIn, pContext, iNrTrianglesIn, iTotTris);
 
-	free(pTriInfos); free(piTriListIn);
+	MIKKTS_FREE(pTriInfos); MIKKTS_FREE(piTriListIn);
 
 	index = 0;
 	for (f=0; f<iNrFaces; f++)
@@ -413,7 +417,7 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 		}
 	}
 
-	free(psTspace);
+	MIKKTS_FREE(psTspace);
 
 	
 	return TTRUE;
@@ -488,17 +492,17 @@ static void GenerateSharedVerticesIndexList(int piTriList_in_and_out[], const SM
 	}
 
 	// make allocations
-	piHashTable = (int *) malloc(sizeof(int)*iNrTrianglesIn*3);
-	piHashCount = (int *) malloc(sizeof(int)*g_iCells);
-	piHashOffsets = (int *) malloc(sizeof(int)*g_iCells);
-	piHashCount2 = (int *) malloc(sizeof(int)*g_iCells);
+	piHashTable = (int *) MIKKTS_MALLOC(sizeof(int)*iNrTrianglesIn*3);
+	piHashCount = (int *) MIKKTS_MALLOC(sizeof(int)*g_iCells);
+	piHashOffsets = (int *) MIKKTS_MALLOC(sizeof(int)*g_iCells);
+	piHashCount2 = (int *) MIKKTS_MALLOC(sizeof(int)*g_iCells);
 
 	if (piHashTable==NULL || piHashCount==NULL || piHashOffsets==NULL || piHashCount2==NULL)
 	{
-		if (piHashTable!=NULL) free(piHashTable);
-		if (piHashCount!=NULL) free(piHashCount);
-		if (piHashOffsets!=NULL) free(piHashOffsets);
-		if (piHashCount2!=NULL) free(piHashCount2);
+		if (piHashTable!=NULL) MIKKTS_FREE(piHashTable);
+		if (piHashCount!=NULL) MIKKTS_FREE(piHashCount);
+		if (piHashOffsets!=NULL) MIKKTS_FREE(piHashOffsets);
+		if (piHashCount2!=NULL) MIKKTS_FREE(piHashCount2);
 		GenerateSharedVerticesIndexListSlow(piTriList_in_and_out, pContext, iNrTrianglesIn);
 		return;
 	}
@@ -536,14 +540,14 @@ static void GenerateSharedVerticesIndexList(int piTriList_in_and_out[], const SM
 	}
 	for (k=0; k<g_iCells; k++)
 		assert(piHashCount2[k] == piHashCount[k]);	// verify the count
-	free(piHashCount2);
+	MIKKTS_FREE(piHashCount2);
 
 	// find maximum amount of entries in any hash entry
 	iMaxCount = piHashCount[0];
 	for (k=1; k<g_iCells; k++)
 		if (iMaxCount<piHashCount[k])
 			iMaxCount=piHashCount[k];
-	pTmpVert = (STmpVert *) malloc(sizeof(STmpVert)*iMaxCount);
+	pTmpVert = (STmpVert *) MIKKTS_MALLOC(sizeof(STmpVert)*iMaxCount);
 	
 
 	// complete the merge
@@ -569,10 +573,10 @@ static void GenerateSharedVerticesIndexList(int piTriList_in_and_out[], const SM
 			MergeVertsSlow(piTriList_in_and_out, pContext, pTable, iEntries);
 	}
 
-	if (pTmpVert!=NULL) { free(pTmpVert); }
-	free(piHashTable);
-	free(piHashCount);
-	free(piHashOffsets);
+	if (pTmpVert!=NULL) { MIKKTS_FREE(pTmpVert); }
+	MIKKTS_FREE(piHashTable);
+	MIKKTS_FREE(piHashCount);
+	MIKKTS_FREE(piHashOffsets);
 }
 
 static void MergeVertsFast(int piTriList_in_and_out[], STmpVert pTmpVert[], const SMikkTSpaceContext * pContext, const int iL_in, const int iR_in)
@@ -1048,14 +1052,14 @@ static void InitTriInfo(STriInfo pTriInfos[], const int piTriListIn[], const SMi
 	
 	// match up edge pairs
 	{
-		SEdge * pEdges = (SEdge *) malloc(sizeof(SEdge)*iNrTrianglesIn*3);
+		SEdge * pEdges = (SEdge *) MIKKTS_MALLOC(sizeof(SEdge)*iNrTrianglesIn*3);
 		if (pEdges==NULL)
 			BuildNeighborsSlow(pTriInfos, piTriListIn, iNrTrianglesIn);
 		else
 		{
 			BuildNeighborsFast(pTriInfos, pEdges, piTriListIn, iNrTrianglesIn);
 	
-			free(pEdges);
+			MIKKTS_FREE(pEdges);
 		}
 	}
 }
@@ -1210,14 +1214,14 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 	if (iMaxNrFaces == 0) return TTRUE;
 
 	// make initial allocations
-	pSubGroupTspace = (STSpace *) malloc(sizeof(STSpace)*iMaxNrFaces);
-	pUniSubGroups = (SSubGroup *) malloc(sizeof(SSubGroup)*iMaxNrFaces);
-	pTmpMembers = (int *) malloc(sizeof(int)*iMaxNrFaces);
+	pSubGroupTspace = (STSpace *) MIKKTS_MALLOC(sizeof(STSpace)*iMaxNrFaces);
+	pUniSubGroups = (SSubGroup *) MIKKTS_MALLOC(sizeof(SSubGroup)*iMaxNrFaces);
+	pTmpMembers = (int *) MIKKTS_MALLOC(sizeof(int)*iMaxNrFaces);
 	if (pSubGroupTspace==NULL || pUniSubGroups==NULL || pTmpMembers==NULL)
 	{
-		if (pSubGroupTspace!=NULL) free(pSubGroupTspace);
-		if (pUniSubGroups!=NULL) free(pUniSubGroups);
-		if (pTmpMembers!=NULL) free(pTmpMembers);
+		if (pSubGroupTspace!=NULL) MIKKTS_FREE(pSubGroupTspace);
+		if (pUniSubGroups!=NULL) MIKKTS_FREE(pUniSubGroups);
+		if (pTmpMembers!=NULL) MIKKTS_FREE(pTmpMembers);
 		return TFALSE;
 	}
 
@@ -1307,16 +1311,16 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 			if (!bFound)
 			{
 				// insert new subgroup
-				int * pIndices = (int *) malloc(sizeof(int)*iMembers);
+				int * pIndices = (int *) MIKKTS_MALLOC(sizeof(int)*iMembers);
 				if (pIndices==NULL)
 				{
 					// clean up and return false
 					int s=0;
 					for (s=0; s<iUniqueSubGroups; s++)
-						free(pUniSubGroups[s].pTriMembers);
-					free(pUniSubGroups);
-					free(pTmpMembers);
-					free(pSubGroupTspace);
+						MIKKTS_FREE(pUniSubGroups[s].pTriMembers);
+					MIKKTS_FREE(pUniSubGroups);
+					MIKKTS_FREE(pTmpMembers);
+					MIKKTS_FREE(pSubGroupTspace);
 					return TFALSE;
 				}
 				pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers;
@@ -1352,14 +1356,14 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 
 		// clean up and offset iUniqueTspaces
 		for (s=0; s<iUniqueSubGroups; s++)
-			free(pUniSubGroups[s].pTriMembers);
+			MIKKTS_FREE(pUniSubGroups[s].pTriMembers);
 		iUniqueTspaces += iUniqueSubGroups;
 	}
 
 	// clean up
-	free(pUniSubGroups);
-	free(pTmpMembers);
-	free(pSubGroupTspace);
+	MIKKTS_FREE(pUniSubGroups);
+	MIKKTS_FREE(pTmpMembers);
+	MIKKTS_FREE(pSubGroupTspace);
 
 	return TTRUE;
 }

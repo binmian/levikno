@@ -19,16 +19,12 @@ set(LVN_ARCHITEXTURE_TYPE x64)
 # Platform
 if (WIN32)
 	add_definitions(-DLVN_PLATFORM_WINDOWS)
-	set(PLATFORM_TYPE windows)
 
 elseif(APPLE)
 	add_definitions(-DLVN_PLATFORM_MACOS)
-	set(PLATFORM_TYPE macos)
 
 elseif(UNIX AND NOT APPLE)
 	add_definitions(-DLVN_PLATFORM_LINUX)
-	set(PLATFORM_TYPE linux)
-
 else()
 	add_definitions(-DLVN_PLATFORM_UNKNOWN)
 endif()
@@ -56,28 +52,31 @@ if(Vulkan_FOUND)
 	)
 
 	# Find glslang
-	find_package(glslang CONFIG REQUIRED)
+	find_package(glslang CONFIG)
 
 	if (TARGET glslang::glslang)
 		message("glslang found")
+		set(LVN_USE_GLSLANG)
 	else()
-		message("cannot find glslang, please make sure that glslang is installed before building")
+		message("cannot find glslang, skipping glslang source compile features")
 	endif()
 
 	if (TARGET glslang::SPIRV)
 		message("glslang-SPIRV found")
 	else()
-		message("cannot find SPIRV, please make sure that SPIRV and glslang are installed before building")
+		message("cannot find SPIRV, skipping glslang source compile features")
 	endif()
 
-	set(LVN_VULKAN_LIBS
-		Vulkan::Vulkan
-		glslang::glslang
-		glslang::SPIRV
-	)
+	# include libs
+	set(LVN_VULKAN_LIBS Vulkan::Vulkan)
+
+	if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
+		add_definitions(-DLVN_INCLUDE_GLSLANG_SUPPORTED)
+		list(APPEND LVN_VULKAN_LIBS glslang::glslang glslang::SPIRV)
+	endif()
 
 else()
-	message("cannot find Vulkan")
+	message("cannot find Vulkan, skipping vulkan")
 endif()
 
 
@@ -111,20 +110,19 @@ set(LVN_EXTERNAL_SRC
 	src/external/vk_mem_alloc.h
 
 	# stb
-	src/external/stb_image.c
 	src/external/stb_image.h
-	src/external/stb_image_write.c
 	src/external/stb_image_write.h
+	src/external/stb_impl.cpp
 
 	# json
 	src/external/json.h
 
 	# miniaudio
-	src/external/miniaudio.c
+	src/external/miniaudio.cpp
 	src/external/miniaudio.h
 
 	# mikktspace
-	src/external/mikktspace.c
+	src/external/mikktspace.cpp
 	src/external/mikktspace.h
 )
 
@@ -208,9 +206,14 @@ target_compile_definitions(levikno PRIVATE
 	$<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
 )
 
+if (WIN32)
+	set(LVN_PLATFORM_LIBS ws2_32.lib winmm.lib)
+endif()
+
 target_link_libraries(levikno
 	PRIVATE
 		${LVN_VULKAN_LIBS}
+		${LVN_PLATFORM_LIBS}
 )
 
 # Build examples
