@@ -3,7 +3,7 @@
 
 
 // ------------------------------------------------------------
-// Layout:
+// Layout: levikno.h
 // ------------------------------------------------------------
 //
 // [SECTION]: Config
@@ -1254,6 +1254,7 @@ typedef LvnQuat_t<unsigned int>        LvnQuatui;
 typedef LvnQuat_t<float>               LvnQuatf;
 typedef LvnQuat_t<double>              LvnQuatd;
 
+
 // ------------------------------------------------------------
 // [SECTION]: Functions
 // ------------------------------------------------------------
@@ -1674,7 +1675,7 @@ namespace lvn
     LVN_API void                        drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnColor& color);
     LVN_API void                        drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, uint32_t nSides, const LvnColor& color);
     LVN_API void                        drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale);
-    LVN_API void                        drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHieght, float textBoxWidth);
+    LVN_API void                        drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHeight, float textBoxWidth);
 
 
     // -- [SUBSECT]: ECS Functions
@@ -1762,7 +1763,7 @@ namespace lvn
 
     template <typename T>
     LVN_API bool                        within(T num, T within, T range) { return num <= (within + range) && num >= (within - range); }
-    
+
     template <typename T>
     LVN_API bool                        within(T num, T within, T lowerRange, T upperRange) { return num <= (within + upperRange) && num >= (within - lowerRange); }
 

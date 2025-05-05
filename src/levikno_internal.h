@@ -5,13 +5,35 @@
 
 #include <set>
 
+// ------------------------------------------------------------
+// Layout: levikno_internal.h
+// ------------------------------------------------------------
+//
+// [SECTION]: Core Internal Structs
+// -- [SUBSECT]: Internal Data Structures
+// -- [SUBSECT]: Logging Data Structures
+// [SECTION]: Window Internal Structs
+// -- [SUBSECT]: Event Data Structures
+// -- [SUBSECT]: Window Data Structures
+// -- [SUBSECT]: Window Context Structure
+// [SECTION]: Graphics Internal Structs
+// -- [SUBSECT]: Graphics Context
+// -- [SUBSECT]: Draw Command Buffer Structures
+// -- [SUBSECT]: General Graphics Structures
+// [SECTION]: Context Internal Structs
+// -- [SUBSECT]: Memory Alloc Structures
+// -- [SUBSECT]: Renderer Structures
+// -- [SUBSECT]: Context Structure
+// [SECTION]: Internal Functions
+
+
 
 // ------------------------------------------------------------
-// [SECTION]: Core Internal structs
+// [SECTION]: Core Internal Structs
 // ------------------------------------------------------------
 
 
-// [SUBSECT]: -- Internal Data Structures
+// -- [SUBSECT]: Internal Data Structures
 // ------------------------------------------------------------
 
 template <typename T>
@@ -317,7 +339,7 @@ typedef LvnIDQueue<uint32_t> LvnIDQueue32;
 typedef LvnIDQueue<uint64_t> LvnIDQueue64;
 
 
-// [SUBSECT]: -- Logging
+// -- [SUBSECT]: Logging Data Structures
 // ------------------------------------------------------------
 
 struct LvnLogger
@@ -332,12 +354,12 @@ struct LvnLogger
 
 
 // ------------------------------------------------------------
-// [SECTION]: Window Internal structs
+// [SECTION]: Window Internal Structs
 // ------------------------------------------------------------
 
-
-// [SUBSECT]: -- Events
+// -- [SUBSECT]: Event Data Structures
 // ------------------------------------------------------------
+
 struct LvnEvent
 {
     LvnEventType type;
@@ -366,8 +388,9 @@ struct LvnEvent
 };
 
 
-// [SUBSECT]: -- Windows
+// -- [SUBSECT]: Window Data Structures
 // ------------------------------------------------------------
+
 struct LvnWindowData
 {                                        // [Same use with LvnWindowCreateinfo]
     int width, height;                   // width and height of window
@@ -407,6 +430,10 @@ struct LvnWindow
     std::vector<uint8_t> cmdBuffer;  // command buffer to store draw commands in byte data
 };
 
+
+// -- [SUBSECT]: Window Context Structure
+// ------------------------------------------------------------
+
 struct LvnWindowContext
 {
     LvnWindowApi        windowapi;    /* window api enum */
@@ -443,7 +470,10 @@ struct LvnWindowContext
 
 
 // ------------------------------------------------------------
-// [SECTION]: Graphics Internal structs
+// [SECTION]: Graphics Internal Structs
+// ------------------------------------------------------------
+
+// -- [SUBSECT]: Graphics Context
 // ------------------------------------------------------------
 
 struct LvnGraphicsContext
@@ -519,6 +549,10 @@ struct LvnPhysicalDevice
     LvnPhysicalDeviceFeatures features;
     void* physicalDevice;
 };
+
+
+// -- [SUBSECT]: Draw Command Buffer Structures
+// ------------------------------------------------------------
 
 struct LvnDrawCmdHeader
 {
@@ -633,6 +667,10 @@ struct LvnCmdEndFrameBuffer
     LvnFrameBuffer* frameBuffer;
 };
 
+
+// -- [SUBSECT]: General Graphics Structures
+// ------------------------------------------------------------
+
 struct LvnShader
 {
     void* nativeVertexShaderModule;
@@ -720,7 +758,10 @@ struct LvnCubemap
 
 
 // ------------------------------------------------------------
-// [SECTION]: Context Internal structs
+// [SECTION]: Context Internal Structs
+// ------------------------------------------------------------
+
+// -- [SUBSECT]: Memory Alloc Structures
 // ------------------------------------------------------------
 
 struct LvnStructureTypeInfo
@@ -740,6 +781,10 @@ struct LvnObjectMemAllocCount
 
     std::vector<LvnStructCounts> sTypes;
 };
+
+
+// -- [SUBSECT]: Renderer Structures
+// ------------------------------------------------------------
 
 struct LvnRenderMode
 {
@@ -770,6 +815,10 @@ struct LvnRenderer
     LvnTexture* defaultFontTexture;
     std::vector<LvnRenderMode> renderModes;
 };
+
+
+// -- [SUBSECT]: Context Structure
+// ------------------------------------------------------------
 
 struct LvnContext
 {
@@ -815,5 +864,30 @@ struct LvnContext
 
 };
 
+
+// ------------------------------------------------------------
+// [SECTION]: Internal Functions
+// ------------------------------------------------------------
+
+template<typename T> struct LvnRemoveReference { using type = T; };
+template<typename T> struct LvnRemoveReference<T&> { using type = T; };
+template<typename T> struct LvnRemoveReference<T&&> { using type = T; };
+
+namespace lvn
+{
+    template <typename T>
+    LVN_API constexpr typename LvnRemoveReference<T>::type&& move(T&& arg)
+    {
+        return static_cast<typename LvnRemoveReference<T>::type&&>(arg);
+    }
+
+    template <typename T>
+    LVN_API void swap(T& arg1, T& arg2)
+    {
+        T temp = lvn::move(arg1);
+        arg1 = lvn::move(arg2);
+        arg2 = lvn::move(temp);
+    }
+}
 
 #endif

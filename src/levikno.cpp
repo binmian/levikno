@@ -3326,7 +3326,7 @@ void imageFlipHorizontally(LvnImageData& imageData)
             uint8_t* rightpx = row + (imageData.width - x - 1) * imageData.channels;
 
             for (uint32_t c = 0; c < imageData.channels; c++)
-                std::swap(leftpx[c], rightpx[c]);
+                lvn::swap(leftpx[c], rightpx[c]);
         }
     }
 }
@@ -3354,8 +3354,8 @@ void imageRotateCW(LvnImageData& imageData)
         }
     }
 
-    imageData.pixels = std::move(LvnData<uint8_t>(rotated.data(), rotated.size()));
-    std::swap(imageData.width, imageData.height);
+    imageData.pixels = lvn::move(LvnData<uint8_t>(rotated.data(), rotated.size()));
+    lvn::swap(imageData.width, imageData.height);
 }
 
 void imageRotateCCW(LvnImageData& imageData)
@@ -3381,8 +3381,8 @@ void imageRotateCCW(LvnImageData& imageData)
         }
     }
 
-    imageData.pixels = std::move(LvnData<uint8_t>(rotated.data(), rotated.size()));
-    std::swap(imageData.width, imageData.height);
+    imageData.pixels = lvn::move(LvnData<uint8_t>(rotated.data(), rotated.size()));
+    lvn::swap(imageData.width, imageData.height);
 }
 
 LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed)

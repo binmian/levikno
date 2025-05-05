@@ -753,14 +753,14 @@ void drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float
     drawTextEx(text, pos, color, scale, 2.0f, 0.0f);
 }
 
-void drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHieght, float textBoxWidth)
+void drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHeight, float textBoxWidth)
 {
     LvnRenderer* renderer = lvn::getContext()->renderer.get();
     LvnVec2 pen = pos;
     float sentenceLength = 0.0f;
 
-    if (lineHieght < 0)
-        lineHieght = 0;
+    if (lineHeight < 0)
+        lineHeight = 0;
 
     for (uint32_t i = 0; i < strlen(text);)
     {
@@ -771,7 +771,7 @@ void drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, flo
 
         if (codepoint == '\n')
         {
-            pen.y -= (renderer->defaultFont.fontSize + lineHieght) * scale;
+            pen.y -= (renderer->defaultFont.fontSize + lineHeight) * scale;
             pen.x = pos.x;
             continue;
         }
@@ -794,7 +794,7 @@ void drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, flo
 
             if (sentenceLength + wordLength > textBoxWidth)
             {
-                pen.y -= (renderer->defaultFont.fontSize + lineHieght) * scale;
+                pen.y -= (renderer->defaultFont.fontSize + lineHeight) * scale;
                 pen.x = pos.x;
                 sentenceLength = 0;
 
