@@ -5,12 +5,12 @@
 
 namespace lvn
 {
-	// gltf/glb
-	LvnModel loadGltfModel(const char* filepath);
-	LvnModel loadGlbModel(const char* filepath);
+    // gltf/glb
+    LvnModel loadGltfModel(const char* filepath);
+    LvnModel loadGlbModel(const char* filepath);
 
-	// wavefront obj
-	LvnModel loadObjModel(const char* filepath);
+    // wavefront obj
+    LvnModel loadObjModel(const char* filepath);
 }
 
 #endif

@@ -19,22 +19,22 @@ set(LVN_ARCHITEXTURE_TYPE x64)
 
 # Platform
 if (WIN32)
-	add_definitions(-DLVN_PLATFORM_WINDOWS)
+    add_definitions(-DLVN_PLATFORM_WINDOWS)
 
 elseif(APPLE)
-	add_definitions(-DLVN_PLATFORM_MACOS)
+    add_definitions(-DLVN_PLATFORM_MACOS)
 
 elseif(UNIX AND NOT APPLE)
-	add_definitions(-DLVN_PLATFORM_LINUX)
+    add_definitions(-DLVN_PLATFORM_LINUX)
 else()
-	add_definitions(-DLVN_PLATFORM_UNKNOWN)
+    add_definitions(-DLVN_PLATFORM_UNKNOWN)
 endif()
 
 # build shared
 if (BUILD_SHARED_LIBS)
-	set(CMAKE_C_VISIBILITY_PRESET hidden)
-	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-	set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+    set(CMAKE_C_VISIBILITY_PRESET hidden)
+    set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+    set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 endif()
 
 
@@ -43,97 +43,97 @@ set(MIN_VULKAN_VERSION 1.2)
 find_package(Vulkan ${MIN_VULKAN_VERSION})
 
 if(Vulkan_FOUND)
-	message("Vulkan found")
-	add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
+    message("Vulkan found")
+    add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
 
-	set (LVN_VULKAN_SRC
-		src/api/graphics/vulkan/lvn_vulkan.cpp
-		src/api/graphics/vulkan/lvn_vulkan.h
-		src/api/graphics/vulkan/lvn_vulkanBackends.h
-	)
+    set (LVN_VULKAN_SRC
+        src/api/graphics/vulkan/lvn_vulkan.cpp
+        src/api/graphics/vulkan/lvn_vulkan.h
+        src/api/graphics/vulkan/lvn_vulkanBackends.h
+    )
 
-	# Find glslang
-	find_package(glslang CONFIG)
+    # Find glslang
+    find_package(glslang CONFIG)
 
-	# include libs
-	set(LVN_VULKAN_LIBS Vulkan::Vulkan)
+    # include libs
+    set(LVN_VULKAN_LIBS Vulkan::Vulkan)
 
-	if (LVN_INCLUDE_GLSLANG)
-		if (TARGET glslang::glslang)
-			message("glslang found")
-			set(LVN_USE_GLSLANG)
-		else()
-			message("cannot find glslang, skipping glslang source compile features")
-		endif()
+    if (LVN_INCLUDE_GLSLANG)
+        if (TARGET glslang::glslang)
+            message("glslang found")
+            set(LVN_USE_GLSLANG)
+        else()
+            message("cannot find glslang, skipping glslang source compile features")
+        endif()
 
-		if (TARGET glslang::SPIRV)
-			message("glslang-SPIRV found")
-		else()
-			message("cannot find SPIRV, skipping glslang source compile features")
-		endif()
+        if (TARGET glslang::SPIRV)
+            message("glslang-SPIRV found")
+        else()
+            message("cannot find SPIRV, skipping glslang source compile features")
+        endif()
 
-		if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
-			add_definitions(-DLVN_INCLUDE_GLSLANG_SUPPORTED)
-			list(APPEND LVN_VULKAN_LIBS glslang::glslang glslang::SPIRV)
-		endif()
-	endif()
+        if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
+            add_definitions(-DLVN_INCLUDE_GLSLANG_SUPPORTED)
+            list(APPEND LVN_VULKAN_LIBS glslang::glslang glslang::SPIRV)
+        endif()
+    endif()
 
 else()
-	message("cannot find Vulkan, skipping vulkan")
+    message("cannot find Vulkan, skipping vulkan")
 endif()
 
 
 # Source build files
 
 set(LVN_API_SRC
-	# glfw
-	src/api/window/glfw/lvn_glfw.cpp
-	src/api/window/glfw/lvn_glfw.h
+    # glfw
+    src/api/window/glfw/lvn_glfw.cpp
+    src/api/window/glfw/lvn_glfw.h
 
-	# loaders
-	src/api/loaders/lvn_loader_gltf.cpp
-	src/api/loaders/lvn_loader_obj.cpp
-	src/api/loaders/lvn_loaders.h
+    # loaders
+    src/api/loaders/lvn_loader_gltf.cpp
+    src/api/loaders/lvn_loader_obj.cpp
+    src/api/loaders/lvn_loaders.h
 
-	# opengl
-	src/api/graphics/opengl/lvn_opengl.cpp
-	src/api/graphics/opengl/lvn_opengl.h
-	src/api/graphics/opengl/lvn_openglBackends.h
+    # opengl
+    src/api/graphics/opengl/lvn_opengl.cpp
+    src/api/graphics/opengl/lvn_opengl.h
+    src/api/graphics/opengl/lvn_openglBackends.h
 
-	# vulkan
-	${LVN_VULKAN_SRC}
+    # vulkan
+    ${LVN_VULKAN_SRC}
 )
 
 set(LVN_EXTERNAL_SRC
-	# glad
-	src/external/glad/include/glad/glad.h
-	src/external/glad/src/glad.c
+    # glad
+    src/external/glad/include/glad/glad.h
+    src/external/glad/src/glad.c
 
-	# vma
-	src/external/vk_mem_alloc.h
+    # vma
+    src/external/vk_mem_alloc.h
 
-	# stb
-	src/external/stb_image.h
-	src/external/stb_image_write.h
-	src/external/stb_impl.cpp
+    # stb
+    src/external/stb_image.h
+    src/external/stb_image_write.h
+    src/external/stb_impl.cpp
 
-	# json
-	src/external/json.h
+    # json
+    src/external/json.h
 
-	# miniaudio
-	src/external/miniaudio.cpp
-	src/external/miniaudio.h
+    # miniaudio
+    src/external/miniaudio.cpp
+    src/external/miniaudio.h
 
-	# mikktspace
-	src/external/mikktspace.cpp
-	src/external/mikktspace.h
+    # mikktspace
+    src/external/mikktspace.cpp
+    src/external/mikktspace.h
 )
 
 set(LVN_SRC
-	include/levikno/levikno.h
-	src/levikno.cpp
-	src/levikno_internal.h
-	src/lvn_renderer.cpp
+    include/levikno/levikno.h
+    src/levikno.cpp
+    src/levikno_internal.h
+    src/lvn_renderer.cpp
 )
 
 
@@ -177,49 +177,49 @@ include_directories(BEFORE SYSTEM src/external/enet/include)
 
 # library
 add_library(levikno STATIC
-	${LVN_API_SRC}
-	${LVN_EXTERNAL_SRC}
-	${LVN_SRC}
+    ${LVN_API_SRC}
+    ${LVN_EXTERNAL_SRC}
+    ${LVN_SRC}
 )
 
 if (MSVC)
-	target_compile_options(levikno PRIVATE "/W2")
+    target_compile_options(levikno PRIVATE "/W2")
 elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
-	target_compile_options(levikno PRIVATE -w)
+    target_compile_options(levikno PRIVATE -w)
 endif()
 
 
 target_include_directories(levikno
-	PRIVATE
-		src
-		include/levikno
-		src/api/graphics/vulkan
-		src/api/graphics/opengl
-		src/api/loaders
-		src/api/window/glfw
-		src/external
-		src/external/glad/include
-		src/external/vulkan/include
+    PRIVATE
+        src
+        include/levikno
+        src/api/graphics/vulkan
+        src/api/graphics/opengl
+        src/api/loaders
+        src/api/window/glfw
+        src/external
+        src/external/glad/include
+        src/external/vulkan/include
 )
 
 
 # Build definitions
 target_compile_definitions(levikno PRIVATE
-	$<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
-	$<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
+    $<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
+    $<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
 )
 
 if (WIN32)
-	set(LVN_PLATFORM_LIBS ws2_32.lib winmm.lib)
+    set(LVN_PLATFORM_LIBS ws2_32.lib winmm.lib)
 endif()
 
 target_link_libraries(levikno
-	PRIVATE
-		${LVN_VULKAN_LIBS}
-		${LVN_PLATFORM_LIBS}
+    PRIVATE
+        ${LVN_VULKAN_LIBS}
+        ${LVN_PLATFORM_LIBS}
 )
 
 # Build examples
 if(LVN_BUILD_EXAMPLES)
-	add_subdirectory(examples)
+    add_subdirectory(examples)
 endif()
