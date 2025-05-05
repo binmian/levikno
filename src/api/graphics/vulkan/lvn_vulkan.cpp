@@ -654,7 +654,7 @@ namespace vks
         {
             return capabilities->currentExtent;
         }
-        
+
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         VkExtent2D actualExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };

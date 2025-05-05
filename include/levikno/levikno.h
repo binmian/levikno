@@ -1670,8 +1670,11 @@ namespace lvn
     LVN_API void                        drawTriangle(const LvnVec2& v1, const LvnVec2& v2, const LvnVec2& v3, const LvnColor& color);
     LVN_API void                        drawRect(const LvnVec2& pos, const LvnVec2& size, const LvnColor& color);
     LVN_API void                        drawCircle(const LvnVec2& pos, float radius, const LvnColor& color);
+    LVN_API void                        drawCircleSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, const LvnColor& color);
     LVN_API void                        drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnColor& color);
+    LVN_API void                        drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, uint32_t nSides, const LvnColor& color);
     LVN_API void                        drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale);
+    LVN_API void                        drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHieght, float textBoxWidth);
 
 
     // -- [SUBSECT]: ECS Functions

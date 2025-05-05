@@ -340,7 +340,7 @@ static LvnFont getDefaultFont()
     imageData.size = 128 * 128 * 1;
 
     LvnFont font{};
-    font.fontSize = 13;
+    font.fontSize = 11; // default font max pixel height
     font.atlas = imageData;
     font.glyphs = LvnData<LvnFontGlyph>(glyphs, LVN_ARRAY_LEN(glyphs));
     font.codepoints = lvn::getDefaultSupportedCodepoints();
@@ -681,19 +681,36 @@ void drawRect(const LvnVec2& pos, const LvnVec2& size, const LvnColor& color)
 
 void drawCircle(const LvnVec2& pos, float radius, const LvnColor& color)
 {
-    lvn::drawPolyNgon(pos, radius, 36, color);
+    lvn::drawPolyNgonSector(pos, radius, 0, 360, 36, color);
+}
+
+void drawCircleSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, const LvnColor& color)
+{
+    lvn::drawPolyNgonSector(pos, radius, startAngle, endAngle, 36, color);
 }
 
 void drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnColor& color)
 {
-    if (nSides < 3)
+    lvn::drawPolyNgonSector(pos, radius, 0, 360, nSides, color);
+}
+
+void drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, uint32_t nSides, const LvnColor& color)
+{
+    if (startAngle == endAngle)
+        return;
+    if (radius <= 0.0f)
+        return;
+    if (nSides == 0)
         return;
 
-    std::vector<LvnVertexData2d> vertices(nSides + 1);
-    std::vector<uint32_t> indices(nSides * 3);
+    uint32_t minSides = (uint32_t)ceilf(abs(endAngle - startAngle)) / 90;
+    if (nSides < minSides)
+        nSides = minSides;
 
-    float twoPi = (float)(2 * M_PI);
-    float angle = twoPi / (float)nSides;
+    std::vector<LvnVertexData2d> vertices(nSides + 2);
+    std::vector<uint32_t> indices((nSides + 2) * 3);
+
+    float angle = lvn::radians(abs(endAngle - startAngle)) / (float)nSides;
 
     vertices[0] = { pos, color, {0.5f,0.5f} };
 
@@ -701,15 +718,24 @@ void drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnCo
     {
         float circlex = cos(i * angle);
         float circley = sin(i * angle);
-
         float posx = pos.x + (radius * circlex);
         float posy = pos.y + (radius * circley);
-
         vertices[i + 1] = { {posx,posy}, color, {(circlex + 1) * 0.5f , (circley + 1) * 0.5f} };
+
+        circlex = cos((i + 1) * angle);
+        circley = sin((i + 1) * angle);
+        posx = pos.x + (radius * circlex);
+        posy = pos.y + (radius * circley);
+        vertices[i + 2] = { {posx,posy}, color, {(circlex + 1) * 0.5f , (circley + 1) * 0.5f} };
+
         indices[i * 3 + 0] = (0);
         indices[i * 3 + 1] = (i + 1);
-        indices[i * 3 + 2] = (i + 1) % nSides + 1;
+        indices[i * 3 + 2] = (i + 2);
     }
+
+    // if full circle, connect last vertiex with first vertex of circle side to avoid precision errors
+    if ((uint32_t)abs(endAngle - startAngle) == 360)
+        indices.back() = indices[1];
 
     LvnDrawCommand drawCmd{};
     drawCmd.pVertices = vertices.data();
@@ -724,8 +750,17 @@ void drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnCo
 
 void drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale)
 {
+    drawTextEx(text, pos, color, scale, 2.0f, 0.0f);
+}
+
+void drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHieght, float textBoxWidth)
+{
     LvnRenderer* renderer = lvn::getContext()->renderer.get();
     LvnVec2 pen = pos;
+    float sentenceLength = 0.0f;
+
+    if (lineHieght < 0)
+        lineHieght = 0;
 
     for (uint32_t i = 0; i < strlen(text);)
     {
@@ -736,9 +771,39 @@ void drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float
 
         if (codepoint == '\n')
         {
-            pen.y -= renderer->defaultFont.fontSize * scale;
+            pen.y -= (renderer->defaultFont.fontSize + lineHieght) * scale;
             pen.x = pos.x;
             continue;
+        }
+
+        if (textBoxWidth > 0)
+        {
+            // get the length of the next word
+            float wordLength = 0.0f;
+            codePointBytes = 0;
+            for (uint32_t j = i; j < strlen(text);)
+            {
+                if (text[j] == ' ')
+                    break;
+
+                uint32_t wordcp = lvn::decodeCodepointUTF8(&text[j], &codePointBytes);
+                LvnFontGlyph wordGlyph = lvn::fontGetGlyph(renderer->defaultFont, wordcp);
+                j += codePointBytes;
+                wordLength += wordGlyph.advance * scale;
+            }
+
+            if (sentenceLength + wordLength > textBoxWidth)
+            {
+                pen.y -= (renderer->defaultFont.fontSize + lineHieght) * scale;
+                pen.x = pos.x;
+                sentenceLength = 0;
+
+                // if space char, skip drawing space on next line
+                if (codepoint == 32)
+                    continue;
+            }
+
+            sentenceLength += glyph.advance * scale;
         }
 
         float xpos = pen.x + glyph.bearing.x * scale;
