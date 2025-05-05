@@ -325,7 +325,6 @@ enum LvnStructureType
     Lvn_Stype_DescriptorLayout,
     Lvn_Stype_Pipeline,
     Lvn_Stype_Buffer,
-    Lvn_Stype_UniformBuffer,
     Lvn_Stype_Sampler,
     Lvn_Stype_Texture,
     Lvn_Stype_Cubemap,
@@ -982,8 +981,6 @@ struct LvnTextureCreateInfo;
 struct LvnTextureSamplerCreateInfo;
 struct LvnTransform;
 struct LvnTriangle;
-struct LvnUniformBuffer;
-struct LvnUniformBufferCreateInfo;
 struct LvnUniformBufferInfo;
 struct LvnVertex;
 struct LvnVertexAttribute;
@@ -1561,7 +1558,6 @@ namespace lvn
     LVN_API LvnResult                   createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* createInfo);                                  // create pipeline to describe shading specifications
     LVN_API LvnResult                   createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCreateInfo* createInfo);                      // create framebuffer to render images to
     LVN_API LvnResult                   createBuffer(LvnBuffer** buffer, const LvnBufferCreateInfo* createInfo);                                          // create a single buffer object that can hold both the vertex and index buffers
-    LVN_API LvnResult                   createUniformBuffer(LvnUniformBuffer** uniformBuffer, const LvnUniformBufferCreateInfo* createInfo);              // create a uniform buffer object to send changing data to the shader pipeline
     LVN_API LvnResult                   createSampler(LvnSampler** sampler, const LvnSamplerCreateInfo* createInfo);                                      // create a sampler object to store texture sampler data
     LVN_API LvnResult                   createTexture(LvnTexture** texture, const LvnTextureCreateInfo* createInfo);                                      // create a texture object to store image data
     LVN_API LvnResult                   createTexture(LvnTexture** texture, const LvnTextureSamplerCreateInfo* createInfo);                               // create a texture object to store image data given a sampler object
@@ -1574,7 +1570,6 @@ namespace lvn
     LVN_API void                        destroyPipeline(LvnPipeline* pipeline);                                                                           // destroy pipeline object
     LVN_API void                        destroyFrameBuffer(LvnFrameBuffer* frameBuffer);                                                                  // destroy framebuffer object
     LVN_API void                        destroyBuffer(LvnBuffer* buffer);                                                                                 // destory buffers object
-    LVN_API void                        destroyUniformBuffer(LvnUniformBuffer* uniformBuffer);                                                            // destroy uniform buffer object
     LVN_API void                        destroySampler(LvnSampler* sampler);                                                                              // destroy sampler object
     LVN_API void                        destroyTexture(LvnTexture* texture);                                                                              // destroy texture object
     LVN_API void                        destroyCubemap(LvnCubemap* cubemap);                                                                              // destroy cubemap object
@@ -1586,12 +1581,11 @@ namespace lvn
     LVN_API LvnPipelineSpecification    configPipelineSpecificationInit();
     LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
 
-    LVN_API void                        bufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
+    LVN_API void                        bufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset);
     LVN_API void                        bufferResize(LvnBuffer* buffer, uint64_t size);
 
     LVN_API LvnTexture*                 cubemapGetTextureData(LvnCubemap* cubemap);                                                                               // get the cubemap texture from the cubemap
 
-    LVN_API void                        updateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);                     // update the data stored in a uniform or storage buffer
     LVN_API void                        updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);           // update the descriptor content within a descroptor set
 
     LVN_API LvnTexture*                 frameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);                                               // get the texture image data (render pass attachment) from the framebuffer via the attachment index
@@ -5661,15 +5655,9 @@ struct LvnBufferCreateInfo
     const void* data;
 };
 
-struct LvnUniformBufferCreateInfo
-{
-    LvnBufferType type;
-    uint64_t size;
-};
-
 struct LvnUniformBufferInfo
 {
-    LvnUniformBuffer* buffer;
+    LvnBuffer* buffer;
     uint64_t range;
     uint64_t offset;
 };
@@ -5776,7 +5764,7 @@ struct LvnSkin
     std::string name;
     std::vector<LvnMat4> inverseBindMatrices;
     std::vector<LvnNode*> joints;
-    LvnUniformBuffer* ssbo;
+    LvnBuffer* ssbo;
 };
 
 struct LvnAnimationChannel

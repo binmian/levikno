@@ -2241,7 +2241,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->createPipeline = vksImplCreatePipeline;
     graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
     graphicsContext->createBuffer = vksImplCreateBuffer;
-    graphicsContext->createUniformBuffer = vksImplCreateUniformBuffer;
     graphicsContext->createSampler = vksImplCreateSampler;
     graphicsContext->createTexture = vksImplCreateTexture;
     graphicsContext->createTextureSampler = vksImplCreateTextureSampler;
@@ -2253,7 +2252,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->destroyPipeline = vksImplDestroyPipeline;
     graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
     graphicsContext->destroyBuffer = vksImplDestroyBuffer;
-    graphicsContext->destroyUniformBuffer = vksImplDestroyUniformBuffer;
     graphicsContext->destroySampler = vksImplDestroySampler;
     graphicsContext->destroyTexture = vksImplDestroyTexture;
     graphicsContext->destroyCubemap = vksImplDestroyCubemap;
@@ -2280,7 +2278,6 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->bufferUpdateData = vksImplBufferUpdateData;
     graphicsContext->bufferResize = vksImplBufferResize;
     graphicsContext->allocateDescriptorSet = vksImplAllocateDescriptorSet;
-    graphicsContext->updateUniformBufferData = vksImplUpdateUniformBufferData;
     graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
     graphicsContext->frameBufferGetImage = vksImplFrameBufferGetImage;
     graphicsContext->frameBufferGetRenderPass = vksImplFrameBufferGetRenderPass;
@@ -3102,6 +3099,10 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* crea
         usageFlags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     if (createInfo->type & Lvn_BufferType_Index)
         usageFlags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if (createInfo->type & Lvn_BufferType_Uniform)
+        usageFlags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if (createInfo->type & Lvn_BufferType_Storage)
+        usageFlags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
     // if buffer is static, transfer memory to gpu
     if (createInfo->usage == Lvn_BufferUsage_Static)
@@ -3151,25 +3152,6 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* crea
     buffer->type = createInfo->type;
     buffer->usage = createInfo->usage;
     buffer->size = createInfo->size;
-
-    return Lvn_Result_Success;
-}
-
-LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, const LvnUniformBufferCreateInfo* createInfo)
-{
-    VulkanBackends* vkBackends = s_VkBackends;
-
-    VkBuffer vkUniformBuffer;
-    VmaAllocation uniformBufferMemory;
-
-    VkBufferUsageFlags bufferUsageType = vks::getUniformBufferTypeEnum(createInfo->type);
-    vks::createBuffer(vkBackends, &vkUniformBuffer, &uniformBufferMemory, createInfo->size, bufferUsageType, VMA_MEMORY_USAGE_CPU_ONLY);
-
-    uniformBuffer->uniformBuffer = vkUniformBuffer;
-    uniformBuffer->uniformBufferMemory = uniformBufferMemory;
-    uniformBuffer->size = createInfo->size;
-
-    vmaMapMemory(vkBackends->vmaAllocator, uniformBufferMemory, &uniformBuffer->uniformBufferMapped);
 
     return Lvn_Result_Success;
 }
@@ -3745,18 +3727,6 @@ void vksImplDestroyBuffer(LvnBuffer* buffer)
     vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
 }
 
-void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
-{
-    VulkanBackends* vkBackends = s_VkBackends;
-    vkDeviceWaitIdle(vkBackends->device);
-
-    VkBuffer vkUniformBuffer = static_cast<VkBuffer>(uniformBuffer->uniformBuffer);
-    VmaAllocation uniformBufferMemory = static_cast<VmaAllocation>(uniformBuffer->uniformBufferMemory);
-    vkDestroyBuffer(vkBackends->device, vkUniformBuffer, nullptr);
-    vmaUnmapMemory(vkBackends->vmaAllocator, uniformBufferMemory);
-    vmaFreeMemory(vkBackends->vmaAllocator, uniformBufferMemory);
-}
-
 void vksImplDestroySampler(LvnSampler* sampler)
 {
     VulkanBackends* vkBackends = s_VkBackends;
@@ -3804,13 +3774,9 @@ void vksImplDestroyCubemap(LvnCubemap* cubemap)
     vkDestroySampler(vkBackends->device, textureSampler, nullptr);
 }
 
-void vksImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
+void vksImplBufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
-    VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
-    VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
-
-    memcpy((uint8_t*)buffer->bufferMap + offset, vertices, size);
+    memcpy((uint8_t*)buffer->bufferMap + offset, data, size);
 }
 
 void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
@@ -3834,11 +3800,6 @@ void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
 
     buffer->buffer = vkBuffer;
     buffer->bufferMemory = bufferMemory;
-}
-
-void vksImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
-{
-    memcpy(static_cast<uint8_t*>(uniformBuffer->uniformBufferMapped) + offset, data, size);
 }
 
 void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -3877,7 +3838,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
             // if descriptor using uniform buffers
             if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
             {
-                bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->uniformBuffer);
+                bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->buffer);
                 bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset; // offset buffer size for each frame in flight
                 bufferInfo.range = pUpdateInfo[i].bufferInfo->range;
                 descriptorWrite.pBufferInfo = &bufferInfo;

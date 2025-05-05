@@ -182,13 +182,15 @@ int main(int argc, char** argv)
 
     // [Create uniform buffer]
     // uniform buffer create info struct
-    LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
+    LvnBufferCreateInfo uniformBufferCreateInfo{};
     uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
+    uniformBufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
     uniformBufferCreateInfo.size = sizeof(UniformData);
+    uniformBufferCreateInfo.data = nullptr;
 
     // create uniform buffer
-    LvnUniformBuffer* uniformBuffer;
-    lvn::createUniformBuffer(&uniformBuffer, &uniformBufferCreateInfo);
+    LvnBuffer* uniformBuffer;
+    lvn::createBuffer(&uniformBuffer, &uniformBufferCreateInfo);
 
 
     // update descriptor set
@@ -222,7 +224,7 @@ int main(int argc, char** argv)
         LvnMat4 camera = proj * view;
 
         uniformData.matrix = camera;
-        lvn::updateUniformBufferData(uniformBuffer, &uniformData, sizeof(UniformData), 0);
+        lvn::bufferUpdateData(uniformBuffer, &uniformData, sizeof(UniformData), 0);
 
         // get next window swapchain image
         lvn::renderBeginNextFrame(window);
@@ -253,7 +255,7 @@ int main(int argc, char** argv)
     // destroy objects after they are finished being used
     lvn::destroyBuffer(vertexBuffer);
     lvn::destroyBuffer(indexBuffer);
-    lvn::destroyUniformBuffer(uniformBuffer);
+    lvn::destroyBuffer(uniformBuffer);
     lvn::destroyPipeline(pipeline);
     lvn::destroyDescriptorLayout(descriptorLayout);
     lvn::destroyWindow(window);

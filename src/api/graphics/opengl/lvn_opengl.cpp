@@ -742,7 +742,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->createPipeline = oglsImplCreatePipeline;
     graphicsContext->createFrameBuffer = oglsImplCreateFrameBuffer;
     graphicsContext->createBuffer = oglsImplCreateBuffer;
-    graphicsContext->createUniformBuffer = oglsImplCreateUniformBuffer;
     graphicsContext->createSampler = oglsImplCreateSampler;
     graphicsContext->createTexture = oglsImplCreateTexture;
     graphicsContext->createTextureSampler = oglsImplCreateTextureSampler;
@@ -754,7 +753,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->destroyPipeline = oglsImplDestroyPipeline;
     graphicsContext->destroyFrameBuffer = oglsImplDestroyFrameBuffer;
     graphicsContext->destroyBuffer = oglsImplDestroyBuffer;
-    graphicsContext->destroyUniformBuffer = oglsImplDestroyUniformBuffer;
     graphicsContext->destroySampler = oglsImplDestroySampler;
     graphicsContext->destroyTexture = oglsImplDestroyTexture;
     graphicsContext->destroyCubemap = oglsImplDestroyCubemap;
@@ -802,7 +800,6 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->bufferUpdateData = oglsImplBufferUpdateData;
     graphicsContext->bufferResize = oglsImplBufferResize;
     graphicsContext->allocateDescriptorSet = oglsImplAllocateDescriptorSet;
-    graphicsContext->updateUniformBufferData = oglsImplUpdateUniformBufferData;
     graphicsContext->updateDescriptorSetData = oglsImplUpdateDescriptorSetData;
     graphicsContext->frameBufferGetImage = oglsImplFrameBufferGetImage;
     graphicsContext->frameBufferGetRenderPass = oglsImplFrameBufferGetRenderPass;
@@ -1122,18 +1119,6 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* cre
     return Lvn_Result_Success;
 }
 
-LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, const LvnUniformBufferCreateInfo* createInfo)
-{
-    uint32_t id;
-    glCreateBuffers(1, &id);
-    glNamedBufferData(id, createInfo->size, nullptr, GL_DYNAMIC_DRAW);
-
-    uniformBuffer->id = id;
-    uniformBuffer->size = createInfo->size;
-    
-    return Lvn_Result_Success;
-}
-
 LvnResult oglsImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
 {
     OglSampler* oglSampler = new OglSampler();
@@ -1343,11 +1328,6 @@ void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 void oglsImplDestroyBuffer(LvnBuffer* buffer)
 {
     glDeleteBuffers(1, &buffer->id);
-}
-
-void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
-{
-    glDeleteBuffers(1, &uniformBuffer->id);
 }
 
 void oglsImplDestroySampler(LvnSampler* sampler)
@@ -1588,11 +1568,6 @@ void oglsImplBufferResize(LvnBuffer* buffer, uint64_t size)
     }
 
     glNamedBufferData(buffer->id, size, nullptr, GL_DYNAMIC_DRAW);
-}
-
-void oglsImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
-{
-    glNamedBufferSubData(uniformBuffer->id, offset, size, data);
 }
 
 void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -2093,7 +2068,7 @@ void oglsImplDrawBuffCmdEndFrameBuffer(void* data)
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBufferData->msaaId);
         glBlitFramebuffer(0, 0, frameBufferData->width, frameBufferData->height, 0, 0, frameBufferData->width, frameBufferData->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     }
-    
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

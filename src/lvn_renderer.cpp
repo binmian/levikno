@@ -410,13 +410,14 @@ static LvnRenderMode createRenderMode2d(const LvnRenderer* renderer, const LvnTe
 
     // create buffer
     LvnBufferCreateInfo bufferCreateInfo{};
-    bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
+    bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index | Lvn_BufferType_Uniform;
     bufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
     bufferCreateInfo.data = nullptr;
-    bufferCreateInfo.size = renderMode.maxVertexCount * stride + renderMode.maxIndexCount * sizeof(uint32_t);
+    bufferCreateInfo.size = renderMode.maxVertexCount * stride + renderMode.maxIndexCount * sizeof(uint32_t) + sizeof(LvnUniformData);
 
     lvn::createBuffer(&renderMode.buffer, &bufferCreateInfo);
     renderMode.indexOffset = renderMode.maxVertexCount * stride;
+    renderMode.uniformOffset = renderMode.maxVertexCount * stride + renderMode.maxIndexCount * sizeof(uint32_t);
 
     // attributes and bindings
 
@@ -485,20 +486,11 @@ static LvnRenderMode createRenderMode2d(const LvnRenderer* renderer, const LvnTe
     lvn::destroyShader(shader);
 
 
-    // uniform buffer
-    LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
-    uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
-    uniformBufferCreateInfo.size = sizeof(LvnUniformData);
-
-    // create uniform buffer
-    lvn::createUniformBuffer(&renderMode.uniformBuffer, &uniformBufferCreateInfo);
-
-
     // update descriptor set
     LvnUniformBufferInfo bufferInfo{};
-    bufferInfo.buffer = renderMode.uniformBuffer;
+    bufferInfo.buffer = renderMode.buffer;
     bufferInfo.range = sizeof(LvnUniformData);
-    bufferInfo.offset = 0;
+    bufferInfo.offset = renderMode.uniformOffset;
 
     LvnDescriptorUpdateInfo descriptorUniformUpdateInfo{};
     descriptorUniformUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
@@ -533,10 +525,9 @@ static void renderModeDraw2d(LvnRenderer* renderer, LvnRenderMode& renderMode)
     uniformData.projMat = lvn::ortho((float)width * -0.5f, (float)width * 0.5f, (float)height * -0.5f, (float)height * 0.5f, -1.0f, 1.0f);
     uniformData.viewMat = LvnMat4(1.0f);
 
-    lvn::updateUniformBufferData(renderMode.uniformBuffer, &uniformData, sizeof(LvnUniformData), 0);
-
     lvn::bufferUpdateData(renderMode.buffer, renderMode.drawList.vertices(), renderMode.drawList.vertex_size(), 0);
     lvn::bufferUpdateData(renderMode.buffer, renderMode.drawList.indices(), renderMode.drawList.index_size(), renderMode.indexOffset);
+    lvn::bufferUpdateData(renderMode.buffer, &uniformData, sizeof(LvnUniformData), renderMode.uniformOffset);
 
     lvn::renderCmdBindPipeline(renderer->window, renderMode.pipeline);
     lvn::renderCmdBindDescriptorSets(renderer->window, renderMode.pipeline, 0, 1, &renderMode.descriptorSet);
@@ -573,7 +564,6 @@ void renderTerminate()
         lvn::destroyPipeline(renderMode.pipeline);
         lvn::destroyDescriptorLayout(renderMode.descriptorLayout);
         lvn::destroyBuffer(renderMode.buffer);
-        lvn::destroyUniformBuffer(renderMode.uniformBuffer);
     }
 
     lvn::destroyTexture(renderer->defaultWhiteTexture);

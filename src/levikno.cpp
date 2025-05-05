@@ -414,7 +414,6 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
     stInfos[Lvn_Stype_DescriptorLayout] = { Lvn_Stype_DescriptorLayout, sizeof(LvnDescriptorLayout), 64 };
     stInfos[Lvn_Stype_Pipeline]         = { Lvn_Stype_Pipeline, sizeof(LvnPipeline), 64 };
     stInfos[Lvn_Stype_Buffer]           = { Lvn_Stype_Buffer, sizeof(LvnBuffer), 256 };
-    stInfos[Lvn_Stype_UniformBuffer]    = { Lvn_Stype_UniformBuffer, sizeof(LvnUniformBuffer), 64 };
     stInfos[Lvn_Stype_Sampler]          = { Lvn_Stype_Sampler, sizeof(LvnSampler), 256 };
     stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
     stInfos[Lvn_Stype_Cubemap]          = { Lvn_Stype_Cubemap, sizeof(LvnCubemap), 256 };
@@ -433,7 +432,6 @@ static const char* getStructTypeEnumStr(LvnStructureType stype)
         case Lvn_Stype_DescriptorLayout:  { return "LvnDescriptorLayout"; }
         case Lvn_Stype_Pipeline:          { return "LvnPipeline"; }
         case Lvn_Stype_Buffer:            { return "LvnBuffer"; }
-        case Lvn_Stype_UniformBuffer:     { return "LvnUniformBuffer"; }
         case Lvn_Stype_Sampler:           { return "LvnSampler"; }
         case Lvn_Stype_Texture:           { return "LvnTexture"; }
         case Lvn_Stype_Cubemap:           { return "LvnCubemap"; }
@@ -2650,38 +2648,11 @@ LvnResult createBuffer(LvnBuffer** buffer, const LvnBufferCreateInfo* createInfo
         LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type is \'Lvn_BufferType_Unknown\'; cannot create vertex buffer without knowing the type of buffer usage");
         return Lvn_Result_Failure;
     }
-    if (createInfo->type & (Lvn_BufferType_Uniform | Lvn_BufferType_Storage))
-    {
-        LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type does not have vertex or index buffer type (%u); cannot create vertexbuffer that does not have a vertex or index buffer type", createInfo->type);
-        return Lvn_Result_Failure;
-    }
 
     *buffer = lvn::createObject<LvnBuffer>(lvnctx, Lvn_Stype_Buffer);
 
     LVN_CORE_TRACE("created buffer: (%p)", *buffer);
     return lvnctx->graphicsContext.createBuffer(*buffer, createInfo);
-}
-
-LvnResult createUniformBuffer(LvnUniformBuffer** uniformBuffer, const LvnUniformBufferCreateInfo* createInfo)
-{
-    LvnContext* lvnctx = lvn::getContext();
-
-    // check valid buffer type
-    if (createInfo->type & Lvn_BufferType_Unknown)
-    {
-        LVN_CORE_ERROR("createUniformBuffer(LvnUniformBuffer*, LvnUniformBufferCreateInfo*) | createInfo->type is \'Lvn_BufferType_Unknown\'; cannot create uniform buffer without knowing the type of buffer usage");
-        return Lvn_Result_Failure;
-    }
-    if (createInfo->type & (Lvn_BufferType_Vertex | Lvn_BufferType_Index))
-    {
-        LVN_CORE_ERROR("createUniformBuffer(LvnUniformBuffer*, LvnUniformBufferCreateInfo*) | createInfo->type does not have uniform buffer type (%u); cannot create uniform buffer that does not have a uniform buffer type", createInfo->type);
-        return Lvn_Result_Failure;
-    }
-
-    *uniformBuffer = lvn::createObject<LvnUniformBuffer>(lvnctx, Lvn_Stype_UniformBuffer);
-
-    LVN_CORE_TRACE("created uniform buffer: (%p), size: %lu bytes", *uniformBuffer, createInfo->size);
-    return lvnctx->graphicsContext.createUniformBuffer(*uniformBuffer, createInfo);
 }
 
 LvnResult createSampler(LvnSampler** sampler, const LvnSamplerCreateInfo* createInfo)
@@ -2825,15 +2796,6 @@ void destroyBuffer(LvnBuffer* buffer)
 
     lvnctx->graphicsContext.destroyBuffer(buffer);
     lvn::destroyObject(lvnctx, buffer, Lvn_Stype_Buffer);
-}
-
-void destroyUniformBuffer(LvnUniformBuffer* uniformBuffer)
-{
-    if (uniformBuffer == nullptr) { return; }
-    LvnContext* lvnctx = lvn::getContext();
-
-    lvnctx->graphicsContext.destroyUniformBuffer(uniformBuffer);
-    lvn::destroyObject(lvnctx, uniformBuffer, Lvn_Stype_UniformBuffer);
 }
 
 void destroySampler(LvnSampler* sampler)
@@ -2989,7 +2951,7 @@ LvnPipelineSpecification configPipelineSpecificationInit()
     return lvnctx->defaultPipelineSpecification;
 }
 
-void bufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset)
+void bufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset)
 {
     if (buffer->usage == Lvn_BufferUsage_Static)
     {
@@ -2997,7 +2959,7 @@ void bufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t
         return;
     }
 
-    lvn::getContext()->graphicsContext.bufferUpdateData(buffer, vertices, size, offset);
+    lvn::getContext()->graphicsContext.bufferUpdateData(buffer, data, size, offset);
 }
 
 void bufferResize(LvnBuffer* buffer, uint64_t size)
@@ -3014,11 +2976,6 @@ void bufferResize(LvnBuffer* buffer, uint64_t size)
 LvnTexture* cubemapGetTextureData(LvnCubemap* cubemap)
 {
     return &cubemap->textureData;
-}
-
-void updateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset)
-{
-    lvn::getContext()->graphicsContext.updateUniformBufferData(uniformBuffer, data, size, offset);
 }
 
 void updateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
@@ -3451,7 +3408,7 @@ void unloadModel(LvnModel* model)
     }
     for (uint32_t i = 0; i < model->skins.size(); i++)
     {
-        lvn::destroyUniformBuffer(model->skins[i].ssbo);
+        lvn::destroyBuffer(model->skins[i].ssbo);
     }
 }
 

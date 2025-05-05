@@ -19,7 +19,6 @@ namespace lvn
     LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo);
     LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo);
     LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo);
-    LvnResult oglsImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, const LvnUniformBufferCreateInfo* createInfo);
     LvnResult oglsImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo);
     LvnResult oglsImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo);
     LvnResult oglsImplCreateTextureSampler(LvnTexture* texture, const LvnTextureSamplerCreateInfo* createInfo);
@@ -31,7 +30,6 @@ namespace lvn
     void oglsImplDestroyPipeline(LvnPipeline* pipeline);
     void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
     void oglsImplDestroyBuffer(LvnBuffer* buffer);
-    void oglsImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
     void oglsImplDestroySampler(LvnSampler* sampler);
     void oglsImplDestroyTexture(LvnTexture* texture);
     void oglsImplDestroyCubemap(LvnCubemap* cubemap);
@@ -57,7 +55,6 @@ namespace lvn
 
     void oglsImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
     void oglsImplBufferResize(LvnBuffer* buffer, uint64_t size);
-    void oglsImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);
     void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
     LvnTexture* oglsImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
     LvnRenderPass* oglsImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);

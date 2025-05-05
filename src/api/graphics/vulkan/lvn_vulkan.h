@@ -19,7 +19,6 @@ namespace lvn
     LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo);
     LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo);
     LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo);
-    LvnResult vksImplCreateUniformBuffer(LvnUniformBuffer* uniformBuffer, const LvnUniformBufferCreateInfo* createInfo);
     LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo);
     LvnResult vksImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo);
     LvnResult vksImplCreateTextureSampler(LvnTexture* texture, const LvnTextureSamplerCreateInfo* createInfo);
@@ -31,7 +30,6 @@ namespace lvn
     void vksImplDestroyPipeline(LvnPipeline* pipeline);
     void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
     void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);
-    void vksImplDestroyUniformBuffer(LvnUniformBuffer* uniformBuffer);
     void vksImplDestroySampler(LvnSampler* sampler);
     void vksImplDestroyTexture(LvnTexture* texture);
     void vksImplDestroyCubemap(LvnCubemap* cubemap);
@@ -55,9 +53,8 @@ namespace lvn
     void vksImplRenderCmdBeginFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
     void vksImplRenderCmdEndFrameBuffer(LvnWindow* window, LvnFrameBuffer* frameBuffer);
 
-    void vksImplBufferUpdateData(LvnBuffer* buffer, void* vertices, uint64_t size, uint64_t offset);
+    void vksImplBufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset);
     void vksImplBufferResize(LvnBuffer* buffer, uint64_t size);
-    void vksImplUpdateUniformBufferData(LvnUniformBuffer* uniformBuffer, void* data, uint64_t size, uint64_t offset);
     void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count);
     LvnTexture* vksImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex);
     LvnRenderPass* vksImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer);

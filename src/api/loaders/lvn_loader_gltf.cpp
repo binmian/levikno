@@ -564,12 +564,14 @@ namespace gltfs
             }
 
             skins[i].ssbo;
-            LvnUniformBufferCreateInfo ssboCreateInfo{};
+            LvnBufferCreateInfo ssboCreateInfo{};
             ssboCreateInfo.type = Lvn_BufferType_Storage;
+            ssboCreateInfo.usage = Lvn_BufferUsage_Dynamic;
             ssboCreateInfo.size = 16 * sizeof(float) * skins[i].inverseBindMatrices.size();
+            ssboCreateInfo.data = nullptr;
 
-            lvn::createUniformBuffer(&skins[i].ssbo, &ssboCreateInfo);
-            lvn::updateUniformBufferData(skins[i].ssbo, skins[i].inverseBindMatrices.data(), skins[i].inverseBindMatrices.size() * 16 * sizeof(float), 0);
+            lvn::createBuffer(&skins[i].ssbo, &ssboCreateInfo);
+            lvn::bufferUpdateData(skins[i].ssbo, skins[i].inverseBindMatrices.data(), skins[i].inverseBindMatrices.size() * 16 * sizeof(float), 0);
         }
 
         return skins;

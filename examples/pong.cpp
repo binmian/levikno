@@ -359,13 +359,15 @@ int main(int argc, char** argv)
     lvn::destroyShader(fontShader);
 
     // uniform buffer create info
-    LvnUniformBufferCreateInfo uniformBufferInfo{};
-    uniformBufferInfo.type = Lvn_BufferType_Uniform;
-    uniformBufferInfo.size = sizeof(UniformData);
+    LvnBufferCreateInfo uniformBufferCreateInfo{};
+    uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
+    uniformBufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
+    uniformBufferCreateInfo.size = sizeof(UniformData);
+    uniformBufferCreateInfo.data = nullptr;
 
     // create uniform buffer
-    LvnUniformBuffer* uniformBuffer;
-    lvn::createUniformBuffer(&uniformBuffer, &uniformBufferInfo);
+    LvnBuffer* uniformBuffer;
+    lvn::createBuffer(&uniformBuffer, &uniformBufferCreateInfo);
 
 
     // [Create font]
@@ -475,7 +477,7 @@ int main(int argc, char** argv)
         LvnMat4 camera = proj * view;
 
         uniformData.matrix = camera;
-        lvn::updateUniformBufferData(uniformBuffer, &uniformData, sizeof(uniformData), 0);
+        lvn::bufferUpdateData(uniformBuffer, &uniformData, sizeof(uniformData), 0);
 
 
         float paddleSpeed = height;
@@ -656,7 +658,7 @@ int main(int argc, char** argv)
     lvn::destroyPipeline(fontPipeline);
     lvn::destroyDescriptorLayout(descriptorLayout);
     lvn::destroyDescriptorLayout(fontDescriptorLayout);
-    lvn::destroyUniformBuffer(uniformBuffer);
+    lvn::destroyBuffer(uniformBuffer);
     lvn::destroyWindow(window);
 
     lvn::terminateContext();

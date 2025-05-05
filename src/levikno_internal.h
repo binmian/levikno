@@ -495,7 +495,6 @@ struct LvnGraphicsContext
     LvnResult                   (*createPipeline)(LvnPipeline*, const LvnPipelineCreateInfo*);
     LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, const LvnFrameBufferCreateInfo*);
     LvnResult                   (*createBuffer)(LvnBuffer*, const LvnBufferCreateInfo*);
-    LvnResult                   (*createUniformBuffer)(LvnUniformBuffer*, const LvnUniformBufferCreateInfo*);
     LvnResult                   (*createSampler)(LvnSampler*, const LvnSamplerCreateInfo*);
     LvnResult                   (*createTexture)(LvnTexture*, const LvnTextureCreateInfo*);
     LvnResult                   (*createTextureSampler)(LvnTexture*, const LvnTextureSamplerCreateInfo*);
@@ -507,7 +506,6 @@ struct LvnGraphicsContext
     void                        (*destroyPipeline)(LvnPipeline*);
     void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
     void                        (*destroyBuffer)(LvnBuffer*);
-    void                        (*destroyUniformBuffer)(LvnUniformBuffer*);
     void                        (*destroySampler)(LvnSampler*);
     void                        (*destroyTexture)(LvnTexture*);
     void                        (*destroyCubemap)(LvnCubemap*);
@@ -533,7 +531,6 @@ struct LvnGraphicsContext
 
     void                        (*bufferUpdateData)(LvnBuffer*, void*, uint64_t, uint64_t);
     void                        (*bufferResize)(LvnBuffer*, uint64_t);
-    void                        (*updateUniformBufferData)(LvnUniformBuffer*, void*, uint64_t, uint64_t);
     void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
     LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
     LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);
@@ -718,16 +715,6 @@ struct LvnBuffer
     void* bufferMap;
 };
 
-struct LvnUniformBuffer
-{
-    void* uniformBuffer;
-    void* uniformBufferMemory;
-    void* uniformBufferMapped;
-    uint64_t size;
-
-    uint32_t id;
-};
-
 struct LvnSampler
 {
     void* sampler;
@@ -797,11 +784,11 @@ struct LvnRenderMode
     LvnDescriptorLayout* descriptorLayout;
     LvnDescriptorSet* descriptorSet;
     LvnBuffer* buffer;
-    LvnUniformBuffer* uniformBuffer;
 
     uint64_t maxVertexCount;
     uint64_t maxIndexCount;
     uint64_t indexOffset;
+    uint64_t uniformOffset;
 
     LvnRenderModeFunc drawFunc;
 };
