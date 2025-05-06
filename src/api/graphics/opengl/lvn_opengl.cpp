@@ -74,6 +74,7 @@ namespace ogls
                 case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
                 case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
                 case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+                default: return "";
             }
         }();
 
@@ -88,6 +89,7 @@ namespace ogls
                 case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
                 case GL_DEBUG_TYPE_MARKER: return "MARKER";
                 case GL_DEBUG_TYPE_OTHER: return "OTHER";
+                default: return "";
             }
         }();
 
@@ -99,6 +101,7 @@ namespace ogls
                 case GL_DEBUG_SEVERITY_LOW: return "LOW";
                 case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
                 case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
+                default: return "";
             }
         }();
 
@@ -1353,7 +1356,7 @@ void oglsImplRenderCmdDraw(LvnWindow* window, uint32_t vertexCount)
 
 void oglsImplRenderCmdDrawIndexed(LvnWindow* window, uint32_t indexCount)
 {
-    glDrawElements(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, (void*)window->indexOffset);
+    glDrawElements(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, (void*)(uintptr_t)window->indexOffset);
 }
 
 void oglsImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
@@ -1363,7 +1366,7 @@ void oglsImplRenderCmdDrawInstanced(LvnWindow* window, uint32_t vertexCount, uin
 
 void oglsImplRenderCmdDrawIndexedInstanced(LvnWindow* window, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-    glDrawElementsInstancedBaseInstance(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, (void*)window->indexOffset, instanceCount, firstInstance);
+    glDrawElementsInstancedBaseInstance(window->topologyTypeEnum, indexCount, GL_UNSIGNED_INT, (void*)(uintptr_t)window->indexOffset, instanceCount, firstInstance);
 }
 
 void oglsImplRenderCmdSetStencilReference(uint32_t reference)
@@ -1654,7 +1657,7 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
 LvnTexture* oglsImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
 {
     OglFramebufferData* frameBufferData = static_cast<OglFramebufferData*>(frameBuffer->frameBufferData);
-    LVN_CORE_ASSERT(attachmentIndex < frameBufferData->colorAttachmentTextures.size(), "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%u) within framebuffer (%p)", attachmentIndex, frameBufferData->colorAttachmentTextures.size(), frameBuffer);
+    LVN_CORE_ASSERT(attachmentIndex < frameBufferData->colorAttachmentTextures.size(), "attachment index out of range, cannot have an attachment index (%u) greater or equal to the total attachment count (%zu) within framebuffer (%p)", attachmentIndex, frameBufferData->colorAttachmentTextures.size(), frameBuffer);
 
     return &frameBufferData->colorAttachmentTextures[attachmentIndex];
 }

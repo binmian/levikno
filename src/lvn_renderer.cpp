@@ -10,10 +10,10 @@ static const char* s_VertexShaderSrc = R"(
 #version 460
 
 layout(location = 0) in vec2 inPos;
-layout(location = 1) in vec3 inColor;
+layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec2 inTexCoord;
 
-layout(location = 0) out vec3 fragColor;
+layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 
 layout (binding = 0) uniform ObjectBuffer
@@ -35,14 +35,14 @@ static const char* s_FragmentShaderSrc = R"(
 
 layout(location = 0) out vec4 outColor;
 
-layout(location = 0) in vec3 fragColor;
+layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
 
 layout(binding = 1) uniform sampler2D inTexture;
 
 void main()
 {
-    outColor = vec4(fragColor * vec3(texture(inTexture, fragTexCoord)), 1.0);
+    outColor = vec4(fragColor.rgb * vec3(texture(inTexture, fragTexCoord)), fragColor.a);
 }
 )";
 
@@ -51,7 +51,7 @@ static const char* s_FragmentShaderFontSrc = R"(
 
 layout(location = 0) out vec4 outColor;
 
-layout(location = 0) in vec3 fragColor;
+layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
 
 layout(binding = 1) uniform sampler2D inTexture;
@@ -59,7 +59,7 @@ layout(binding = 1) uniform sampler2D inTexture;
 void main()
 {
     float text = texture(inTexture, fragTexCoord).r;
-    outColor = vec4(vec3(text) * fragColor, text);
+    outColor = vec4(vec3(text) * fragColor.rgb, text);
 }
 )";
 
@@ -425,7 +425,7 @@ static LvnRenderMode createRenderMode2d(const LvnRenderer* renderer, const LvnTe
     LvnVertexAttribute attributes[] =
     {
         { 0, Lvn_AttributeLocation_Position, Lvn_AttributeFormat_Vec2_f32, 0 },
-        { 0, Lvn_AttributeLocation_Color, Lvn_AttributeFormat_Vec3_un8, (2 * sizeof(float)) },
+        { 0, Lvn_AttributeLocation_Color, Lvn_AttributeFormat_Vec4_un8, (2 * sizeof(float)) },
         { 0, Lvn_AttributeLocation_TexCoords, Lvn_AttributeFormat_Vec2_f32, (2 * sizeof(float) + 4 * sizeof(uint8_t)) },
     };
 

@@ -1293,6 +1293,12 @@ void* memRealloc(void* ptr, size_t size)
     return realloc(ptr, size);
 }
 
+int getRandomNumber()
+{
+    srand(time(0));
+    return rand();
+}
+
 /* [Logging] */
 const static LvnLogPattern s_LogPatterns[] =
 {
@@ -3342,13 +3348,18 @@ void imageRotateCCW(LvnImageData& imageData)
     lvn::swap(imageData.width, imageData.height);
 }
 
+LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels)
+{
+    return lvn::imageGenWhiteNoise(width, height, channels, time(0));
+}
+
 LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed)
 {
     LVN_CORE_ASSERT(channels > 0 && channels <= 4, "channels must be within 0 to 4");
+    srand(seed);
 
-    seed != 0 ? srand(seed) : srand(time(0));
-
-    std::vector<uint8_t> imgBuff(width * height * channels);
+    uint32_t imgSize = width * height * channels;
+    uint8_t* imgBuff = (uint8_t*)LVN_MALLOC(imgSize);
 
     for (uint32_t y = 0; y < height; y++)
     {
@@ -3356,7 +3367,7 @@ LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channe
         {
             int rn = rand() % 2;
             for (uint32_t c = 0; c < channels; c++)
-                imgBuff[y * width * channels + x * channels + c] = rn ? 255 : 0;
+                imgBuff[y * width * channels + x * channels + c] = (c == 3 ? 255 : (rn ? 255 : 0));
         }
     }
 
@@ -3365,8 +3376,43 @@ LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channe
     imageData.height = height;
     imageData.channels = channels;
     imageData.size = width * height * channels;
-    imageData.pixels = LvnData<uint8_t>(imgBuff.data(), imgBuff.size());
+    imageData.pixels = LvnData<uint8_t>(imgBuff, imgSize);
 
+    LVN_FREE(imgBuff);
+    return imageData;
+}
+
+LvnImageData imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t channels)
+{
+    return lvn::imageGenGrayScaleNoise(width, height, channels, time(0));
+}
+
+LvnImageData imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed)
+{
+    LVN_CORE_ASSERT(channels > 0 && channels <= 4, "channels must be within 0 to 4");
+    srand(seed);
+
+    uint32_t imgSize = width * height * channels;
+    uint8_t* imgBuff = (uint8_t*)LVN_MALLOC(imgSize);
+
+    for (uint32_t y = 0; y < height; y++)
+    {
+        for (uint32_t x = 0; x < width; x++)
+        {
+            int rn = rand() % 256;
+            for (uint32_t c = 0; c < channels; c++)
+                imgBuff[y * width * channels + x * channels + c] = (c == 3 ? 255 : rn);
+        }
+    }
+
+    LvnImageData imageData{};
+    imageData.width = width;
+    imageData.height = height;
+    imageData.channels = channels;
+    imageData.size = width * height * channels;
+    imageData.pixels = LvnData<uint8_t>(imgBuff, imgSize);
+
+    LVN_FREE(imgBuff);
     return imageData;
 }
 

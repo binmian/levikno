@@ -1609,7 +1609,10 @@ namespace lvn
     LVN_API void                        imageRotateCW(LvnImageData& imageData);                                           // rotates the image clockwise (right)
     LVN_API void                        imageRotateCCW(LvnImageData& imageData);                                          // rotates the image counter clockwise (left)
 
-    LVN_API LvnImageData                imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed = 0);
+    LVN_API LvnImageData                imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels);
+    LVN_API LvnImageData                imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed);
+    LVN_API LvnImageData                imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t channels);
+    LVN_API LvnImageData                imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed);
 
     LVN_API LvnModel                    loadModel(const char* filepath);
     LVN_API void                        unloadModel(LvnModel* model);
