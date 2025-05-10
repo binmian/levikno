@@ -417,8 +417,8 @@ static void setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx)
     stInfos[Lvn_Stype_Sampler]          = { Lvn_Stype_Sampler, sizeof(LvnSampler), 256 };
     stInfos[Lvn_Stype_Texture]          = { Lvn_Stype_Texture, sizeof(LvnTexture), 256 };
     stInfos[Lvn_Stype_Cubemap]          = { Lvn_Stype_Cubemap, sizeof(LvnCubemap), 256 };
-    stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 256 };
-    stInfos[Lvn_Stype_Socket]           = { Lvn_Stype_Socket, sizeof(LvnSocket), 256 };
+    stInfos[Lvn_Stype_Sound]            = { Lvn_Stype_Sound, sizeof(LvnSound), 32 };
+    stInfos[Lvn_Stype_Socket]           = { Lvn_Stype_Socket, sizeof(LvnSocket), 32 };
 }
 
 static const char* getStructTypeEnumStr(LvnStructureType stype)
@@ -3463,6 +3463,116 @@ void unloadModel(LvnModel* model)
 // [SECTION]: Audio Functions
 // ------------------------------------------------------------
 
+float volumeDbToLinear(float db)
+{
+    return ma_volume_db_to_linear(db);
+}
+
+float volumeLineatToDb(float volume)
+{
+    return ma_volume_linear_to_db(volume);
+}
+
+void audioSetGlobalTimeMilliSeconds(uint64_t ms)
+{
+    ma_engine_set_time_in_milliseconds(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), ms);
+}
+
+void audioSetGlobalTimePcmFrames(uint64_t pcm)
+{
+    ma_engine_set_time_in_pcm_frames(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), pcm);
+}
+
+void audioSetMasterVolume(float volume)
+{
+    ma_engine_set_volume(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), volume);
+}
+
+uint32_t audioGetSampleRate()
+{
+    return ma_engine_get_sample_rate(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr));
+}
+
+uint64_t audioGetGlobalTimeMilliseconds()
+{
+    return ma_engine_get_time_in_milliseconds(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr));
+}
+
+uint64_t audioGetGlobalTimePcmFrames()
+{
+    return ma_engine_get_time_in_pcm_frames(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr));
+}
+
+
+void listenerSetPosition(float x, float y, float z)
+{
+    ma_engine_listener_set_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
+}
+
+void listenerSetPosition(const LvnVec3& pos)
+{
+    ma_engine_listener_set_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, pos.x, pos.y, pos.z);
+}
+
+void listenerSetDirection(float x, float y, float z)
+{
+    ma_engine_listener_set_direction(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
+}
+
+void listenerSetDirection(const LvnVec3 dir)
+{
+    ma_engine_listener_set_direction(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, dir.x, dir.y, dir.z);
+}
+
+void listenerSetVelocity(float x, float y, float z)
+{
+    ma_engine_listener_set_velocity(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
+}
+
+void listenerSetVelocity(const LvnVec3 vel)
+{
+    ma_engine_listener_set_velocity(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, vel.x, vel.y, vel.z);
+}
+
+void listenerSetWorldUp(float x, float y, float z)
+{
+    ma_engine_listener_set_world_up(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
+}
+
+void listenerSetWorldUp(const LvnVec3 up)
+{
+    ma_engine_listener_set_world_up(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, up.x, up.y, up.z);
+}
+
+void listenerSetCone(float innerAngleRad, float outerAngleRad, float outerGain)
+{
+    ma_engine_listener_set_cone(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, innerAngleRad, outerAngleRad, outerGain);
+}
+
+LvnVec3 listenerGetPosition()
+{
+    ma_vec3f pos = ma_engine_listener_get_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0);
+    return LvnVec3{ pos.x, pos.y, pos.z };
+}
+
+LvnVec3 listenerGetDirection()
+{
+    ma_vec3f dir = ma_engine_listener_get_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0);
+    return LvnVec3{ dir.x, dir.y, dir.z };
+}
+
+LvnVec3 listenerGetWorldUp()
+{
+    ma_vec3f up = ma_engine_listener_get_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0);
+    return LvnVec3{ up.x, up.y, up.z };
+}
+
+void listenerGetCone(float* innerAngleRad, float* outerAngleRad, float* outerGain)
+{
+    ma_engine_listener_get_cone(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, innerAngleRad, outerAngleRad, outerGain);
+}
+
+
 LvnResult createSound(LvnSound** sound, const LvnSoundCreateInfo* createInfo)
 {
     LvnContext* lvnctx = lvn::getContext();
@@ -3483,7 +3593,9 @@ LvnResult createSound(LvnSound** sound, const LvnSoundCreateInfo* createInfo)
     soundPtr->pos = createInfo->pos;
     soundPtr->looping = createInfo->looping;
 
-    if (ma_sound_init_from_file(pEngine, createInfo->filepath.c_str(), 0, NULL, NULL, &soundPtr->sound) != MA_SUCCESS)
+    ma_sound_config soundConfig{};
+
+    if (ma_sound_init_from_file(pEngine, createInfo->filepath.c_str(), createInfo->flags, NULL, NULL, &soundPtr->sound) != MA_SUCCESS)
     {
         LVN_CORE_ERROR("createSound(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
         return Lvn_Result_Failure;
@@ -3537,6 +3649,81 @@ void soundSetPitch(LvnSound* sound, float pitch)
     ma_sound_set_pitch(&sound->sound, pitch);
 }
 
+void soundSetPositioning(LvnSound* sound, LvnSoundPositioningFlags positioning)
+{
+    ma_sound_set_positioning(&sound->sound, static_cast<ma_positioning>(positioning));
+}
+
+void soundSetPosition(LvnSound* sound, float x, float y, float z)
+{
+    ma_sound_set_position(&sound->sound, x, y, z);
+}
+
+void soundSetPosition(LvnSound* sound, const LvnVec3& pos)
+{
+    ma_sound_set_position(&sound->sound, pos.x, pos.y, pos.z);
+}
+
+void soundSetDirection(LvnSound* sound, float x, float y, float z)
+{
+    ma_sound_set_direction(&sound->sound, x, y, z);
+}
+
+void soundSetDirection(LvnSound* sound, const LvnVec3& dir)
+{
+    ma_sound_set_direction(&sound->sound, dir.x, dir.y, dir.z);
+}
+
+void soundSetVelocity(LvnSound* sound, float x, float y, float z)
+{
+    ma_sound_set_velocity(&sound->sound, x, y, z);
+}
+
+void soundSetVelocity(LvnSound* sound, const LvnVec3& vel)
+{
+    ma_sound_set_velocity(&sound->sound, vel.x, vel.y, vel.z);
+}
+
+void soundSetCone(LvnSound* sound, float innerAngleRad, float outerAngleRad, float outerGain)
+{
+    ma_sound_group_set_cone(&sound->sound, innerAngleRad, outerAngleRad, outerGain);
+}
+
+void soundSetAttenuation(LvnSound* sound, LvnSoundAttenuationFlags attenuation)
+{
+    ma_sound_set_attenuation_model(&sound->sound, static_cast<ma_attenuation_model>(attenuation));
+}
+
+void soundSetRolloff(LvnSound* sound, float rolloff)
+{
+    ma_sound_set_rolloff(&sound->sound, rolloff);
+}
+
+void soundSetMinGain(LvnSound* sound, float minGain)
+{
+    ma_sound_set_min_gain(&sound->sound, minGain);
+}
+
+void soundSetMaxGain(LvnSound* sound, float maxGain)
+{
+    ma_sound_set_max_gain(&sound->sound, maxGain);
+}
+
+void soundSetMinDistance(LvnSound* sound, float minDist)
+{
+    ma_sound_set_min_distance(&sound->sound, minDist);
+}
+
+void soundSetMaxDistance(LvnSound* sound, float maxDist)
+{
+    ma_sound_set_max_distance(&sound->sound, maxDist);
+}
+
+void soundSetDopplerFactor(LvnSound* sound, float dopplerFactor)
+{
+    ma_sound_set_doppler_factor(&sound->sound, dopplerFactor);
+}
+
 void soundSetLooping(LvnSound* sound, bool looping)
 {
     ma_sound_set_looping(&sound->sound, looping);
@@ -3554,28 +3741,156 @@ void soundPlayStop(LvnSound* sound)
 
 void soundTogglePause(LvnSound* sound)
 {
-    if (ma_sound_is_playing(&sound->sound)) { ma_sound_stop(&sound->sound); }
-    else { ma_sound_start(&sound->sound); }
+    if (ma_sound_is_playing(&sound->sound))
+        ma_sound_stop(&sound->sound);
+    else
+        ma_sound_start(&sound->sound);
 }
 
-bool soundIsPlaying(LvnSound* sound)
+LVN_API void soundScheduleStartTimePcmFrames(LvnSound* sound, uint64_t pcm)
+{
+    ma_sound_set_start_time_in_pcm_frames(&sound->sound, pcm);
+}
+
+void soundScheduleStartTimeMilliseconds(LvnSound* sound, uint64_t ms)
+{
+    ma_sound_set_start_time_in_milliseconds(&sound->sound, ms);
+}
+
+LVN_API void soundScheduleStopTimePcmFrames(LvnSound* sound, uint64_t pcm)
+{
+    ma_sound_set_stop_time_in_pcm_frames(&sound->sound, pcm);
+}
+
+void soundScheduleStopTimeMilliseconds(LvnSound* sound, uint64_t ms)
+{
+    ma_sound_set_stop_time_in_milliseconds(&sound->sound, ms);
+}
+
+void soundSetFadeMilliseconds(LvnSound* sound, float volBegin, float volEnd, uint64_t ms)
+{
+    ma_sound_set_fade_in_milliseconds(&sound->sound, volBegin, volEnd, ms);
+}
+
+void soundSetFadePcmFrames(LvnSound* sound, float volBegin, float volEnd, uint64_t pcm)
+{
+    ma_sound_set_fade_in_pcm_frames(&sound->sound, volBegin, volEnd, pcm);
+}
+
+void soundSeekToPcmFrame(LvnSound* sound, uint64_t pcm)
+{
+    ma_sound_seek_to_pcm_frame(&sound->sound, pcm);
+}
+
+float soundGetVolume(const LvnSound* sound)
+{
+    return ma_sound_get_volume(&sound->sound);
+}
+
+float soundGetPan(const LvnSound* sound)
+{
+    return ma_sound_get_pan(&sound->sound);
+}
+
+float soundGetPitch(const LvnSound* sound)
+{
+    return ma_sound_get_pitch(&sound->sound);
+}
+
+LvnSoundPositioningFlags soundGetPositioning(const LvnSound* sound)
+{
+    return static_cast<LvnSoundPositioningFlags>(ma_sound_get_positioning(&sound->sound));
+}
+
+LvnVec3 soundGetPosition(const LvnSound* sound)
+{
+    ma_vec3f pos = ma_sound_get_position(&sound->sound);
+    return LvnVec3{ pos.x, pos.y, pos.z };
+}
+
+LvnVec3 soundGetDirection(const LvnSound* sound)
+{
+    ma_vec3f dir = ma_sound_get_direction(&sound->sound);
+    return LvnVec3{ dir.x, dir.y, dir.z };
+}
+
+void soundGetCone(const LvnSound* sound, float* innerAngleRad, float* outerAngleRad, float* outerGain)
+{
+    ma_sound_get_cone(&sound->sound, innerAngleRad, outerAngleRad, outerGain);
+}
+
+LvnVec3 soundGetVelocity(const LvnSound* sound)
+{
+    ma_vec3f vel = ma_sound_get_velocity(&sound->sound);
+    return LvnVec3{ vel.x, vel.y, vel.z };
+}
+
+LvnSoundAttenuationFlags soundGetAttenuation(const LvnSound* sound)
+{
+    return static_cast<LvnSoundAttenuationFlags>(ma_sound_get_attenuation_model(&sound->sound));
+}
+
+float soundGetRolloff(const LvnSound* sound)
+{
+    return ma_sound_get_rolloff(&sound->sound);
+}
+
+float soundGetMinGain(const LvnSound* sound)
+{
+    return ma_sound_get_min_gain(&sound->sound);
+}
+
+float soundGetMaxGain(const LvnSound* sound)
+{
+    return ma_sound_get_max_gain(&sound->sound);
+}
+
+float soundGetMinDistance(const LvnSound* sound)
+{
+    return ma_sound_get_min_distance(&sound->sound);
+}
+
+float soundGetMaxDistance(const LvnSound* sound)
+{
+    return ma_sound_get_max_distance(&sound->sound);
+}
+
+float soundGetDopplerFactor(const LvnSound* sound)
+{
+    return ma_sound_get_doppler_factor(&sound->sound);
+}
+
+bool soundIsLooping(const LvnSound* sound)
+{
+    return ma_sound_is_looping(&sound->sound);
+}
+
+bool soundIsPlaying(const LvnSound* sound)
 {
     return ma_sound_is_playing(&sound->sound);
 }
 
-uint64_t soundGetTimeMiliseconds(LvnSound* sound)
+bool soundAtEnd(const LvnSound* sound)
+{
+    return ma_sound_at_end(&sound->sound);
+}
+
+uint64_t soundGetTimeMilliseconds(const LvnSound* sound)
 {
     return ma_sound_get_time_in_milliseconds(&sound->sound);
+}
+
+uint64_t soundGetTimePcmFrames(const LvnSound* sound)
+{
+    return ma_sound_get_time_in_pcm_frames(&sound->sound);
 }
 
 float soundGetLengthSeconds(LvnSound* sound)
 {
     float length;
     ma_sound_get_length_in_seconds(&sound->sound, &length);
-
     return length;
 }
-
 
 // ------------------------------------------------------------
 // [SECTION]: Network Functions

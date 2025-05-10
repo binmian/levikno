@@ -35,6 +35,7 @@ int main(int argc, char** argv)
         lvn::drawPolyNgon({-400.0f, 400.0f}, 100.0f, 6, {100, 0, 20});
         lvn::drawPolyNgonSector({-400.0f, 400.0f}, 50.0f, 0.0f, 145.0f, 3, {0, 0, 0});
         lvn::drawCircleSector({-100.0f, 400.0f}, 50.0f, 0.0f, lvn::clampAngleDeg(lvn::getContextTime() * 45.0f), {20, 20, 128});
+        lvn::drawPolyNgonSector({-100.0f, 600.0f}, 50.0f, 0.0f, 90.0f, abs(8 * cos(lvn::getContextTime() * 0.5f)), {128, 128, 128});
 
         lvn::drawText("hello world", {200.0f, -300.0f}, {225,255,255}, 1.0f);
         lvn::drawText("giga\nchad", {200.0f + 50 * sin(lvn::getContextTime()), -400.0f}, {225,255,255}, 2.0f);

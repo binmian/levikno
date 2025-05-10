@@ -19,6 +19,7 @@
 // -- [SUBSECT]: Mouse Button Code Enums
 // -- [SUBSECT]: Logging Enums
 // -- [SUBSECT]: Graphics Enums
+// -- [SUBSECT]: Audio Enums
 // -- [SUBSECT]: Networking Enums
 // -- [SUBSECT]: Renderer Enums
 // [SECTION]: Struct Definitions
@@ -852,6 +853,36 @@ enum LvnAnimationPath
 };
 
 
+// -- [SUBSECT]: Audio Enums
+// ------------------------------------------------------------
+
+enum LvnSoundFlags
+{
+    Lvn_SoundFlag_Stream                = (1U << 0),
+    Lvn_SoundFlag_Decode                = (1U << 1),
+    Lvn_SoundFlag_Async                 = (1U << 2),
+    Lvn_SoundFlag_WaitInit              = (1U << 3),
+    Lvn_SoundFlag_UnknownLength         = (1U << 4),
+
+    Lvn_SoundFlag_NoPitch               = (1U << 13),
+    Lvn_SoundFlag_NoSpatialization      = (1U << 14),
+};
+typedef uint32_t LvnSoundFlagBits;
+
+enum LvnSoundPositioningFlags
+{
+    Lvn_SoundPositioning_Absolute,
+    Lvn_SoundPositioning_Relative,
+};
+
+enum LvnSoundAttenuationFlags
+{
+    Lvn_AttenuationFlag_None,
+    Lvn_AttenuationFlag_Inverse,
+    Lvn_AttenuationFlag_Linear,
+    Lvn_AttenuationFlag_Exponential,
+};
+
 // -- [SUBSECT]: Networking Enums
 // ------------------------------------------------------------
 
@@ -1621,6 +1652,32 @@ namespace lvn
     // -- [SUBSECT]: Audio Functions
     // ------------------------------------------------------------
 
+    LVN_API float                       volumeDbToLinear(float db);
+    LVN_API float                       volumeLineatToDb(float volume);
+
+    LVN_API void                        audioSetGlobalTimeMilliSeconds(uint64_t ms);
+    LVN_API void                        audioSetGlobalTimePcmFrames(uint64_t pcm);
+    LVN_API void                        audioSetMasterVolume(float volume);
+
+    LVN_API uint32_t                    audioGetSampleRate();
+    LVN_API uint64_t                    audioGetGlobalTimeMilliseconds();
+    LVN_API uint64_t                    audioGetGlobalTimePcmFrames();
+
+    LVN_API void                        listenerSetPosition(float x, float y, float z);
+    LVN_API void                        listenerSetPosition(const LvnVec3& pos);
+    LVN_API void                        listenerSetDirection(float x, float y, float z);
+    LVN_API void                        listenerSetDirection(const LvnVec3 dir);
+    LVN_API void                        listenerSetVelocity(float x, float y, float z);
+    LVN_API void                        listenerSetVelocity(const LvnVec3 vel);
+    LVN_API void                        listenerSetWorldUp(float x, float y, float z);
+    LVN_API void                        listenerSetWorldUp(const LvnVec3 up);
+    LVN_API void                        listenerSetCone(float innerAngleRad, float outerAngleRad, float outerGain);
+
+    LVN_API LvnVec3                     listenerGetPosition();
+    LVN_API LvnVec3                     listenerGetDirection();
+    LVN_API LvnVec3                     listenerGetWorldUp();
+    LVN_API void                        listenerGetCone(float* innerAngleRad, float* outerAngleRad, float* outerGain);
+
     LVN_API LvnResult                   createSound(LvnSound** sound, const LvnSoundCreateInfo* createInfo);
     LVN_API void                        destroySound(LvnSound* sound);
     LVN_API LvnSoundCreateInfo          configSoundInit(const char* filepath);
@@ -1628,12 +1685,53 @@ namespace lvn
     LVN_API void                        soundSetVolume(LvnSound* sound, float volume);
     LVN_API void                        soundSetPan(LvnSound* sound, float pan);
     LVN_API void                        soundSetPitch(LvnSound* sound, float pitch);
+    LVN_API void                        soundSetPositioning(LvnSound* sound, LvnSoundPositioningFlags positioning);
+    LVN_API void                        soundSetPosition(LvnSound* sound, float x, float y, float z);
+    LVN_API void                        soundSetPosition(LvnSound* sound, const LvnVec3& pos);
+    LVN_API void                        soundSetDirection(LvnSound* sound, float x, float y, float z);
+    LVN_API void                        soundSetDirection(LvnSound* sound, const LvnVec3& dir);
+    LVN_API void                        soundSetVelocity(LvnSound* sound, float x, float y, float z);
+    LVN_API void                        soundSetVelocity(LvnSound* sound, const LvnVec3& vel);
+    LVN_API void                        soundSetCone(LvnSound* sound, float innerAngleRad, float outerAngleRad, float outerGain);
+    LVN_API void                        soundSetAttenuation(LvnSound* sound, LvnSoundAttenuationFlags attenuation);
+    LVN_API void                        soundSetRolloff(LvnSound* sound, float rolloff);
+    LVN_API void                        soundSetMinGain(LvnSound* sound, float minGain);
+    LVN_API void                        soundSetMaxGain(LvnSound* sound, float maxGain);
+    LVN_API void                        soundSetMinDistance(LvnSound* sound, float minDist);
+    LVN_API void                        soundSetMaxDistance(LvnSound* sound, float maxDist);
+    LVN_API void                        soundSetDopplerFactor(LvnSound* sound, float dopplerFactor);
     LVN_API void                        soundSetLooping(LvnSound* sound, bool looping);
     LVN_API void                        soundPlayStart(LvnSound* sound);
     LVN_API void                        soundPlayStop(LvnSound* sound);
     LVN_API void                        soundTogglePause(LvnSound* sound);
-    LVN_API bool                        soundIsPlaying(LvnSound* sound);
-    LVN_API uint64_t                    soundGetTimeMiliseconds(LvnSound* sound);
+    LVN_API void                        soundScheduleStartTimePcmFrames(LvnSound* sound, uint64_t pcm);
+    LVN_API void                        soundScheduleStartTimeMilliseconds(LvnSound* sound, uint64_t ms);
+    LVN_API void                        soundScheduleStopTimePcmFrames(LvnSound* sound, uint64_t pcm);
+    LVN_API void                        soundScheduleStopTimeMilliseconds(LvnSound* sound, uint64_t ms);
+    LVN_API void                        soundSetFadeMilliseconds(LvnSound* sound, float volBegin, float volEnd, uint64_t ms);
+    LVN_API void                        soundSetFadePcmFrames(LvnSound* sound, float volBegin, float volEnd, uint64_t pcm);
+    LVN_API void                        soundSeekToPcmFrame(LvnSound* sound, uint64_t pcm);
+
+    LVN_API float                       soundGetVolume(const LvnSound* sound);
+    LVN_API float                       soundGetPan(const LvnSound* sound);
+    LVN_API float                       soundGetPitch(const LvnSound* sound);
+    LVN_API LvnSoundPositioningFlags    soundGetPositioning(const LvnSound* sound);
+    LVN_API LvnVec3                     soundGetPosition(const LvnSound* sound);
+    LVN_API LvnVec3                     soundGetDirection(const LvnSound* sound);
+    LVN_API void                        soundGetCone(const LvnSound* sound, float* innerAngleRad, float* outerAngleRad, float* outerGain);
+    LVN_API LvnVec3                     soundGetVelocity(const LvnSound* sound);
+    LVN_API LvnSoundAttenuationFlags    soundGetAttenuation(const LvnSound* sound);
+    LVN_API float                       soundGetRolloff(const LvnSound* sound);
+    LVN_API float                       soundGetMinGain(const LvnSound* sound);
+    LVN_API float                       soundGetMaxGain(const LvnSound* sound);
+    LVN_API float                       soundGetMinDistance(const LvnSound* sound);
+    LVN_API float                       soundGetMaxDistance(const LvnSound* sound);
+    LVN_API float                       soundGetDopplerFactor(const LvnSound* sound);
+    LVN_API bool                        soundIsLooping(const LvnSound* sound);
+    LVN_API bool                        soundIsPlaying(const LvnSound* sound);
+    LVN_API bool                        soundAtEnd(const LvnSound* sound);
+    LVN_API uint64_t                    soundGetTimeMilliseconds(const LvnSound* sound);
+    LVN_API uint64_t                    soundGetTimePcmFrames(const LvnSound* sound);
     LVN_API float                       soundGetLengthSeconds(LvnSound* sound);
 
 
@@ -5859,6 +5957,7 @@ struct LvnFont
 struct LvnSoundCreateInfo
 {
     std::string filepath;      // the filepath to the sound file (.wav .mp3)
+    LvnSoundFlagBits flags;
 
     float volume;              // volume of sound source, (default: 1.0, min/mute: 0.0), 1.0 is the upper limit however volume can be set higher than 1.0 at your own risk
     float pan;                 // pan of the sound source if using 2 channel sterio output (center: 0.0, left: -1.0, right 1.0)

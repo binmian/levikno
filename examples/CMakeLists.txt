@@ -1,6 +1,10 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
 
-file(COPY res DESTINATION .)
+if (UNIX)
+    file(COPY res DESTINATION .)
+elseif (WIN32)
+    file(COPY res DESTINATION ${CMAKE_BUILD_TYPE})
+endif()
 
 set(LVN_SOURCES
     antiAliasing.cpp
