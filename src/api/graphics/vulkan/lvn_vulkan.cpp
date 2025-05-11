@@ -815,14 +815,18 @@ namespace vks
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
         surfaceData->imageAvailableSemaphores.resize(vkBackends->maxFramesInFlight);
-        surfaceData->renderFinishedSemaphores.resize(vkBackends->maxFramesInFlight);
         surfaceData->inFlightFences.resize(vkBackends->maxFramesInFlight);
 
         for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
         {
             LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->imageAvailableSemaphores[i]) == VK_SUCCESS, "[vulkan] failed to create semaphore");
-            LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->renderFinishedSemaphores[i]) == VK_SUCCESS, "[vulkan] failed to create semaphore");
             LVN_CORE_CALL_ASSERT(vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &surfaceData->inFlightFences[i]) == VK_SUCCESS, "[vulkan] failed to create fence");
+        }
+
+        surfaceData->renderFinishedSemaphores.resize(surfaceData->swapChainImages.size());
+        for (uint32_t i = 0; i < surfaceData->renderFinishedSemaphores.size(); i++)
+        {
+            LVN_CORE_CALL_ASSERT(vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &surfaceData->renderFinishedSemaphores[i]) == VK_SUCCESS, "[vulkan] failed to create semaphore");
         }
     }
 
@@ -2151,8 +2155,11 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
     for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
     {
         vkDestroySemaphore(vkBackends->device, surfaceData->imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(vkBackends->device, surfaceData->renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(vkBackends->device, surfaceData->inFlightFences[i], nullptr);
+    }
+    for (uint32_t i = 0; i < surfaceData->renderFinishedSemaphores.size(); i++)
+    {
+        vkDestroySemaphore(vkBackends->device, surfaceData->renderFinishedSemaphores[i], nullptr);
     }
 
     // swap chain images
@@ -2468,36 +2475,28 @@ void vksImplRenderDrawSubmit(LvnWindow* window)
     VulkanBackends* vkBackends = s_VkBackends;
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
+    VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore waitSemaphores[] = { surfaceData->imageAvailableSemaphores[surfaceData->currentFrame] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-
+    submitInfo.pWaitSemaphores = &surfaceData->imageAvailableSemaphores[surfaceData->currentFrame];
+    submitInfo.pWaitDstStageMask = &waitStages;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &surfaceData->renderFinishedSemaphores[surfaceData->imageIndex];
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &surfaceData->commandBuffers[surfaceData->currentFrame];
-
-    VkSemaphore signalSemaphores[] = { surfaceData->renderFinishedSemaphores[surfaceData->currentFrame] };
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
 
     LVN_CORE_CALL_ASSERT(vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, surfaceData->inFlightFences[surfaceData->currentFrame]) == VK_SUCCESS, "[vulkan] failed to submit draw command buffer!");
 
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = { surfaceData->swapChain };
+    presentInfo.pWaitSemaphores = &surfaceData->renderFinishedSemaphores[surfaceData->imageIndex];
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
+    presentInfo.pSwapchains = &surfaceData->swapChain;
     presentInfo.pImageIndices = &surfaceData->imageIndex;
-    presentInfo.pResults = nullptr; // Optional
+    presentInfo.pResults = nullptr;
 
     VkResult result = vkQueuePresentKHR(vkBackends->presentQueue, &presentInfo);
 
