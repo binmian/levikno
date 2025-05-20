@@ -883,8 +883,8 @@ LvnResult oglsImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateIn
 
 LvnResult oglsImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
-    std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
-    std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
+    LvnString fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
+    LvnString fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
 
     const char* vertSrc = fileVertSrc.c_str();
     const char* fragSrc = fileFragSrc.c_str();
@@ -934,7 +934,7 @@ LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCrea
         int maxLength = 0;
         glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &maxLength);
 
-        std::string infoLog; infoLog.resize(maxLength);
+        LvnString infoLog; infoLog.resize(maxLength);
         glGetShaderInfoLog(vertexShader, maxLength, &maxLength, &infoLog[0]);
 
         LVN_CORE_ERROR("[opengl] failed to load vertex shader module from binary file, id: (%u), error: %s", vertexShader, infoLog.c_str());
@@ -952,7 +952,7 @@ LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCrea
         int maxLength = 0;
         glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &maxLength);
 
-        std::string infoLog; infoLog.resize(maxLength);
+        LvnString infoLog; infoLog.resize(maxLength);
         glGetShaderInfoLog(fragmentShader, maxLength, &maxLength, &infoLog[0]);
 
         LVN_CORE_ERROR("[opengl] failed to load fragment shader module from binary file, id: (%u), error: %s", vertexShader, infoLog.c_str());
@@ -1090,7 +1090,7 @@ LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameB
     frameBufferData->multisampling = createInfo->sampleCount != Lvn_SampleCount_1_Bit;
     frameBufferData->hasDepth = createInfo->depthAttachment != nullptr;
     frameBufferData->sampleCount = createInfo->sampleCount;
-    frameBufferData->colorAttachmentSpecifications = std::vector(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
+    frameBufferData->colorAttachmentSpecifications = LvnVector<LvnFrameBufferColorAttachment>(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
     if (frameBufferData->hasDepth) { frameBufferData->depthAttachmentSpecification = *createInfo->depthAttachment; }
 
     if (ogls::updateFrameBuffer(frameBufferData) == Lvn_Result_Failure)
@@ -1893,7 +1893,7 @@ void oglsImplDrawBuffCmdDraw(void* data)
 void oglsImplDrawBuffCmdDrawIndexed(void* data)
 {
     LvnCmdDrawIndexed* cmd = static_cast<LvnCmdDrawIndexed*>(data);
-    glDrawElements(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, (void*)cmd->window->indexOffset);
+    glDrawElements(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, (void*)(uintptr_t)cmd->window->indexOffset);
 }
 
 void oglsImplDrawBuffCmdDrawInstanced(void* data)
@@ -1905,7 +1905,7 @@ void oglsImplDrawBuffCmdDrawInstanced(void* data)
 void oglsImplDrawBuffCmdDrawIndexedInstanced(void* data)
 {
     LvnCmdDrawIndexedInstanced* cmd = static_cast<LvnCmdDrawIndexedInstanced*>(data);
-    glDrawElementsInstancedBaseInstance(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, (void*)cmd->window->indexOffset, cmd->instanceCount, cmd->firstInstance);
+    glDrawElementsInstancedBaseInstance(cmd->window->topologyTypeEnum, cmd->indexCount, GL_UNSIGNED_INT, (void*)(uintptr_t)cmd->window->indexOffset, cmd->instanceCount, cmd->firstInstance);
 }
 
 void oglsImplDrawBuffCmdSetStencilReference(void* data)

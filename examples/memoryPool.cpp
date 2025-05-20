@@ -1,5 +1,7 @@
 #include <levikno/levikno.h>
 
+#include <vector>
+
 // NOTE: this example explains and demonstrates how the internal memory pool works
 
 

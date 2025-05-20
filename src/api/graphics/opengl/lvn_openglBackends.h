@@ -20,14 +20,14 @@ struct OglBindlessTextureBinding
 {
     uint32_t ssbo;
     uint32_t binding;
-    std::vector<uint64_t> textureHandles;
+    LvnVector<uint64_t> textureHandles;
 };
 
 struct OglDescriptorSet
 {
-    std::vector<OglDescriptorBinding> uniformBuffers;
-    std::vector<OglDescriptorBinding> textures;
-    std::vector<OglBindlessTextureBinding> bindlessTextures;
+    LvnVector<OglDescriptorBinding> uniformBuffers;
+    LvnVector<OglDescriptorBinding> textures;
+    LvnVector<OglBindlessTextureBinding> bindlessTextures;
 };
 
 struct OglPipelineEnums
@@ -51,13 +51,13 @@ struct OglFramebufferData
     LvnTextureMode textureMode;
     LvnSampleCount sampleCount;
 
-    std::vector<LvnFrameBufferColorAttachment> colorAttachmentSpecifications;
+    LvnVector<LvnFrameBufferColorAttachment> colorAttachmentSpecifications;
     LvnFrameBufferDepthAttachment depthAttachmentSpecification;
-    std::vector<uint32_t> colorAttachments, msaaColorAttachments;
+    LvnVector<uint32_t> colorAttachments, msaaColorAttachments;
     uint32_t depthAttachment, msaaDepthAttachment;
     bool multisampling, hasDepth;
 
-    std::vector<LvnTexture> colorAttachmentTextures;
+    LvnVector<LvnTexture> colorAttachmentTextures;
 };
 
 struct OglSampler

@@ -50,14 +50,14 @@ namespace vks
     static LvnResult                            createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers);
     static VKAPI_ATTR VkBool32 VKAPI_CALL       debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
     static bool                                 checkValidationLayerSupport();
-    static std::vector<const char*>             getRequiredExtensions(VulkanBackends* vkBackends);
+    static LvnVector<const char*>               getRequiredExtensions(VulkanBackends* vkBackends);
     static VkResult                             createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
     static void                                 destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
     static void                                 fillVulkanDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
     static void                                 setupDebugMessenger(VulkanBackends* vkBackends);
     static LvnPhysicalDeviceType                getPhysicalDeviceTypeEnum(VkPhysicalDeviceType type);
-    static std::vector<VkPhysicalDevice>        getPhysicalDevices(VkInstance instance);
-    static VkPhysicalDevice                     getBestPhysicalDevice(VkInstance instance, const std::vector<VkPhysicalDevice>& physicalDevices);
+    static LvnVector<VkPhysicalDevice>          getPhysicalDevices(VkInstance instance);
+    static VkPhysicalDevice                     getBestPhysicalDevice(VkInstance instance, const LvnVector<VkPhysicalDevice>& physicalDevices);
     static bool                                 checkDeviceExtensionSupport(VkPhysicalDevice device);
     static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
     static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
@@ -109,7 +109,7 @@ namespace vks
     static void                                 transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
     static void                                 copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
 #ifdef LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
-    static LvnResult                            compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, std::vector<uint8_t>& bin);
+    static LvnResult                            compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, LvnVector<uint8_t>& bin);
 #endif
 
     static LvnResult createVulkanInstace(VulkanBackends* vkBackends, bool enableValidationLayers)
@@ -128,7 +128,7 @@ namespace vks
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
 
-        std::vector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
+        LvnVector<const char*> extensions = vks::getRequiredExtensions(vkBackends);
         createInfo.enabledExtensionCount = extensions.size();
         createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -191,7 +191,7 @@ namespace vks
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
-        std::vector<VkLayerProperties> availableLayers(layerCount);
+        LvnVector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
         for (const char* layerName : s_ValidationLayers)
@@ -205,13 +205,13 @@ namespace vks
         return false;
     }
 
-    static std::vector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
+    static LvnVector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
     {
         uint32_t glfwExtensionCount = 0;
         const char** glfwExtensions;
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-        std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+        LvnVector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
         if (vkBackends->enableValidationLayers)
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -282,19 +282,19 @@ namespace vks
         return Lvn_PhysicalDeviceType_Unknown;
     }
 
-    static std::vector<VkPhysicalDevice> getPhysicalDevices(VkInstance instance)
+    static LvnVector<VkPhysicalDevice> getPhysicalDevices(VkInstance instance)
     {
         // get physical devices
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
         // create vulkan physical devices
-        std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+        LvnVector<VkPhysicalDevice> physicalDevices(deviceCount);
         vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data());
         return physicalDevices;
     }
 
-    static VkPhysicalDevice getBestPhysicalDevice(VkInstance instance, const std::vector<VkPhysicalDevice>& physicalDevices)
+    static VkPhysicalDevice getBestPhysicalDevice(VkInstance instance, const LvnVector<VkPhysicalDevice>& physicalDevices)
     {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         VkSurfaceKHR surface;
@@ -361,7 +361,7 @@ namespace vks
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        LvnVector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
         int i = 0;
@@ -446,7 +446,7 @@ namespace vks
         }
 
         float queuePriority = 1.0f;
-        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        LvnVector<VkDeviceQueueCreateInfo> queueCreateInfos;
         VkDeviceQueueCreateInfo queuePresentCreateInfo{};
         queuePresentCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queuePresentCreateInfo.queueFamilyIndex = queueIndices.presentIndex;
@@ -566,10 +566,10 @@ namespace vks
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+        LvnVector<VkExtensionProperties> availableExtensions(extensionCount);
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-        std::vector<const char*> requiredExtensions(s_DeviceExtensions, s_DeviceExtensions + ARRAY_LEN(s_DeviceExtensions));
+        LvnVector<const char*> requiredExtensions(s_DeviceExtensions, s_DeviceExtensions + ARRAY_LEN(s_DeviceExtensions));
 
         for (uint32_t i = 0; i < requiredExtensions.size(); i++)
         {
@@ -835,7 +835,7 @@ namespace vks
         VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
         frameBufferData->frameBufferImages.resize(frameBufferData->totalAttachmentCount);
 
-        std::vector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
+        LvnVector<VkImageView> attachments(frameBufferData->totalAttachmentCount);
 
         for (uint32_t i = 0; i < frameBufferData->colorAttachments.size(); i++)
         {
@@ -1527,7 +1527,7 @@ namespace vks
         inputAssembly.topology = vks::getVulkanTopologyTypeEnum(pipelineSpecification->inputAssembly.topology);
         inputAssembly.primitiveRestartEnable = pipelineSpecification->inputAssembly.primitiveRestartEnable;
 
-        std::vector<VkDynamicState> dynamicStates;
+        LvnVector<VkDynamicState> dynamicStates;
         dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
         dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
@@ -1570,7 +1570,7 @@ namespace vks
         multisampling.alphaToCoverageEnable = pipelineSpecification->multisampling.alphaToCoverageEnable; // Optional
         multisampling.alphaToOneEnable = pipelineSpecification->multisampling.alphaToOneEnable; // Optional
 
-        std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+        LvnVector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
         
         if (pipelineSpecification->colorBlend.colorBlendAttachmentCount == 0 || pipelineSpecification->colorBlend.pColorBlendAttachments == nullptr)
         {
@@ -1914,7 +1914,7 @@ namespace vks
         vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
     }
 #ifdef LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
-    static LvnResult compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, std::vector<uint8_t>& bin)
+    static LvnResult compileShaderToSPIRV(glslang_stage_t stage, const char* shaderSource, LvnVector<uint8_t>& bin)
     {
         glslang_initialize_process();
 
@@ -2232,7 +2232,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
         vks::setupDebugMessenger(vkBackends);
 
     // get physical devices and setup render init
-    std::vector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
+    LvnVector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
     VkPhysicalDevice physicalDevice = vks::getBestPhysicalDevice(vkBackends->instance, physicalDevices);
     vks::setupRenderInit(vkBackends, physicalDevice);
 
@@ -2334,7 +2334,7 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
         return;
 
     // create vulkan physical devices
-    std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+    LvnVector<VkPhysicalDevice> physicalDevices(deviceCount);
     vkEnumeratePhysicalDevices(vkBackends->instance, &deviceCount, physicalDevices.data());
 
     vkBackends->lvnPhysicalDevices.resize(deviceCount);
@@ -2348,7 +2348,7 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
 
         LvnPhysicalDeviceProperties props{};
         props.type = vks::getPhysicalDeviceTypeEnum(deviceProperties.deviceType);
-        props.name = std::string(deviceProperties.deviceName);
+        props.name = LvnString(deviceProperties.deviceName);
         props.apiVersion = deviceProperties.apiVersion;
         props.driverVersion = deviceProperties.driverVersion;
         props.vendorID = deviceProperties.vendorID;
@@ -2585,7 +2585,7 @@ void vksImplRenderCmdBindVertexBuffer(LvnWindow* window, uint32_t firstBinding, 
 {
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
 
-    std::vector<VkBuffer> buffers(bindingCount);
+    LvnVector<VkBuffer> buffers(bindingCount);
     for (uint32_t i = 0; i < bindingCount; i++)
         buffers[i] = static_cast<VkBuffer>(pBuffers[i]->buffer);
 
@@ -2605,7 +2605,7 @@ void vksImplRenderCmdBindDescriptorSets(LvnWindow* window, LvnPipeline* pipeline
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
     VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
 
-    std::vector<VkDescriptorSet> descriptorSets(descriptorSetCount);
+    LvnVector<VkDescriptorSet> descriptorSets(descriptorSetCount);
     for (uint32_t i = 0; i < descriptorSetCount; i++)
     {
         descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorSets[i]->descriptorSets[surfaceData->currentFrame]);
@@ -2658,8 +2658,8 @@ LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInf
 #ifdef LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
     VulkanBackends* vkBackends = s_VkBackends;
 
-    std::vector<uint8_t> vertData;
-    std::vector<uint8_t> fragData;
+    LvnVector<uint8_t> vertData;
+    LvnVector<uint8_t> fragData;
 
     if (vks::compileShaderToSPIRV(GLSLANG_STAGE_VERTEX, createInfo->vertexSrc.c_str(), vertData) == Lvn_Result_Failure)
     {
@@ -2692,11 +2692,11 @@ LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreat
 #ifdef LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
     VulkanBackends* vkBackends = s_VkBackends;
 
-    std::string fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
-    std::string fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
+    LvnString fileVertSrc = lvn::loadFileSrc(createInfo->vertexSrc.c_str());
+    LvnString fileFragSrc = lvn::loadFileSrc(createInfo->fragmentSrc.c_str());
 
-    std::vector<uint8_t> vertData;
-    std::vector<uint8_t> fragData;
+    LvnVector<uint8_t> vertData;
+    LvnVector<uint8_t> fragData;
 
     if (vks::compileShaderToSPIRV(GLSLANG_STAGE_VERTEX, fileVertSrc.c_str(), vertData) == Lvn_Result_Failure)
     {
@@ -2744,8 +2744,8 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, c
 {
     VulkanBackends* vkBackends = s_VkBackends;
 
-    std::vector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
-    std::vector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
+    LvnVector<VkDescriptorSetLayoutBinding> layoutBindings(createInfo->descriptorBindingCount);
+    LvnVector<VkDescriptorPoolSize> poolSizes(createInfo->descriptorBindingCount);
 
     for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
     {
@@ -2800,7 +2800,7 @@ LvnResult vksImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescr
     VkDescriptorSetLayout vkDescriptorLayout = static_cast<VkDescriptorSetLayout>(descriptorLayout->descriptorLayout);
     VkDescriptorPool descriptorPool = static_cast<VkDescriptorPool>(descriptorLayout->descriptorPool);
 
-    std::vector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
+    LvnVector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2839,8 +2839,8 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateIn
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
     // vertex binding descriptions & attributes
-    std::vector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
-    std::vector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
+    LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+    LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
 
     for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
     {
@@ -2882,7 +2882,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateIn
     }
 
     // descriptor layouts
-    std::vector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
+    LvnVector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
     for (uint32_t i = 0; i < createInfo->descriptorLayoutCount; i++)
     {
         VkDescriptorSetLayout descriptorLayout = static_cast<VkDescriptorSetLayout>(createInfo->pDescriptorLayouts[i]->descriptorLayout);
@@ -2921,7 +2921,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBu
     frameBufferData->width = createInfo->width;
     frameBufferData->height = createInfo->height;
 
-    frameBufferData->colorAttachments = std::vector<LvnFrameBufferColorAttachment>(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
+    frameBufferData->colorAttachments = LvnVector<LvnFrameBufferColorAttachment>(createInfo->pColorAttachments, createInfo->pColorAttachments + createInfo->colorAttachmentCount);
     frameBufferData->colorImages.resize(createInfo->colorAttachmentCount);
     frameBufferData->colorImageMemory.resize(createInfo->colorAttachmentCount);
     frameBufferData->colorImageViews.resize(createInfo->colorAttachmentCount);
@@ -2935,9 +2935,9 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBu
     frameBufferData->totalAttachmentCount = createInfo->colorAttachmentCount + (frameBufferData->hasDepth ? 1 : 0);
     frameBufferData->clearValues.resize(frameBufferData->totalAttachmentCount);
 
-    std::vector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
+    LvnVector<VkAttachmentDescription> attachmentDescriptions(frameBufferData->totalAttachmentCount);
 
-    std::vector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
+    LvnVector<VkAttachmentReference> colorReference(createInfo->colorAttachmentCount);
     VkAttachmentReference depthReference;
 
     // Color attachments
@@ -2982,7 +2982,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBu
     }
 
     // Multisample
-    std::vector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
+    LvnVector<VkAttachmentReference> attachReferenceResolves(createInfo->colorAttachmentCount);
 
     if (frameBufferData->multisampling)
     {
@@ -3410,7 +3410,7 @@ LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* 
     VkDeviceSize imageSize = layerSize * 6; // size of total combinded 6 images of cubemap
 
     const uint8_t* texImages[6] = { createInfo->posx.pixels.data(), createInfo->negx.pixels.data(), createInfo->posy.pixels.data(), createInfo->negy.pixels.data(), createInfo->posz.pixels.data(), createInfo->negz.pixels.data() };
-    std::vector<uint8_t> texData(imageSize);
+    LvnVector<uint8_t> texData(imageSize);
 
     for (uint32_t i = 0; i < 6; i++)
     {
@@ -3811,7 +3811,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
     for (uint32_t i = 0; i < count; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        std::vector<VkDescriptorImageInfo> imageInfos(pUpdateInfo[i].descriptorCount);
+        LvnVector<VkDescriptorImageInfo> imageInfos(pUpdateInfo[i].descriptorCount);
 
         if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler ||
             pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
@@ -3917,11 +3917,11 @@ void vksImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attac
 LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
 {
     VulkanBackends* vkBackends = s_VkBackends;
-    
+
     VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
     VkFormatFeatureFlagBits features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    std::vector<VkFormat> candidates(count);
+    LvnVector<VkFormat> candidates(count);
 
     for (uint32_t i = 0; i < count; i++)
     {

@@ -80,17 +80,6 @@ struct UniformData
     LvnMat4 matrix;
 };
 
-class Timer
-{
-private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
-
-public:
-    void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-    void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-    float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
-    float elapsedms() { return elapsed() * 1000.0f; }
-};
 
 int main(int argc, char** argv)
 {
@@ -282,9 +271,6 @@ int main(int argc, char** argv)
 
     UniformData uniformData{};
 
-    Timer timer{};
-    timer.start();
-
     // [Main Render Loop]
     while (lvn::windowOpen(window))
     {
@@ -294,11 +280,9 @@ int main(int argc, char** argv)
         int width, height;
         lvn::windowGetSize(window, &width, &height);
 
-        float time = timer.elapsed();
-
         // update matrix
         LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
-        LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(cos(time), 0.5f * sin(0.5f * time), (sin(time))), LvnVec3(0.0f, 1.0f, 0.0f));
+        LvnMat4 view = lvn::lookAt(LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(cos(lvn::getContextTime()), 0.5f * sin(0.5f * lvn::getContextTime()), (sin(lvn::getContextTime()))), LvnVec3(0.0f, 1.0f, 0.0f));
 
         view = LvnMat4(LvnMat3(view));
 

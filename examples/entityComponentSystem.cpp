@@ -1,4 +1,8 @@
-#include <levikno/levikno.h>
+#include "levikno/levikno.h"
+#include <levikno/lvn_ecs.h>
+
+#include <string>
+#include <vector>
 
 // INFO: this program demonstrates the entity component system (ECS) utilities from the library
 
@@ -37,15 +41,6 @@ void updatePosition(PosComponent& pos, VelocityComponent& velocity, Acceleractio
 
 int main(int argc, char** argv)
 {
-    // [Create Context]
-    // create the context to load the library
-    LvnContextCreateInfo lvnCreateInfo{};
-    lvnCreateInfo.logging.enableLogging = true;
-    lvnCreateInfo.logging.disableCoreLogging = true;
-
-    lvn::createContext(&lvnCreateInfo);
-
-
     // [Entities]
     // creating entities
     // - Note that entities are only 64-bit unsigned integers underneath
@@ -53,9 +48,9 @@ int main(int argc, char** argv)
     LvnEntity e2 = lvn::createEntity();
     LvnEntity e3 = lvn::createEntity();
 
-    LVN_TRACE("e1: %zu", e1);
-    LVN_TRACE("e2: %zu", e2);
-    LVN_TRACE("e3: %zu", e3);
+    printf("e1: %zu\n", e1);
+    printf("e2: %zu\n", e2);
+    printf("e3: %zu\n", e3);
 
 
     PosComponent posComp{};
@@ -73,7 +68,7 @@ int main(int argc, char** argv)
     lvn::entityAddComponent(e2, PosComponent{ -2.0f, 13.0f });    // within function
     lvn::entityAddComponent(e3, PosComponent());                  // add component with default constructor/default values
 
-    // lvn::entityAddComponent(e3, { -2.0f, 13.0f });             // will not compile, type of component not defined
+    // lvn::entityAddComponent(e3, { -2.0f, 13.0f });             // will not compile, type of component not clearly defined
 
 
     // multiple components can be added at the same time
@@ -82,33 +77,32 @@ int main(int argc, char** argv)
 
 
     // components can be retrieved individually
-    // - make sure to pass it into a reference variable to change the values
+    // - make sure that a component is retrieved by reference or else you wont be able to update the component
     PosComponent& posComp1 = lvn::entityGetComponent<PosComponent>(e1);
     NameComponent nameComp1 = lvn::entityGetComponent<NameComponent>(e1); // NOTE: not taken by reference, making a copy instead
 
-    LVN_TRACE("\"%s\" pos comp: { x = %f, y = %f }", nameComp1.name.c_str(), posComp1.x, posComp1.y);
+    printf("\"%s\" pos comp: { x = %f, y = %f }\n", nameComp1.name.c_str(), posComp1.x, posComp1.y);
 
     // change values of components
     posComp1 = { 10.5f, 22.3f };
-    nameComp1.name = "block1"; // NameComponent was not taken by reference, the component does not change value tied with the entity
+    nameComp1.name = "block1"; // NameComponent was not taken by reference, entity e1 will not change name
 
     // get components again
     PosComponent& posCompAgain1 = lvn::entityGetComponent<PosComponent>(e1);
     NameComponent& nameCompAgain1 = lvn::entityGetComponent<NameComponent>(e1);
 
     // NOTE: position values should change, but name stays the same
-    LVN_TRACE("\"%s\" pos comp: { x = %f, y = %f }", nameCompAgain1.name.c_str(), posCompAgain1.x, posCompAgain1.y);
+    printf("\"%s\" pos comp: { x = %f, y = %f }\n", nameCompAgain1.name.c_str(), posCompAgain1.x, posCompAgain1.y);
 
 
     printf("\n");
 
     // [Systems]
-    // creating and updating systems are straighforward and simple to use in levikno.
-    // To update multiple entities through a system, levikno requires the type of components to be used
-    // and the system update function to update the components
-    // - pass in the entities and the number of entities that need to be updated
-    // - pass in a function pointer with the components types taken by reference in the function paramter
-    // - Note that every entity passed in must have all the components that are passed in as arguments for the function parameter
+    // using update systems are straighforward to use in levikno.
+    // entities can be updated through a callback function that updates the entities' components through the callback's parameter
+    // - to update multiple entities at once, pass in an array of entities and the number of entities in the array
+    // - pass in a function pointer that updates the entities with the component types taken by reference in the paramter
+    // - Note that every entity passed in must have all the components that are present in the function's parameter
     // Ex:
     lvn::entityUpdateSystem(&e1, 1, updatePosition);
 
@@ -116,12 +110,14 @@ int main(int argc, char** argv)
     PosComponent& posCompUpdate = lvn::entityGetComponent<PosComponent>(e1);
     VelocityComponent& velocityCompUpdate = lvn::entityGetComponent<VelocityComponent>(e1);
 
-    LVN_TRACE("pos comp: { x = %f, y = %f }", posCompUpdate.x, posCompUpdate.y);
-    LVN_TRACE("velocity comp: { x = %f, y = %f }", velocityCompUpdate.x, velocityCompUpdate.y);
+    printf("First System update:\n");
+    printf("pos comp: { x = %f, y = %f }\n", posCompUpdate.x, posCompUpdate.y);
+    printf("velocity comp: { x = %f, y = %f }\n", velocityCompUpdate.x, velocityCompUpdate.y);
 
 
-    // you can also pass lambdas into the update function
-    // make sure to include the '+' symbol in front of the lambda to convert it to a function pointer
+    // lambdas can be passed in instead
+    // some c++ compilers may interpret lambdas as a struct with an overload operator, make sure to tell the compiler to treat lambdas as function pointers
+    // the '+' symbol in front of the lambda will tell the compiler to convert the lambda to a function pointer
     lvn::entityUpdateSystem(&e1, 1, +[](PosComponent& pos, VelocityComponent& velocity, AcceleractionComponent& acceleration)
     {
         velocity.x += acceleration.x;
@@ -131,12 +127,13 @@ int main(int argc, char** argv)
         pos.y += velocity.y;
     });
 
-    LVN_TRACE("pos comp: { x = %f, y = %f }", posCompUpdate.x, posCompUpdate.y);
-    LVN_TRACE("velocity comp: { x = %f, y = %f }", velocityCompUpdate.x, velocityCompUpdate.y);
+    printf("Second System update:\n");
+    printf("pos comp: { x = %f, y = %f }\n", posCompUpdate.x, posCompUpdate.y);
+    printf("velocity comp: { x = %f, y = %f }\n", velocityCompUpdate.x, velocityCompUpdate.y);
 
 
     // multiple entities with the same components can be updated at the same time
-    // make sure all entities have the components passed into the parameters of the system update function
+    // make sure each entity has all the components present in the parameter of the update function
 
     std::vector<LvnEntity> entities = { e1, e2 };
 
@@ -149,10 +146,13 @@ int main(int argc, char** argv)
         pos.y += velocity.y;
     });
 
+    printf("Third System update:\n");
+    printf("pos comp: { x = %f, y = %f }\n", posCompUpdate.x, posCompUpdate.y);
+    printf("velocity comp: { x = %f, y = %f }\n", velocityCompUpdate.x, velocityCompUpdate.y);
+
     entities.push_back(e3);
 
-    // will not work, entities now includes e3 which does not have a velocity or acceleration component
-    // matching with the function parameter in the system update function
+    // will not work, entities now includes e3 which does not have a velocity or acceleration component to update in the system
 
     // lvn::entityUpdateSystem(entities.data(), entities.size(), +[](PosComponent& pos, VelocityComponent& velocity, AcceleractionComponent& acceleration)
     // {
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     // });
 
 
-    // entities can be desctroyed when no longer needed
+    // when an entity is no longer needed, it can be destroyed
     lvn::destroyEntity(e3);
 
     // components can be removed from an entity when no longer needed
@@ -173,8 +173,12 @@ int main(int argc, char** argv)
     // multiple components can be removed at the same time
     lvn::entityRemoveComponent<PosComponent, VelocityComponent, AcceleractionComponent>(e1);
 
-    // terminate context
-    lvn::terminateContext();
+
+    // optionally if you want to restart the entire ecs system, just call lvn::ecsRestart()
+    // this will clear all components added to the components manager and reset the entity id count.
+    // doing this will make all created entities and added components prior invalid so only do this
+    // when you want to start a completely new ecs session
+    lvn::ecsRestart();
 
     return 0;
 }

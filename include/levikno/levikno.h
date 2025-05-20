@@ -11,8 +11,8 @@
 // -- [SUBSECT]: Debug Defines
 // -- [SUBSECT]: Memory Alloc Defines
 // -- [SUBSECT]: Misc Defines
-// -- [SUBSECT]: Includes
 // -- [SUBSECT]: Log Defines
+// -- [SUBSECT]: Includes
 // [SECTION]: Enums
 // -- [SUBSECT]: Core Enums
 // -- [SUBSECT]: Key Code Enums
@@ -24,7 +24,6 @@
 // -- [SUBSECT]: Renderer Enums
 // [SECTION]: Struct Definitions
 // -- [SUBSECT]: Data Structure Definitions
-// -- [SUBSECT]: ECS (Entity Component System) Definitions & Implementation
 // -- [SUBSECT]: Vertices & Matrices
 // [SECTION]: Functions
 // -- [SUBSECT]: Core Functions
@@ -35,7 +34,6 @@
 // -- [SUBSECT]: Audio Functions
 // -- [SUBSECT]: Networking Functions
 // -- [SUBSECT]: Renderer Functions
-// -- [SUBSECT]: ECS Functions
 // -- [SUBSECT]: Math Functions
 // [SECTION]: Struct Implementations
 // -- [SUBSECT]: Data Structures
@@ -131,11 +129,11 @@
 #endif
 
 #if defined (LVN_DISABLE_ASSERTS)
-    #define LVN_ASSERT(x, ...) { if(!(x)) { LVN_ERROR(__VA_ARGS__); } }
-    #define LVN_CORE_ASSERT(x, ...) { if(!(x)) { LVN_CORE_ERROR(__VA_ARGS__); } }
+    #define LVN_ASSERT(x, ...) { if(!(x)) { printf("[assert]: "); printf(__VA_ARGS__); } }
+    #define LVN_CORE_ASSERT(x, ...) { if(!(x)) { printf("[core_assert]: "); printf(__VA_ARGS__); } }
 #elif defined (LVN_ENABLE_ASSERTS)
-    #define LVN_ASSERT(x, ...) { if(!(x)) { printf(__VA_ARGS__); LVN_ASSERT_BREAK; } }
-    #define LVN_CORE_ASSERT(x, ...) { if(!(x)) { printf(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+    #define LVN_ASSERT(x, ...) { if(!(x)) { printf("[assert]: "); printf(__VA_ARGS__); LVN_ASSERT_BREAK; } }
+    #define LVN_CORE_ASSERT(x, ...) { if(!(x)) { printf("[core_assert]: "); printf(__VA_ARGS__); LVN_ASSERT_BREAK; } }
 #else
     #define LVN_ASSERT(x, ...)
     #define LVN_CORE_ASSERT(x, ...)
@@ -145,7 +143,8 @@
 // -- [SUBSECT]: Memory Alloc Defines
 // ------------------------------------------------------------
 
-#ifndef LVN_ALLOC
+// allocation
+#ifndef LVN_MALLOC
     #define LVN_MALLOC(sz) ::lvn::memAlloc(sz)
 #endif
 
@@ -157,6 +156,8 @@
     #define LVN_REALLOC(p,sz) ::lvn::memRealloc(p,sz)
 #endif
 
+// storage
+#define LVN_TYPE_BUFF(name,sz) alignas(alignof(max_align_t)) uint8_t name[sz]
 
 // -- [SUBSECT]: Misc Defines
 // ------------------------------------------------------------
@@ -178,51 +179,6 @@
 
 #define LVN_PI ((float)M_PI)
 #define LVN_PI_EXACT (22.0/7.0) /* 3.1415... */
-
-
-// -- [SUBSECT]: Includes
-// ------------------------------------------------------------
-
-#include <cstdlib> // malloc, free
-#include <cstdint> // uint8_t, uint16_t, uint32_t, uint64_t
-#include <cstring> // strlen
-#include <cmath>
-
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <chrono>
-#include <memory>
-#include <queue>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <typeindex>
-
-
-using std::abs;
-using std::acos;
-using std::asin;
-using std::atan;
-using std::atan2;
-using std::cos;
-using std::sin;
-using std::tan;
-using std::cosh;
-using std::sinh;
-using std::tanh;
-using std::exp;
-using std::frexp;
-using std::ldexp;
-using std::log;
-using std::log10;
-using std::modf;
-using std::pow;
-using std::sqrt;
-using std::ceil;
-using std::fabs;
-using std::floor;
-using std::fmod;
 
 
 // -- [SUBSECT]: Log Defines
@@ -297,6 +253,48 @@ using std::fmod;
 // Logging utils
 #define LVN_PROPERTIES(prop)                    #prop, &prop
 #define LVN_LOG_FILE                            LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
+
+
+// -- [SUBSECT]: Includes
+// ------------------------------------------------------------
+
+#include <cstdio>  // printf
+#include <cstdlib> // malloc, free
+#include <cstdint> // uint8_t, uint16_t, uint32_t, uint64_t
+#include <cstring> // strlen
+#include <cmath>
+#include <memory>
+
+
+using std::abs;
+using std::acos;
+using std::asin;
+using std::atan;
+using std::atan2;
+using std::cos;
+using std::sin;
+using std::tan;
+using std::cosh;
+using std::sinh;
+using std::tanh;
+using std::exp;
+using std::frexp;
+using std::ldexp;
+using std::log;
+using std::log10;
+using std::modf;
+using std::pow;
+using std::sqrt;
+using std::ceil;
+using std::fabs;
+using std::floor;
+using std::fmod;
+
+
+// callbacks
+typedef void* (*LvnMemAllocFunc)(size_t sz, void* userData);
+typedef void  (*LvnMemFreeFunc)(void* ptr, void* userData);
+typedef void* (*LvnMemReallocFunc)(void* ptr, size_t sz, void* userData);
 
 
 // ------------------------------------------------------------
@@ -1029,6 +1027,9 @@ struct LvnWindowLostFocusEvent;
 struct LvnWindowMovedEvent;
 struct LvnWindowResizeEvent;
 
+typedef LvnCamera LvnPerspectiveCamera;
+typedef LvnOrthoCamera LvnOrthographicCamera;
+
 
 // -- [SUBSECT]: Data Structure Definitions
 // ------------------------------------------------------------
@@ -1039,138 +1040,41 @@ struct LvnPair;
 template <typename T1, typename T2>
 struct LvnDoublePair;
 
+template <typename T>
+class LvnVector;
 
-template <typename T, size_t N>
-class LvnArray;
+template <typename T>
+struct LvnLinkedIndexNode;
+
+template <typename T>
+using LvnINode = LvnLinkedIndexNode<T>;
+
+template <typename T>
+class LvnArenaList;
+
+template <typename T, typename Container>
+class LvnQueue;
+
+struct LvnHash;
+template <typename K, typename T>
+struct LvnHashEntry;
+template <typename K, typename T, typename Hash>
+class LvnHashMap;
+
+template <typename T>
+class LvnUniquePtr;
+
+class LvnString;
 
 template <typename T>
 class LvnData;
 typedef LvnData<uint8_t> LvnBin;
 
 class LvnTimer;
-class LvnThreadPool;
+class LvnThread;
+class LvnMutex;
+class LvnLockGaurd;
 class LvnDrawList;
-
-typedef LvnCamera LvnPerspectiveCamera;
-typedef LvnOrthoCamera LvnOrthographicCamera;
-
-
-// -- [SUBSECT]: ECS (Entity Component System) Definitions & Implementation
-// ------------------------------------------------------------
-
-template <typename T>
-class LvnComponentArray;
-class LvnIComponentArray;
-class LvnComponentManager;
-typedef uint64_t LvnEntity;
-
-
-class LvnIComponentArray
-{
-public:
-    virtual ~LvnIComponentArray() = default;
-    virtual void entityDestroyed(LvnEntity entity) = 0;
-};
-
-template <typename T>
-class LvnComponentArray : public LvnIComponentArray
-{
-    static_assert(!std::is_pointer_v<T>, "cannot have pointer type as template parameter in component array");
-
-private:
-    std::vector<T> m_Data;
-    std::unordered_map<LvnEntity, uint64_t> m_EntityToIndex;
-    std::queue<uint64_t> m_AvailableIndices;
-
-public:
-    void add_entity(LvnEntity entity, const T& comp)
-    {
-        LVN_CORE_ASSERT(m_EntityToIndex.find(entity) == m_EntityToIndex.end(), "entity already has component in component array");
-
-        if (!m_AvailableIndices.empty())
-        {
-            const uint64_t index = m_AvailableIndices.front();
-            m_AvailableIndices.pop();
-            m_Data[index] = comp;
-            m_EntityToIndex[entity] = index;
-            return;
-        }
-
-        m_Data.push_back(comp);
-        m_EntityToIndex[entity] = m_Data.size() - 1;
-    }
-
-    void remove_entity(LvnEntity entity)
-    {
-        LVN_CORE_ASSERT(m_EntityToIndex.find(entity) != m_EntityToIndex.end(), "entity not found within component array");
-
-        const uint64_t index = m_EntityToIndex[entity];
-        LVN_CORE_ASSERT(index < m_Data.size(), "index out of vector size range");
-
-        m_AvailableIndices.push(index);
-        m_EntityToIndex.erase(entity);
-    }
-
-    T& get_entity_component(LvnEntity entity)
-    {
-        LVN_CORE_ASSERT(m_EntityToIndex.find(entity) != m_EntityToIndex.end(), "entity not found within component array");
-
-        const uint64_t index = m_EntityToIndex[entity];
-        LVN_CORE_ASSERT(index < m_Data.size(), "index out of vector size range");
-
-        return m_Data[index];
-    }
-
-    bool has_entity_with_component(LvnEntity entity)
-    {
-        return m_EntityToIndex.find(entity) != m_EntityToIndex.end();
-    }
-
-    virtual void entityDestroyed(LvnEntity entity) override
-    {
-        if (has_entity_with_component(entity))
-            remove_entity(entity);
-    }
-};
-
-class LvnComponentManager
-{
-private:
-    std::unordered_map<std::type_index, std::shared_ptr<LvnIComponentArray>> m_Components;
-
-public:
-
-    template <typename T>
-    void add_component()
-    {
-        m_Components[std::type_index(typeid(T))] = std::make_shared<LvnComponentArray<T>>();
-    }
-
-    template <typename T>
-    void remove_component()
-    {
-        LVN_CORE_ASSERT(m_Components.find(std::type_index(typeid(T))) != m_Components.end(), "component not found within registry");
-
-        m_Components.erase(std::type_index(typeid(T)));
-    }
-
-    template <typename T>
-    LvnComponentArray<T>& get_component()
-    {
-        LVN_CORE_ASSERT(m_Components.find(std::type_index(typeid(T))) != m_Components.end(), "component not found within registry");
-        auto index = std::type_index(typeid(T));
-        return *static_cast<LvnComponentArray<T>*>(m_Components[index].get());
-    }
-
-    template <typename T>
-    bool has_component()
-    {
-        return m_Components.find(std::type_index(typeid(T))) != m_Components.end();
-    }
-
-    auto begin() { return m_Components.begin(); }
-    auto end() { return m_Components.end(); }
-};
 
 
 // -- [SUBSECT]: Vertices & Matrices
@@ -1389,20 +1293,20 @@ namespace lvn
     LVN_API const char*             dateGetTimeMeridiem();                              // get the time meridiem of the current day (eg. AM, PM)
     LVN_API const char*             dateGetTimeMeridiemLower();                         // get the time meridiem of the current day in lower case (eg. am, pm)
 
-    LVN_API std::string             dateGetTimeHHMMSS();                                // get the time in HH:MM:SS format (eg. 14:34:54)
-    LVN_API std::string             dateGetTime12HHMMSS();                              // get the time in HH:MM:SS 12 hour format (eg. 2:23:14)
-    LVN_API std::string             dateGetYearStr();                                   // get the current year number as a string
-    LVN_API std::string             dateGetYear02dStr();                                // get the last two digits of the current year number as a string
-    LVN_API std::string             dateGetMonthNumStr();                               // get the current month number as a string
-    LVN_API std::string             dateGetDayNumStr();                                 // get the current day number as a string
-    LVN_API std::string             dateGetHourNumStr();                                // get the current hour number as a string
-    LVN_API std::string             dateGetHour12NumStr();                              // get the current hour number in 12 hour format as a string
-    LVN_API std::string             dateGetMinuteNumStr();                              // get the current minute as a string
-    LVN_API std::string             dateGetSecondNumStr();                              // get the current second as a string
+    LVN_API LvnString               dateGetTimeHHMMSS();                                // get the time in HH:MM:SS format (eg. 14:34:54)
+    LVN_API LvnString               dateGetTime12HHMMSS();                              // get the time in HH:MM:SS 12 hour format (eg. 2:23:14)
+    LVN_API LvnString               dateGetYearStr();                                   // get the current year number as a string
+    LVN_API LvnString               dateGetYear02dStr();                                // get the last two digits of the current year number as a string
+    LVN_API LvnString               dateGetMonthNumStr();                               // get the current month number as a string
+    LVN_API LvnString               dateGetDayNumStr();                                 // get the current day number as a string
+    LVN_API LvnString               dateGetHourNumStr();                                // get the current hour number as a string
+    LVN_API LvnString               dateGetHour12NumStr();                              // get the current hour number in 12 hour format as a string
+    LVN_API LvnString               dateGetMinuteNumStr();                              // get the current minute as a string
+    LVN_API LvnString               dateGetSecondNumStr();                              // get the current second as a string
 
     LVN_API float                   getContextTime();                                   // get time in seconds since context creation
 
-    LVN_API std::string             loadFileSrc(const char* filepath);                                     // get the src contents from a text file format, filepath must be a valid path to a text file
+    LVN_API LvnString               loadFileSrc(const char* filepath);                                     // get the src contents from a text file format, filepath must be a valid path to a text file
     LVN_API LvnBin                  loadFileSrcBin(const char* filepath);                                  // get the binary data contents (in unsigned char*) from a binary file (eg .spv), filepath must be a valid path to a binary file
     LVN_API void                    writeFileSrc(const char* filename, const char* src, LvnFileMode mode); // write to a file given the file name, the source content of the file and the mode to write to the file
 
@@ -1415,6 +1319,56 @@ namespace lvn
     LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
     LVN_API void                    memFree(void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
     LVN_API void*                   memRealloc(void* ptr, size_t size);                 // custom memory realloc function
+
+    LVN_API void                    setMemFuncs(LvnMemAllocFunc allocFunc, LvnMemFreeFunc freeFunc, LvnMemReallocFunc reallocFunc, void* userData);
+    LVN_API LvnMemAllocFunc         getMemAllocFunc();
+    LVN_API LvnMemFreeFunc          getMemFreeFunc();
+    LVN_API LvnMemReallocFunc       getMemReallocFunc();
+    LVN_API void*                   getMemUserData();
+
+#ifdef LVN_CONFIG_DEBUG
+    LVN_API inline size_t i_ObjectAllocationCount = 0;
+    LVN_API inline size_t getObjectAllocationCount() { return i_ObjectAllocationCount; }
+#endif
+
+    template <typename T>
+    LVN_API constexpr T* memNew(size_t size = 1, bool construct = true)
+    {
+        if (size == 0) { return nullptr; }
+    #ifdef LVN_CONFIG_DEBUG
+        i_ObjectAllocationCount++;
+    #endif
+        T* memalloc = (T*)(*lvn::getMemAllocFunc())(size * sizeof(T), lvn::getMemUserData());
+        if (construct)
+        {
+            for (size_t i = 0; i < size; i++)
+                new (memalloc + i) T();
+        }
+        return memalloc;
+    }
+
+    template <typename T>
+    LVN_API constexpr void memDelete(T* ptr, size_t size = 1)
+    {
+        if (ptr == nullptr) { return; }
+    #ifdef LVN_CONFIG_DEBUG
+        i_ObjectAllocationCount--;
+    #endif
+        if (!std::is_trivially_destructible_v<T>)
+        {
+            for (size_t i = 0; i < size; i++)
+                ptr[i].~T();
+        }
+        (*lvn::getMemFreeFunc())(ptr, lvn::getMemUserData());
+    }
+
+    template <typename T, typename... Args>
+    LVN_API constexpr LvnUniquePtr<T> makeUniquePtr(Args&&... args)
+    {
+        T* ptr = lvn::memNew<T>(1, false);
+        new (ptr) T(args...);
+        return LvnUniquePtr<T>(ptr);
+    }
 
 
     // -- [SUBSECT]: Logging Functions
@@ -1466,7 +1420,7 @@ namespace lvn
     LVN_API bool                        logCheckLevel(LvnLogger* logger, LvnLogLevel level);                              // checks level with loger, returns true if level is the same or higher level than the level of the logger
     LVN_API void                        logRenameLogger(LvnLogger* logger, const char* name);                             // renames the name of the logger
     LVN_API void                        logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);                          // prints the log message
-    LVN_API std::string                 logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI = false); // formats the log message into the log pattern set by the logger
+    LVN_API LvnString                   logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI = false); // formats the log message into the log pattern set by the logger
     LVN_API void                        logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);                // log message with given log level
     LVN_API void                        logMessageTrace(LvnLogger* logger, const char* fmt, ...);                         // log message with level trace; ANSI code "\x1b[0;37m"
     LVN_API void                        logMessageDebug(LvnLogger* logger, const char* fmt, ...);                         // log message with level debug; ANSI code "\x1b[0;34m"
@@ -1627,7 +1581,7 @@ namespace lvn
 
     LVN_API LvnImageData                loadImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
     LVN_API LvnImageData                loadImageDataMemory(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
-    LVN_API LvnImageData                loadImageDataThread(const std::string filepath, int forceChannels = 0, bool flipVertically = false);
+    LVN_API LvnImageData                loadImageDataThread(const LvnString filepath, int forceChannels = 0, bool flipVertically = false);
     LVN_API LvnImageData                loadImageDataMemoryThread(const uint8_t* data, int length, int forceChannels = 0, bool flipVertically = false);
     LVN_API LvnImageHdrData             loadHdrImageData(const char* filepath, int forceChannels = 0, bool flipVertically = false);
 
@@ -1771,71 +1725,6 @@ namespace lvn
     LVN_API void                        drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, uint32_t nSides, const LvnColor& color);
     LVN_API void                        drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale);
     LVN_API void                        drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHeight, float textBoxWidth);
-
-
-    // -- [SUBSECT]: ECS Functions
-    // ------------------------------------------------------------
-
-    LvnEntity createEntity();
-    void destroyEntity(LvnEntity entity);
-    LvnComponentManager* getComponentManager();
-
-    template <typename T>
-    void entityAddComponent(LvnEntity entity, const T& comp)
-    {
-        LvnComponentManager* compManager = lvn::getComponentManager();
-        if (!compManager->has_component<T>())
-            compManager->add_component<T>();
-
-        LvnComponentArray<T>& compArray = compManager->get_component<T>();
-        compArray.add_entity(entity, comp);
-    }
-
-    template <typename T, typename... Args>
-    void entityAddComponent(LvnEntity entity, const T& comp, const Args&... args)
-    {
-        LvnComponentManager* compManager = lvn::getComponentManager();
-        if (!compManager->has_component<T>())
-            compManager->add_component<T>();
-
-        LvnComponentArray<T>& compArray = compManager->get_component<T>();
-        compArray.add_entity(entity, comp);
-
-        entityAddComponent(entity, args...);
-    }
-
-    template <typename T>
-    void entityRemoveComponent(LvnEntity entity)
-    {
-        LvnComponentArray<T>& compArray = lvn::getComponentManager()->get_component<T>();
-        compArray.remove_entity(entity);
-    }
-
-    template <typename T, typename T2, typename... Args>
-    void entityRemoveComponent(LvnEntity entity)
-    {
-        LvnComponentArray<T>& compArray = lvn::getComponentManager()->get_component<T>();
-        compArray.remove_entity(entity);
-
-        entityRemoveComponent<T2, Args...>(entity);
-    }
-
-    template <typename T>
-    T& entityGetComponent(LvnEntity entity)
-    {
-        LvnComponentArray<T>& compArray = lvn::getComponentManager()->get_component<T>();
-        return compArray.get_entity_component(entity);
-    }
-
-    template <typename... Ts>
-    void entityUpdateSystem(LvnEntity* pEntities, uint64_t entityCount, void (*func)(Ts&...))
-    {
-        for (uint64_t i = 0; i < entityCount; i++)
-        {
-            func(entityGetComponent<Ts>(pEntities[i])...);
-        }
-    }
-
 
 
     // -- [SUBSECT]: Math Functions
@@ -2623,51 +2512,1250 @@ namespace lvn
 
 // -- [SUBSECT]: Data Structures
 // ------------------------------------------------------------
-// - Basic data structures for use of allocating or handling data
+// - Basic data structures for use of allocating and handling data
 
 template<typename T>
 struct LvnPair
 {
-    union { T p1, x, width; };
-    union { T p2, y, height; };
+    union { T p1, x, width, first; };
+    union { T p2, y, height, second; };
 };
 
 template<typename T1, typename T2>
 struct LvnDoublePair
 {
-    union { T1 p1, x, width; };
-    union { T2 p2, y, height; };
+    union { T1 p1, x, width, first; };
+    union { T2 p2, y, height, second; };
 };
 
+// -- LvnVector
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::vector
+// - this vector implmentation is not intended to be used outside of the library, use std::vector instead
 
-template<typename T, size_t N>
-class LvnArray
+template <typename T>
+class LvnVector
 {
 private:
-    T m_Data[N];
+    T* m_Data;            /* pointer array to data */
+    size_t m_Size;      /* number of elements that are in this vector; size of vector */
+    size_t m_Capacity;  /* max number of elements allocated/reserved for this vector; note that m_Size can be less than or equal to the capacity */
+
+    void destruct() { if constexpr (!std::is_trivially_destructible_v<T>) { for (size_t i = 0; i < m_Size; i++) m_Data[i].~T(); } }
+    void destruct_at(T* value) { if constexpr (!std::is_trivially_destructible_v<T>) value->~T(); }
 
 public:
-    LvnArray() {}
-    LvnArray(T* data, size_t size)
+    LvnVector()
+        : m_Data(nullptr), m_Size(0), m_Capacity(0) {}
+    ~LvnVector()
     {
-        memcpy(m_Data, data, size);
+        lvn::memDelete<T>(m_Data, m_Size);
+        m_Size = 0;
+        m_Capacity = 0;
+        m_Data = nullptr;
     }
 
-    T& operator [](size_t i)
+    LvnVector(size_t size)
     {
-        LVN_CORE_ASSERT(i < N, "%s, element index out of range", typeid(this).name());
+        m_Size = size;
+        m_Capacity = size;
+        m_Data = lvn::memNew<T>(size);
+    }
+    LvnVector(const T* data, size_t size)
+    {
+        m_Size = size;
+        m_Capacity = size;
+        m_Data = lvn::memNew<T>(size, false);
+        for (size_t i = 0; i < size; i++)
+            new (&m_Data[i]) T(data[i]);
+    }
+    LvnVector(const T* begin, const T* end)
+    {
+        LVN_CORE_ASSERT(end > begin, "end element pointer must be after before element pointer");
+        m_Size = end - begin;
+        m_Capacity = m_Size;
+        m_Data = lvn::memNew<T>(m_Size, false);
+        for (size_t i = 0; i < m_Size; i++)
+            new (&m_Data[i]) T(begin[i]);
+    }
+    LvnVector(size_t size, const T& value)
+    {
+        m_Size = size;
+        m_Capacity = size;
+        m_Data = lvn::memNew<T>(size, false);
+        for (size_t i = 0; i < size; i++)
+            new (&m_Data[i]) T(value);
+    }
+    LvnVector(const LvnVector& other)
+    {
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Size; /* NOTE: we are only allocating up to the size of the other vector, not the capacity */
+        m_Data = lvn::memNew<T>(other.m_Size, false);
+        for (size_t i = 0; i < other.m_Size; i++)
+            new (&m_Data[i]) T(other.m_Data[i]);
+    }
+    LvnVector(LvnVector&& other)
+    {
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_Data = other.m_Data;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_Data = nullptr;
+    }
+    LvnVector& operator=(const LvnVector& other)
+    {
+        if (this == &other) return *this;
+        resize(other.m_Size);
+        for (size_t i = 0; i < m_Size; i++)
+            new (&m_Data[i]) T(other.m_Data[i]);
+        return *this;
+    }
+    LvnVector& operator=(LvnVector&& other)
+    {
+        lvn::memDelete<T>(m_Data, m_Size);
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_Data = other.m_Data;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_Data = nullptr;
+        return *this;
+    }
+
+    T& operator[](size_t i)
+    {
+        LVN_CORE_ASSERT(i < m_Size, "index out of vector size range");
         return m_Data[i];
     }
-    const T& operator [](size_t i) const
+    const T& operator[](size_t i) const
     {
-        LVN_CORE_ASSERT(i < N, "%s, element index out of range", typeid(this).name());
+        LVN_CORE_ASSERT(i < m_Size, "index out of vector size range");
         return m_Data[i];
     }
 
-    T* data()                { return m_Data; }
-    const T* data() const    { return m_Data; }
-    size_t size()            { return N; }
+    void insert(const T* it, const T& value)
+    {
+        LVN_CORE_ASSERT(it >= m_Data && it <= m_Data + m_Size, "insert element not within vector bounds");
+        size_t index = it - m_Data;
+        insert_index(index, value);
+    }
+    void insert(const T* it, const T* begin, const T* end)
+    {
+        LVN_CORE_ASSERT(it >= m_Data && it <= m_Data + m_Size, "insert element not within vector bounds");
+        LVN_CORE_ASSERT(end >= begin, "end insert element cannot be less than begin insert element");
+        size_t index = it - m_Data;
+        insert_index(index, begin, end);
+    }
+    void insert(const T* it, const T* data, size_t size)
+    {
+        if (size == 0) return;
+        LVN_CORE_ASSERT(it >= m_Data && it <= m_Data + m_Size, "insert element not within vector bounds");
+        size_t index = it - m_Data;
+        insert_index(index, data, size);
+    }
+    void insert_index(size_t index, const T& value)
+    {
+        LVN_CORE_ASSERT(index <= m_Size, "insert index not within vector bounds");
+        insert_index(index, &value, 1);
+    }
+    void insert_index(size_t index, const T* begin, const T* end)
+    {
+        LVN_CORE_ASSERT(index <= m_Size, "insert index not within vector bounds");
+        LVN_CORE_ASSERT(end >= begin, "end insert element cannot be less than begin insert element");
+        size_t count = end - begin;
+        if (count == 0) return;
+        insert_index(index, begin, count);
+    }
+    void insert_index(size_t index, const T* data, size_t size)
+    {
+        if (size == 0) return;
+        LVN_CORE_ASSERT(index <= m_Size, "insert index not within vector bounds");
+        reserve(m_Size + size);
+
+        /* shift elements to the right */
+        for (int64_t i = m_Size - 1; i >= (int64_t)index; --i)
+        {
+            new (m_Data + i + size) T(static_cast<std::remove_reference_t<T>&&>(m_Data[i])); /* NOTE: cast to rvalue for move constructor */
+            destruct_at(m_Data + i);
+        }
+
+        /* construct new elements in place at index */
+        for (size_t i = 0; i < size; ++i)
+            new (m_Data + index + i) T(data[i]);
+
+        m_Size += size;
+    }
+
+    T*          begin() { return m_Data; }
+    const T*    begin() const { return m_Data; }
+    T*          end() { return m_Data + m_Size; }
+    const T*    end() const { return m_Data + m_Size; }
+    T&          front() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
+    const T&    front() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[0]; }
+    T&          back() { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
+    const T&    back() const { LVN_CORE_ASSERT(m_Size > 0, "cannot access index of empty vector"); return m_Data[m_Size - 1]; }
+
+    bool        empty() const { return m_Size == 0; }
+    void        clear() { destruct(); m_Size = 0; }
+    void        clear_free() { if (m_Data) { lvn::memDelete<T>(m_Data, m_Size); m_Size = m_Capacity = 0; m_Data = nullptr; } }
+    void        erase(const T* it) { LVN_CORE_ASSERT(it >= m_Data && it < m_Data + m_Size, "erase element not within vector bounds"); size_t index = it - m_Data; erase_index(index); }
+    void        erase_index(size_t index) { LVN_CORE_ASSERT(index < m_Size, "index out of vector size range"); size_t aftIndex = m_Size - index - 1; if (aftIndex != 0) { for (size_t i = index + 1; i < m_Size; i++) { m_Data[i - 1] = m_Data[i]; } destruct_at(&m_Data[m_Size - 1]); } --m_Size; }
+    T*          data() { return m_Data; }
+    const T*    data() const { return m_Data; }
+    size_t      size() const { return m_Size; }
+    size_t      capacity() const { return m_Capacity; }
+    size_t      memsize() const { return m_Size * sizeof(T); }
+    size_t      memcap() const { return m_Capacity * sizeof(T); }
+    void        resize(size_t size) { if (size > m_Size) { reserve(size); for (size_t i = m_Size; i < size; i++) { new (m_Data + i) T(); } } else { for (size_t i = size; i < m_Size; i++) destruct_at(&m_Data[i]); }  m_Size = size; }
+    void        resize(size_t size, const T& value) { if (size > m_Size) { reserve(size); for (size_t i = m_Size; i < size; i++) { new (m_Data + i) T(value); } } else { for (size_t i = size; i < m_Size; i++) destruct_at(&m_Data[i]); }  m_Size = size; }
+    void        reserve(size_t size) { if (size <= m_Capacity) return; T* temp = lvn::memNew<T>(size, false); for (size_t i = 0; i < m_Size; i++) { new (temp + i) T(m_Data[i]); } lvn::memDelete<T>(m_Data, m_Size); m_Data = temp; m_Capacity = size; }
+    void        shrink_to_fit() { if (m_Size >= m_Capacity) { return; } T* temp = lvn::memNew<T>(m_Size, false); for (size_t i = 0; i < m_Size; i++) { new (temp + i) T(m_Data[i]); } lvn::memDelete<T>(m_Data, m_Size); m_Data = temp; m_Capacity = m_Size; }
+
+    void        push_back(const T& value) { resize(m_Size + 1); m_Data[m_Size - 1] = value; }
+    void        push_range(const T* data, size_t size) { resize(m_Size + size); for (size_t i = 0; i < size; i++) { m_Data[i + m_Size - size] = data[i]; } }
+    void        pop_back() { if (m_Size == 0) return; destruct_at(&m_Data[m_Size - 1]); resize(m_Size - 1); }
+
+    T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
+    const T*    find(const T& e) const { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
+    size_t      find_index(const T& e) const { T* begin = m_Data; const T* end = m_Data + m_Size; size_t i = 0; while (begin < end) { if (*begin == e) break; begin++; i++; } return i; }
+    bool        contains(const T& e) const { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) return true; begin++; } return false; }
 };
+
+
+// -- LvnLinkedIndexNode, LvnArenaList
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::list
+// - arena list is designed to be more cache effecient by using indexed nodes to an allocated array instead of allocated memory per node
+// - inserting into LvnArenaList has at worst O(n) linear time complexity
+
+// LvnLinkedIndexNode
+template <typename T>
+struct LvnLinkedIndexNode
+{
+    size_t next;
+    size_t prev;
+    bool hasPrev, hasNext, taken;
+    T value;
+
+    T* operator->() { return &value; }
+};
+
+// LvnArenaList
+template <typename T>
+class LvnArenaList
+{
+private:
+    LvnINode<T>* m_Nodes;              /* pointer to an array of nodes */
+    size_t* m_FreeNodes;             /* pointer to an array of indices for nodes that are not taken in the array */
+    size_t m_Size;                   /* the number of the currently alive nodes in the list */
+    size_t m_Capacity;               /* the number of nodes allocated for the m_Nodes array */
+    size_t m_FreeSize;               /* the number of indices for nodes not taken */
+    size_t m_FreeCapacity;           /* the number of indices allocated in the m_FreeNodes array; NOTE: m_FreeCapacity should always be the same value as m_Capacity */
+    size_t m_Head;                   /* the index to the head of the list in the array */
+    size_t m_Tail;                   /* the index to the tail of the list in the array */
+
+    void destruct()
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            for (size_t i = 0; i < m_Capacity; i++)
+            {
+                if (m_Nodes[i].taken)
+                    m_Nodes[i].value.~T();
+            }
+        }
+    }
+
+    void destruct_at(LvnINode<T>& node)
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+            node.value.~T();
+        node.next = 0;
+        node.prev = 0;
+        node.hasPrev = false;
+        node.hasNext = false;
+        node.taken = false;
+    }
+
+public:
+    LvnArenaList() : m_Nodes(nullptr), m_FreeNodes(nullptr), m_Size(0), m_Capacity(0), m_FreeSize(0), m_FreeCapacity(0), m_Head(0), m_Tail(0) {}
+    ~LvnArenaList()
+    {
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_Size = m_Capacity = m_FreeSize = m_FreeCapacity = m_Head = m_Tail = 0;
+        m_Nodes = nullptr;
+        m_FreeNodes = nullptr;
+    }
+
+    LvnArenaList(const LvnArenaList<T>& other)
+    {
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Nodes = lvn::memNew<LvnINode<T>>(other.m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+            new (&m_Nodes[i]) LvnINode<T>(other.m_Nodes[i]);
+        m_FreeNodes = lvn::memNew<size_t>(other.m_FreeSize, false);
+        for (size_t i = 0; i < other.m_FreeSize; i++)
+            new (&m_FreeNodes[i]) size_t(other.m_FreeNodes[i]);
+    }
+    LvnArenaList(LvnArenaList<T>&& other)
+    {
+        m_Nodes = other.m_Nodes;
+        m_FreeNodes = other.m_FreeNodes;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        other.m_Nodes = nullptr;
+        other.m_FreeNodes = nullptr;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_FreeSize = 0;
+        other.m_FreeCapacity = 0;
+        other.m_Head = 0;
+        other.m_Tail = 0;
+    }
+    LvnArenaList& operator=(const LvnArenaList<T>& other)
+    {
+        if (this == &other) return *this;
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Nodes = lvn::memNew<LvnINode<T>>(other.m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+            new (&m_Nodes[i]) LvnINode<T>(other.m_Nodes[i]);
+        m_FreeNodes = lvn::memNew<size_t>(other.m_FreeSize, false);
+        for (size_t i = 0; i < other.m_FreeSize; i++)
+            new (&m_FreeNodes[i]) size_t(other.m_FreeNodes[i]);
+        return *this;
+    }
+    LvnArenaList& operator=(LvnArenaList<T>&& other)
+    {
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_Nodes = other.m_Nodes;
+        m_FreeNodes = other.m_FreeNodes;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        other.m_Nodes = nullptr;
+        other.m_FreeNodes = nullptr;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_FreeSize = 0;
+        other.m_FreeCapacity = 0;
+        other.m_Head = 0;
+        other.m_Tail = 0;
+        return *this;
+    }
+
+    T& operator [](size_t index)
+    {
+        return at_index(index);
+    }
+    const T& operator [](size_t index) const
+    {
+        return at_index(index);
+    }
+
+    T& at_index(size_t index)
+    {
+        LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+        return m_Nodes[nodeIndex].value;
+    }
+    const T& at_index(size_t index) const
+    {
+        LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+        return m_Nodes[nodeIndex].value;
+    }
+
+    LvnINode<T>& node_index(size_t index, size_t* pIndex = nullptr)
+    {
+        LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+
+        if (pIndex) *pIndex = nodeIndex;
+        return m_Nodes[nodeIndex];
+    }
+    const LvnINode<T>& node_index(size_t index, size_t* pIndex = nullptr) const
+    {
+        LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+
+        if (pIndex) *pIndex = nodeIndex;
+        return m_Nodes[nodeIndex];
+    }
+
+    void erase_index(const size_t index)
+    {
+        LVN_CORE_ASSERT(index < m_Size, "list index out of range");
+
+        if (index == 0) { pop_front(); return; }
+        else if (index == m_Size - 1) { pop_back(); return; }
+
+        size_t nodeIndex;
+        LvnINode<T>& node = node_index(index, &nodeIndex);
+        if (node.hasNext)
+        {
+            LvnINode<T>& next = m_Nodes[node.next];
+            next.prev = node.prev;
+        }
+        if (node.hasPrev)
+        {
+            LvnINode<T>& prev = m_Nodes[node.prev];
+            prev.next = node.next;
+        }
+
+        /* push back free node */
+        LVN_CORE_ASSERT(m_FreeSize < m_FreeCapacity, "free nodes array is full");
+        m_FreeNodes[m_FreeSize] = nodeIndex;
+        m_FreeSize++;
+
+        destruct_at(node);
+        m_Size--;
+    }
+    void insert_index(const size_t index, const T& value)
+    {
+        LVN_CORE_ASSERT(index <= m_Size, "list index out of range");
+
+        if (index == 0) { push_front(value); return; }
+        if (index == m_Size) { push_back(value); return; }
+
+        if (m_Size >= m_Capacity)
+            reserve(m_Size + 1);
+
+        size_t currentNodeIndex;
+        LvnINode<T>& node = node_index(index, &currentNodeIndex);
+
+        /* check if there are indices to free nodes */
+        if (m_FreeSize != 0)
+        {
+            size_t nodeIndex = m_FreeNodes[m_FreeSize - 1];
+            LvnINode<T>& newNode = m_Nodes[nodeIndex];
+            newNode = node;
+            newNode.prev = currentNodeIndex;
+            newNode.hasPrev = true;
+            newNode.taken = true;
+
+            if (index == m_Size - 1) /* if insert is on last index, move tail to next */
+                m_Tail = nodeIndex;
+
+            node.value = value;
+            node.next = nodeIndex;
+            node.hasNext = true;
+            m_Size++;
+            m_FreeSize--;
+            return;
+        }
+
+        /* find an index linearly */
+        for (size_t i = 0; i < m_Capacity; i++)
+        {
+            if (!m_Nodes[i].taken)
+            {
+                if (node.hasNext)
+                    m_Nodes[node.next].prev = i;
+
+                LvnINode<T>& newNode = m_Nodes[i];
+                newNode = node;
+                newNode.prev = currentNodeIndex;
+                newNode.hasPrev = true;
+                newNode.taken = true;
+
+                if (index == m_Size - 1) /* if insert is on last index, move tail to next */
+                    m_Tail = i;
+
+                node.value = value;
+                node.next = i;
+                node.hasNext = true;
+                m_Size++;
+                return;
+            }
+        }
+
+        LVN_CORE_ASSERT(false, "could not find empty node to insert index");
+    }
+    void push_back(const T& data)
+    {
+        if (!m_Size)
+        {
+            reserve(m_Size + 1);
+            m_Head = m_Tail = 0;
+            m_Nodes[m_Head].value = data;
+            m_Nodes[m_Head].taken = true;
+            m_Size++;
+            return;
+        }
+
+        if (m_Size >= m_Capacity)
+            reserve(m_Size + 1);
+
+        LvnINode<T>& node = m_Nodes[m_Tail];
+
+        /* check if there are indices to free nodes */
+        if (m_FreeSize != 0)
+        {
+            size_t nodeIndex = m_FreeNodes[m_FreeSize - 1];
+            LvnINode<T>& newNode = m_Nodes[nodeIndex];
+            newNode.value = data;
+            newNode.prev = m_Tail;
+            newNode.hasPrev = true;
+            newNode.taken = true;
+
+            node.next = nodeIndex;
+            node.hasNext = true;
+            m_Tail = nodeIndex;
+            m_Size++;
+            m_FreeSize--;
+            return;
+        }
+
+        /* find an index linearly */
+        for (size_t i = 0; i < m_Capacity; i++)
+        {
+            if (!m_Nodes[i].taken)
+            {
+                LvnINode<T>& newNode = m_Nodes[i];
+                newNode.value = data;
+                newNode.prev = m_Tail;
+                newNode.hasPrev = true;
+                newNode.taken = true;
+
+                node.next = i;
+                node.hasNext = true;
+                m_Tail = i;
+                m_Size++;
+                return;
+            }
+        }
+
+        LVN_CORE_ASSERT(false, "could not find empty node to push back element");
+    }
+    void push_front(const T& data)
+    {
+        if (!m_Size)
+        {
+            reserve(m_Size + 1);
+            m_Head = m_Tail = 0;
+            m_Nodes[m_Head].value = data;
+            m_Nodes[m_Head].taken = true;
+            m_Size++;
+            return;
+        }
+
+        if (m_Size >= m_Capacity)
+            reserve(m_Size + 1);
+
+        LvnINode<T>& node = m_Nodes[m_Head];
+
+        /* check if there are indices to free nodes */
+        if (m_FreeSize != 0)
+        {
+            size_t nodeIndex = m_FreeNodes[m_FreeSize - 1];
+            LvnINode<T>& newNode = m_Nodes[nodeIndex];
+            newNode.value = data;
+            newNode.next = m_Head;
+            newNode.hasNext = true;
+            newNode.taken = true;
+
+            node.prev = nodeIndex;
+            node.hasPrev = true;
+            m_Head = nodeIndex;
+            m_Size++;
+            m_FreeSize--;
+            return;
+        }
+
+        /* find an index linearly */
+        for (size_t i = 0; i < m_Capacity; i++)
+        {
+            if (!m_Nodes[i].taken)
+            {
+                LvnINode<T>& newNode = m_Nodes[i];
+                newNode.value = data;
+                newNode.next = m_Head;
+                newNode.hasNext = true;
+                newNode.taken = true;
+
+                node.prev = i;
+                node.hasPrev = true;
+                m_Head = i;
+                m_Size++;
+                return;
+            }
+        }
+
+        LVN_CORE_ASSERT(false, "could not find empty node to push front element");
+    }
+    void pop_back()
+    {
+        if (!m_Size) { return; }
+        if (m_Size == 1) { destruct_at(m_Nodes[m_Head]); m_Tail = m_Head = 0; m_Size--; return; }
+
+        /* push back free node */
+        LVN_CORE_ASSERT(m_FreeSize < m_FreeCapacity, "free nodes array is full");
+        m_FreeNodes[m_FreeSize] = m_Tail;
+        m_FreeSize++;
+
+        /* set prev node to tail */
+        LvnINode<T>& node = m_Nodes[m_Tail];
+        LvnINode<T>& prev = m_Nodes[node.prev];
+        m_Tail = node.prev;
+        prev.next = 0;
+        prev.hasNext = false;
+
+        destruct_at(node);
+        m_Size--;
+    }
+    void pop_front()
+    {
+        if (!m_Size) { return; }
+        if (m_Size == 1) { destruct_at(m_Nodes[m_Head]); m_Tail = m_Head = 0; m_Size--; return; }
+
+        /* push back free node */
+        LVN_CORE_ASSERT(m_FreeSize < m_FreeCapacity, "free nodes array is full");
+        m_FreeNodes[m_FreeSize] = m_Head;
+        m_FreeSize++;
+
+        /* set next node to head */
+        LvnINode<T>& node = m_Nodes[m_Head];
+        LvnINode<T>& next = m_Nodes[node.next];
+        m_Head = node.next;
+        next.prev = 0;
+        next.hasPrev = false;
+
+        destruct_at(node);
+        m_Size--;
+    }
+
+    void reserve(size_t size)
+    {
+        if (size <= m_Capacity) { return; }
+        LvnINode<T>* temp = lvn::memNew<LvnINode<T>>(size, false);
+        for (size_t i = 0; i < m_Capacity; i++)
+            new (&temp[i]) LvnINode<T>(m_Nodes[i]);
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        m_Nodes = temp;
+        m_Capacity = size;
+        size_t* freeTemp = lvn::memNew<size_t>(size, false);
+        for (size_t i = 0; i < m_FreeSize; i++)
+            new (&freeTemp[i]) size_t(m_FreeNodes[i]);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_FreeNodes = freeTemp;
+        m_FreeCapacity = size;
+    }
+
+    size_t      size() const { return m_Size; }
+    bool        empty() const { return m_Size == 0; }
+    void        clear() { destruct(); lvn::memDelete<LvnINode<T>>(m_Nodes, 0); m_Size = 0; for (size_t i = 0; i < m_FreeCapacity; i++) m_FreeNodes[i] = i; m_FreeSize = m_FreeCapacity; m_Head = m_Tail = 0; }
+    void        clear_free() { destruct(); lvn::memDelete<LvnINode<T>>(m_Nodes, 0); lvn::memDelete<size_t>(m_FreeNodes, 0); m_Nodes = nullptr; m_FreeNodes = nullptr; m_Head = m_Tail = m_Size = m_Capacity = m_FreeSize = m_FreeCapacity = 0; }
+
+    T&          front() { LVN_CORE_ASSERT(m_Size, "cannot call front on empty list"); return m_Nodes[m_Head].value; }
+    const T&    front() const { LVN_CORE_ASSERT(m_Size, "cannot call front on empty list"); return m_Nodes[m_Head].value; }
+
+    T&          back() { LVN_CORE_ASSERT(m_Size, "cannot call back on empty list"); return m_Nodes[m_Tail].value; }
+    const T&    back() const { LVN_CORE_ASSERT(m_Size, "cannot call back on empty list"); return m_Nodes[m_Tail].value; }
+};
+
+
+// -- LvnQueue
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::queue
+// - LvnQueue is a wrapper around LvnArenaList by default
+// - designed to be more cache effecient based on indexed nodes from a singular allocated array
+
+template <typename T, typename Container = LvnArenaList<T>>
+class LvnQueue
+{
+private:
+    Container m_Container;
+
+public:
+    LvnQueue() = default;
+    LvnQueue(const T* data, size_t size)
+    {
+        m_Container.reserve(size);
+        for (size_t i = 0; i < size; i++)
+            m_Container.push_back(data[i]);
+    }
+
+    size_t      size() const { return m_Container.size(); }
+    bool        empty() const { return m_Container.empty(); }
+    void        push(const T& value) { m_Container.push_back(value); }
+    void        pop() { m_Container.pop_front(); }
+    T&          front() { return m_Container.front(); }
+    const T&    front() const { return m_Container.front(); }
+    T&          back() { return m_Container.back(); }
+    const T&    back() const { return m_Container.back(); }
+};
+
+
+// -- LvnHash, LvnHashEntry, LvnHashMap
+// ------------------------------------------------------------
+// simple and light weight replacement to std::hash, std::unordered_map
+// designed to be more cache effecient, all hash entries stored in a single allocated array
+// note that LvnHashMap only takes in integral types for the key value
+
+struct LvnHash
+{
+    /* splitmix64 */
+    size_t operator()(size_t k) const
+    {
+        k += 0x9E3779B97F4A7C15;
+        k = (k ^ (k >> 30)) * 0xBF58476D1CE4E5B9;
+        k = (k ^ (k >> 27)) * 0x94D049BB133111EB;
+        k = k ^ (k >> 31);
+        return k;
+    }
+};
+
+template <typename K, typename T>
+struct LvnHashEntry
+{
+    T data;
+    K key;
+    size_t nextIndex;
+    bool taken, hasNext;
+};
+
+template <typename K, typename T, typename Hash = LvnHash>
+class LvnHashMap
+{
+    static_assert(std::is_integral_v<K>, "cannot have non integral type as key");
+    using MoveRef = std::remove_reference_t<T>&&;
+private:
+    LvnHashEntry<K, T>* m_HashEntries;
+    size_t m_Size;
+    size_t m_Capacity;
+    Hash m_Hasher;
+
+    void destruct()
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            for (size_t i = 0; i < m_Capacity; i++)
+            {
+                if (m_HashEntries[i].taken)
+                    m_HashEntries[i].data.~T();
+            }
+        }
+    }
+    bool erase_recursive(size_t index)
+    {
+        if (m_HashEntries[index].hasNext)
+        {
+            size_t nextIndex = m_HashEntries[index].nextIndex;
+            m_HashEntries[index].key = m_HashEntries[nextIndex].key;
+            m_HashEntries[index].nextIndex = m_HashEntries[nextIndex].nextIndex;
+            m_HashEntries[index].taken = m_HashEntries[nextIndex].taken;
+            m_HashEntries[index].hasNext = m_HashEntries[nextIndex].hasNext;
+            m_HashEntries[index].data = static_cast<MoveRef>(m_HashEntries[nextIndex].data);
+            if (erase_recursive(nextIndex))
+            {
+                m_HashEntries[index].nextIndex = 0;
+                m_HashEntries[index].hasNext = false;
+            }
+        }
+        else /* last entry in chain */
+        {
+            if (m_HashEntries[index].taken && !std::is_trivially_destructible_v<T>)
+                m_HashEntries[index].data.~T();
+            m_HashEntries[index].key = 0;
+            m_HashEntries[index].nextIndex = 0;
+            m_HashEntries[index].taken = false;
+            m_HashEntries[index].hasNext = false;
+            return true;
+        }
+
+        return false;
+    }
+
+public:
+    LvnHashMap()
+        : m_HashEntries(nullptr), m_Size(0), m_Capacity(0) {}
+    ~LvnHashMap()
+    {
+        destruct();
+        lvn::memDelete(m_HashEntries, 0);
+        m_Size = m_Capacity = 0;
+        m_HashEntries = nullptr;
+    }
+
+    LvnHashMap(size_t size)
+        : m_Size(0)
+    {
+        reserve(size);
+    }
+
+    LvnHashMap(const LvnHashMap& other)
+    {
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = lvn::memNew<LvnHashEntry<K, T>>(m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+        {
+            if (other.m_HashEntries[i].taken)
+                new (&m_HashEntries[i]) LvnHashEntry<K, T>(other.m_HashEntries[i]);
+        }
+    }
+    LvnHashMap(LvnHashMap&& other)
+    {
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = other.m_HashEntries;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_HashEntries = nullptr;
+    }
+    LvnHashMap& operator=(const LvnHashMap& other)
+    {
+        if (this == &other) return *this;
+        destruct();
+        lvn::memDelete<LvnHashEntry<K, T>>(m_HashEntries, 0);
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = lvn::memNew<LvnHashEntry<K, T>>(other.m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+        {
+            if (other.m_HashEntries[i].taken)
+                new (&m_HashEntries[i]) LvnHashEntry<K, T>(other.m_HashEntries[i]);
+        }
+        return *this;
+    }
+    LvnHashMap& operator=(LvnHashMap&& other)
+    {
+        destruct();
+        lvn::memDelete<LvnHashEntry<K, T>>(m_HashEntries, 0);
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = other.m_HashEntries;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_HashEntries = nullptr;
+        return *this;
+    }
+
+    T& operator[](const K& key)
+    {
+        return at(key);
+    }
+    const T& operator[](K key) const
+    {
+        return at(key);
+    }
+
+    /* reserves new memory space and rehashes entries */
+    void reserve(size_t size)
+    {
+        /* step 1: reserve/allocate memory */
+        if (size <= m_Size) return;
+        LvnHashEntry<K, T>* temp = m_HashEntries;
+        size_t tempSize = m_Capacity;
+        m_HashEntries = lvn::memNew<LvnHashEntry<K, T>>(size);
+        m_Capacity = size;
+
+        /* step 2: rehash and insert entries into new table */
+        m_Size = 0;
+        for (size_t i = 0; i < tempSize; i++)
+        {
+            if (temp[i].taken)
+                insert(temp[i].key, static_cast<MoveRef>(temp[i].data));
+        }
+        destruct();
+        lvn::memDelete<LvnHashEntry<K, T>>(temp, 0);
+    }
+    void insert(const K& key, const T& value)
+    {
+        /* resize/rehash when size exceeds 70% capacity (0.7 load factor) */
+        if (m_Size * 10 >= m_Capacity * 7)
+            reserve(m_Capacity ? m_Capacity * 2 : 8);
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+        {
+            m_HashEntries[index].data = value;
+            return;
+        }
+
+        /* iterate through entries if key not found */
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+            {
+                entry->data = value;
+                return;
+            }
+        }
+
+        /* add a new entry if key still not found */
+        LvnHashEntry<K, T>* findEntry = &m_HashEntries[index];
+        while (findEntry->taken)
+        {
+            index = (index + 1) % m_Capacity;
+            findEntry = &m_HashEntries[index];
+        }
+
+        findEntry->key = key;
+        findEntry->data = value;
+        findEntry->taken = true;
+        m_Size++;
+
+        if (entry->key != findEntry->key)
+        {
+            entry->nextIndex = index;
+            entry->hasNext = true;
+        }
+    }
+    void insert(const K& key, T&& value)
+    {
+        /* resize/rehash when size exceeds 70% capacity (0.7 load factor) */
+        if (m_Size * 10 >= m_Capacity * 7)
+            reserve(m_Capacity ? m_Capacity * 2 : 8);
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+        {
+            m_HashEntries[index].data = static_cast<MoveRef>(value);
+            return;
+        }
+
+        /* iterate through entries if key not found */
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+            {
+                entry->data = static_cast<MoveRef>(value);
+                return;
+            }
+        }
+
+        /* add a new entry if key still not found */
+        LvnHashEntry<K, T>* findEntry = &m_HashEntries[index];
+        while (findEntry->taken)
+        {
+            index = (index + 1) % m_Capacity;
+            findEntry = &m_HashEntries[index];
+        }
+
+        findEntry->key = key;
+        findEntry->data = static_cast<MoveRef>(value);
+        findEntry->taken = true;
+        m_Size++;
+
+        if (entry->key != findEntry->key)
+        {
+            entry->nextIndex = index;
+            entry->hasNext = true;
+        }
+    }
+    void erase(const K& key)
+    {
+        if (m_Size == 0) return;
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].key == key)
+        {
+            erase_recursive(index);
+            return;
+        }
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+            {
+                erase_recursive(index);
+                return;
+            }
+        }
+    }
+    T& at(const K& key)
+    {
+        if (m_Size == 0)
+            insert(key, T{});
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+            return m_HashEntries[index].data;
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+                return entry->data;
+        }
+
+        /* if key not found, create new entry */
+        insert(key, T{});
+        return at(key);
+    }
+    const T& at(const K& key) const
+    {
+        if (m_Size == 0)
+            insert(key, T{});
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+            return m_HashEntries[index].data;
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+                return entry->data;
+        }
+
+        /* if key not found, create new entry */
+        insert(key, T{});
+        return at(key);
+    }
+
+    bool contains(const K& key)
+    {
+        if (m_Size == 0) return false;
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (key == m_HashEntries[index].key)
+            return true;
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+                return true;
+        }
+
+        return false;
+    }
+
+    bool                   empty() { return m_Size == 0; }
+    void                   clear() { if (m_Size) { destruct(); } m_Size = 0; }
+    void                   clear_free() { lvn::memDelete<LvnHashEntry<K, T>>(m_HashEntries, m_Capacity); m_Size = m_Capacity = 0; m_HashEntries = nullptr; }
+    size_t                 size() { return m_Size; }
+    size_t                 capacity() { return m_Capacity; }
+    size_t                 memcap() { return m_Capacity * sizeof(LvnHashEntry<K, T>); }
+    LvnHashEntry<K, T>*    data() { return m_HashEntries; }
+};
+
+
+// -- LvnUniquePtr
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::unique_ptr
+// - note that pointers given to LvnUniquePtr must be allocated from lvn::memNew()
+// - a makeUniquePtr() function is given to properly allocate pointers for LvnUniquePtr
+
+template <typename T>
+class LvnUniquePtr
+{
+private:
+    T* m_Ptr;
+
+public:
+    LvnUniquePtr() : m_Ptr(nullptr) {}
+    ~LvnUniquePtr() { lvn::memDelete<T>(m_Ptr); }
+
+    explicit LvnUniquePtr(T* ptr) : m_Ptr(ptr) {}
+
+    template <typename U, typename = typename std::enable_if_t<std::is_convertible_v<U*, T*>>>
+    LvnUniquePtr(LvnUniquePtr<U>&& other) : m_Ptr(other.release()) {}
+
+    LvnUniquePtr(LvnUniquePtr&& other)
+    {
+        m_Ptr = other.m_Ptr;
+        other.m_Ptr = nullptr;
+    }
+    LvnUniquePtr& operator=(LvnUniquePtr&& other)
+    {
+        lvn::memDelete<T>(m_Ptr);
+        m_Ptr = other.m_Ptr;
+        other.m_Ptr = nullptr;
+        return *this;
+    }
+
+    LvnUniquePtr(const LvnUniquePtr& other) = delete;
+    LvnUniquePtr& operator=(const LvnUniquePtr& other) = delete;
+
+    T*          operator->() { return m_Ptr; }
+    const T*    operator->() const { return m_Ptr; }
+
+    T*          get() { return m_Ptr; }
+    const T*    get() const { return m_Ptr; }
+
+    T*          release() { T* temp = m_Ptr; m_Ptr = nullptr; return temp; }
+};
+
+
+// -- LvnString
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::string
+// - used for functions or struct data types that need to use or return stored string types
+// - this is meant to be a temporary object on client side, convert LvnString to std::string when possible
+
+class LvnString
+{
+private:
+    char* m_Data;
+    size_t m_Size;
+    size_t m_Capacity;
+
+public:
+    static const size_t npos = -1;
+
+    LvnString();
+    ~LvnString();
+    LvnString(const char* str);
+    LvnString(const char* data, size_t size);
+    LvnString(const LvnString& other);
+    LvnString& operator=(const LvnString& other);
+
+    char& operator [](size_t index);
+    const char& operator [](size_t index) const;
+
+    bool operator ==(const LvnString& other);
+    bool operator !=(const LvnString& other);
+    bool operator ==(const char* str);
+    bool operator !=(const char* str);
+
+    LvnString operator+(const LvnString& other);
+    LvnString operator+(const char* str);
+    void operator+=(const LvnString& other);
+    void operator+=(const char* str);
+    void operator+=(const char& ch);
+
+    void append(const char* str);
+    void append(const char& ch);
+    LvnString substr(size_t index);
+    const LvnString substr(size_t index) const;
+    LvnString substr(size_t index, size_t len);
+    const LvnString substr(size_t index, size_t len) const;
+
+    void insert(const char* it, const char& ch);
+    void insert(const char* it, const char* begin, const char* end);
+    void insert(const char* it, const char* data, size_t size);
+    void insert_index(size_t index, const char& ch);
+    void insert_index(size_t index, const char* begin, const char* end);
+    void insert_index(size_t index, const char* data, size_t size);
+
+    bool           empty() const { return m_Size == 0; }
+    size_t         length() const { return m_Size; }
+    size_t         size() const { return m_Size; }
+    size_t         memsize() const { return m_Size * sizeof(char); }
+    size_t         memcap() const { return m_Capacity * sizeof(char); }
+    const char*    c_str() const { return m_Data; }
+    char*          data() { return m_Data; }
+    const char*    data() const { return m_Data; }
+
+    char&          front() { LVN_CORE_ASSERT(m_Size, "cannot call front on empty string"); return m_Data[0]; }
+    const char&    front() const { LVN_CORE_ASSERT(m_Size, "cannot call front on empty string"); return m_Data[0]; }
+    char&          back() { LVN_CORE_ASSERT(m_Size, "cannot call back on empty string"); return m_Data[m_Size - 1]; }
+    const char&    back() const { LVN_CORE_ASSERT(m_Size, "cannot call back on empty string"); return m_Data[m_Size - 1]; }
+    char*          begin() { return m_Data; }
+    const char*    begin() const { return m_Data; }
+    char*          end() { return m_Data + m_Size; }
+    const char*    end() const { return m_Data + m_Size; }
+
+    void           reserve(size_t size);
+    void           resize(size_t size);
+    void           clear();
+    void           clear_free();
+    void           erase(const char* it);
+    void           erase_index(size_t index);
+    void           push_back(const char& ch);
+    void           push_range(const char* ch, size_t size);
+    void           pop_back();
+    size_t         find(const LvnString& other) const;
+    size_t         rfind(const LvnString& other) const;
+    size_t         find(const char& ch) const;
+    size_t         rfind(const char& ch) const;
+    size_t         find(const char* str) const;
+    size_t         rfind(const char* str) const;
+    size_t         find_first_of(const LvnString& other, size_t index = 0) const;
+    size_t         find_first_of(const LvnString& other, size_t index, size_t length) const;
+    size_t         find_first_of(const char& ch, size_t index = 0) const;
+    size_t         find_first_of(const char* str, size_t index = 0) const;
+    size_t         find_first_of(const char* str, size_t index, size_t length) const;
+    size_t         find_first_not_of(const LvnString& other, size_t index = 0) const;
+    size_t         find_first_not_of(const LvnString& other, size_t index, size_t length) const;
+    size_t         find_first_not_of(const char& ch, size_t index = 0) const;
+    size_t         find_first_not_of(const char* str, size_t index = 0) const;
+    size_t         find_first_not_of(const char* str, size_t index, size_t length) const;
+    size_t         find_last_of(const LvnString& other, size_t index = LvnString::npos) const;
+    size_t         find_last_of(const LvnString& other, size_t index, size_t length) const;
+    size_t         find_last_of(const char& ch, size_t index = LvnString::npos) const;
+    size_t         find_last_of(const char* str, size_t index = LvnString::npos) const;
+    size_t         find_last_of(const char* str, size_t index, size_t length) const;
+    size_t         find_last_not_of(const LvnString& other, size_t index = LvnString::npos) const;
+    size_t         find_last_not_of(const LvnString& other, size_t index, size_t length) const;
+    size_t         find_last_not_of(const char& ch, size_t index = LvnString::npos) const;
+    size_t         find_last_not_of(const char* str, size_t index = LvnString::npos) const;
+    size_t         find_last_not_of(const char* str, size_t index, size_t length) const;
+    bool           starts_with(const char& ch) const;
+    bool           ends_with(const char& ch) const;
+    bool           contains(const char& ch) const;
+};
+LvnString operator+(const char* str, const LvnString& other);
 
 template<typename T>
 class LvnData
@@ -2773,100 +3861,74 @@ public:
 class LvnTimer
 {
 public:
-    LvnTimer() : m_Start(std::chrono::high_resolution_clock::now()), m_Now(std::chrono::high_resolution_clock::now()), m_Pause(false) {}
+    LvnTimer() : m_Start(0), m_Current(0) {}
 
-    void     begin() { m_Start = std::chrono::high_resolution_clock::now(); }
-    void     reset() { m_Start = std::chrono::high_resolution_clock::now(); m_Pause = false; }
-    void     pause(bool pause) { m_Pause = pause; }
+    void      begin();
+    void      reset();
 
-    float    elapsed() { if (!m_Pause) { m_Now = std::chrono::high_resolution_clock::now(); } return std::chrono::duration_cast<std::chrono::nanoseconds>(m_Now - m_Start).count() * 0.001f * 0.001f * 0.001f; }
-    float    elapsedms() { return elapsed() * 1000.0f; }
+    double    elapsed();
+    double    elapsedms();
 
 private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_Start, m_Now;
-    bool m_Pause;
+    int64_t m_Start, m_Current;
 };
 
-class LvnThreadPool
+class LvnThread
 {
 private:
-    using LvnTaskFnPtr = void (*)();
-
-    std::vector<std::thread> m_Workers;
-    std::queue<LvnTaskFnPtr> m_Tasks;
-    std::mutex m_QueueMutex;
-    std::condition_variable m_QueueCondition;
-    bool m_Terminate;
-
-    void ThreadFunc()
-    {
-        while (true)
-        {
-            LvnTaskFnPtr fnPtr;
-
-            std::unique_lock<std::mutex> lock(m_QueueMutex);
-            m_QueueCondition.wait(lock, [this]() { return !m_Tasks.empty() || m_Terminate; });
-
-            if (m_Terminate) { return; }
-
-            if (!m_Tasks.empty())
-            {
-                fnPtr = m_Tasks.front();
-                m_Tasks.pop();
-
-                lock.unlock();
-                fnPtr();
-            }
-        }
-    }
+    static constexpr uint16_t m_ThreadBuffSize = 64;
+    LVN_TYPE_BUFF(m_ThreadBuff, m_ThreadBuffSize);
 
 public:
-    LvnThreadPool()
-        : m_Workers(1), m_Terminate(false)
-    {
-        for (uint32_t i = 0; i < m_Workers.size(); i++)
-            m_Workers[i] = (std::thread(&LvnThreadPool::ThreadFunc, this));
-    }
+    LvnThread() = default;
+    ~LvnThread();
+    LvnThread(void* (*funcptr)(void*), void* arg);
 
-    LvnThreadPool(uint32_t workerCount)
-        : m_Terminate(false)
-    {
-        m_Workers.resize(workerCount > 0 ? workerCount : 1);
+    LvnThread(const LvnThread&) = delete;
+    LvnThread& operator=(const LvnThread&) = delete;
 
-        for (uint32_t i = 0; i < m_Workers.size(); i++)
-            m_Workers[i] = (std::thread(&LvnThreadPool::ThreadFunc, this));
-    }
+    LvnThread(LvnThread&& other);
+    LvnThread& operator=(LvnThread&& other);
 
-    ~LvnThreadPool()
-    {
-        m_QueueMutex.lock();
-        m_Terminate = true;
-        m_QueueMutex.unlock();
+    void join();
+    bool joinable();
+    uint64_t id();
+};
 
-        m_QueueCondition.notify_all();
-        for (uint32_t i = 0; i < m_Workers.size(); i++)
-            m_Workers[i].join();
+class LvnMutex
+{
+private:
+    static constexpr uint16_t m_MutexBuffSize = 64;
+    LVN_TYPE_BUFF(m_MutexBuff, m_MutexBuffSize);
 
-        m_Workers.clear();
-    }
+public:
+    LvnMutex();
+    ~LvnMutex();
 
-    void add_task(LvnTaskFnPtr fnPtr)
-    {
-        std::lock_guard<std::mutex> lock(m_QueueMutex);
-        m_Tasks.push(fnPtr);
-        m_QueueCondition.notify_one();
-    }
+    LvnMutex(const LvnMutex&) = delete;
+    LvnMutex& operator=(const LvnMutex&) = delete;
 
-    bool busy()
-    {
-        std::lock_guard<std::mutex> lock(m_QueueMutex);
-        return !m_Tasks.empty();
-    }
+    LvnMutex(LvnMutex&& other);
+    LvnMutex& operator=(LvnMutex&& other);
 
-    void wait()
-    {
-        while (LvnThreadPool::busy()) {}
-    }
+    void lock();
+    void unlock();
+};
+
+class LvnLockGaurd
+{
+private:
+    LvnMutex& m_Mutex;
+
+public:
+    LvnLockGaurd(LvnMutex& mutex) : m_Mutex(mutex) { m_Mutex.lock(); }
+    ~LvnLockGaurd() { m_Mutex.unlock(); }
+
+    LvnLockGaurd(const LvnMutex&) = delete;
+    LvnLockGaurd& operator=(const LvnMutex&) = delete;
+
+    void lock() { m_Mutex.lock(); }
+    void unlock() { m_Mutex.unlock(); }
 };
 
 struct LvnDrawCommand
@@ -2880,34 +3942,16 @@ struct LvnDrawCommand
 
 class LvnDrawList
 {
-    std::vector<uint8_t> m_VerticesRaw;
-    std::vector<uint32_t> m_Indices;
-    std::vector<LvnDrawCommand> m_DrawCommands;
+private:
+    LvnVector<uint8_t> m_VerticesRaw;
+    LvnVector<uint32_t> m_Indices;
     size_t m_VertexCount;
 
 public:
-    void push_back(const LvnDrawCommand& drawCmd)
-    {
-        m_DrawCommands.push_back(drawCmd);
-        
-        m_Indices.insert(m_Indices.end(), drawCmd.pIndices, drawCmd.pIndices + drawCmd.indexCount);
-        for (uint32_t i = m_Indices.size() - drawCmd.indexCount; i < m_Indices.size(); i++)
-            m_Indices[i] += m_VertexCount;
+    void push_back(const LvnDrawCommand& drawCmd);
 
-        m_VerticesRaw.insert(m_VerticesRaw.end(), static_cast<uint8_t*>(drawCmd.pVertices), static_cast<uint8_t*>(drawCmd.pVertices) + drawCmd.vertexCount * drawCmd.vertexStride);
-        m_VertexCount += drawCmd.vertexCount;
-    }
-    void clear()
-    {
-        m_DrawCommands.clear();
-        m_VerticesRaw.clear();
-        m_Indices.clear();
-        m_VertexCount = 0;
-    }
-    bool empty()
-    {
-        return m_VerticesRaw.empty() && m_Indices.empty() && m_DrawCommands.empty();
-    }
+    void clear()                              { m_VerticesRaw.clear(); m_Indices.clear(); m_VertexCount = 0; }
+    bool empty()                              { return m_VerticesRaw.empty() && m_Indices.empty(); }
 
     void* vertices()                          { return m_VerticesRaw.data(); }
     const void* vertices() const              { return m_VerticesRaw.data(); }
@@ -2918,10 +3962,6 @@ public:
     const uint32_t* indices() const           { return m_Indices.data(); }
     size_t index_count()                      { return m_Indices.size(); }
     size_t index_size()                       { return m_Indices.size() * sizeof(uint32_t); }
-
-    LvnDrawCommand* drawcmds()                { return m_DrawCommands.data(); }
-    const LvnDrawCommand* drawcmds() const    { return m_DrawCommands.data(); }
-    size_t drawcmd_count()                    { return m_DrawCommands.size(); }
 };
 
 
@@ -5257,7 +6297,7 @@ struct LvnMemoryBindingInfo
 
 struct LvnContextCreateInfo
 {
-    std::string                   applicationName;               // name of application or program
+    LvnString                     applicationName;               // name of application or program
     LvnWindowApi                  windowapi;                     // window api to use when creating windows
     LvnGraphicsApi                graphicsapi;                   // graphics api to use when rendering (eg. vulkan, opengl)
     bool                          enableMultithreading;          // enables the use of multithreading within the context
@@ -5275,7 +6315,7 @@ struct LvnContextCreateInfo
         LvnClipRegion                 matrixClipRegion;              // set the clip region to the correct coordinate system depending on the api
         uint32_t                      maxFramesInFlight;             // set the max frames in flight (vulkan only)
     } rendering;
-    
+
     struct
     {
         LvnMemAllocMode           memAllocMode;                  // memory allocation mode, how memory should be allocated when creating new object
@@ -5289,14 +6329,14 @@ struct LvnContextCreateInfo
 /* [Logging] */
 struct LvnLoggerCreateInfo
 {
-    std::string loggerName;
-    std::string format;
+    LvnString loggerName;
+    LvnString format;
     LvnLogLevel level;
 
     struct
     {
         bool enableLogToFile;
-        std::string filename;
+        LvnString filename;
         LvnFileMode filemode;
     } fileConfig;
 };
@@ -5311,12 +6351,12 @@ struct LvnLogMessage
 struct LvnLogPattern
 {
     char symbol;
-    std::string (*func)(LvnLogMessage*);
+    LvnString (*func)(LvnLogMessage*);
 };
 
 struct LvnLogFile
 {
-    std::string filename;
+    LvnString filename;
     LvnFileMode filemode;
     FILE* fileptr;
     bool logToFile;
@@ -5468,7 +6508,7 @@ struct LvnWindowIconData
 struct LvnWindowCreateInfo
 {
     int width, height;                  // width and height of window
-    std::string title;                  // title of window
+    LvnString title;                    // title of window
     int minWidth, minHeight;            // minimum width and height of window (set to 0 if not specified)
     int maxWidth, maxHeight;            // maximum width and height of window (set to -1 if not specified)
     bool fullscreen, resizable, vSync;  // sets window to fullscreen if true; enables window resizing if true; vSync controls window framerate, sets framerate to 60fps if true
@@ -5498,7 +6538,7 @@ struct LvnWindowCreateInfo
 
 struct LvnPhysicalDeviceProperties
 {
-    std::string name;
+    LvnString name;
     LvnPhysicalDeviceType type;
     uint32_t apiVersion;
     uint32_t driverVersion;
@@ -5721,8 +6761,8 @@ struct LvnPipelineCreateInfo
 
 struct LvnShaderCreateInfo
 {
-    std::string vertexSrc;
-    std::string fragmentSrc;
+    LvnString vertexSrc;
+    LvnString fragmentSrc;
 };
 
 struct LvnFrameBufferColorAttachment
@@ -5845,14 +6885,14 @@ struct LvnPrimitive
 
 struct LvnMesh
 {
-    std::vector<LvnPrimitive> primitives;
+    LvnVector<LvnPrimitive> primitives;
 };
 
 struct LvnNode
 {
     LvnNode* parent;
     uint32_t index;
-    std::vector<std::shared_ptr<LvnNode>> children;
+    LvnVector<std::shared_ptr<LvnNode>> children;
 
     LvnMesh mesh;
     LvnTransform transform;
@@ -5862,9 +6902,9 @@ struct LvnNode
 
 struct LvnSkin
 {
-    std::string name;
-    std::vector<LvnMat4> inverseBindMatrices;
-    std::vector<LvnNode*> joints;
+    LvnString name;
+    LvnVector<LvnMat4> inverseBindMatrices;
+    LvnVector<LvnNode*> joints;
     LvnBuffer* ssbo;
 };
 
@@ -5872,14 +6912,14 @@ struct LvnAnimationChannel
 {
     LvnAnimationPath path;
     LvnInterpolationMode interpolation;
-    std::vector<float> keyFrames;
-    std::vector<LvnVec4> outputs;
+    LvnVector<float> keyFrames;
+    LvnVector<LvnVec4> outputs;
     LvnNode* node;
 };
 
 struct LvnAnimation
 {
-    std::vector<LvnAnimationChannel> channels;
+    LvnVector<LvnAnimationChannel> channels;
     float start;
     float end;
     float currentTime;
@@ -5887,14 +6927,14 @@ struct LvnAnimation
 
 struct LvnModel
 {
-    std::vector<std::shared_ptr<LvnNode>> nodes;
-    std::vector<LvnAnimation> animations;
-    std::vector<LvnSkin> skins;
+    LvnVector<std::shared_ptr<LvnNode>> nodes;
+    LvnVector<LvnAnimation> animations;
+    LvnVector<LvnSkin> skins;
     LvnMat4 matrix;
 
-    std::vector<LvnBuffer*> buffers;
-    std::vector<LvnSampler*> samplers;
-    std::vector<LvnTexture*> textures;
+    LvnVector<LvnBuffer*> buffers;
+    LvnVector<LvnSampler*> samplers;
+    LvnVector<LvnTexture*> textures;
 };
 
 struct LvnCamera
@@ -5956,7 +6996,7 @@ struct LvnFont
 
 struct LvnSoundCreateInfo
 {
-    std::string filepath;      // the filepath to the sound file (.wav .mp3)
+    LvnString filepath;      // the filepath to the sound file (.wav .mp3)
     LvnSoundFlagBits flags;
 
     float volume;              // volume of sound source, (default: 1.0, min/mute: 0.0), 1.0 is the upper limit however volume can be set higher than 1.0 at your own risk

@@ -16,8 +16,8 @@ struct VulkanQueueFamilyIndices
 struct VulkanSwapChainSupportDetails
 {
     VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
+    LvnVector<VkSurfaceFormatKHR> formats;
+    LvnVector<VkPresentModeKHR> presentModes;
 };
 
 struct VulkanFrameBufferData
@@ -30,19 +30,19 @@ struct VulkanFrameBufferData
     VkRenderPass renderPass;
     VkFramebuffer framebuffer;
 
-    std::vector<LvnFrameBufferColorAttachment> colorAttachments;
+    LvnVector<LvnFrameBufferColorAttachment> colorAttachments;
     LvnFrameBufferDepthAttachment depthAttachment;
 
-    std::vector<VkImage> colorImages;
-    std::vector<VkImageView> colorImageViews;
-    std::vector<VmaAllocation> colorImageMemory;
+    LvnVector<VkImage> colorImages;
+    LvnVector<VkImageView> colorImageViews;
+    LvnVector<VmaAllocation> colorImageMemory;
 
-    std::vector<VkImage> msaaColorImages;
-    std::vector<VkImageView> msaaColorImageViews;
-    std::vector<VmaAllocation> msaaColorImageMemory;
-    std::vector<VkClearValue> clearValues;
+    LvnVector<VkImage> msaaColorImages;
+    LvnVector<VkImageView> msaaColorImageViews;
+    LvnVector<VmaAllocation> msaaColorImageMemory;
+    LvnVector<VkClearValue> clearValues;
 
-    std::vector<LvnTexture> frameBufferImages;
+    LvnVector<LvnTexture> frameBufferImages;
     LvnRenderPass frameBufferRenderPass;
 
     VkImage depthImage;
@@ -59,8 +59,8 @@ struct VulkanWindowSurfaceData
     VkSwapchainKHR swapChain;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
-    std::vector<VkImage> swapChainImages;
-    std::vector<VkImageView> swapChainImageViews;
+    LvnVector<VkImage> swapChainImages;
+    LvnVector<VkImageView> swapChainImageViews;
 
     // depth resources
     VkImage depthImage;
@@ -69,16 +69,16 @@ struct VulkanWindowSurfaceData
 
     // render pass & framebuffers
     VkRenderPass renderPass;
-    std::vector<VkFramebuffer> frameBuffers;
+    LvnVector<VkFramebuffer> frameBuffers;
 
     // command pool recording
     VkCommandPool commandPool;
-    std::vector<VkCommandBuffer> commandBuffers;
+    LvnVector<VkCommandBuffer> commandBuffers;
 
     // synchronization
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
+    LvnVector<VkSemaphore> imageAvailableSemaphores;
+    LvnVector<VkSemaphore> renderFinishedSemaphores;
+    LvnVector<VkFence> inFlightFences;
 
     // per frame data
     uint32_t imageIndex;
@@ -112,7 +112,7 @@ struct VulkanBackends
     VkInstance                          instance;
     VkDebugUtilsMessengerEXT            debugMessenger;
 
-    std::vector<LvnPhysicalDevice>      lvnPhysicalDevices;
+    LvnVector<LvnPhysicalDevice>        lvnPhysicalDevices;
     VkPhysicalDevice                    physicalDevice;
     VkDevice                            device;
     VkQueue                             graphicsQueue;

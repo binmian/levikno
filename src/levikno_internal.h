@@ -3,7 +3,8 @@
 
 #include "levikno.h"
 
-#include <set>
+#include <unordered_map>
+#include <queue>
 
 // ------------------------------------------------------------
 // Layout: levikno_internal.h
@@ -277,66 +278,9 @@ public:
 struct LvnMemoryPool
 {
     LvnMemoryBlock baseMemoryBlock;
-    std::vector<LvnList<LvnMemoryBlock>> memBlocks;
-    std::vector<LvnList<LvnMemoryBinding>> memBindings;
+    LvnVector<LvnList<LvnMemoryBlock>> memBlocks;
+    LvnVector<LvnList<LvnMemoryBinding>> memBindings;
 };
-
-template <typename T>
-class LvnIDQueue
-{
-    static_assert(std::is_same<T, uint8_t>::value ||
-        std::is_same<T, uint16_t>::value ||
-        std::is_same<T, uint32_t>::value ||
-        std::is_same<T, uint64_t>::value ||
-        std::is_same<T, size_t>::value,
-        "ID queue type error, queue template type must be an unsigned integer");
-
-private:
-    std::queue<T> m_Available;
-    std::set<T> m_Used;
-    T m_NextID;
-
-public:
-    LvnIDQueue() : m_NextID(0) {}
-
-    bool push_back(T element)
-    {
-        if (m_Used.find(element) != m_Used.end())
-        {
-            m_Available.push(element);
-            m_Used.erase(element);
-            return true;
-        }
-
-        return false;
-    }
-
-    // Takes the next element from the queue
-    T take_next()
-    {
-        if (!m_Available.empty())
-        {
-            T id = m_Available.front();
-            m_Available.pop();
-            m_Used.insert(id);
-            return id;
-        }
-
-        LVN_CORE_ASSERT(m_NextID < SIZE_MAX, "max IDs reached in IDQueue");
-
-        m_NextID++;
-        m_Used.insert(m_NextID);
-        return m_NextID;
-    }
-
-    auto begin() { return m_Used.begin(); }
-    auto end() { return m_Used.end(); }
-};
-
-typedef LvnIDQueue<uint8_t>  LvnIDQueue8;
-typedef LvnIDQueue<uint16_t> LvnIDQueue16;
-typedef LvnIDQueue<uint32_t> LvnIDQueue32;
-typedef LvnIDQueue<uint64_t> LvnIDQueue64;
 
 
 // -- [SUBSECT]: Logging Data Structures
@@ -344,10 +288,10 @@ typedef LvnIDQueue<uint64_t> LvnIDQueue64;
 
 struct LvnLogger
 {
-    std::string loggerName;
-    std::string logPatternFormat;
+    LvnString loggerName;
+    LvnString logPatternFormat;
     LvnLogLevel logLevel;
-    std::vector<LvnLogPattern> logPatterns;
+    LvnVector<LvnLogPattern> logPatterns;
 
     LvnLogFile logfile;
 };
@@ -394,7 +338,7 @@ struct LvnEvent
 struct LvnWindowData
 {                                        // [Same use with LvnWindowCreateinfo]
     int width, height;                   // width and height of window
-    std::string title;                   // title of window
+    LvnString title;                     // title of window
     int minWidth, minHeight;             // minimum width and height of window
     int maxWidth, maxHeight;             // maximum width and height of window
     bool fullscreen, resizable, vSync;   // sets window to fullscreen; enables window resizing; vSync controls window framerate
@@ -427,7 +371,7 @@ struct LvnWindow
     uint32_t vao;                    // vertex array object per pipeline object (opengl)
     uint32_t indexOffset;            // index offset when binding index buffer (opengl)
     std::unordered_map<uint32_t, uint32_t>* bindingDescriptions;
-    std::vector<uint8_t> cmdBuffer;  // command buffer to store draw commands in byte data
+    LvnVector<uint8_t> cmdBuffer;    // command buffer to store draw commands in byte data
 };
 
 
@@ -682,13 +626,13 @@ struct LvnDescriptorLayout
     void* descriptorLayout;
     void* descriptorPool;
 
-    std::vector<LvnDescriptorSet> descriptorSets;
+    LvnVector<LvnDescriptorSet> descriptorSets;
     uint64_t descriptorSetIndex;
 };
 
 struct LvnDescriptorSet
 {
-    std::vector<void*> descriptorSets;
+    LvnVector<void*> descriptorSets;
     void* singleSet;
 };
 
@@ -766,7 +710,7 @@ struct LvnObjectMemAllocCount
         size_t count;
     };
 
-    std::vector<LvnStructCounts> sTypes;
+    LvnVector<LvnStructCounts> sTypes;
 };
 
 
@@ -800,7 +744,7 @@ struct LvnRenderer
     LvnFont defaultFont;
     LvnTexture* defaultWhiteTexture;
     LvnTexture* defaultFontTexture;
-    std::vector<LvnRenderMode> renderModes;
+    LvnVector<LvnRenderMode> renderModes;
 };
 
 
@@ -816,7 +760,7 @@ struct LvnContext
     LvnGraphicsContext                   graphicsContext;
     void*                                audioEngineContextPtr;
     LvnClipRegion                        matrixClipRegion;
-    std::string                          appName;
+    LvnString                            appName;
     LvnPipelineSpecification             defaultPipelineSpecification;
     bool                                 multithreading;
 
@@ -825,28 +769,24 @@ struct LvnContext
     bool                                 enableCoreLogging;
     LvnLogger                            coreLogger;
     LvnLogger                            clientLogger;
-    std::vector<LvnLogPattern>           userLogPatterns;
+    LvnVector<LvnLogPattern>             userLogPatterns;
 
     // memory pools and bindings
     LvnMemAllocMode                      memoryMode;
     LvnMemoryPool                        memoryPool;
-    std::vector<LvnStructureTypeInfo>    sTypeMemAllocInfos;
-    std::vector<LvnStructureTypeInfo>    blockMemAllocInfos;
+    LvnVector<LvnStructureTypeInfo>      sTypeMemAllocInfos;
+    LvnVector<LvnStructureTypeInfo>      blockMemAllocInfos;
 
     // memory object allocations
     size_t                               numMemoryAllocations;
+    size_t                               numClassObjectAllocations;
     LvnObjectMemAllocCount               objectMemoryAllocations;
-
-    // ecs entity id manager
-    std::queue<LvnEntity>                availableEntityIDs;
-    uint64_t                             entityIndexID, maxEntityIDs;
 
     // renderer
     std::unique_ptr<LvnRenderer>         renderer;
 
     // misc
     LvnTimer                             contexTime;       // timer
-    LvnComponentManager                  componentManager; // ECS component manager
     LvnData<uint32_t>                    defaultCodePoints;
 
 };
@@ -863,17 +803,24 @@ template<typename T> struct LvnRemoveReference<T&&> { using type = T; };
 namespace lvn
 {
     template <typename T>
-    LVN_API constexpr typename LvnRemoveReference<T>::type&& move(T&& arg)
+    constexpr typename LvnRemoveReference<T>::type&& move(T&& arg)
     {
         return static_cast<typename LvnRemoveReference<T>::type&&>(arg);
     }
 
     template <typename T>
-    LVN_API void swap(T& arg1, T& arg2)
+    void swap(T& arg1, T& arg2)
     {
         T temp = lvn::move(arg1);
         arg1 = lvn::move(arg2);
         arg2 = lvn::move(temp);
+    }
+
+    template <typename T, size_t N>
+    void swap(T (&arg1)[N], T (&arg2)[N])
+    {
+        for (size_t i = 0; i < N; i++)
+            lvn::swap(arg1[i], arg2[i]);
     }
 }
 

@@ -1,7 +1,6 @@
 #include "levikno.h"
 #include "levikno_internal.h"
 
-#include <cstdio>
 #include <ctime>
 
 #include "stb_image.h"
@@ -19,16 +18,16 @@
 #define LVN_DEFAULT_LOG_PATTERN "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 
 #include "lvn_glfw.h"
+#include "lvn_opengl.h"
 
 #if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
     #include "lvn_vulkan.h"
 #endif
 
-#include "lvn_opengl.h"
-
 #include "lvn_loaders.h"
 
 static LvnContext* s_LvnContext = nullptr;
+
 
 // ------------------------------------------------------------
 // [SECTION]: Audio Internal structs
@@ -70,9 +69,19 @@ struct LvnSocket
 namespace lvn
 {
 
+// memory allocation functions
+static void*   mallocWrapper(size_t size, void* userData)               { (void)userData; return malloc(size); }
+static void    freeWrapper(void* ptr, void* userData)                   { (void)userData; free(ptr); }
+static void*   reallocWrapper(void* ptr, size_t size, void* userData)   { (void)userData; return realloc(ptr, size); }
+static LvnMemAllocFunc    s_MemAllocFunc = mallocWrapper;
+static LvnMemFreeFunc     s_MemFreeFunc = freeWrapper;
+static LvnMemReallocFunc  s_MemReallocFunc = reallocWrapper;
+static void*              s_MemAllocUserData = nullptr;
+
+
 static LvnResult                    initLogging(LvnContextCreateInfo* createInfo);
 static void                         terminateLogging();
-static std::vector<LvnLogPattern>   logParseFormat(const char* fmt);
+static LvnVector<LvnLogPattern>     logParseFormat(const char* fmt);
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
 static const char*                  getWindowApiNameEnum(LvnWindowApi api);
@@ -449,7 +458,7 @@ static uint64_t getStructTypeSize(LvnStructureType sType)
 
 static LvnData<uint32_t> initDefaultFontCodepoints()
 {
-    std::vector<uint32_t> codepoints; codepoints.reserve(126-31+191-160);
+    LvnVector<uint32_t> codepoints; codepoints.reserve(126-31+191-160);
     for (uint32_t i = 32; i <= 126; i++)
         codepoints.push_back(i);
     for (uint32_t i = 160; i <= 255; i++)
@@ -611,10 +620,6 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
     lvnctx->graphicsContext.enableGraphicsApiDebugLogs = createInfo->logging.enableGraphicsApiDebugLogs;
     lvnctx->graphicsContext.frameBufferColorFormat = createInfo->rendering.frameBufferColorFormat;
     lvnctx->graphicsContext.maxFramesInFlight = createInfo->rendering.maxFramesInFlight;
-
-    // ecs entity id
-    lvnctx->entityIndexID = 0;
-    lvnctx->maxEntityIDs = UINT64_MAX;
 
     // logging
     lvn::initLogging(createInfo);
@@ -802,22 +807,6 @@ const char* dateGetWeekDayNameShort()
     struct tm tm = *localtime(&t);
     return s_WeekDayNameShort[tm.tm_wday];
 }
-std::string dateGetTimeHHMMSS()
-{
-    char buff[9];
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    snprintf(buff, 9, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
-    return std::string(buff);
-}
-std::string dateGetTime12HHMMSS()
-{
-    char buff[9];
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    snprintf(buff, 9, "%02d:%02d:%02d", ((tm.tm_hour + 11) % 12) + 1, tm.tm_min, tm.tm_sec);
-    return std::string(buff);
-}
 const char* dateGetTimeMeridiem()
 {
     time_t t = time(NULL);
@@ -837,57 +826,73 @@ const char* dateGetTimeMeridiemLower()
         return "pm";
 }
 
-std::string dateGetYearStr()
+LvnString dateGetTimeHHMMSS()
+{
+    char buff[9];
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    snprintf(buff, 9, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    return LvnString(buff);
+}
+LvnString dateGetTime12HHMMSS()
+{
+    char buff[9];
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    snprintf(buff, 9, "%02d:%02d:%02d", ((tm.tm_hour + 11) % 12) + 1, tm.tm_min, tm.tm_sec);
+    return LvnString(buff);
+}
+LvnString dateGetYearStr()
 {
     char buff[5];
     snprintf(buff, 5, "%d", dateGetYear());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetYear02dStr()
+LvnString dateGetYear02dStr()
 {
     char buff[3];
     snprintf(buff, 3, "%d", dateGetYear02d());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetMonthNumStr()
+LvnString dateGetMonthNumStr()
 {
     char buff[3];
     snprintf(buff, 3, "%02d", dateGetMonth());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetDayNumStr()
+LvnString dateGetDayNumStr()
 {
     char buff[3];
     snprintf(buff, 3, "%02d", dateGetDay());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetHourNumStr()
+LvnString dateGetHourNumStr()
 {
     char buff[3];
     snprintf(buff, 3, "%02d", dateGetHour());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetHour12NumStr()
+LvnString dateGetHour12NumStr()
 {
     char buff[3];
     snprintf(buff, 3, "%02d", dateGetHour12());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetMinuteNumStr()
+LvnString dateGetMinuteNumStr()
 {
     char buff[3];
     snprintf(buff, 3, "%02d", dateGetMinute());
-    return std::string(buff);
+    return LvnString(buff);
 }
-std::string dateGetSecondNumStr()
+LvnString dateGetSecondNumStr()
 {
     char buff[3];
     snprintf(buff, 3, "%02d", dateGetSecond());
-    return std::string(buff);
+    return LvnString(buff);
 }
 
 
-std::string loadFileSrc(const char* filepath)
+LvnString loadFileSrc(const char* filepath)
 {
     FILE* fileptr = fopen(filepath, "r");
 
@@ -900,12 +905,12 @@ std::string loadFileSrc(const char* filepath)
     fseek(fileptr, 0, SEEK_END);
     long int size = ftell(fileptr);
     fseek(fileptr, 0, SEEK_SET);
-    
-    std::vector<char> src(size);
+
+    LvnVector<char> src(size);
     fread(src.data(), sizeof(char), size, fileptr);
     fclose(fileptr);
 
-    return std::string(src.data(), src.data() + src.size());
+    return LvnString(src.data(), src.size());
 }
 
 float getContextTime()
@@ -927,7 +932,7 @@ LvnData<uint8_t> loadFileSrcBin(const char* filepath)
     long int size = ftell(fileptr);
     fseek(fileptr, 0, SEEK_SET);
 
-    std::vector<uint8_t> bin(size);
+    LvnVector<uint8_t> bin(size);
     fread(bin.data(), sizeof(uint8_t), size, fileptr);
     fclose(fileptr);
 
@@ -948,7 +953,7 @@ void writeFileSrc(const char* filename, const char* src, LvnFileMode mode)
         return;
     }
 
-    fprintf(fileptr, src);
+    fprintf(fileptr, "%s", src);
     fclose(fileptr);
 }
 
@@ -988,12 +993,12 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, const uint3
     int height = width;
 
     // render glyphs to atlas
-    std::vector<uint8_t> pixels(width * height);
+    LvnVector<uint8_t> pixels(width * height);
     int penx = 0, peny = 0;
     const int padding = 2;
     const int lineHeight = (face->size->metrics.height >> 6) + padding;
 
-    std::vector<LvnFontGlyph> glyphs(codepointCount);
+    LvnVector<LvnFontGlyph> glyphs(codepointCount);
 
     uint32_t loadFlags = FT_LOAD_RENDER;
     if (flags & Lvn_LoadFont_NoHinting)
@@ -1119,12 +1124,12 @@ LvnFont loadFontFromFileTTFMemory(const uint8_t* fontData, uint64_t fontDataSize
     int height = width;
 
     // render glyphs to atlas
-    std::vector<uint8_t> pixels(width * height);
+    LvnVector<uint8_t> pixels(width * height);
     int penx = 0, peny = 0;
     const int padding = 2;
     const int lineHeight = (face->size->metrics.height >> 6) + padding;
 
-    std::vector<LvnFontGlyph> glyphs(codepointCount);
+    LvnVector<LvnFontGlyph> glyphs(codepointCount);
 
     uint32_t loadFlags = FT_LOAD_RENDER;
     if (flags & Lvn_LoadFont_NoHinting)
@@ -1273,8 +1278,9 @@ LvnData<uint32_t> getDefaultSupportedCodepoints()
 void* memAlloc(size_t size)
 {
     if (size == 0) { return nullptr; }
-    void* allocmem = calloc(1, size);
+    void* allocmem = (*s_MemAllocFunc)(size, s_MemAllocUserData);
     if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); LVN_ABORT; }
+    memset(allocmem, 0, size);
     if (s_LvnContext) { s_LvnContext->numMemoryAllocations++; }
     return allocmem;
 }
@@ -1282,49 +1288,70 @@ void* memAlloc(size_t size)
 void memFree(void* ptr)
 {
     if (ptr == nullptr) { return; }
-    free(ptr);
-    ptr = nullptr;
+    (*s_MemFreeFunc)(ptr, s_MemAllocUserData);
     if (s_LvnContext) s_LvnContext->numMemoryAllocations--;
 }
 
 void* memRealloc(void* ptr, size_t size)
 {
     if (!ptr) { return lvn::memAlloc(size); }
-    return realloc(ptr, size);
+    return (*s_MemReallocFunc)(ptr, size, s_MemAllocUserData);
 }
 
-int getRandomNumber()
+void setMemFuncs(LvnMemAllocFunc allocFunc, LvnMemFreeFunc freeFunc, LvnMemReallocFunc reallocFunc, void* userData)
 {
-    srand(time(0));
-    return rand();
+    s_MemAllocFunc = allocFunc;
+    s_MemFreeFunc = freeFunc;
+    s_MemReallocFunc = reallocFunc;
+    s_MemAllocUserData = userData;
+}
+
+LvnMemAllocFunc getMemAllocFunc()
+{
+    return s_MemAllocFunc;
+}
+
+LvnMemFreeFunc getMemFreeFunc()
+{
+    return s_MemFreeFunc;
+}
+
+LvnMemReallocFunc getMemReallocFunc()
+{
+    return s_MemReallocFunc;
+}
+
+void* getMemUserData()
+{
+    return s_MemAllocUserData;
 }
 
 /* [Logging] */
 const static LvnLogPattern s_LogPatterns[] =
 {
-    { '$', [](LvnLogMessage* msg) -> std::string { return "\n"; } },
-    { 'n', [](LvnLogMessage* msg) -> std::string { return msg->loggerName; } },
-    { 'l', [](LvnLogMessage* msg) -> std::string { return getLogLevelName(msg->level); }},
-    { '#', [](LvnLogMessage* msg) -> std::string { return getLogLevelColor(msg->level); }},
-    { '^', [](LvnLogMessage* msg) -> std::string { return LVN_LOG_COLOR_RESET; }},
-    { 'v', [](LvnLogMessage* msg) -> std::string { return msg->msg; }},
-    { '%', [](LvnLogMessage* msg) -> std::string { return "%"; } },
-    { 'T', [](LvnLogMessage* msg) -> std::string { return dateGetTimeHHMMSS(); } },
-    { 't', [](LvnLogMessage* msg) -> std::string { return dateGetTime12HHMMSS(); } },
-    { 'Y', [](LvnLogMessage* msg) -> std::string { return dateGetYearStr(); }},
-    { 'y', [](LvnLogMessage* msg) -> std::string { return dateGetYear02dStr(); } },
-    { 'm', [](LvnLogMessage* msg) -> std::string { return dateGetMonthNumStr(); } },
-    { 'B', [](LvnLogMessage* msg) -> std::string { return dateGetMonthName(); } },
-    { 'b', [](LvnLogMessage* msg) -> std::string { return dateGetMonthNameShort(); } },
-    { 'd', [](LvnLogMessage* msg) -> std::string { return dateGetDayNumStr(); } },
-    { 'A', [](LvnLogMessage* msg) -> std::string { return dateGetWeekDayName(); } },
-    { 'a', [](LvnLogMessage* msg) -> std::string { return dateGetWeekDayNameShort(); } },
-    { 'H', [](LvnLogMessage* msg) -> std::string { return dateGetHourNumStr(); } },
-    { 'h', [](LvnLogMessage* msg) -> std::string { return dateGetHour12NumStr(); } },
-    { 'M', [](LvnLogMessage* msg) -> std::string { return dateGetMinuteNumStr(); } },
-    { 'S', [](LvnLogMessage* msg) -> std::string { return dateGetSecondNumStr(); } },
-    { 'P', [](LvnLogMessage* msg) -> std::string { return dateGetTimeMeridiem(); } },
-    { 'p', [](LvnLogMessage* msg) -> std::string { return dateGetTimeMeridiemLower(); }},
+    { '$', [](LvnLogMessage* msg) -> LvnString { return "\n"; } },
+    { 'n', [](LvnLogMessage* msg) -> LvnString { return msg->loggerName; } },
+    { 'l', [](LvnLogMessage* msg) -> LvnString { return getLogLevelName(msg->level); }},
+    { '#', [](LvnLogMessage* msg) -> LvnString { return getLogLevelColor(msg->level); }},
+    { '^', [](LvnLogMessage* msg) -> LvnString { return LVN_LOG_COLOR_RESET; }},
+    { 'v', [](LvnLogMessage* msg) -> LvnString { return msg->msg; }},
+    { '%', [](LvnLogMessage* msg) -> LvnString { return "%"; } },
+    { 'T', [](LvnLogMessage* msg) -> LvnString { return dateGetTimeHHMMSS(); } },
+    { 't', [](LvnLogMessage* msg) -> LvnString { return dateGetTime12HHMMSS(); } },
+    { 'Y', [](LvnLogMessage* msg) -> LvnString { return dateGetYearStr(); }},
+    { 'y', [](LvnLogMessage* msg) -> LvnString { return dateGetYear02dStr(); } },
+    { 'm', [](LvnLogMessage* msg) -> LvnString { return dateGetMonthNumStr(); } },
+    { 'B', [](LvnLogMessage* msg) -> LvnString { return dateGetMonthName(); } },
+    { 'b', [](LvnLogMessage* msg) -> LvnString { return dateGetMonthNameShort(); } },
+    { 'd', [](LvnLogMessage* msg) -> LvnString { return dateGetDayNumStr(); } },
+    { 'A', [](LvnLogMessage* msg) -> LvnString { return dateGetWeekDayName(); } },
+    { 'a', [](LvnLogMessage* msg) -> LvnString { return dateGetWeekDayNameShort(); } },
+    { 'H', [](LvnLogMessage* msg) -> LvnString { return dateGetHourNumStr(); } },
+    { 'h', [](LvnLogMessage* msg) -> LvnString { return dateGetHour12NumStr(); } },
+    { 'M', [](LvnLogMessage* msg) -> LvnString { return dateGetMinuteNumStr(); } },
+    { 'S', [](LvnLogMessage* msg) -> LvnString { return dateGetSecondNumStr(); } },
+    { 'P', [](LvnLogMessage* msg) -> LvnString { return dateGetTimeMeridiem(); } },
+    { 'p', [](LvnLogMessage* msg) -> LvnString { return dateGetTimeMeridiemLower(); }},
 };
 
 static LvnResult initLogging(LvnContextCreateInfo* createInfo)
@@ -1373,11 +1400,11 @@ static void terminateLogging()
     }
 }
 
-static std::vector<LvnLogPattern> logParseFormat(const char* fmt)
+static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
 {
-    if (!fmt || fmt == "\0") { return {}; }
+    if (!fmt || !*fmt) { return {}; }
 
-    std::vector<LvnLogPattern> patterns;
+    LvnVector<LvnLogPattern> patterns;
 
     for (uint32_t i = 0; i < strlen(fmt) - 1; i++)
     {
@@ -1470,7 +1497,7 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
     if (!lvn::getContext()->logging) { return; }
 
-    std::string msgstr;
+    LvnString msgstr; msgstr.reserve(strlen(msg->msg) + 1);
 
     for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
     {
@@ -1487,7 +1514,7 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
     printf("%s", msgstr.c_str());
 }
 
-std::string logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI)
+LvnString logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI)
 {
     LvnLogMessage logMsg{};
     logMsg.msg = msg;
@@ -1495,7 +1522,7 @@ std::string logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* m
     logMsg.level = level;
     logMsg.timeEpoch = lvn::dateGetSecondsSinceEpoch();
 
-    std::string msgstr;
+    LvnString msgstr; msgstr.reserve(strlen(msg) + 1);
 
     for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
     {
@@ -1529,7 +1556,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
     if (logger->logfile.logToFile)
     {
-        std::string msgstr;
+        LvnString msgstr; msgstr.reserve(strlen(msg) + 1);
 
         for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
         {
@@ -1546,7 +1573,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
             }
         }
 
-        fprintf(logger->logfile.fileptr, msgstr.c_str());
+        fprintf(logger->logfile.fileptr, "%s", msgstr.c_str());
     }
 }
 
@@ -1556,7 +1583,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
     if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
     if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
-    std::vector<char> buff;
+    LvnVector<char> buff;
 
     va_list argptr, argcopy;
     va_start(argptr, fmt);
@@ -1577,7 +1604,7 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
     if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
     if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
 
-    std::vector<char> buff;
+    LvnVector<char> buff;
 
     va_list argptr, argcopy;
     va_start(argptr, fmt);
@@ -1598,7 +1625,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
     if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
     if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
-    std::vector<char> buff;
+    LvnVector<char> buff;
 
     va_list argptr, argcopy;
     va_start(argptr, fmt);
@@ -1619,7 +1646,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
     if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
     if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
-    std::vector<char> buff;
+    LvnVector<char> buff;
 
     va_list argptr, argcopy;
     va_start(argptr, fmt);
@@ -1640,7 +1667,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
     if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
     if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
-    std::vector<char> buff;
+    LvnVector<char> buff;
 
     va_list argptr, argcopy;
     va_start(argptr, fmt);
@@ -1661,7 +1688,7 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
     if (!s_LvnContext->enableCoreLogging && logger == &s_LvnContext->coreLogger) { return; }
     if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
 
-    std::vector<char> buff;
+    LvnVector<char> buff;
 
     va_list argptr, argcopy;
     va_start(argptr, fmt);
@@ -3110,7 +3137,7 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
     return imageData;
 }
 
-LvnImageData loadImageDataThread(const std::string filepath, int forceChannels, bool flipVertically)
+LvnImageData loadImageDataThread(const LvnString filepath, int forceChannels, bool flipVertically)
 {
     if (filepath.empty())
     {
@@ -3262,7 +3289,7 @@ void imageFlipVertically(LvnImageData& imageData)
 {
     uint8_t* data = imageData.pixels.data();
     uint32_t rowSize = imageData.width * imageData.channels;
-    std::vector<uint8_t> tempRow(rowSize);
+    LvnVector<uint8_t> tempRow(rowSize);
 
     for (uint32_t y = 0; y < imageData.height / 2; y++)
     {
@@ -3300,7 +3327,7 @@ void imageRotateCW(LvnImageData& imageData)
     uint32_t newWidth = imageData.height;
     uint32_t newHeight = imageData.width;
 
-    std::vector<uint8_t> rotated(newWidth * newHeight * imageData.channels);
+    LvnVector<uint8_t> rotated(newWidth * newHeight * imageData.channels);
 
     for (uint32_t y = 0; y < imageData.height; y++)
     {
@@ -3327,7 +3354,7 @@ void imageRotateCCW(LvnImageData& imageData)
     uint32_t newWidth = imageData.height;
     uint32_t newHeight = imageData.width;
 
-    std::vector<uint8_t> rotated(newWidth * newHeight * imageData.channels);
+    LvnVector<uint8_t> rotated(newWidth * newHeight * imageData.channels);
 
     for (uint32_t y = 0; y < imageData.height; y++)
     {
@@ -3418,8 +3445,8 @@ LvnImageData imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t ch
 
 LvnModel loadModel(const char* filepath)
 {
-    std::string filepathstr(filepath);
-    std::string extensionType = filepathstr.substr(filepathstr.find_last_of(".") + 1);
+    LvnString filepathstr(filepath);
+    LvnString extensionType = filepathstr.substr(filepathstr.find_last_of(".") + 1);
 
     if (extensionType == "gltf")
     {
@@ -4063,39 +4090,6 @@ LvnResult socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseco
     }
 
     return Lvn_Result_TimeOut;
-}
-
-
-LvnEntity createEntity()
-{
-    LvnContext* lvnctx = lvn::getContext();
-
-    if (!lvnctx->availableEntityIDs.empty())
-    {
-        LvnEntity entity = lvnctx->availableEntityIDs.front();
-        lvnctx->availableEntityIDs.pop();
-        return entity;
-    }
-
-    LVN_CORE_ASSERT(lvnctx->entityIndexID < lvnctx->maxEntityIDs, "cannot create entity, maximum entity count (%zu) reached", lvnctx->maxEntityIDs);
-    return ++lvnctx->entityIndexID;
-}
-
-void destroyEntity(LvnEntity entity)
-{
-    LvnContext* lvnctx = lvn::getContext();
-
-    for (auto& comp : lvnctx->componentManager)
-    {
-        comp.second.get()->entityDestroyed(entity);
-    }
-
-    lvnctx->availableEntityIDs.push(entity);
-}
-
-LvnComponentManager* getComponentManager()
-{
-    return &lvn::getContext()->componentManager;
 }
 
 // ------------------------------------------------------------

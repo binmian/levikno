@@ -7,8 +7,9 @@ set(CMAKE_CXX_STANDARD 17)
 # Levikno
 project(Levikno)
 
-option(LVN_BUILD_EXAMPLES "Build example programs" ON)
-option(LVN_INCLUDE_GLSLANG "include glslang libraries and shader source compile support" ON)
+option(LVN_BUILD_EXAMPLES "Build example programs" TRUE)
+option(LVN_INCLUDE_GLSLANG "include glslang libraries and shader source compile support" TRUE)
+
 
 # output dirs
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -131,8 +132,11 @@ set(LVN_EXTERNAL_SRC
 
 set(LVN_SRC
     include/levikno/levikno.h
+    include/levikno/lvn_ecs.h
     src/levikno.cpp
     src/levikno_internal.h
+    src/lvn_cds.cpp
+    src/lvn_ecs.cpp
     src/lvn_renderer.cpp
 )
 
@@ -181,12 +185,6 @@ add_library(levikno STATIC
     ${LVN_EXTERNAL_SRC}
     ${LVN_SRC}
 )
-
-if (MSVC)
-    target_compile_options(levikno PRIVATE "/W2")
-elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
-    target_compile_options(levikno PRIVATE -w)
-endif()
 
 
 target_include_directories(levikno

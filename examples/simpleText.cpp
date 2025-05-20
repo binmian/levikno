@@ -1,7 +1,6 @@
 #include <levikno/levikno.h>
 
 #include <sstream>
-#include <chrono>
 
 
 #define MAX_VERTEX_COUNT (5000)
@@ -59,83 +58,13 @@ struct Vertex
     LvnVec2 texUV;
 };
 
-struct DrawCommand
-{
-    Vertex* pVertices;
-    uint32_t* pIndices;
-    uint32_t vertexCount;
-    uint32_t indexCount;
-};
-
-class DrawList
-{
-public:
-    uint32_t vertexCount;
-    uint32_t indexCount;
-    uint64_t vertexSize;
-    uint64_t indexSize;
-
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    std::vector<DrawCommand> drawCommands;
-
-    void push_back(const DrawCommand& drawCmd)
-    {
-        this->drawCommands.push_back(drawCmd);
-        
-        std::vector<uint32_t> batchIndices(drawCmd.pIndices, drawCmd.pIndices + drawCmd.indexCount);
-
-        for (auto& index : batchIndices)
-            index += this->vertexCount;
-
-        this->vertices.insert(this->vertices.end(), drawCmd.pVertices, drawCmd.pVertices + drawCmd.vertexCount);
-        this->indices.insert(this->indices.end(), batchIndices.begin(), batchIndices.end());
-
-        this->vertexCount += drawCmd.vertexCount;
-        this->indexCount += drawCmd.indexCount;
-        this->vertexSize += drawCmd.vertexCount * sizeof(Vertex);
-        this->indexSize += drawCmd.indexCount * sizeof(uint32_t);
-    }
-
-    void clear()
-    {
-        this->drawCommands.clear();
-        this->vertices.clear();
-        this->indices.clear();
-        this->indexCount = 0;
-        this->vertexCount = 0;
-        this->indexSize = 0;
-        this->vertexSize = 0;
-    }
-
-    bool empty()
-    {
-        if (this->drawCommands.empty() && this->vertices.empty() && this->indices.empty())
-            return true;
-
-        return false;
-    }
-};
-
-
-class Timer
-{
-private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
-
-public:
-    void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-    void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-    float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
-    float elapsedms() { return elapsed() * 1000.0f; }
-};
 struct UniformData
 {
     LvnMat4 matrix;
 };
 
 
-void drawText(DrawList* list, LvnFont& font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
+void drawText(LvnDrawList* list, LvnFont& font, const char* text, LvnVec2 pos, LvnVec3 color, float scale)
 {
     for (uint32_t i = 0; i < strlen(text);)
     {
@@ -165,11 +94,12 @@ void drawText(DrawList* list, LvnFont& font, const char* text, LvnVec2 pos, LvnV
             2, 1, 3,
         };
 
-        DrawCommand drawCmd{};
+        LvnDrawCommand drawCmd{};
         drawCmd.pVertices = rectVertices;
         drawCmd.vertexCount = 4;
         drawCmd.pIndices = rectIndices;
         drawCmd.indexCount = 6;
+        drawCmd.vertexStride = sizeof(Vertex);
 
         list->push_back(drawCmd);
 
@@ -368,10 +298,10 @@ int main(int argc, char** argv)
     lvn::updateDescriptorSetData(descriptorSet, descriptorUpdateInfos, ARRAY_LEN(descriptorUpdateInfos));
 
     UniformData uniformData{};
-    DrawList list{};
+    LvnDrawList list{};
 
-    Timer timer;
-    timer.start();
+    LvnTimer timer;
+    timer.begin();
 
     int progress = 0;
 
@@ -402,8 +332,8 @@ int main(int argc, char** argv)
         // text examples
         drawText(&list, font, "hello world", {20.0f, height - 40.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
         drawText(&list, font, "The quick brown fox jumps over the lazy dog", {20.0f, height - 80.0f}, {1.0f, 0.0f, 1.0f}, 1.0f);
-        drawText(&list, font, "this text changes color", {20.0f, height - 120.0f}, {0.0f, abs(sin(timer.elapsed())), abs(cos(timer.elapsed()))}, 1.0f);
-        drawText(&list, font, "<- this text moves ->", {120.0f + sin(timer.elapsed() * 2.0f) * 100.0f, height - 160.0f}, {0.0f, 1.0f, 1.0f}, 1.0f);
+        drawText(&list, font, "this text changes color", {20.0f, height - 120.0f}, {0.0f, abs(sin((float)timer.elapsed())), abs(cos((float)timer.elapsed()))}, 1.0f);
+        drawText(&list, font, "<- this text moves ->", {120.0f + sin((float)timer.elapsed() * 2.0f) * 100.0f, height - 160.0f}, {0.0f, 1.0f, 1.0f}, 1.0f);
         drawText(&list, font, "this text changes size (keep in mind the pixel quality when scaling)", {20.0f, height - 200.0f}, {1.0f, 1.0f, 0.0f}, abs(sin(timer.elapsed() * 0.5f)) * 0.5f + 0.5f);
 
         // progress bar text
@@ -441,8 +371,8 @@ int main(int argc, char** argv)
         drawText(&list, font, ascii.c_str(), {20.0f, height - 400.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
 
         // update buffers
-        lvn::bufferUpdateData(vertexBuffer, list.vertices.data(), list.vertices.size() * sizeof(Vertex), 0);
-        lvn::bufferUpdateData(indexBuffer, list.indices.data(), list.indices.size() * sizeof(uint32_t), 0);
+        lvn::bufferUpdateData(vertexBuffer, list.vertices(), list.vertex_size(), 0);
+        lvn::bufferUpdateData(indexBuffer, list.indices(), list.index_size(), 0);
 
         // get next window swapchain image
         lvn::renderBeginNextFrame(window);
@@ -461,7 +391,7 @@ int main(int argc, char** argv)
         lvn::renderCmdBindVertexBuffer(window, 0, 1, &vertexBuffer, 0);
         lvn::renderCmdBindIndexBuffer(window, indexBuffer, 0);
 
-        lvn::renderCmdDrawIndexed(window, list.indices.size());
+        lvn::renderCmdDrawIndexed(window, list.index_count());
 
         // end render pass and submit rendering
         lvn::renderCmdEndRenderPass(window);

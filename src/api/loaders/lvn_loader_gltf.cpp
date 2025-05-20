@@ -2,6 +2,8 @@
 #include "lvn_loaders.h"
 
 #include <future>
+#include <string>
+#include <vector>
 
 #include "json.h"
 #include "mikktspace.h"
@@ -84,24 +86,24 @@ namespace gltfs
 
     struct GLTFAnimation
     {
-        std::vector<GLTFAnimationSampler> samplers;
-        std::vector<GLTFAnimationChannel> channels;
+        LvnVector<GLTFAnimationSampler> samplers;
+        LvnVector<GLTFAnimationChannel> channels;
     };
 
     struct GLTFSkin
     {
         std::string name;
         int inverseBindMatrices;
-        std::vector<int> joints;
+        LvnVector<int> joints;
     };
 
     struct GLTFTangentCalcInfo
     {
-        std::vector<LvnVec4> outTangents;
-        std::vector<LvnVec3> positions;
-        std::vector<LvnVec3> normals;
-        std::vector<LvnVec2> texUVs;
-        std::vector<uint32_t> indices;
+        LvnVector<LvnVec4> outTangents;
+        LvnVector<LvnVec3> positions;
+        LvnVector<LvnVec3> normals;
+        LvnVector<LvnVec2> texUVs;
+        LvnVector<uint32_t> indices;
         int32_t  numFaces;
         int32_t  vertexPerFace;
     };
@@ -113,19 +115,19 @@ namespace gltfs
         std::string filepath;
         LvnFileType filetype;
 
-        std::vector<std::shared_ptr<LvnNode>> nodes;
-        std::vector<LvnNode*> nodeArray;
-        std::vector<LvnBin> buffers;
-        std::vector<GLTFAccessor> accessors;
-        std::vector<GLTFBufferView> bufferViews;
-        std::vector<GLTFMatrial> materials;
-        std::vector<GLTFAnimation> animations;
-        std::vector<GLTFSkin> skins;
-        std::vector<LvnImageData> images;
-        std::vector<LvnSampler*> samplers;
-        std::vector<LvnTexture*> textures;
-        std::vector<LvnBuffer*> meshBuffers;
-        std::vector<LvnMesh> meshes;
+        LvnVector<std::shared_ptr<LvnNode>> nodes;
+        LvnVector<LvnNode*> nodeArray;
+        LvnVector<LvnBin> buffers;
+        LvnVector<GLTFAccessor> accessors;
+        LvnVector<GLTFBufferView> bufferViews;
+        LvnVector<GLTFMatrial> materials;
+        LvnVector<GLTFAnimation> animations;
+        LvnVector<GLTFSkin> skins;
+        LvnVector<LvnImageData> images;
+        LvnVector<LvnSampler*> samplers;
+        LvnVector<LvnTexture*> textures;
+        LvnVector<LvnBuffer*> meshBuffers;
+        LvnVector<LvnMesh> meshes;
 
         LvnSampler* defaultSampler;
         LvnTexture* defaultBaseColorTexture;
@@ -135,50 +137,50 @@ namespace gltfs
         LvnTexture* defaultEmissiveTexture;
     };
 
-    static std::vector<LvnBin>         loadBuffers(const nlm::json& JSON, std::string_view filepath);
-    static std::vector<GLTFAccessor>   loadAccessors(const nlm::json& JSON);
-    static std::vector<GLTFBufferView> loadBufferViews(const nlm::json& JSON);
-    static std::vector<GLTFMatrial>    loadMaterials(const nlm::json& JSON);
-    static std::vector<GLTFAnimation>  loadAnimations(const nlm::json& JSON);
-    static std::vector<GLTFSkin>       loadSkins(const nlm::json& JSON);
-    static std::vector<LvnImageData>   loadImages(const GLTFLoadData& gltfData);
-    static std::vector<LvnSampler*>    loadSamplers(const nlm::json& JSON, LvnSampler** defaultSampler);
-    static std::vector<LvnAnimation>   bindAnimationsToNodes(const GLTFLoadData& gltfData);
-    static std::vector<LvnSkin>        bindSkinsToNodes(const GLTFLoadData& gltfData);
+    static LvnVector<LvnBin>           loadBuffers(const nlm::json& JSON, std::string_view filepath);
+    static LvnVector<GLTFAccessor>     loadAccessors(const nlm::json& JSON);
+    static LvnVector<GLTFBufferView>   loadBufferViews(const nlm::json& JSON);
+    static LvnVector<GLTFMatrial>      loadMaterials(const nlm::json& JSON);
+    static LvnVector<GLTFAnimation>    loadAnimations(const nlm::json& JSON);
+    static LvnVector<GLTFSkin>         loadSkins(const nlm::json& JSON);
+    static LvnVector<LvnImageData>     loadImages(const GLTFLoadData& gltfData);
+    static LvnVector<LvnSampler*>      loadSamplers(const nlm::json& JSON, LvnSampler** defaultSampler);
+    static LvnVector<LvnAnimation>     bindAnimationsToNodes(const GLTFLoadData& gltfData);
+    static LvnVector<LvnSkin>          bindSkinsToNodes(const GLTFLoadData& gltfData);
     static size_t                      getCompType(int compType);
     static bool                        isNormalizedType(int compType);
-    static std::vector<float>          getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor);
+    static LvnVector<float>            getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor);
     static LvnTextureFilter            getSamplerFilterEnum(int filter);
     static LvnTextureMode              getSamplerWrapModeEnum(int mode);
     static LvnTopologyType             getTopologyEnum(int mode);
     static LvnInterpolationMode        getInterpolationMode(std::string interpolation);
-    static std::vector<LvnVec3>        calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents);
-    static std::vector<LvnVec4>        calculateTangents(GLTFTangentCalcInfo* calcInfo);
+    static LvnVector<LvnVec3>          calculateBitangents(const LvnVector<LvnVec3>& normals, const LvnVector<LvnVec4>& tangents);
+    static LvnVector<LvnVec4>          calculateTangents(GLTFTangentCalcInfo* calcInfo);
     static void                        traverseNode(GLTFLoadData* gltfData, LvnNode* nextNode, int nextNodeIndex);
     static LvnMaterial                 getMaterial(GLTFLoadData* gltfData, int meshMaterialIndex);
     static void                        loadDefaultTextures(GLTFLoadData* gltfData);
-    static std::vector<LvnMesh>        loadMeshes(GLTFLoadData* gltfData);
+    static LvnVector<LvnMesh>          loadMeshes(GLTFLoadData* gltfData);
     static void                        bindMeshToNodes(GLTFLoadData* gltfData);
 
 
-    static std::vector<LvnBin> loadBuffers(const nlm::json& JSON, std::string_view filepath)
+    static LvnVector<LvnBin> loadBuffers(const nlm::json& JSON, std::string_view filepath)
     {
-        std::vector<LvnBin> buffers(JSON["buffers"].size());
+        LvnVector<LvnBin> buffers(JSON["buffers"].size());
 
         for (int i = 0; i < JSON["buffers"].size(); i++)
         {
             std::string uri = JSON["buffers"][i]["uri"];
             std::string_view fileDirectory = filepath.substr(0, filepath.find_last_of("/\\") + 1);
             std::string pathbin = std::string(fileDirectory) + uri;
-            
+
             buffers[i] = lvn::loadFileSrcBin(pathbin.c_str());
         }
 
         return buffers;
     }
-    static std::vector<GLTFAccessor> loadAccessors(const nlm::json& JSON)
+    static LvnVector<GLTFAccessor> loadAccessors(const nlm::json& JSON)
     {
-        std::vector<GLTFAccessor> accessors(JSON["accessors"].size());
+        LvnVector<GLTFAccessor> accessors(JSON["accessors"].size());
 
         for (int i = 0; i < JSON["accessors"].size(); i++)
         {
@@ -201,9 +203,9 @@ namespace gltfs
 
         return accessors;
     }
-    static std::vector<GLTFBufferView> loadBufferViews(const nlm::json& JSON)
+    static LvnVector<GLTFBufferView> loadBufferViews(const nlm::json& JSON)
     {
-        std::vector<GLTFBufferView> bufferViews(JSON["bufferViews"].size());
+        LvnVector<GLTFBufferView> bufferViews(JSON["bufferViews"].size());
 
         for (int i = 0; i < JSON["bufferViews"].size(); i++)
         {
@@ -214,12 +216,12 @@ namespace gltfs
 
         return bufferViews;
     }
-    static std::vector<GLTFMatrial> loadMaterials(const nlm::json& JSON)
+    static LvnVector<GLTFMatrial> loadMaterials(const nlm::json& JSON)
     {
         if (!JSON.contains("materials"))
             return {};
 
-        std::vector<GLTFMatrial> materials(JSON["materials"].size());
+        LvnVector<GLTFMatrial> materials(JSON["materials"].size());
 
         for (uint32_t i = 0; i < JSON["materials"].size(); i++)
         {
@@ -291,12 +293,12 @@ namespace gltfs
 
         return materials;
     }
-    static std::vector<GLTFAnimation>  loadAnimations(const nlm::json& JSON)
+    static LvnVector<GLTFAnimation>  loadAnimations(const nlm::json& JSON)
     {
         if (!JSON.contains("animations"))
             return {};
 
-        std::vector<GLTFAnimation> animations(JSON["animations"].size());
+        LvnVector<GLTFAnimation> animations(JSON["animations"].size());
 
         for (uint32_t i = 0; i < JSON["animations"].size(); i++)
         {
@@ -326,12 +328,12 @@ namespace gltfs
 
         return animations;
     }
-    static std::vector<GLTFSkin> loadSkins(const nlm::json& JSON)
+    static LvnVector<GLTFSkin> loadSkins(const nlm::json& JSON)
     {
         if (!JSON.contains("skins"))
             return {};
 
-        std::vector<GLTFSkin> skins(JSON["skins"].size());
+        LvnVector<GLTFSkin> skins(JSON["skins"].size());
 
         for (uint32_t i = 0; i < JSON["skins"].size(); i++)
         {
@@ -348,7 +350,7 @@ namespace gltfs
 
         return skins;
     }
-    static std::vector<LvnImageData> loadImages(const GLTFLoadData& gltfData)
+    static LvnVector<LvnImageData> loadImages(const GLTFLoadData& gltfData)
     {
         LvnContext* lvnctx = lvn::getContext();
 
@@ -357,11 +359,11 @@ namespace gltfs
         if (!JSON.contains("images"))
             return {};
 
-        std::vector<LvnImageData> images(JSON["images"].size());
+        LvnVector<LvnImageData> images(JSON["images"].size());
 
         if (lvnctx->multithreading) // multithreading enabled
         {
-            std::vector<std::future<LvnImageData>> futureImages(images.size());
+            LvnVector<std::future<LvnImageData>> futureImages(images.size());
 
             if (gltfData.filetype == Lvn_FileType_Gltf)
             {
@@ -370,7 +372,7 @@ namespace gltfs
                     std::string uri = JSON["images"][i]["uri"];
                     std::string fileDirectory = gltfData.filepath.substr(0, gltfData.filepath.find_last_of("/\\") + 1);
 
-                    futureImages[i] = std::async(std::launch::async, lvn::loadImageDataThread, fileDirectory + uri, 4, false);
+                    futureImages[i] = std::async(std::launch::async, lvn::loadImageDataThread, LvnString((fileDirectory + uri).c_str()), 4, false);
                 }
             }
             else if (gltfData.filetype == Lvn_FileType_Glb)
@@ -417,7 +419,7 @@ namespace gltfs
 
         return images;
     }
-    static std::vector<LvnSampler*> loadSamplers(const nlm::json& JSON, LvnSampler** defaultSampler)
+    static LvnVector<LvnSampler*> loadSamplers(const nlm::json& JSON, LvnSampler** defaultSampler)
     {
         if (!JSON.contains("samplers"))
         {
@@ -428,10 +430,10 @@ namespace gltfs
             samplerCreateInfo.magFilter = Lvn_TextureFilter_Nearest;
 
             lvn::createSampler(defaultSampler, &samplerCreateInfo);
-            return std::vector<LvnSampler*>{*defaultSampler};
+            return LvnVector<LvnSampler*>(defaultSampler, 1);
         }
 
-        std::vector<LvnSampler*> samplers(JSON["samplers"].size());
+        LvnVector<LvnSampler*> samplers(JSON["samplers"].size());
 
         for (uint32_t i = 0; i < JSON["samplers"].size(); i++)
         {
@@ -455,9 +457,9 @@ namespace gltfs
 
         return samplers;
     }
-    static std::vector<LvnAnimation> bindAnimationsToNodes(const GLTFLoadData& gltfData)
+    static LvnVector<LvnAnimation> bindAnimationsToNodes(const GLTFLoadData& gltfData)
     {
-        std::vector<LvnAnimation> animations(gltfData.animations.size());
+        LvnVector<LvnAnimation> animations(gltfData.animations.size());
 
         for (uint32_t i = 0; i < gltfData.animations.size(); i++)
         {
@@ -534,16 +536,16 @@ namespace gltfs
 
         return animations;
     }
-    static std::vector<LvnSkin> bindSkinsToNodes(const GLTFLoadData& gltfData)
+    static LvnVector<LvnSkin> bindSkinsToNodes(const GLTFLoadData& gltfData)
     {
         const nlm::json& JSON = gltfData.JSON;
 
-        std::vector<LvnSkin> skins(gltfData.skins.size());
+        LvnVector<LvnSkin> skins(gltfData.skins.size());
 
         for (uint32_t i = 0; i < gltfData.skins.size(); i++)
         {
             const GLTFSkin& skinData = gltfData.skins[i];
-            skins[i].name = skinData.name;
+            skins[i].name = skinData.name.c_str();
 
             skins[i].joints.resize(skinData.joints.size());
             for (uint32_t j = 0; j < skinData.joints.size(); j++)
@@ -563,7 +565,6 @@ namespace gltfs
                 memcpy(skins[i].inverseBindMatrices.data(), &buffer[accessor.byteOffset + bufferView.byteOffset], accessor.count * 16 * sizeof(float));
             }
 
-            skins[i].ssbo;
             LvnBufferCreateInfo ssboCreateInfo{};
             ssboCreateInfo.type = Lvn_BufferType_Storage;
             ssboCreateInfo.usage = Lvn_BufferUsage_Dynamic;
@@ -604,7 +605,7 @@ namespace gltfs
             default: { LVN_CORE_ERROR("unknown component type: %d", compType); return false; }
         }
     }
-    static std::vector<float> getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor)
+    static LvnVector<float> getAttributeData(const GLTFLoadData* gltfData, const GLTFAccessor& accessor)
     {
         GLTFBufferView bufferView = gltfData->bufferViews[accessor.bufferView];
         LvnBin buffer = gltfData->buffers[bufferView.buffer];
@@ -621,7 +622,7 @@ namespace gltfs
         else if (accessor.type == "VEC4")
             type = 4;
 
-        std::vector<float> att(accessor.count * type);
+        LvnVector<float> att(accessor.count * type);
 
         if (accessor.componentType == 5126) // float
         {
@@ -739,9 +740,9 @@ namespace gltfs
         LVN_CORE_ERROR("unknown interpolation type: %s", interpolation.c_str());
         return Lvn_InterpolationMode_Step;
     }
-    static std::vector<LvnVec3> calculateBitangents(const std::vector<LvnVec3>& normals, const std::vector<LvnVec4>& tangents)
+    static LvnVector<LvnVec3> calculateBitangents(const LvnVector<LvnVec3>& normals, const LvnVector<LvnVec4>& tangents)
     {
-        std::vector<LvnVec3> bitangents(normals.size());
+        LvnVector<LvnVec3> bitangents(normals.size());
         for (uint32_t i = 0; i < normals.size(); i++)
         {
             bitangents[i] = lvn::normalize(lvn::cross(normals[i], LvnVec3(tangents[i])) * tangents[i].w);
@@ -749,7 +750,7 @@ namespace gltfs
 
         return bitangents;
     }
-    static std::vector<LvnVec4> calculateTangents(GLTFTangentCalcInfo* calcInfo)
+    static LvnVector<LvnVec4> calculateTangents(GLTFTangentCalcInfo* calcInfo)
     {
         SMikkTSpaceInterface iface{};
         SMikkTSpaceContext context{};
@@ -1195,18 +1196,18 @@ namespace gltfs
             gltfData->textures.push_back(gltfData->defaultEmissiveTexture);
         }
     }
-    static std::vector<LvnMesh> loadMeshes(GLTFLoadData* gltfData)
+    static LvnVector<LvnMesh> loadMeshes(GLTFLoadData* gltfData)
     {
         const nlm::json JSON = gltfData->JSON;
 
         if (!JSON.contains("meshes"))
             return {};
 
-        std::vector<LvnMesh> meshes(JSON["meshes"].size());
+        LvnVector<LvnMesh> meshes(JSON["meshes"].size());
 
         for (uint32_t meshIndex = 0; meshIndex < JSON["meshes"].size(); meshIndex++)
         {
-            std::vector<LvnPrimitive> meshPrimitives(JSON["meshes"][meshIndex]["primitives"].size());
+            LvnVector<LvnPrimitive> meshPrimitives(JSON["meshes"][meshIndex]["primitives"].size());
             for (uint32_t i = 0; i < JSON["meshes"][meshIndex]["primitives"].size(); i++)
             {
                 nlm::json primitiveNode = JSON["meshes"][meshIndex]["primitives"][i];
@@ -1228,12 +1229,12 @@ namespace gltfs
 
                 uint32_t beginningOfData = accessor.byteOffset + bufferView.byteOffset;
 
-                std::vector<LvnVec3> positions(accessor.count);
+                LvnVector<LvnVec3> positions(accessor.count);
                 for (uint32_t j = 0; j < accessor.count; j++)
                     positions[j] = *reinterpret_cast<LvnVec3*>(&buffer[beginningOfData] + j * 3 * sizeof(float));
 
                 // indices
-                std::vector<uint32_t> indices;
+                LvnVector<uint32_t> indices;
                 if (indicesIndex >= 0)
                 {
                     accessor = gltfData->accessors[indicesIndex];
@@ -1251,12 +1252,12 @@ namespace gltfs
                 }
 
                 // color
-                std::vector<LvnVec4> colors;
+                LvnVector<LvnVec4> colors;
                 if (colorIndex >= 0)
                 {
                     accessor = gltfData->accessors[colorIndex];
                     colors.resize(accessor.count);
-                    std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+                    LvnVector<float> data = gltfs::getAttributeData(gltfData, accessor);
                     memcpy(colors.data(), data.data(), data.size() * sizeof(float));
                 }
                 else if (materialIndex >= 0) // check material for base color if no color attribute exists
@@ -1273,12 +1274,12 @@ namespace gltfs
                 }
 
                 // texcoords
-                std::vector<LvnVec2> texcoords;
+                LvnVector<LvnVec2> texcoords;
                 if (texIndex >= 0)
                 {
                     accessor = gltfData->accessors[texIndex];
                     texcoords.resize(accessor.count);
-                    std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+                    LvnVector<float> data = gltfs::getAttributeData(gltfData, accessor);
                     memcpy(texcoords.data(), data.data(), data.size() * sizeof(float));
                 }
                 else
@@ -1287,7 +1288,7 @@ namespace gltfs
                 }
 
                 // normals
-                std::vector<LvnVec3> normals;
+                LvnVector<LvnVec3> normals;
                 if (normalIndex >= 0)
                 {
                     accessor = gltfData->accessors[normalIndex];
@@ -1306,7 +1307,7 @@ namespace gltfs
                 }
 
                 // tangents
-                std::vector<LvnVec4> tangents;
+                LvnVector<LvnVec4> tangents;
                 if (tangentIndex >= 0)
                 {
                     accessor = gltfData->accessors[tangentIndex];
@@ -1337,7 +1338,7 @@ namespace gltfs
                 }
 
                 // bitangents
-                std::vector<LvnVec3> bitangents;
+                LvnVector<LvnVec3> bitangents;
                 if (normalIndex >= 0 && tangentIndex >= 0)
                 {
                     bitangents = gltfs::calculateBitangents(normals, tangents);
@@ -1348,12 +1349,12 @@ namespace gltfs
                 }
 
                 // joints
-                std::vector<LvnVec4> joints;
+                LvnVector<LvnVec4> joints;
                 if (jointsIndex >= 0)
                 {
                     accessor = gltfData->accessors[jointsIndex];
                     joints.resize(accessor.count);
-                    std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+                    LvnVector<float> data = gltfs::getAttributeData(gltfData, accessor);
                     memcpy(joints.data(), data.data(), data.size() * sizeof(float));
                 }
                 else
@@ -1362,12 +1363,12 @@ namespace gltfs
                 }
 
                 // weights
-                std::vector<LvnVec4> weights;
+                LvnVector<LvnVec4> weights;
                 if (weightsIndex >= 0)
                 {
                     accessor = gltfData->accessors[weightsIndex];
                     weights.resize(accessor.count);
-                    std::vector<float> data = gltfs::getAttributeData(gltfData, accessor);
+                    LvnVector<float> data = gltfs::getAttributeData(gltfData, accessor);
                     memcpy(weights.data(), data.data(), data.size() * sizeof(float));
                 }
                 else
@@ -1376,7 +1377,7 @@ namespace gltfs
                 }
 
                 // combine vertex data
-                std::vector<LvnVertex> vertices;
+                LvnVector<LvnVertex> vertices;
                 vertices.resize(positions.size());
 
                 for (uint32_t j = 0; j < positions.size(); j++)
@@ -1411,7 +1412,7 @@ namespace gltfs
                 meshVertexBindingDescription.binding = 0;
                 meshVertexBindingDescription.stride = sizeof(LvnVertex);
 
-                std::vector<uint8_t> bufferData(vertices.size() * sizeof(LvnVertex) + indices.size() * sizeof(uint32_t));
+                LvnVector<uint8_t> bufferData(vertices.size() * sizeof(LvnVertex) + indices.size() * sizeof(uint32_t));
                 memcpy(bufferData.data(), vertices.data(), vertices.size() * sizeof(LvnVertex));
                 memcpy(bufferData.data() + vertices.size() * sizeof(LvnVertex), indices.data(), indices.size() * sizeof(uint32_t));
 
@@ -1484,7 +1485,7 @@ LvnModel loadGltfModel(const char* filepath)
     LvnContext* lvnctx = lvn::getContext();
 
     gltfs::GLTFLoadData gltfData{};
-    std::string jsonText = lvn::loadFileSrc(filepath);
+    std::string jsonText = lvn::loadFileSrc(filepath).c_str();
     gltfData.JSON = nlm::json::parse(jsonText);
     gltfData.filepath = filepath;
     gltfData.filetype = Lvn_FileType_Gltf;
@@ -1508,7 +1509,7 @@ LvnModel loadGltfModel(const char* filepath)
     gltfData.skins = std::move(gltfs::loadSkins(gltfData.JSON));
     gltfData.images = std::move(gltfs::loadImages(gltfData));
     gltfData.samplers = std::move(gltfs::loadSamplers(gltfData.JSON, &gltfData.defaultSampler));
-    
+
     gltfData.nodes.resize(JSON["scenes"][0]["nodes"].size());
     gltfData.nodeArray.resize(JSON["nodes"].size());
 
@@ -1520,8 +1521,8 @@ LvnModel loadGltfModel(const char* filepath)
         gltfs::traverseNode(&gltfData, gltfData.nodes[i].get(), nodeIndex);
     }
 
-    std::vector<LvnAnimation> modelAnimations;
-    std::future<std::vector<LvnAnimation>> animationFuture;
+    LvnVector<LvnAnimation> modelAnimations;
+    std::future<LvnVector<LvnAnimation>> animationFuture;
 
     if (lvnctx->multithreading)
         animationFuture = std::async(std::launch::async, gltfs::bindAnimationsToNodes, gltfData);
@@ -1555,7 +1556,7 @@ LvnModel loadGlbModel(const char* filepath)
     // chunk 0 (JSON)
     uint32_t chunkLengthJson = 0;
     memcpy(&chunkLengthJson, &binData[12], sizeof(uint32_t));
-    std::vector<uint8_t> chunkDataJson(&binData[20], &binData[20] + chunkLengthJson);
+    LvnVector<uint8_t> chunkDataJson(&binData[20], &binData[20] + chunkLengthJson);
 
     gltfs::GLTFLoadData gltfData{};
     std::string jsonText = std::string(chunkDataJson.begin(), chunkDataJson.end());
@@ -1577,7 +1578,7 @@ LvnModel loadGlbModel(const char* filepath)
         // chunk 1... (Buffer)
         uint32_t chunkLengthBuffer = 0;
         memcpy(&chunkLengthBuffer, &binData[20 + chunkLengthJson + chunkOffset], sizeof(uint32_t));
-        std::vector<uint8_t> chunkDataBuffer(&binData[28 + chunkLengthJson + chunkOffset], &binData[28 + chunkLengthJson + chunkOffset] + chunkLengthBuffer);
+        LvnVector<uint8_t> chunkDataBuffer(&binData[28 + chunkLengthJson + chunkOffset], &binData[28 + chunkLengthJson + chunkOffset] + chunkLengthBuffer);
 
         gltfData.buffers[i] = LvnBin(chunkDataBuffer.data(), chunkDataBuffer.size());
         chunkOffset += chunkLengthBuffer + 8;
@@ -1608,8 +1609,8 @@ LvnModel loadGlbModel(const char* filepath)
         gltfs::traverseNode(&gltfData, gltfData.nodes[i].get(), nodeIndex);
     }
 
-    std::vector<LvnAnimation> modelAnimations;
-    std::future<std::vector<LvnAnimation>> animationFuture;
+    LvnVector<LvnAnimation> modelAnimations;
+    std::future<LvnVector<LvnAnimation>> animationFuture;
 
     if (lvnctx->multithreading)
         animationFuture = std::async(std::launch::async, gltfs::bindAnimationsToNodes, gltfData);

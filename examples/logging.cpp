@@ -145,7 +145,7 @@ int main(int argc, char** argv)
     //   here we use a lambda function for convenience
     LvnLogPattern logPattern{};
     logPattern.symbol = '>';
-    logPattern.func = [](LvnLogMessage* msg) -> std::string { return ">>>"; };
+    logPattern.func = [](LvnLogMessage* msg) -> LvnString { return ">>>"; };
 
     // log pattern will be added to the library
     lvn::logAddPatterns(&logPattern, 1);

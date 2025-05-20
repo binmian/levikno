@@ -1,5 +1,6 @@
 #include <levikno/levikno.h>
 
+#include <string>
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
@@ -12,19 +13,6 @@ struct Vertex
     LvnVec3 color;
     LvnVec2 texUVs;
 };
-
-class Timer
-{
-private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
-
-public:
-    void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-    void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-    float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
-    float elapsedms() { return elapsed() * 1000.0f; }
-};
-
 
 struct UniformData
 {
@@ -429,8 +417,8 @@ int main(int argc, char** argv)
     UniformData uniformData{};
 
     float oldTime = 0.0f;
-    Timer deltaTime;
-    deltaTime.start();
+    LvnTimer deltaTime;
+    deltaTime.begin();
 
     int width, height;
     lvn::windowGetSize(window, &width, &height);
@@ -662,6 +650,8 @@ int main(int argc, char** argv)
     lvn::destroyWindow(window);
 
     lvn::terminateContext();
+
+    lvn::getObjectAllocationCount();
 
     return 0;
 }

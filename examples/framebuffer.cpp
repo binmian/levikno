@@ -451,8 +451,6 @@ int main(int argc, char** argv)
 
     UniformData uniformData{};
 
-    auto startTime = std::chrono::high_resolution_clock::now();
-
     int width, height;
 
     EventData eventData{};
@@ -467,15 +465,12 @@ int main(int argc, char** argv)
         lvn::windowUpdate(window);
         lvn::windowPollEvents();
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
         lvn::windowGetSize(window, &width, &height);
 
         // update matrix
         LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 100.0f);
         LvnMat4 view = lvn::lookAt(lvn::vec3(0.0f, 2.0f, -2.0f), lvn::vec3(0.0f, 0.0f, 0.0f), lvn::vec3(0.0f, 1.0f, 0.0f));
-        LvnMat4 model = lvn::rotate(LvnMat4(1.0f), lvn::radians(time * 10.0f), LvnVec3(0.0f, 1.0f, 0.0f));
+        LvnMat4 model = lvn::rotate(LvnMat4(1.0f), lvn::radians(lvn::getContextTime() * 10.0f), LvnVec3(0.0f, 1.0f, 0.0f));
         LvnMat4 camera = proj * view * model;
 
         uniformData.matrix = camera;

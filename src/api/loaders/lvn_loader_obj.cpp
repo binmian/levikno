@@ -30,7 +30,7 @@ LvnModel loadObjModel(const char* filepath)
 
     std::unordered_map<std::string, uint32_t> indicesMap;
 
-    std::string filesrc = lvn::loadFileSrc(filepath);
+    std::string filesrc = lvn::loadFileSrc(filepath).c_str();
     std::istringstream filess(filesrc);
 
     std::string line;
