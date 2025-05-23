@@ -1,5 +1,6 @@
 #include <levikno/levikno.h>
 
+#include <vector>
 
 // INFO: this program loads a gltf model and render it on screen
 
@@ -96,28 +97,6 @@ struct UniformLightData
     float specular;
 };
 
-struct MeshPrimitiveDescriptorData
-{
-    LvnPrimitive primitive;
-    LvnDescriptorSet* descriptorSet;
-    LvnMat4 matrix;
-};
-
-void getNodePrimitives(const std::vector<std::shared_ptr<LvnNode>>& nodes, std::vector<MeshPrimitiveDescriptorData>& primitives)
-{
-    for (const auto& node : nodes)
-    {
-        for (const LvnPrimitive& primitive : node->mesh.primitives)
-        {
-            MeshPrimitiveDescriptorData primitiveData{};
-            primitiveData.matrix = node->matrix;
-            primitiveData.primitive = primitive;
-            primitives.push_back(primitiveData);
-        }
-
-        getNodePrimitives(node->children, primitives);
-    }
-}
 
 int main(int argc, char** argv)
 {
@@ -232,22 +211,26 @@ int main(int argc, char** argv)
 
     // [Create uniform buffer]
     // uniform storage create info struct
-    LvnUniformBufferCreateInfo matrixUniformBufferCreateInfo{};
+    LvnBufferCreateInfo matrixUniformBufferCreateInfo{};
     matrixUniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
+    matrixUniformBufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
     matrixUniformBufferCreateInfo.size = sizeof(UniformData) * MAX_OBJECTS;
+    matrixUniformBufferCreateInfo.data = nullptr;
 
     // create storage buffer
-    LvnUniformBuffer* matrixUniformBuffer;
-    lvn::createUniformBuffer(&matrixUniformBuffer, &matrixUniformBufferCreateInfo);
+    LvnBuffer* matrixUniformBuffer;
+    lvn::createBuffer(&matrixUniformBuffer, &matrixUniformBufferCreateInfo);
 
     // uniform buffer create info struct
-    LvnUniformBufferCreateInfo uniformBufferCreateInfo{};
+    LvnBufferCreateInfo uniformBufferCreateInfo{};
     uniformBufferCreateInfo.type = Lvn_BufferType_Uniform;
+    uniformBufferCreateInfo.usage = Lvn_BufferUsage_Dynamic;
     uniformBufferCreateInfo.size = sizeof(UniformLightData);
+    uniformBufferCreateInfo.data = nullptr;
 
     // create uniform buffer
-    LvnUniformBuffer* uniformBuffer;
-    lvn::createUniformBuffer(&uniformBuffer, &uniformBufferCreateInfo);
+    LvnBuffer* uniformBuffer;
+    lvn::createBuffer(&uniformBuffer, &uniformBufferCreateInfo);
 
 
     // [Load model]
@@ -255,48 +238,45 @@ int main(int argc, char** argv)
 
 
     // update descriptor set
-
-    std::vector<MeshPrimitiveDescriptorData> primitiveDescriptors;
-
-    getNodePrimitives(model.nodes, primitiveDescriptors);
-
-    for (uint32_t i = 0; i < primitiveDescriptors.size(); i++)
+    uint64_t uniformBufferCount = 0;
+    for (uint32_t i = 0; i < model.meshes.size(); i++)
     {
-        LvnUniformBufferInfo bufferInfo{};
-        bufferInfo.buffer = matrixUniformBuffer;
-        bufferInfo.range = sizeof(UniformData);
-        bufferInfo.offset = sizeof(UniformData) * i;
-
-        LvnUniformBufferInfo descriptorBufferInfo{};
-        descriptorBufferInfo.buffer = uniformBuffer;
-        descriptorBufferInfo.range = sizeof(UniformLightData);
-        descriptorBufferInfo.offset = 0;
-
-        LvnDescriptorUpdateInfo descriptorStorageBufferUpdateInfo{};
-        descriptorStorageBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-        descriptorStorageBufferUpdateInfo.binding = 0;
-        descriptorStorageBufferUpdateInfo.descriptorCount = 1;
-        descriptorStorageBufferUpdateInfo.bufferInfo = &bufferInfo;
-
-        LvnDescriptorUpdateInfo descriptorUniformBufferUpdateInfo{};
-        descriptorUniformBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
-        descriptorUniformBufferUpdateInfo.binding = 1;
-        descriptorUniformBufferUpdateInfo.descriptorCount = 1;
-        descriptorUniformBufferUpdateInfo.bufferInfo = &descriptorBufferInfo;
-
-        LvnDescriptorUpdateInfo descriptorUpdateInfo[] =
+        for (uint32_t j = 0; j < model.meshes[i].primitives.size(); j++)
         {
-            descriptorStorageBufferUpdateInfo, descriptorUniformBufferUpdateInfo,
-        };
+            LvnUniformBufferInfo bufferInfo{};
+            bufferInfo.buffer = matrixUniformBuffer;
+            bufferInfo.range = sizeof(UniformData);
+            bufferInfo.offset = sizeof(UniformData) * uniformBufferCount;
+            uniformBufferCount++;
 
-        lvn::allocateDescriptorSet(&primitiveDescriptors[i].descriptorSet, descriptorLayout);
-        lvn::updateDescriptorSetData(primitiveDescriptors[i].descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
+            LvnUniformBufferInfo descriptorBufferInfo{};
+            descriptorBufferInfo.buffer = uniformBuffer;
+            descriptorBufferInfo.range = sizeof(UniformLightData);
+            descriptorBufferInfo.offset = 0;
+
+            LvnDescriptorUpdateInfo descriptorStorageBufferUpdateInfo{};
+            descriptorStorageBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+            descriptorStorageBufferUpdateInfo.binding = 0;
+            descriptorStorageBufferUpdateInfo.descriptorCount = 1;
+            descriptorStorageBufferUpdateInfo.bufferInfo = &bufferInfo;
+
+            LvnDescriptorUpdateInfo descriptorUniformBufferUpdateInfo{};
+            descriptorUniformBufferUpdateInfo.descriptorType = Lvn_DescriptorType_UniformBuffer;
+            descriptorUniformBufferUpdateInfo.binding = 1;
+            descriptorUniformBufferUpdateInfo.descriptorCount = 1;
+            descriptorUniformBufferUpdateInfo.bufferInfo = &descriptorBufferInfo;
+
+            LvnDescriptorUpdateInfo descriptorUpdateInfo[] =
+            {
+                descriptorStorageBufferUpdateInfo, descriptorUniformBufferUpdateInfo,
+            };
+
+            lvn::allocateDescriptorSet(&model.meshes[i].primitives[j].descriptorSet, descriptorLayout);
+            lvn::updateDescriptorSetData(model.meshes[i].primitives[j].descriptorSet, descriptorUpdateInfo, ARRAY_LEN(descriptorUpdateInfo));
+        }
     }
 
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-
-    std::vector<UniformData> uniformData; uniformData.resize(primitiveDescriptors.size());
+    std::vector<UniformData> uniformData; uniformData.resize(uniformBufferCount);
 
     UniformLightData lightData{};
 
@@ -309,25 +289,24 @@ int main(int argc, char** argv)
         int width, height;
         lvn::windowGetSize(window, &width, &height);
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-
         LvnVec3 camPos = { 3.0f, 3.0f, -3.0f };
 
         // update matrix
         LvnMat4 proj = lvn::perspective(lvn::radians(60.0f), (float)width / (float)height, 0.01f, 1000.0f);
         LvnMat4 view = lvn::lookAt(camPos, LvnVec3(0.0f, 0.0f, 0.0f), LvnVec3(0.0f, 1.0f, 0.0f));
-        LvnMat4 modelMatrix = lvn::rotate(LvnMat4(1.0f), lvn::radians(time * 50.0f), LvnVec3(0.0f, 1.0f, 0.0f));
+        LvnMat4 modelMatrix = lvn::rotate(LvnMat4(1.0f), lvn::radians(lvn::getContextTime() * 50.0f), LvnVec3(0.0f, 1.0f, 0.0f));
         LvnMat4 camera = proj * view * modelMatrix;
 
-        for (uint32_t i = 0; i < primitiveDescriptors.size(); i++)
+        for (uint32_t i = 0; i < model.meshes.size(); i++)
         {
-            uniformData[i].matrix = camera * primitiveDescriptors[i].matrix;
-            uniformData[i].model = modelMatrix * primitiveDescriptors[i].matrix;
+            // NOTE: don't do this if the model has a node based structure, otherwise the matrices may not be calculated correctly
+            const LvnNode& node = model.nodes[i];
+            LvnMat4 nodeMatrix = lvn::translate(LvnMat4(1.0f), node.transform.translation) * lvn::quatToMat4(node.transform.rotation) * lvn::scale(LvnMat4(1.0f), node.transform.scale) * node.matrix;
+            uniformData[i].matrix = camera * nodeMatrix;
+            uniformData[i].model = modelMatrix * nodeMatrix;
         }
 
-        lvn::updateUniformBufferData(matrixUniformBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size(), 0);
+        lvn::bufferUpdateData(matrixUniformBuffer, uniformData.data(), sizeof(UniformData) * uniformData.size(), 0);
 
         lightData.camPos = camPos;
         lightData.crntPos = { 0.0f, 0.0f, 0.0f };
@@ -336,28 +315,32 @@ int main(int argc, char** argv)
         lightData.intensity = 10.0f;
         lightData.specular = 0.4f;
 
-        lvn::updateUniformBufferData(uniformBuffer, &lightData, sizeof(UniformLightData), 0);
+        lvn::bufferUpdateData(uniformBuffer, &lightData, sizeof(UniformLightData), 0);
 
         // get next window swapchain image
         lvn::renderBeginNextFrame(window);
         lvn::renderBeginCommandRecording(window);
 
         // set background color and begin render pass
-        lvn::renderClearColor(window, 0.1f, 0.1f, 0.1f, 1.0f);
-        lvn::renderCmdBeginRenderPass(window);
+        lvn::renderCmdBeginRenderPass(window, 0.1f, 0.1f, 0.1f, 1.0f);
 
         // bind pipeline
         lvn::renderCmdBindPipeline(window, pipeline);
 
         // bind model vertex and index buffer
-        for (MeshPrimitiveDescriptorData& primitiveData : primitiveDescriptors)
+        for (uint32_t i = 0; i < model.meshes.size(); i++)
         {
-            lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitiveData.descriptorSet);
+            for (uint32_t j = 0; j < model.meshes[i].primitives.size(); j++)
+            {
+                LvnPrimitive& primitive = model.meshes[i].primitives[j];
 
-            lvn::renderCmdBindVertexBuffer(window, primitiveData.primitive.buffer);
-            lvn::renderCmdBindIndexBuffer(window, primitiveData.primitive.buffer);
+                lvn::renderCmdBindDescriptorSets(window, pipeline, 0, 1, &primitive.descriptorSet);
 
-            lvn::renderCmdDrawIndexed(window, primitiveData.primitive.indexCount);
+                lvn::renderCmdBindVertexBuffer(window, 0, 1, &primitive.buffer, 0);
+                lvn::renderCmdBindIndexBuffer(window, primitive.buffer, primitive.indexOffset);
+
+                lvn::renderCmdDrawIndexed(window, primitive.indexCount);
+            }
         }
 
         // end render pass and submit rendering
@@ -368,8 +351,8 @@ int main(int argc, char** argv)
 
     // destroy objects after they are finished being used
     lvn::unloadModel(&model);
-    lvn::destroyUniformBuffer(uniformBuffer);
-    lvn::destroyUniformBuffer(matrixUniformBuffer);
+    lvn::destroyBuffer(uniformBuffer);
+    lvn::destroyBuffer(matrixUniformBuffer);
     lvn::destroyPipeline(pipeline);
     lvn::destroyWindow(window);
     lvn::destroyDescriptorLayout(descriptorLayout);

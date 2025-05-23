@@ -250,20 +250,16 @@
 #define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::logGetClientLogger(), ##__VA_ARGS__)
 
 
-// Logging utils
-#define LVN_PROPERTIES(prop)                    #prop, &prop
-#define LVN_LOG_FILE                            LVN_FILE_NAME ":" LVN_STRINGIFY(LVN_LINE) " - "
-
-
 // -- [SUBSECT]: Includes
 // ------------------------------------------------------------
 
+#include <cstdint> // uint8_t, uint16_t, uint32_t, uint64_t
+#include <cstddef> // max_align_t
 #include <cstdio>  // printf
 #include <cstdlib> // malloc, free
-#include <cstdint> // uint8_t, uint16_t, uint32_t, uint64_t
 #include <cstring> // strlen
 #include <cmath>
-#include <memory>
+#include <new>
 
 
 using std::abs;
@@ -991,6 +987,7 @@ struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
 struct LvnPoly;
 struct LvnPoint;
+struct LvnPrimitive;
 struct LvnRect;
 struct LvnRenderer;
 struct LvnRenderPass;
@@ -3640,10 +3637,17 @@ public:
     T*          operator->() { return m_Ptr; }
     const T*    operator->() const { return m_Ptr; }
 
+    T&          operator*() { return *m_Ptr; }
+    const T&    operator*() const { return *m_Ptr; }
+
+    operator    bool() const { return m_Ptr; }
+
     T*          get() { return m_Ptr; }
     const T*    get() const { return m_Ptr; }
 
     T*          release() { T* temp = m_Ptr; m_Ptr = nullptr; return temp; }
+
+    void        reset(T* ptr = nullptr) { if (m_Ptr) { lvn::memDelete<T>(m_Ptr); } m_Ptr = ptr; }
 };
 
 
@@ -3831,12 +3835,12 @@ public:
 
     T& operator[](size_t i)
     {
-        LVN_CORE_ASSERT(i < m_Size, "%s, element index out of range", typeid(this).name());
+        LVN_CORE_ASSERT(i < m_Size, "element index out of range");
         return m_Data[i];
     }
     const T& operator [](size_t i) const
     {
-        LVN_CORE_ASSERT(i < m_Size, "%s, element index out of range", typeid(this).name());
+        LVN_CORE_ASSERT(i < m_Size, "element index out of range");
         return m_Data[i];
     }
 
@@ -6878,6 +6882,7 @@ struct LvnPrimitive
     LvnMaterial material;
     uint32_t vertexCount;
     uint32_t indexCount;
+    uint64_t indexOffset;
 
     LvnBuffer* buffer;
     LvnDescriptorSet* descriptorSet;
@@ -6890,13 +6895,12 @@ struct LvnMesh
 
 struct LvnNode
 {
-    LvnNode* parent;
-    uint32_t index;
-    LvnVector<std::shared_ptr<LvnNode>> children;
+    int32_t parent;
+    LvnVector<int32_t> children;
 
-    LvnMesh mesh;
-    LvnTransform transform;
+    int32_t mesh;
     int32_t skin;
+    LvnTransform transform;
     LvnMat4 matrix;
 };
 
@@ -6904,7 +6908,7 @@ struct LvnSkin
 {
     LvnString name;
     LvnVector<LvnMat4> inverseBindMatrices;
-    LvnVector<LvnNode*> joints;
+    LvnVector<int32_t> joints;
     LvnBuffer* ssbo;
 };
 
@@ -6914,7 +6918,7 @@ struct LvnAnimationChannel
     LvnInterpolationMode interpolation;
     LvnVector<float> keyFrames;
     LvnVector<LvnVec4> outputs;
-    LvnNode* node;
+    int32_t node;
 };
 
 struct LvnAnimation
@@ -6927,14 +6931,15 @@ struct LvnAnimation
 
 struct LvnModel
 {
-    LvnVector<std::shared_ptr<LvnNode>> nodes;
+    LvnVector<int32_t> rootNodes;
+    LvnVector<LvnNode> nodes;
+    LvnVector<LvnMesh> meshes;
     LvnVector<LvnAnimation> animations;
     LvnVector<LvnSkin> skins;
-    LvnMat4 matrix;
-
     LvnVector<LvnBuffer*> buffers;
     LvnVector<LvnSampler*> samplers;
     LvnVector<LvnTexture*> textures;
+    LvnMat4 matrix;
 };
 
 struct LvnCamera

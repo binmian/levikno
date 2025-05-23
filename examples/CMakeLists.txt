@@ -15,13 +15,13 @@ set(LVN_SOURCES
     entityComponentSystem.cpp
     events.cpp
     framebuffer.cpp
-    # loadingModel.cpp
+    loadingModel.cpp
     loadingShader.cpp
     logging.cpp
     loggingToFile.cpp
     memoryPool.cpp
-    # pbrScene.cpp
-    # pbrSpheres.cpp
+    pbrScene.cpp
+    pbrSpheres.cpp
     pong.cpp
     simpleMatrix.cpp
     simpleSound.cpp

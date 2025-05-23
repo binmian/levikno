@@ -783,7 +783,7 @@ struct LvnContext
     LvnObjectMemAllocCount               objectMemoryAllocations;
 
     // renderer
-    std::unique_ptr<LvnRenderer>         renderer;
+    LvnUniquePtr<LvnRenderer>            renderer;
 
     // misc
     LvnTimer                             contexTime;       // timer

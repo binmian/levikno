@@ -135,27 +135,29 @@ LvnModel loadObjModel(const char* filepath)
     LvnBuffer* buffer;
     lvn::createBuffer(&buffer, &bufferCreateInfo);
 
-    LvnPrimitive primitive{};
+    LvnPrimitive primitive;
     primitive.buffer = buffer;
     primitive.vertexCount = vertices.size();
     primitive.indexCount = indices.size();
     primitive.topology = Lvn_TopologyType_Triangle;
 
     LvnMesh mesh{};
-    mesh.primitives.push_back(primitive);
+    mesh.primitives = LvnVector(&primitive, 1);
 
-    std::shared_ptr<LvnNode> node = std::make_shared<LvnNode>();
-    node->transform.translation = LvnVec3(0, 0, 0);
-    node->transform.rotation = LvnQuat(1, 0, 0, 0);
-    node->transform.scale = LvnVec3(1, 1, 1);
-    node->matrix = LvnMat4(1.0f);
-    node->skin = -1;
-    node->mesh = mesh;
+    LvnNode node{};
+    node.transform.translation = LvnVec3(0, 0, 0);
+    node.transform.rotation = LvnQuat(1, 0, 0, 0);
+    node.transform.scale = LvnVec3(1, 1, 1);
+    node.matrix = LvnMat4(1.0f);
+    node.skin = -1;
+    node.mesh = 0;
 
     LvnModel model{};
     model.matrix = LvnMat4(1.0f);
     model.buffers.push_back(buffer);
     model.nodes.push_back(node);
+    model.rootNodes.push_back(0);
+    model.meshes.push_back(mesh);
 
     return model;
 }

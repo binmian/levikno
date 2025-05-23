@@ -357,7 +357,7 @@ static LvnResult createRendererResources(const LvnWindowCreateInfo* windowCreate
     if (lvnctx->renderer)
         return Lvn_Result_AlreadyCalled;
 
-    lvnctx->renderer = std::make_unique<LvnRenderer>();
+    lvnctx->renderer = lvn::makeUniquePtr<LvnRenderer>();
     LvnRenderer* renderer = lvnctx->renderer.get();
 
     if (lvn::createWindow(&renderer->window, windowCreateInfo) != Lvn_Result_Success)
