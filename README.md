@@ -30,7 +30,7 @@ sudo pacman -S vulkan-devel glslang
 
 Now copy the github repository:
 ```
-git clone https://github.com/bmaow/Levikno.git levikno
+git clone https://github.com/binmian/Levikno.git levikno
 cd levikno
 ```
 
@@ -50,7 +50,7 @@ To install glslang, follow the instructions to build glslang on the [github repo
 
 Now copy the github repository:
 ```
-git clone https://github.com/bmaow/Levikno.git levikno
+git clone https://github.com/binmian/Levikno.git levikno
 cd levikno
 ```
 

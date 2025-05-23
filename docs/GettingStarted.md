@@ -607,7 +607,7 @@ return 0;
 Now build and run the program, you should now see your triangle appear.
 
 <p align="center">
-    <img src="https://github.com/bmaow/Levikno/blob/main/.github/simpleTriangleExample.png">
+    <img src="https://github.com/binmian/Levikno/blob/main/.github/simpleTriangleExample.png">
 </p>
 
-The [source](https://github.com/bmaow/Levikno/blob/main/examples/simpleTriangle.cpp) code for this section can be found in the examples folder
+The [source](https://github.com/binmian/Levikno/blob/main/examples/simpleTriangle.cpp) code for this section can be found in the examples folder
