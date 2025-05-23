@@ -7,7 +7,7 @@ See [docs](docs/GettingStarted.md) to get started after installation
 Before Building, the vulkan and glslang libraries will need to be installed on your system. If your system or graphics card does not support vulkan, it will be skipped during building. Levikno will not allow you to use vulkan when choosing the graphics api.
 
 ### Prerequisite
-- C++20 compiler
+- C++17 compiler
 - [cmake](https://cmake.org/)
 
 ### Linux
