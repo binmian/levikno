@@ -1518,12 +1518,12 @@ namespace vks
     static VulkanPipeline createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData)
     {
         VulkanPipeline pipeline{};
-        
+
         LvnPipelineSpecification* pipelineSpecification = createData->pipelineSpecification;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        
+
         inputAssembly.topology = vks::getVulkanTopologyTypeEnum(pipelineSpecification->inputAssembly.topology);
         inputAssembly.primitiveRestartEnable = pipelineSpecification->inputAssembly.primitiveRestartEnable;
 
@@ -2253,7 +2253,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->createTextureSampler = vksImplCreateTextureSampler;
     graphicsContext->createCubemap = vksImplCreateCubemap;
     graphicsContext->createCubemapHdr = vksImplCreateCubemapHdr;
-    
+
     graphicsContext->destroyShader = vksImplDestroyShader;
     graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
     graphicsContext->destroyPipeline = vksImplDestroyPipeline;

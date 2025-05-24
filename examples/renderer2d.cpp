@@ -1,4 +1,4 @@
-#include <levikno/levikno.h>
+#include <levikno/lvn_renderer.h>
 
 
 int main(int argc, char** argv)
@@ -11,7 +11,7 @@ int main(int argc, char** argv)
 
     lvn::createContext(&lvnCreateInfo);
 
-    lvn::renderInit("basicUsage", 800, 600);
+    lvn::renderInit("renderer2d", 800, 600);
 
     LvnWindow* window = lvn::getRendererWindow();
     lvn::windowSetVSync(window, true);

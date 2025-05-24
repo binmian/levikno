@@ -3,7 +3,7 @@
 
 
 // ------------------------------------------------------------
-// Layout: levikno.h
+// Layout: lvn_ecs.h (Entity Component System)
 // ------------------------------------------------------------
 //
 // [SECTION]: ECS (Entity Component System) Definitions & Implementation
@@ -14,6 +14,7 @@
 #include <type_traits>
 
 
+// ------------------------------------------------------------
 // [SECTION]: ECS (Entity Component System) Definitions & Implementation
 // ------------------------------------------------------------
 
@@ -167,6 +168,7 @@ public:
 
 namespace lvn
 {
+    // ------------------------------------------------------------
     // [SECTION]: ECS Functions
     // ------------------------------------------------------------
 
@@ -233,6 +235,6 @@ namespace lvn
             func(lvn::entityGetComponent<Ts>(pEntities[i])...);
         }
     }
-}
+} /* namespace lvn */
 
 #endif

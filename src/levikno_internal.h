@@ -3,8 +3,6 @@
 
 #include "levikno.h"
 
-#include <unordered_map>
-#include <queue>
 
 // ------------------------------------------------------------
 // Layout: levikno_internal.h
@@ -60,114 +58,199 @@ private:
 
 public:
     LvnList() : m_Head(nullptr), m_Tail(nullptr), m_Size(0) {}
+    ~LvnList() { clear_free(); }
 
-    ~LvnList()
+    LvnList(const LvnList<T>& other)
     {
-        while (m_Head != nullptr)
+        m_Size = other.m_Size;
+        LvnLNode<T>* node = other.m_Head;
+        if (node)
         {
-            LvnLNode<T>* node = m_Head;
-            m_Head = node->next;
-            delete node;
+            m_Head = lvn::memNew<LvnLNode<T>>();
+            m_Head->value = node->value;
+            m_Head->next = nullptr;
+            m_Head->prev = nullptr;
         }
+        m_Tail = m_Head;
+        node = node->next;
+        while (node != nullptr)
+        {
+            m_Tail->next = lvn::memNew<LvnLNode<T>>();
+            m_Tail->next->value = node->value;
+            m_Tail->next->prev = m_Tail;
+            m_Tail = m_Tail->next;
+            node = node->next;
+        }
+    }
+    LvnList(LvnList<T>&& other)
+    {
+        m_Size = other.m_Size;
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        other.m_Size = 0;
+        other.m_Head = nullptr;
+        other.m_Tail = nullptr;
+    }
+    LvnList& operator=(const LvnList<T>& other)
+    {
+        if (this == &other) return *this;
+        clear_free();
+
+        m_Size = other.m_Size;
+        LvnLNode<T>* node = other.m_Head;
+        if (node)
+        {
+            m_Head = lvn::memNew<LvnLNode<T>>();
+            m_Head->value = node->value;
+            m_Head->next = nullptr;
+            m_Head->prev = nullptr;
+        }
+        m_Tail = m_Head;
+        node = node->next;
+        while (node != nullptr)
+        {
+            m_Tail->next = lvn::memNew<LvnLNode<T>*>();
+            m_Tail->next->value = node->value;
+            m_Tail->next->prev = m_Tail;
+            m_Tail = m_Tail->next;
+            node = node->next;
+        }
+
+        return *this;
+    }
+    LvnList& operator=(LvnList<T>&& other)
+    {
+        if (this == &other) return *this;
+        m_Size = other.m_Size;
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        other.m_Size = 0;
+        other.m_Head = nullptr;
+        other.m_Tail = nullptr;
+        return *this;
     }
 
     T& operator [](uint32_t index)
     {
         LVN_CORE_ASSERT(index < m_Size, "list index out of range");
-
         LvnLNode<T>* node = m_Head;
-
         for (uint32_t i = 0; i < index; i++)
-        {
             node = node->next;
-        }
-
         return node->value;
     }
     const T& operator [](uint32_t index) const
     {
         LVN_CORE_ASSERT(index < m_Size, "list index out of range");
-
         LvnLNode<T>* node = m_Head;
-
         for (uint32_t i = 0; i < index; i++)
-        {
             node = node->next;
-        }
-
         return node->value;
     }
 
-    uint32_t    size() { return m_Size; }
-    bool        empty() { return m_Size == 0; }
+    void erase_index(const uint32_t index)
+    {
+        LVN_CORE_ASSERT(index < m_Size, "list index out of range");
 
-    T&          front() { return m_Head->value; }
-    const T&    front() const { return m_Head->value; }
+        if (index == 0) { pop_front(); return; }
+        else if (index == m_Size - 1) { pop_back(); return; }
 
-    T&          back() { return m_Tail->value; }
-    const T&    back() const { return m_Tail->value; }
+        LvnLNode<T>* node = m_Head;
+        for (uint32_t i = 0; i < index; i++)
+            node = node->next;
+        if (node->prev)
+            node->prev->next = node->next;
+        if (node->next)
+            node->next->prev = node->prev;
+        lvn::memDelete<LvnLNode<T>>(node);
+        m_Size--;
+    }
+    void insert_index(const uint32_t index, const T& value)
+    {
+        LVN_CORE_ASSERT(index <= m_Size, "list index out of range");
 
+        if (index == 0) { push_front(value); return; }
+        if (index == m_Size) { push_back(value); return; }
+
+        LvnLNode<T>* node = m_Head;
+        for (uint32_t i = 0; i < index; i++)
+            node = node->next;
+        node->prev->next = lvn::memNew<LvnLNode<T>>();
+        node->prev->next->value = value;
+        node->prev->next->prev = node->prev;
+        node->prev->next->next = node;
+        node->prev = node->prev->next;
+        m_Size++;
+    }
     void push_back(const T& data)
     {
         if (!m_Size)
         {
-            m_Head = new LvnLNode<T>();
+            m_Head = lvn::memNew<LvnLNode<T>>();
             m_Head->value = data;
+            m_Head->next = nullptr;
+            m_Head->prev = nullptr;
             m_Tail = m_Head;
             m_Size++;
             return;
         }
 
         LvnLNode<T>* node = m_Tail;
-        node->next = new LvnLNode<T>();
+        node->next = lvn::memNew<LvnLNode<T>>();
         m_Tail = node->next;
         m_Tail->value = data;
         m_Tail->prev = node;
         m_Size++;
     }
-
     void push_front(const T& data)
     {
         if (!m_Size)
         {
-            m_Head = new LvnLNode<T>();
+            m_Head = lvn::memNew<LvnLNode<T>>();
             m_Head->value = data;
             m_Tail = m_Head;
             m_Size++;
             return;
         }
 
-        LvnLNode<T>* node = new LvnLNode<T>();
+        LvnLNode<T>* node = lvn::memNew<LvnLNode<T>>();
         node->value = data;
         node->next = m_Head;
         m_Head->prev = node;
         m_Head = node;
         m_Size++;
     }
-
     void pop_back()
     {
         if (!m_Size) { return; }
-        if (m_Size == 1) { delete m_Tail; m_Tail = m_Head = nullptr; m_Size--; return; }
+        if (m_Size == 1) { lvn::memDelete<LvnLNode<T>>(m_Tail); m_Tail = m_Head = nullptr; m_Size--; return; }
 
         LvnLNode<T>* node = m_Tail->prev;
         node->next = nullptr;
-        delete m_Tail;
+        lvn::memDelete<LvnLNode<T>>(m_Tail);
         m_Tail = node;
         m_Size--;
     }
-
     void pop_front()
     {
         if (!m_Size) { return; }
-        if (m_Size == 1) { delete m_Head; m_Head = m_Tail = nullptr; m_Size--; return; }
+        if (m_Size == 1) { lvn::memDelete<LvnLNode<T>>(m_Head); m_Head = m_Tail = nullptr; m_Size--; return; }
 
         LvnLNode<T>* node = m_Head->next;
         node->prev = nullptr;
-        delete m_Head;
+        lvn::memDelete<LvnLNode<T>>(m_Head);
         m_Head = node;
         m_Size--;
     }
+
+    uint32_t    size() const { return m_Size; }
+    bool        empty() const { return m_Size == 0; }
+    void        clear_free() { while (m_Head != nullptr) { LvnLNode<T>* node = m_Head; m_Head = node->next; lvn::memDelete<LvnLNode<T>>(node); } }
+
+    T&          front() { LVN_CORE_ASSERT(m_Size, "cannot call front on empty list"); return m_Head->value; }
+    const T&    front() const { LVN_CORE_ASSERT(m_Size, "cannot call front on empty list"); return m_Head->value; }
+
+    T&          back() { LVN_CORE_ASSERT(m_Size, "cannot call back on empty list"); return m_Tail->value; }
+    const T&    back() const { LVN_CORE_ASSERT(m_Size, "cannot call back on empty list"); return m_Tail->value; }
 };
 
 class LvnMemoryBlock
@@ -225,7 +308,7 @@ class LvnMemoryBinding
 private:
     void* m_Data;
     uint64_t m_ObjSize, m_Size, m_Capacity;
-    std::queue<void*> m_Available;
+    LvnQueue<void*> m_Available;
 
     LvnMemoryBinding* m_Next;
 
@@ -370,7 +453,7 @@ struct LvnWindow
     uint32_t topologyTypeEnum;       // topologyType used to render primitives (opengl)
     uint32_t vao;                    // vertex array object per pipeline object (opengl)
     uint32_t indexOffset;            // index offset when binding index buffer (opengl)
-    std::unordered_map<uint32_t, uint32_t>* bindingDescriptions;
+    LvnHashMap<uint32_t, uint32_t>* bindingDescriptions;
     LvnVector<uint8_t> cmdBuffer;    // command buffer to store draw commands in byte data
 };
 
@@ -644,7 +727,7 @@ struct LvnPipeline
     uint32_t id;
     uint32_t vaoId;
 
-    std::unordered_map<uint32_t, uint32_t> bindingDescriptions;
+    LvnHashMap<uint32_t, uint32_t> bindingDescriptions;
 };
 
 struct LvnBuffer
@@ -714,40 +797,6 @@ struct LvnObjectMemAllocCount
 };
 
 
-// -- [SUBSECT]: Renderer Structures
-// ------------------------------------------------------------
-
-struct LvnRenderMode
-{
-    using LvnRenderModeFunc = void (*)(LvnRenderer*, LvnRenderMode&);
-
-    LvnRenderModeEnum modes;
-    LvnDrawList drawList;
-
-    LvnPipeline* pipeline;
-    LvnDescriptorLayout* descriptorLayout;
-    LvnDescriptorSet* descriptorSet;
-    LvnBuffer* buffer;
-
-    uint64_t maxVertexCount;
-    uint64_t maxIndexCount;
-    uint64_t indexOffset;
-    uint64_t uniformOffset;
-
-    LvnRenderModeFunc drawFunc;
-};
-
-struct LvnRenderer
-{
-    LvnWindow* window;
-    LvnVec4 clearColor;
-    LvnFont defaultFont;
-    LvnTexture* defaultWhiteTexture;
-    LvnTexture* defaultFontTexture;
-    LvnVector<LvnRenderMode> renderModes;
-};
-
-
 // -- [SUBSECT]: Context Structure
 // ------------------------------------------------------------
 
@@ -781,9 +830,6 @@ struct LvnContext
     size_t                               numMemoryAllocations;
     size_t                               numClassObjectAllocations;
     LvnObjectMemAllocCount               objectMemoryAllocations;
-
-    // renderer
-    LvnUniquePtr<LvnRenderer>            renderer;
 
     // misc
     LvnTimer                             contexTime;       // timer

@@ -133,6 +133,7 @@ set(LVN_EXTERNAL_SRC
 set(LVN_SRC
     include/levikno/levikno.h
     include/levikno/lvn_ecs.h
+    include/levikno/lvn_renderer.h
     src/levikno.cpp
     src/levikno_internal.h
     src/lvn_cds.cpp

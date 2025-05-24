@@ -1,3 +1,5 @@
+#include "lvn_renderer.h"
+
 #include "levikno.h"
 #include "levikno_internal.h"
 
@@ -12,9 +14,11 @@ static const char* s_VertexShaderSrc = R"(
 layout(location = 0) in vec2 inPos;
 layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec2 inTexCoord;
+layout(location = 3) in float inTexId;
 
 layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
+layout(location = 2) out float fragTexId;
 
 layout (binding = 0) uniform ObjectBuffer
 {
@@ -27,6 +31,7 @@ void main()
     gl_Position = u_ProjMat * u_ViewMat * vec4(inPos, 0.0, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
+    fragTexId = inTexId;
 }
 )";
 
@@ -37,6 +42,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in float fragTexId;
 
 layout(binding = 1) uniform sampler2D inTexture;
 
@@ -53,6 +59,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in float fragTexId;
 
 layout(binding = 1) uniform sampler2D inTexture;
 
@@ -62,6 +69,36 @@ void main()
     outColor = vec4(vec3(text) * fragColor.rgb, text);
 }
 )";
+
+struct LvnRenderMode
+{
+    using LvnRenderModeFunc = void (*)(LvnRenderer*, LvnRenderMode&);
+
+    LvnRenderModeEnum modes;
+    LvnDrawList drawList;
+
+    LvnPipeline* pipeline;
+    LvnDescriptorLayout* descriptorLayout;
+    LvnDescriptorSet* descriptorSet;
+    LvnBuffer* buffer;
+
+    uint64_t maxVertexCount;
+    uint64_t maxIndexCount;
+    uint64_t indexOffset;
+    uint64_t uniformOffset;
+
+    LvnRenderModeFunc drawFunc;
+};
+
+struct LvnRenderer
+{
+    LvnWindow* window;
+    LvnVec4 clearColor;
+    LvnFont defaultFont;
+    LvnTexture* defaultWhiteTexture;
+    LvnTexture* defaultFontTexture;
+    LvnVector<LvnRenderMode> renderModes;
+};
 
 struct LvnUniformData
 {
@@ -74,7 +111,11 @@ struct LvnVertexData2d
     LvnVec2 pos;
     LvnColor color;
     LvnVec2 texCoords;
+    float texId;
 };
+
+
+static LvnUniquePtr<LvnRenderer> s_Renderer;
 
 namespace lvn
 {
@@ -352,13 +393,11 @@ static LvnFont getDefaultFont()
 
 static LvnResult createRendererResources(const LvnWindowCreateInfo* windowCreateInfo)
 {
-    LvnContext* lvnctx = lvn::getContext();
-
-    if (lvnctx->renderer)
+    if (s_Renderer)
         return Lvn_Result_AlreadyCalled;
 
-    lvnctx->renderer = lvn::makeUniquePtr<LvnRenderer>();
-    LvnRenderer* renderer = lvnctx->renderer.get();
+    s_Renderer = lvn::makeUniquePtr<LvnRenderer>();
+    LvnRenderer* renderer = s_Renderer.get();
 
     if (lvn::createWindow(&renderer->window, windowCreateInfo) != Lvn_Result_Success)
         return Lvn_Result_Failure;
@@ -393,8 +432,8 @@ static LvnResult createRendererResources(const LvnWindowCreateInfo* windowCreate
 
     // render modes
     renderer->renderModes.resize(Lvn_RenderMode_Max_Value);
-    renderer->renderModes[Lvn_RenderMode_2d] = std::move(lvn::createRenderMode2d(renderer, renderer->defaultWhiteTexture, s_FragmentShaderSrc));
-    renderer->renderModes[Lvn_RenderMode_2dText] = std::move(lvn::createRenderMode2d(renderer, renderer->defaultFontTexture, s_FragmentShaderFontSrc));
+    renderer->renderModes[Lvn_RenderMode_2d] = lvn::move(lvn::createRenderMode2d(renderer, renderer->defaultWhiteTexture, s_FragmentShaderSrc));
+    renderer->renderModes[Lvn_RenderMode_2dText] = lvn::move(lvn::createRenderMode2d(renderer, renderer->defaultFontTexture, s_FragmentShaderFontSrc));
 
 
     return Lvn_Result_Success;
@@ -420,13 +459,13 @@ static LvnRenderMode createRenderMode2d(const LvnRenderer* renderer, const LvnTe
     renderMode.uniformOffset = renderMode.maxVertexCount * stride + renderMode.maxIndexCount * sizeof(uint32_t);
 
     // attributes and bindings
-
     LvnVertexBindingDescription bindingDescriptions[] = {LvnVertexBindingDescription{ 0, stride }};
     LvnVertexAttribute attributes[] =
     {
         { 0, Lvn_AttributeLocation_Position, Lvn_AttributeFormat_Vec2_f32, 0 },
         { 0, Lvn_AttributeLocation_Color, Lvn_AttributeFormat_Vec4_un8, (2 * sizeof(float)) },
         { 0, Lvn_AttributeLocation_TexCoords, Lvn_AttributeFormat_Vec2_f32, (2 * sizeof(float) + 4 * sizeof(uint8_t)) },
+        { 0, Lvn_AttributeLocation_TexId, Lvn_AttributeFormat_Scalar_f32, (4 * sizeof(float) + 4 * sizeof(uint8_t)) },
     };
 
     // create pipeline
@@ -552,12 +591,10 @@ LvnResult renderInit(const LvnWindowCreateInfo* createInfo)
 
 void renderTerminate()
 {
-    LvnContext* lvnctx = lvn::getContext();
-
-    if (!lvnctx->renderer)
+    if (!s_Renderer)
         return;
 
-    LvnRenderer* renderer = lvnctx->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
 
     for (auto& renderMode : renderer->renderModes)
     {
@@ -570,24 +607,42 @@ void renderTerminate()
     lvn::destroyTexture(renderer->defaultFontTexture);
     lvn::destroyWindow(renderer->window);
 
-    lvnctx->renderer.reset(nullptr);
+    s_Renderer.reset(nullptr);
+}
+
+bool rendererIsInitialized()
+{
+    return s_Renderer;
 }
 
 LvnWindow* getRendererWindow()
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     return renderer->window;
 }
 
 bool renderWindowOpen()
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     return lvn::windowOpen(renderer->window);
+}
+
+LvnSprite createSprite(const LvnTextureCreateInfo& texCreateInfo, const LvnUVBox& uv)
+{
+    LvnSprite sprite;
+    sprite.uv = uv;
+    lvn::createTexture(&sprite.texture, &texCreateInfo);
+    return sprite;
+}
+
+void destroySprite(LvnSprite& sprite)
+{
+    lvn::destroyTexture(sprite.texture);
 }
 
 void drawBegin()
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     lvn::windowUpdate(renderer->window);
 
     for (auto& renderMode : renderer->renderModes)
@@ -600,7 +655,7 @@ void drawBegin()
 
 void drawEnd()
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
 
     for (auto& renderMode : renderer->renderModes)
     {
@@ -614,13 +669,13 @@ void drawEnd()
 
 void drawClearColor(float r, float g, float b, float a)
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     renderer->clearColor = { r, g, b, a };
 }
 
 void drawClearColor(const LvnColor& color)
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     renderer->clearColor = { (float)color.r/255.0f, (float)color.g/255.0f, (float)color.b/255.0f, (float)color.a/255.0f };
 }
 
@@ -642,7 +697,7 @@ void drawTriangle(const LvnVec2& v1, const LvnVec2& v2, const LvnVec2& v3, const
     drawCmd.indexCount = 3;
     drawCmd.vertexStride = sizeof(LvnVertexData2d);
 
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     renderer->renderModes[Lvn_RenderMode_2d].drawList.push_back(drawCmd);
 }
 
@@ -665,8 +720,13 @@ void drawRect(const LvnVec2& pos, const LvnVec2& size, const LvnColor& color)
     drawCmd.indexCount = 6;
     drawCmd.vertexStride = sizeof(LvnVertexData2d);
 
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     renderer->renderModes[Lvn_RenderMode_2d].drawList.push_back(drawCmd);
+}
+
+void drawRectEx(const LvnRect& rect)
+{
+
 }
 
 void drawCircle(const LvnVec2& pos, float radius, const LvnColor& color)
@@ -697,8 +757,8 @@ void drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, floa
     if (nSides < minSides)
         nSides = minSides;
 
-    std::vector<LvnVertexData2d> vertices(nSides + 2);
-    std::vector<uint32_t> indices((nSides + 2) * 3);
+    LvnVector<LvnVertexData2d> vertices(nSides + 2);
+    LvnVector<uint32_t> indices((nSides + 2) * 3);
 
     float angle = lvn::radians(abs(endAngle - startAngle)) / (float)nSides;
 
@@ -734,7 +794,7 @@ void drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, floa
     drawCmd.indexCount = indices.size();
     drawCmd.vertexStride = sizeof(LvnVertexData2d);
 
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     renderer->renderModes[Lvn_RenderMode_2d].drawList.push_back(drawCmd);
 }
 
@@ -745,7 +805,7 @@ void drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float
 
 void drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHeight, float textBoxWidth)
 {
-    LvnRenderer* renderer = lvn::getContext()->renderer.get();
+    LvnRenderer* renderer = s_Renderer.get();
     LvnVec2 pen = pos;
     float sentenceLength = 0.0f;
 

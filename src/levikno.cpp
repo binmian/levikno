@@ -25,6 +25,7 @@
 #endif
 
 #include "lvn_loaders.h"
+#include "lvn_renderer.h"
 
 static LvnContext* s_LvnContext = nullptr;
 
@@ -524,7 +525,10 @@ static LvnResult createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInf
         lvnctx->blockMemAllocInfos[createInfo->memoryInfo.pBlockMemoryBindings[i].sType].count = createInfo->memoryInfo.pBlockMemoryBindings[i].count;
     }
 
-    LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom base memory bindings created, %u custom memory block bindings created, total base memory pool size: %zu", createInfo->memoryInfo.memoryBindingCount, createInfo->memoryInfo.blockMemoryBindingCount, memSize);
+    LVN_CORE_TRACE("memory allocation mode set to memory pool, %u custom base memory bindings created, %u custom memory block bindings created, total base memory pool size: %zu bytes",
+        createInfo->memoryInfo.memoryBindingCount,
+        createInfo->memoryInfo.blockMemoryBindingCount,
+        memSize);
 
     return Lvn_Result_Success;
 }
@@ -689,7 +693,7 @@ void terminateContext()
 
     LvnContext* lvnctx = s_LvnContext;
 
-    if (lvnctx->renderer)
+    if (lvn::rendererIsInitialized())
         lvn::renderTerminate();
 
     lvn::terminateGraphicsContext(lvnctx);
@@ -1071,7 +1075,7 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, const uint3
     }
 
     FT_Done_FreeType(ft);
-    
+
     LvnImageData atlas{};
     atlas.width = width;
     atlas.height = height;
@@ -1201,7 +1205,7 @@ LvnFont loadFontFromFileTTFMemory(const uint8_t* fontData, uint64_t fontDataSize
     }
 
     FT_Done_FreeType(ft);
-    
+
     LvnImageData atlas{};
     atlas.width = width;
     atlas.height = height;
@@ -2704,7 +2708,14 @@ LvnResult createTexture(LvnTexture** texture, const LvnTextureCreateInfo* create
 
     *texture = lvn::createObject<LvnTexture>(lvnctx, Lvn_Stype_Texture);
 
-    LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize());
+    LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes",
+        *texture,
+        createInfo->imageData.pixels.data(),
+        createInfo->imageData.width,
+        createInfo->imageData.height,
+        createInfo->imageData.channels,
+        createInfo->imageData.pixels.memsize());
+
     return lvnctx->graphicsContext.createTexture(*texture, createInfo);
 }
 
@@ -2714,7 +2725,15 @@ LvnResult createTexture(LvnTexture** texture, const LvnTextureSamplerCreateInfo*
 
     *texture = lvn::createObject<LvnTexture>(lvnctx, Lvn_Stype_Texture);
 
-    LVN_CORE_TRACE("created texture (seperate sampler): (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes, sampler object used: (%p)", *texture, createInfo->imageData.pixels.data(), createInfo->imageData.width, createInfo->imageData.height, createInfo->imageData.channels, createInfo->imageData.pixels.memsize(), createInfo->sampler);
+    LVN_CORE_TRACE("created texture (seperate sampler): (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes, sampler object used: (%p)",
+        *texture,
+        createInfo->imageData.pixels.data(),
+        createInfo->imageData.width,
+        createInfo->imageData.height,
+        createInfo->imageData.channels,
+        createInfo->imageData.pixels.memsize(),
+        createInfo->sampler);
+
     return lvnctx->graphicsContext.createTextureSampler(*texture, createInfo);
 }
 

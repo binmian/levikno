@@ -8,7 +8,6 @@ endif()
 
 set(LVN_SOURCES
     antiAliasing.cpp
-    basicUsage.cpp
     bindlessTexture.cpp
     colorBlending.cpp
     cubemap.cpp
@@ -23,6 +22,7 @@ set(LVN_SOURCES
     pbrScene.cpp
     pbrSpheres.cpp
     pong.cpp
+    renderer2d.cpp
     simpleMatrix.cpp
     simpleSound.cpp
     simpleText.cpp

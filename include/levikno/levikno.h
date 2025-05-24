@@ -21,7 +21,6 @@
 // -- [SUBSECT]: Graphics Enums
 // -- [SUBSECT]: Audio Enums
 // -- [SUBSECT]: Networking Enums
-// -- [SUBSECT]: Renderer Enums
 // [SECTION]: Struct Definitions
 // -- [SUBSECT]: Data Structure Definitions
 // -- [SUBSECT]: Vertices & Matrices
@@ -33,7 +32,6 @@
 // -- [SUBSECT]: Graphics Functions
 // -- [SUBSECT]: Audio Functions
 // -- [SUBSECT]: Networking Functions
-// -- [SUBSECT]: Renderer Functions
 // -- [SUBSECT]: Math Functions
 // [SECTION]: Struct Implementations
 // -- [SUBSECT]: Data Structures
@@ -43,7 +41,6 @@
 // -- [SUBSECT]: Graphics Struct Implementation
 // -- [SUBSECT]: Audio Struct Implementation
 // -- [SUBSECT]: Networking Struct Implementation
-// -- [SUBSECT]: Renderer Struct Implementation
 
 
 
@@ -887,31 +884,6 @@ enum LvnSocketType
 };
 
 
-// -- [SUBSECT]: Renderer Enums
-// ------------------------------------------------------------
-
-enum LvnAttributeLocation
-{
-    Lvn_AttributeLocation_Position = 0,
-    Lvn_AttributeLocation_Color,
-    Lvn_AttributeLocation_TexCoords,
-    // Lvn_AttributeLocation_Normal,
-    // Lvn_AttributeLocation_Tangent,
-    // Lvn_AttributeLocation_BoneIds,
-    // Lvn_AttributeLocation_Weights,
-
-    Lvn_AttributeLocation_Max_Value,
-};
-
-enum LvnRenderModeEnum
-{
-    Lvn_RenderMode_2d,
-    Lvn_RenderMode_2dText,
-
-    Lvn_RenderMode_Max_Value,
-};
-
-
 // ------------------------------------------------------------
 // [SECTION]: Struct Definitions
 // ------------------------------------------------------------
@@ -924,8 +896,6 @@ struct LvnAppTickEvent;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
-struct LvnCircle;
-struct LvnColor;
 struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnCubemap;
@@ -985,11 +955,7 @@ struct LvnPipelineScissor;
 struct LvnPipelineSpecification;
 struct LvnPipelineStencilAttachment;
 struct LvnPipelineViewport;
-struct LvnPoly;
-struct LvnPoint;
 struct LvnPrimitive;
-struct LvnRect;
-struct LvnRenderer;
 struct LvnRenderPass;
 struct LvnSampler;
 struct LvnSamplerCreateInfo;
@@ -1001,12 +967,10 @@ struct LvnSocket;
 struct LvnSocketCreateInfo;
 struct LvnSound;
 struct LvnSoundCreateInfo;
-struct LvnSprite;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
 struct LvnTextureSamplerCreateInfo;
 struct LvnTransform;
-struct LvnTriangle;
 struct LvnUniformBufferInfo;
 struct LvnVertex;
 struct LvnVertexAttribute;
@@ -1500,7 +1464,7 @@ namespace lvn
 
     // -- [SUBSECT]: Graphics Functions
     // ------------------------------------------------------------
-    // - Renderer functions with the prefix CmdDraw can only
+    // - Render functions with the prefix CmdDraw can only
     //     be used during command recording
     // - New graphics objects cannot be created or deleted
     //     during command recording
@@ -1699,29 +1663,6 @@ namespace lvn
     LVN_API LvnResult                   socketDisconnect(LvnSocket* socket, uint32_t milliseconds);
     LVN_API void                        socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet);
     LVN_API LvnResult                   socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds);
-
-
-    // -- [SUBSECT]: Renderer Functions
-    // ------------------------------------------------------------
-    // - high end api functions
-
-    LVN_API LvnResult                   renderInit(const char* title, int width, int height);
-    LVN_API LvnResult                   renderInit(const LvnWindowCreateInfo* createInfo);
-    LVN_API void                        renderTerminate();
-    LVN_API LvnWindow*                  getRendererWindow();
-    LVN_API bool                        renderWindowOpen();
-    LVN_API void                        drawBegin();
-    LVN_API void                        drawEnd();
-    LVN_API void                        drawClearColor(float r, float g, float b, float a);
-    LVN_API void                        drawClearColor(const LvnColor& color);
-    LVN_API void                        drawTriangle(const LvnVec2& v1, const LvnVec2& v2, const LvnVec2& v3, const LvnColor& color);
-    LVN_API void                        drawRect(const LvnVec2& pos, const LvnVec2& size, const LvnColor& color);
-    LVN_API void                        drawCircle(const LvnVec2& pos, float radius, const LvnColor& color);
-    LVN_API void                        drawCircleSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, const LvnColor& color);
-    LVN_API void                        drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnColor& color);
-    LVN_API void                        drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, uint32_t nSides, const LvnColor& color);
-    LVN_API void                        drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale);
-    LVN_API void                        drawTextEx(const char* text, const LvnVec2& pos, const LvnColor& color, float scale, float lineHeight, float textBoxWidth);
 
 
     // -- [SUBSECT]: Math Functions
@@ -2499,7 +2440,7 @@ namespace lvn
 
         return matrix;
     }
-}
+} /* namespace lvn */
 
 
 // ------------------------------------------------------------
@@ -3766,11 +3707,11 @@ class LvnData
 {
 private:
     T* m_Data;
-    size_t m_Size, m_MemSize;
+    size_t m_Size;
 
 public:
     LvnData()
-        : m_Data(0), m_Size(0), m_MemSize(0) {}
+        : m_Data(nullptr), m_Size(0) {}
 
     ~LvnData()
     {
@@ -3780,56 +3721,46 @@ public:
     LvnData(const T* data, size_t size)
     {
         m_Size = size;
-        m_MemSize = size * sizeof(T);
-        m_Data = new T[size];
+        m_Data = lvn::memNew<T>(size, false);
 
         for (size_t i = 0; i < size; i++)
-            m_Data[i] = data[i];
+            new (&m_Data[i]) T(data[i]);
     }
     LvnData(const LvnData<T>& other)
     {
         m_Size = other.m_Size;
-        m_MemSize = other.m_MemSize;
-        m_Data = new T[other.m_Size];
+        m_Data = lvn::memNew<T>(other.m_Size, false);
 
         for (size_t i = 0; i < other.m_Size; i++)
-            m_Data[i] = other.m_Data[i];
+            new (&m_Data[i]) T(other.m_Data[i]);
     }
     LvnData(LvnData<T>&& other)
     {
         m_Size = other.m_Size;
-        m_MemSize = other.m_MemSize;
         m_Data = other.m_Data;
         other.m_Size = 0;
-        other.m_MemSize = 0;
         other.m_Data = nullptr;
     }
     LvnData<T>& operator=(const LvnData<T>& other)
     {
-        delete [] m_Data;
+        if (this == &other) return *this;
+        lvn::memDelete<T>(m_Data, m_Size);
         m_Size = other.m_Size;
-        m_MemSize = other.m_MemSize;
-        m_Data = new T[other.m_Size];
+        m_Data = lvn::memNew<T>(other.m_Size, false);
 
         for (size_t i = 0; i < other.m_Size; i++)
-            m_Data[i] = other.m_Data[i];
+            new (&m_Data[i]) T(other.m_Data[i]);
 
         return *this;
     }
     LvnData<T>& operator=(LvnData<T>&& other)
     {
-        if (this != &other)
-        {
-            delete [] m_Data;
-
-            m_Size = other.m_Size;
-            m_MemSize = other.m_MemSize;
-            m_Data = other.m_Data;
-
-            other.m_Size = 0;
-            other.m_MemSize = 0;
-            other.m_Data = nullptr;
-        }
+        if (this == &other) return *this;
+        lvn::memDelete<T>(m_Data, m_Size);
+        m_Size = other.m_Size;
+        m_Data = other.m_Data;
+        other.m_Size = 0;
+        other.m_Data = nullptr;
         return *this;
     }
 
@@ -3844,22 +3775,16 @@ public:
         return m_Data[i];
     }
 
-    size_t            size() { return m_Size; }
-    size_t            memsize() { return m_MemSize; }
-    const size_t      size() const { return m_Size; }
-    const size_t      memsize() const { return m_MemSize; }
+    size_t            size() const { return m_Size; }
+    size_t            memsize() const { return m_Size * sizeof(T); }
 
     T*                data() { return m_Data; }
     const T* const    data() const { return m_Data; }
 
-    T*                begin() { return &m_Data[0]; }
     const T* const    begin() const { return &m_Data[0]; }
-    T*                end() { return &m_Data[0] + m_Size; }
     const T* const    end() const { return &m_Data[0] + m_Size; }
-    T*                front() { return &m_Data[0]; }
-    const T* const    front() const { return &m_Data[0]; }
-    T*                back() { return &m_Data[m_Size - 1]; }
-    const T* const    back() const { return &m_Data[m_Size - 1]; }
+    const T&          front() const { return m_Data[0]; }
+    const T&          back() const { return m_Data[m_Size - 1]; }
 };
 
 class LvnTimer
@@ -6753,14 +6678,14 @@ struct LvnDescriptorUpdateInfo
 struct LvnPipelineCreateInfo
 {
     LvnPipelineSpecification* pipelineSpecification;
-    LvnVertexBindingDescription* pVertexBindingDescriptions;
+    const LvnVertexBindingDescription* pVertexBindingDescriptions;
     uint32_t vertexBindingDescriptionCount;
-    LvnVertexAttribute* pVertexAttributes;
+    const LvnVertexAttribute* pVertexAttributes;
     uint32_t vertexAttributeCount;
     LvnDescriptorLayout** pDescriptorLayouts;
     uint32_t descriptorLayoutCount;
-    LvnShader* shader;
-    LvnRenderPass* renderPass;
+    const LvnShader* shader;
+    const LvnRenderPass* renderPass;
 };
 
 struct LvnShaderCreateInfo
@@ -7039,41 +6964,5 @@ struct LvnPacket
 };
 
 
-// -- [SUBSECT]: Renderer Struct Implementation
-// ------------------------------------------------------------
-
-struct LvnColor
-{
-    uint8_t r, g, b, a;
-};
-
-struct LvnPoint
-{
-    float x, y;
-};
-
-struct LvnTriangle
-{
-    LvnVec2 v1;
-    LvnVec2 v2;
-    LvnVec2 v3;
-};
-
-struct LvnRect
-{
-    LvnVec2 pos;
-    LvnVec2 size;
-};
-
-struct LvnCircle
-{
-    LvnVec2 pos;
-    float radius;
-};
-
-struct LvnPoly
-{
-
-};
 
 #endif
