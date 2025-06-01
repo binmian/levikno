@@ -1681,7 +1681,7 @@ namespace vks
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = size;
         createInfo.pCode = reinterpret_cast<const uint32_t*>(code);
-        
+
         VkShaderModule shaderModule;
         LVN_CORE_CALL_ASSERT(vkCreateShaderModule(vkBackends->device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "[vulkan] failed to create shader module!");
 
@@ -2028,7 +2028,7 @@ namespace vks
                 /* .non_inductive_for_loops = */                       1,
                 /* .while_loops = */                                   1,
                 /* .do_while_loops = */                                1,
-                /* .general_uniform_indexing = */                      0,
+                /* .general_uniform_indexing = */                      1, /* defualt: 0 */
                 /* .general_attribute_matrix_vector_indexing = */      1,
                 /* .general_varying_indexing = */                      1,
                 /* .general_sampler_indexing = */                      1,
@@ -2115,7 +2115,7 @@ void createVulkanWindowSurfaceData(LvnWindow* window)
     VulkanBackends* vkBackends = s_VkBackends;
 
     GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
-    window->apiData = new VulkanWindowSurfaceData();
+    window->apiData = lvn::memNew<VulkanWindowSurfaceData>();
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
     bool vSync = window->data.vSync;
 
@@ -2190,7 +2190,8 @@ void destroyVulkanWindowSurfaceData(LvnWindow* window)
     // window surface
     vkDestroySurfaceKHR(vkBackends->instance, surfaceData->surface, nullptr);
 
-    delete static_cast<VulkanWindowSurfaceData*>(window->apiData);
+    VulkanWindowSurfaceData* windowSurfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+    lvn::memDelete<VulkanWindowSurfaceData>(windowSurfaceData);
 }
 
 
@@ -2198,7 +2199,7 @@ LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext)
 {
     if (s_VkBackends == nullptr)
     {
-        s_VkBackends = new VulkanBackends();
+        s_VkBackends = lvn::memNew<VulkanBackends>();
     }
 
     VulkanBackends* vkBackends = s_VkBackends;
@@ -2316,7 +2317,8 @@ void vksImplTerminateContext()
     // instance
     vkDestroyInstance(vkBackends->instance, nullptr);
 
-    delete s_VkBackends;
+    lvn::memDelete<VulkanBackends>(s_VkBackends);
+    s_VkBackends = nullptr;
 }
 
 void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount)
@@ -2915,7 +2917,7 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBu
 {
     VulkanBackends* vkBackends = s_VkBackends;
 
-    frameBuffer->frameBufferData = new VulkanFrameBufferData();
+    frameBuffer->frameBufferData = lvn::memNew<VulkanFrameBufferData>();
     VulkanFrameBufferData* frameBufferData = static_cast<VulkanFrameBufferData*>(frameBuffer->frameBufferData);
 
     frameBufferData->width = createInfo->width;
@@ -3708,7 +3710,7 @@ void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
     vkDestroySampler(vkBackends->device, frameBufferData->sampler, nullptr);
     vkDestroyFramebuffer(vkBackends->device, frameBufferData->framebuffer, nullptr);
 
-    delete frameBufferData;
+    lvn::memDelete<VulkanFrameBufferData>(frameBufferData);
 }
 
 void vksImplDestroyBuffer(LvnBuffer* buffer)
@@ -3830,7 +3832,7 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrite.dstSet = descriptorSets[j]; // update descriptor set for each frame in flight
             descriptorWrite.dstBinding = pUpdateInfo[i].binding;
-            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.dstArrayElement = pUpdateInfo[i].firstIndex;
             descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(pUpdateInfo[i].descriptorType);
             descriptorWrite.descriptorCount = pUpdateInfo[i].descriptorCount;
 

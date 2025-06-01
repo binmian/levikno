@@ -425,7 +425,7 @@ size_t LvnString::rfind(const char& ch) const
 }
 size_t LvnString::find(const char* str) const
 {
-    if (!str || str == "\0" || m_Size == 0) { return LvnString::npos; }
+    if (!str || !*str || m_Size == 0) { return LvnString::npos; }
     size_t strsize = strlen(str);
     if (strsize > m_Size) { return LvnString::npos; }
 

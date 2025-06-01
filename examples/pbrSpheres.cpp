@@ -355,20 +355,20 @@ void cameraMovment(LvnWindow* window, CameraView* camera, float dt)
 
     if (lvn::mouseButtonPressed(window, Lvn_MouseButton_1))
     {
-        auto mousePos = lvn::mouseGetPos(window);
-        
+        auto [mx, my] = lvn::mouseGetPos(window);
+
         if (s_CameraFirstClick)
         {
-            m_LastMouseX = mousePos.x;
-            m_LastMouseY = mousePos.y;
+            m_LastMouseX = mx;
+            m_LastMouseY = my;
             s_CameraFirstClick = false;
             lvn::mouseSetInputMode(window, Lvn_MouseInputMode_Disable);
         }
 
-        float xoffset = mousePos.x - m_LastMouseX;
-        float yoffset = m_LastMouseY - mousePos.y;
-        m_LastMouseX = mousePos.x;
-        m_LastMouseY = mousePos.y;
+        float xoffset = mx - m_LastMouseX;
+        float yoffset = m_LastMouseY - my;
+        m_LastMouseX = mx;
+        m_LastMouseY = my;
         xoffset *= s_CameraSensitivity * dt;
         yoffset *= s_CameraSensitivity * dt;
 
@@ -412,20 +412,20 @@ void orbitMovment(LvnWindow* window, CameraView* camera, float dt)
 
     if (lvn::keyPressed(window, Lvn_KeyCode_LeftShift) && mouse1 && !mouse2)
     {
-        auto mousePos = lvn::mouseGetPos(window);
+        auto [mx, my] = lvn::mouseGetPos(window);
 
         if (s_CameraFirstClick)
         {
-            m_LastMouseX = mousePos.x;
-            m_LastMouseY = mousePos.y;
+            m_LastMouseX = mx;
+            m_LastMouseY = my;
             s_CameraFirstClick = false;
             lvn::mouseSetInputMode(window, Lvn_MouseInputMode_Disable);
         }
 
-        float xoffset = mousePos.x - m_LastMouseX;
-        float yoffset = mousePos.y - m_LastMouseY;
-        m_LastMouseX = mousePos.x;
-        m_LastMouseY = mousePos.y;
+        float xoffset = mx - m_LastMouseX;
+        float yoffset = my - m_LastMouseY;
+        m_LastMouseX = mx;
+        m_LastMouseY = my;
         xoffset *= s_MoveShiftSpeed * dt;
         yoffset *= s_MoveShiftSpeed * dt;
 
@@ -443,20 +443,20 @@ void orbitMovment(LvnWindow* window, CameraView* camera, float dt)
     }
     else if (mouse1 && !mouse2)
     {
-        auto mousePos = lvn::mouseGetPos(window);
+        auto [mx, my] = lvn::mouseGetPos(window);
 
         if (s_CameraFirstClick)
         {
-            m_LastMouseX = mousePos.x;
-            m_LastMouseY = mousePos.y;
+            m_LastMouseX = mx;
+            m_LastMouseY = my;
             s_CameraFirstClick = false;
             lvn::mouseSetInputMode(window, Lvn_MouseInputMode_Disable);
         }
 
-        float xoffset = mousePos.x - m_LastMouseX;
-        float yoffset = mousePos.y - m_LastMouseY;
-        m_LastMouseX = mousePos.x;
-        m_LastMouseY = mousePos.y;
+        float xoffset = mx - m_LastMouseX;
+        float yoffset = my - m_LastMouseY;
+        m_LastMouseX = mx;
+        m_LastMouseY = my;
         xoffset *= s_CameraSensitivity * dt;
         yoffset *= s_CameraSensitivity * dt;
 
@@ -466,16 +466,16 @@ void orbitMovment(LvnWindow* window, CameraView* camera, float dt)
 
     if (mouse2 && !mouse1)
     {
-        auto mousePos = lvn::mouseGetPos(window);
+        auto [mx, my] = lvn::mouseGetPos(window);
         if (s_CameraFirstClick)
         {
-            m_LastMouseY = mousePos.y;
+            m_LastMouseY = my;
             s_CameraFirstClick = false;
             lvn::mouseSetInputMode(window, Lvn_MouseInputMode_Disable);
         }
 
-        float yoffset = mousePos.y - m_LastMouseY;
-        m_LastMouseY = mousePos.y;
+        float yoffset = my - m_LastMouseY;
+        m_LastMouseY = my;
         yoffset *= s_PanSpeed * dt;
 
         if (lvn::keyPressed(window, Lvn_KeyCode_LeftControl))
@@ -524,7 +524,7 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 
     lvn::frameBufferResize(data->frameBuffer, e->width, e->height);
 
-    LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
+    LvnDescriptorUpdateInfo fbDescriptorUpdateInfo{};
 
     LvnTexture* frameBufferImage = lvn::frameBufferGetImage(data->frameBuffer, 0);
 
@@ -923,7 +923,7 @@ int main()
 
     lvn::updateDescriptorSetData(cubemapDescriptorSet, cubemapDescriptorUpdateInfo.data(), cubemapDescriptorUpdateInfo.size());
 
-
+    auto [wx, wy] = lvn::windowGetSize(window);
 
     CameraView camera{};
     camera.position = LvnVec3(0.0f, 0.0f, -1.0f);
@@ -932,7 +932,7 @@ int main()
     camera.data.fov = 60.0f;
     camera.data.zNear = 0.1f;
     camera.data.zFar = 100.0f;
-    camera.data.aspectRatio = (float)lvn::windowGetSize(window).width / lvn::windowGetSize(window).height;
+    camera.data.aspectRatio = (float)wx / (float)wy;
 
 
     EventData eventData{};

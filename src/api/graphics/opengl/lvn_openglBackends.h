@@ -10,7 +10,6 @@ struct OglDescriptorBinding
 {
     LvnDescriptorType type;
     uint32_t binding;
-    uint32_t count;
     uint32_t id;
     uint64_t range;
     uint64_t offset;

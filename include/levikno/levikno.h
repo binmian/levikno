@@ -256,6 +256,7 @@
 #include <cstdlib> // malloc, free
 #include <cstring> // strlen
 #include <cmath>
+#include <limits>
 #include <new>
 
 
@@ -896,6 +897,7 @@ struct LvnAppTickEvent;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
+struct LvnColor;
 struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnCubemap;
@@ -994,6 +996,11 @@ typedef LvnOrthoCamera LvnOrthographicCamera;
 
 // -- [SUBSECT]: Data Structure Definitions
 // ------------------------------------------------------------
+
+template <typename T> struct LvnFloatType;
+template <> struct LvnFloatType<float> { using type = float; };
+template <> struct LvnFloatType<double> { using type = double; };
+template <typename T> using LvnFloatType_t = typename LvnFloatType<T>::type;
 
 template <typename T>
 struct LvnPair;
@@ -1146,6 +1153,8 @@ typedef LvnQuat_t<int>                 LvnQuati;
 typedef LvnQuat_t<unsigned int>        LvnQuatui;
 typedef LvnQuat_t<float>               LvnQuatf;
 typedef LvnQuat_t<double>              LvnQuatd;
+
+typedef LvnVec<4, uint8_t>             LvnColorImageData;
 
 
 // ------------------------------------------------------------
@@ -1555,6 +1564,7 @@ namespace lvn
     LVN_API void                        imageRotateCW(LvnImageData& imageData);                                           // rotates the image clockwise (right)
     LVN_API void                        imageRotateCCW(LvnImageData& imageData);                                          // rotates the image counter clockwise (left)
 
+    LVN_API LvnImageData                imageGenColor(uint32_t width, uint32_t height, uint32_t channels, const LvnColorImageData& color);
     LVN_API LvnImageData                imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels);
     LVN_API LvnImageData                imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels, uint32_t seed);
     LVN_API LvnImageData                imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t channels);
@@ -1670,22 +1680,22 @@ namespace lvn
 
     template <typename T>
     LVN_API T                           min(const T& n1, const T& n2) { return n1 < n2 ? n1 : n2; }
-
     template <typename T>
     LVN_API T                           max(const T& n1, const T& n2) { return n1 > n2 ? n1 : n2; }
-
     template <typename T>
     LVN_API T                           clamp(const T& val, const T& low, const T& high) { return lvn::max(lvn::min(val, high), low); }
-
     template <typename T>
     LVN_API LvnPair<T>                  midpoint(const T& x1, const T& y1, const T& x2, const T& y2) { return { (x1 + x2) / static_cast<T>(2), (y1 + y2) / static_cast<T>(2) }; }
-
     template <typename T>
-    LVN_API T                           distance(const T& x1, const T& y1, const T& x2, const T& y2) { return sqrt(pow((x1 - x2), static_cast<T>(2)) + pow((y1 - y2), static_cast<T>(2))); }
-
+    LVN_API T                           distance(const T& x1, const T& y1, const T& x2, const T& y2) { return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)); }
+    template <typename T>
+    LVN_API T                           distance(const T& x1, const T& y1, const T& z1, const T& x2, const T& y2, const T& z2) { return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2)); }
+    template <typename T>
+    LVN_API T                           distance(const LvnVec<2, T>& v1, const LvnVec<2, T>& v2) { return sqrt((v1.x-v2.x)*(v1.x-v2.x)+(v1.y-v2.y)*(v1.y-v2.y)); }
+    template <typename T>
+    LVN_API T                           distance(const LvnVec<2, T>& v1, const LvnVec<2, T>& v2, const LvnVec<2, T>& v3) { return sqrt((v1.x-v2.x)*(v1.x-v2.x)+(v1.y-v2.y)*(v1.y-v2.y)+(v1.z-v2.z)*(v1.z-v2.z)); }
     template <typename T>
     LVN_API bool                        within(T num, T within, T range) { return num <= (within + range) && num >= (within - range); }
-
     template <typename T>
     LVN_API bool                        within(T num, T within, T lowerRange, T upperRange) { return num <= (within + upperRange) && num >= (within - lowerRange); }
 
@@ -1694,7 +1704,22 @@ namespace lvn
     LVN_API float clampAngle(float rad);       // clamps the given angle in radians to the translated angle between 0 and 2 PI
     LVN_API float clampAngleDeg(float deg);    // clamps the given angle in degrees to the translated angle between 0 and 2 PI
     LVN_API float invSqrt(float num);
-    LVN_API double derivative(double (*func)(double), double x, double delta = 0.001); // finds the instantaneous slope of the function given with a delta offset
+
+    template <typename T>
+    LVN_API LvnFloatType_t<T> derivative(T (*func)(T), T x, T delta = 1e-6)
+    {
+        T fxph = func(x + delta);
+        T fxnh = func(x - delta);
+        return (fxph - fxnh) / (static_cast<T>(2) * delta);
+    }
+
+    template <typename T>
+    LVN_API LvnFloatType_t<T> derivativeAvg(T (*func)(T), T x1, T x2)
+    {
+        T fxph = func(x1);
+        T fxnh = func(x2);
+        return (fxph - fxnh) / (x1 - x2);
+    }
 
     template <typename T>
     LVN_API LvnVec<2, T> normalize(const LvnVec<2, T>& v)
@@ -2455,8 +2480,8 @@ namespace lvn
 template<typename T>
 struct LvnPair
 {
-    union { T p1, x, width, first; };
-    union { T p2, y, height, second; };
+    T first;
+    T second;
 };
 
 template<typename T1, typename T2>
@@ -2652,6 +2677,7 @@ public:
 
     void        push_back(const T& value) { resize(m_Size + 1); m_Data[m_Size - 1] = value; }
     void        push_range(const T* data, size_t size) { resize(m_Size + size); for (size_t i = 0; i < size; i++) { m_Data[i + m_Size - size] = data[i]; } }
+    void        push_range(size_t size, const T& value) { resize(m_Size + size); for (size_t i = 0; i < size; i++) { m_Data[i + m_Size - size] = value; } }
     void        pop_back() { if (m_Size == 0) return; destruct_at(&m_Data[m_Size - 1]); resize(m_Size - 1); }
 
     T*          find(const T& e) { T* begin = m_Data; const T* end = m_Data + m_Size; while (begin < end) { if (*begin == e) break; begin++; } return begin; }
@@ -6670,6 +6696,7 @@ struct LvnDescriptorUpdateInfo
 {
     uint32_t binding;
     LvnDescriptorType descriptorType;
+    uint32_t firstIndex;
     uint32_t descriptorCount;
     const LvnUniformBufferInfo* bufferInfo;
     const LvnTexture* const* pTextureInfos;
@@ -6678,11 +6705,11 @@ struct LvnDescriptorUpdateInfo
 struct LvnPipelineCreateInfo
 {
     LvnPipelineSpecification* pipelineSpecification;
-    const LvnVertexBindingDescription* pVertexBindingDescriptions;
+    LvnVertexBindingDescription* pVertexBindingDescriptions;
     uint32_t vertexBindingDescriptionCount;
-    const LvnVertexAttribute* pVertexAttributes;
+    LvnVertexAttribute* pVertexAttributes;
     uint32_t vertexAttributeCount;
-    LvnDescriptorLayout** pDescriptorLayouts;
+    const LvnDescriptorLayout* const* pDescriptorLayouts;
     uint32_t descriptorLayoutCount;
     const LvnShader* shader;
     const LvnRenderPass* renderPass;
@@ -6918,6 +6945,11 @@ struct LvnFont
 
     LvnData<uint32_t> codepoints;
     LvnData<LvnFontGlyph> glyphs;
+};
+
+struct LvnColor
+{
+    uint8_t r, g, b, a;
 };
 
 

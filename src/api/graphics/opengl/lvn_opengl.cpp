@@ -680,9 +680,9 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
 {
     LvnContext* lvnctx = lvn::getContext();
 
-    if (s_OglBackends == nullptr)
+    if (!s_OglBackends)
     {
-        s_OglBackends = new OglBackends();
+        s_OglBackends = lvn::memNew<OglBackends>();
     }
 
     s_OglBackends->deviceName = "opengl device";
@@ -750,7 +750,7 @@ LvnResult oglsImplCreateContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->createTextureSampler = oglsImplCreateTextureSampler;
     graphicsContext->createCubemap = oglsImplCreateCubemap;
     graphicsContext->createCubemapHdr = oglsImplCreateCubemapHdr;
-    
+
     graphicsContext->destroyShader = oglsImplDestroyShader;
     graphicsContext->destroyDescriptorLayout = oglsImplDestroyDescriptorLayout;
     graphicsContext->destroyPipeline = oglsImplDestroyPipeline;
@@ -818,9 +818,9 @@ void oglsImplTerminateContext()
 {
     glfwDestroyWindow(s_OglBackends->windowContext);
 
-    if (s_OglBackends != nullptr)
+    if (s_OglBackends)
     {
-        delete s_OglBackends;
+        lvn::memDelete<OglBackends>(s_OglBackends);
     }
 
     s_OglBackends = nullptr;
@@ -967,7 +967,7 @@ LvnResult oglsImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCrea
 LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo)
 {
     descriptorLayout->descriptorLayout = nullptr;
-    descriptorLayout->descriptorPool = new OglDescriptorSet[descriptorLayout->descriptorSets.size()];
+    descriptorLayout->descriptorPool = lvn::memNew<OglDescriptorSet>(descriptorLayout->descriptorSets.size());
 
     for (uint64_t i = 0; i < descriptorLayout->descriptorSets.size(); i++)
     {
@@ -989,8 +989,7 @@ LvnResult oglsImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, 
                 OglDescriptorBinding descriptorBinding{};
                 descriptorBinding.type = descriptorType;
                 descriptorBinding.binding = createInfo->pDescriptorBindings[j].binding;
-                descriptorBinding.count = createInfo->pDescriptorBindings[j].descriptorCount;
-                descriptorSet->textures.push_back(descriptorBinding);
+                descriptorSet->textures.push_range(createInfo->pDescriptorBindings[j].descriptorCount, descriptorBinding);
             }
         }
     }
@@ -1018,7 +1017,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateI
     }
 
     pipeline->id = shaderProgram;
-    pipeline->nativePipeline = new OglPipelineEnums();
+    pipeline->nativePipeline = lvn::memNew<OglPipelineEnums>();
 
     OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
 
@@ -1080,7 +1079,7 @@ LvnResult oglsImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateI
 
 LvnResult oglsImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
 {
-    frameBuffer->frameBufferData = new OglFramebufferData();
+    frameBuffer->frameBufferData = lvn::memNew<OglFramebufferData>();
     OglFramebufferData* frameBufferData = static_cast<OglFramebufferData*>(frameBuffer->frameBufferData);
 
     frameBufferData->width = createInfo->width;
@@ -1124,7 +1123,7 @@ LvnResult oglsImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* cre
 
 LvnResult oglsImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
 {
-    OglSampler* oglSampler = new OglSampler();
+    OglSampler* oglSampler = lvn::memNew<OglSampler>();
 
     oglSampler->minFilter = createInfo->minFilter;
     oglSampler->magFilter = createInfo->magFilter;
@@ -1298,13 +1297,14 @@ void oglsImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
         descriptorSet->bindlessTextures.clear();
     }
 
-    delete [] static_cast<OglDescriptorSet*>(descriptorLayout->descriptorPool);
+    OglDescriptorSet* descriptorSets = static_cast<OglDescriptorSet*>(descriptorLayout->descriptorPool);
+    lvn::memDelete<OglDescriptorSet>(descriptorSets, descriptorLayout->descriptorSets.size());
 }
 
 void oglsImplDestroyPipeline(LvnPipeline* pipeline)
 {
     OglPipelineEnums* pipelineEnums = static_cast<OglPipelineEnums*>(pipeline->nativePipeline);
-    delete pipelineEnums;
+    lvn::memDelete<OglPipelineEnums>(pipelineEnums);
 
     glDeleteProgram(pipeline->id);
     glDeleteVertexArrays(1, &pipeline->vaoId);
@@ -1325,7 +1325,7 @@ void oglsImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
         glDeleteTextures(1, &frameBufferData->msaaDepthAttachment);
     }
 
-    delete frameBufferData;
+    lvn::memDelete<OglFramebufferData>(frameBufferData);
 }
 
 void oglsImplDestroyBuffer(LvnBuffer* buffer)
@@ -1336,7 +1336,7 @@ void oglsImplDestroyBuffer(LvnBuffer* buffer)
 void oglsImplDestroySampler(LvnSampler* sampler)
 {
     OglSampler* oglSampler = static_cast<OglSampler*>(sampler->sampler);
-    delete oglSampler;
+    lvn::memDelete<OglSampler>(oglSampler);
 }
 
 void oglsImplDestroyTexture(LvnTexture* texture)
@@ -1597,7 +1597,8 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
         // uniform buffer
         if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
         {
-            for (uint32_t j = 0; j < descriptorSetPtr->uniformBuffers.size(); j++)
+            LVN_CORE_ASSERT(pUpdateInfo[i].firstIndex + pUpdateInfo[i].descriptorCount <= descriptorSetPtr->uniformBuffers.size(), "first index and descriptor count must be within the size of uniform buffers to be updated");
+            for (uint32_t j = pUpdateInfo[i].firstIndex; j < pUpdateInfo[i].descriptorCount; j++)
             {
                 if (descriptorSetPtr->uniformBuffers[j].binding == pUpdateInfo[i].binding)
                 {
@@ -1612,14 +1613,13 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
         // texture image
         else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler)
         {
-            // textures
-            for (uint32_t j = 0; j < descriptorSetPtr->textures.size(); j++)
+            LVN_CORE_ASSERT(pUpdateInfo[i].firstIndex + pUpdateInfo[i].descriptorCount <= descriptorSetPtr->textures.size(), "first index and descriptor count must be within the size of textures to be updated");
+            for (uint32_t j = pUpdateInfo[i].firstIndex; j < pUpdateInfo[i].descriptorCount; j++)
             {
                 if (descriptorSetPtr->textures[j].binding == pUpdateInfo[i].binding)
                 {
-                    descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[0]->id;
+                    descriptorSetPtr->textures[j].id = pUpdateInfo[i].pTextureInfos[j]->id;
                     texCount++;
-                    break;
                 }
             }
         }
@@ -1627,8 +1627,9 @@ void oglsImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescrip
         // bindless textures; note they are created/added during descriptor update
         else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
         {
+            LVN_CORE_ASSERT(pUpdateInfo[i].firstIndex + pUpdateInfo[i].descriptorCount <= descriptorSetPtr->bindlessTextures.size(), "first index and descriptor count must be within the size of bindless textures to be updated");
             OglBindlessTextureBinding bindlessTexture{};
-            for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
+            for (uint32_t j = pUpdateInfo[i].firstIndex; j < pUpdateInfo[i].descriptorCount; j++)
             {
                 // iterate through the textures and get the texture handles
                 uint32_t texId = pUpdateInfo[i].pTextureInfos[j]->id;

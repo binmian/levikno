@@ -25,7 +25,6 @@
 #endif
 
 #include "lvn_loaders.h"
-#include "lvn_renderer.h"
 
 static LvnContext* s_LvnContext = nullptr;
 
@@ -564,7 +563,7 @@ static T* createObject(LvnContext* lvnctx, LvnStructureType sType)
     T* object;
     if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
     {
-        object = new T();
+        object = lvn::memNew<T>();
     }
     else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
     {
@@ -588,7 +587,7 @@ static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType)
 {
     if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
     {
-        delete obj;
+        lvn::memDelete<T>(obj);
         obj = nullptr;
     }
     else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
@@ -610,7 +609,7 @@ static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType)
 LvnResult createContext(LvnContextCreateInfo* createInfo)
 {
     if (s_LvnContext != nullptr) { return Lvn_Result_AlreadyCalled; }
-    s_LvnContext = new LvnContext();
+    s_LvnContext = lvn::memNew<LvnContext>();
     LvnContext* lvnctx = s_LvnContext;
 
     lvnctx->contexTime.reset();
@@ -693,9 +692,6 @@ void terminateContext()
 
     LvnContext* lvnctx = s_LvnContext;
 
-    if (lvn::rendererIsInitialized())
-        lvn::renderTerminate();
-
     lvn::terminateGraphicsContext(lvnctx);
     lvn::terminateWindowContext(lvnctx);
     lvn::terminateAudioContext(lvnctx);
@@ -714,7 +710,7 @@ void terminateContext()
 
     lvn::terminateLogging();
 
-    delete s_LvnContext;
+    lvn::memDelete<LvnContext>(s_LvnContext);
     s_LvnContext = nullptr;
 }
 
@@ -3394,6 +3390,29 @@ void imageRotateCCW(LvnImageData& imageData)
     lvn::swap(imageData.width, imageData.height);
 }
 
+LvnImageData imageGenColor(uint32_t width, uint32_t height, uint32_t channels, const LvnColorImageData& color)
+{
+    LVN_CORE_ASSERT(channels > 0 && channels <= 4, "channels must be within 0 to 4");
+
+    uint32_t imgSize = width * height * channels;
+    uint8_t* imgBuff = (uint8_t*)LVN_MALLOC(imgSize);
+
+    for (uint32_t y = 0; y < height; y++)
+        for (uint32_t x = 0; x < width; x++)
+            for (uint32_t c = 0; c < channels; c++)
+                imgBuff[y * width * channels + x * channels + c] = color[c];
+
+    LvnImageData imageData{};
+    imageData.width = width;
+    imageData.height = height;
+    imageData.channels = channels;
+    imageData.size = width * height * channels;
+    imageData.pixels = LvnData<uint8_t>(imgBuff, imgSize);
+
+    LVN_FREE(imgBuff);
+    return imageData;
+}
+
 LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channels)
 {
     return lvn::imageGenWhiteNoise(width, height, channels, time(0));
@@ -4155,13 +4174,6 @@ float invSqrt(float num)
     conv.i = 0x5f3759df - (conv.i >> 1);
     conv.f = conv.f * (threehalfs - (x2 * conv.f * conv.f));
     return conv.f;
-}
-
-double derivative(double (*func)(double), double x, double delta)
-{
-    double fxph = func(x + delta);
-    double fxmh = func(x - delta);
-    return (fxph - fxmh) / (2.0 * delta);
 }
 
 } /* namespace lvn */
