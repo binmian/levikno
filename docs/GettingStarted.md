@@ -1,28 +1,28 @@
 # Levikno Guild
 
 ## Index
-- [Introduction](#introduction)
-- [Downloading](#downloading)
-- [Building](#building)
-- [Getting Started](#getting-started)
-    - [Api Structure](#api-structure)
-    - [Creating the Context](#creating-the-context)
-    - [Opening a Window](#opening-a-window)
-    - [Creating Buffers](#creating-buffers)
-    - [Shaders and Pipelines](#shaders-and-pipelines)
-    - [Drawing and Main Render Loop](#drawing-and-main-render-loop)
+- [Introduction](#1-introduction)
+- [Downloading](#2-downloading)
+- [Building](#3-building)
+- [Getting Started](#4-getting-started)
+    - [Api Structure](#41-api-structure)
+    - [Creating the Context](#42-creating-the-context)
+    - [Opening a Window](#43-opening-a-window)
+    - [Creating Buffers](#44-creating-buffers)
+    - [Shaders and Pipelines](#45-shaders-and-pipelines)
+    - [Drawing and Main Render Loop](#46-drawing-and-main-render-loop)
 
-# 1\. Introduction
+# 1. Introduction
 
 Levikno is a graphics framework built in C++ for game development and multimedia applications. The Levikno library is built on top of OpenGL and Vulkan and is designed to support and wrap around multiple graphics APIs.
 
 The core API structure of levikno is designed similar to Vulkan API calls, meaning concepts such as pipelines, buffers, descriptor layouts/sets and command buffers will be used. This is made so that less explicit APIs such as OpenGL can be integrated without abstracting too much from lower level APIs such as Vulkan.
 
-# 2\. Downloading
+# 2. Downloading
 
 The Levikno source code can be downloaded from the [github](https://github.com/binmian/levikno/tree/main) repository.
 
-# 3\. Building
+# 3. Building
 
 ### Prerequisites:
 
@@ -83,7 +83,7 @@ On Windows, build using `cmake --build .`
 
 On Linux, build using `make`
 
-# 4\. Getting Started
+# 4. Getting Started
 
 After levikno has been built, link the levikno library to your project. Also add the include directory for levikno from the main git repository.
 
