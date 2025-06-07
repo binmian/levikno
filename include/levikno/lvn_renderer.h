@@ -48,7 +48,9 @@ enum LvnRenderModeEnum
 struct LvnCircle;
 struct LvnCollisionCircle;
 struct LvnCollisionPoint;
+struct LvnCollisionPolygon;
 struct LvnCollisionRect;
+struct LvnPolygon;
 struct LvnRect;
 struct LvnRenderer;
 struct LvnSprite;
@@ -92,6 +94,13 @@ struct LvnCircle
     LvnTexture* texture;
 };
 
+struct LvnPolygon
+{
+    LvnVector<LvnVec2> vertices;
+    LvnColor color;
+    float angle;
+};
+
 struct LvnSprite
 {
     LvnVec2 size;
@@ -123,6 +132,13 @@ struct LvnCollisionCircle
 {
     LvnVec2 pos;
     float radius;
+};
+
+struct LvnCollisionPolygon
+{
+    LvnVec2 pos;
+    float angle;
+    LvnVector<LvnVec2> vertices;
 };
 
 
@@ -163,6 +179,7 @@ namespace lvn
     LVN_API void                        drawPolyNgon(const LvnVec2& pos, float radius, uint32_t nSides, const LvnColor& color);
     LVN_API void                        drawPolyNgonSector(const LvnVec2& pos, float radius, float startAngle, float endAngle, uint32_t nSides, const LvnColor& color);
     LVN_API void                        drawCircleEx(const LvnCircle& circle, const LvnVec2& pos);
+    LVN_API void                        drawPolyEx(const LvnPolygon& poly, const LvnVec2& pos);
     LVN_API void                        drawSprite(const LvnSprite& sprite, const LvnVec2& pos, const LvnColor& tint = {255,255,255,255});
     LVN_API void                        drawText(const char* text, const LvnVec2& pos, const LvnColor& color, float scale);
     LVN_API void                        drawTextEx(const LvnText& text, const LvnVec2& pos);
@@ -174,6 +191,7 @@ namespace lvn
     LVN_API bool                        collisionRectToRect(const LvnCollisionRect& rect1, const LvnCollisionRect& rect2);
     LVN_API bool                        collisionRectToCircle(const LvnCollisionRect& rect, const LvnCollisionCircle& circle);
     LVN_API bool                        collisionCircleToCircle(const LvnCollisionCircle& circle1, const LvnCollisionCircle& circle2);
+    LVN_API bool                        collisionConvexPolyToPolySAT();
 } /* namespace lvn */
 
 

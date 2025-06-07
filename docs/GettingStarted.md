@@ -1,87 +1,174 @@
-# Levikno Guide
-
-***Documentation is outdated and needs to be updated***
-
-The Levikno library is a graphics framework built in C++ for creating windows and rendering objects. This document is a tutorial on how to use and integrate Levikno to your project. Before beginning this guide, it is advised that you have prior experience in understanding C++ and how graphics APIs work such as [Vulkan](https://vulkan-tutorial.com/Introduction) and [OpenGL](https://learnopengl.com/Introduction). I will not be going too in depth with how graphics APIs work so it is expected that you know the general terminology for the graphics APIs presented in this tutorial.
+# Levikno Guild
 
 ## Index
-- [Api Structure](#api-structure)
-	- [Creating/Destroying Objects](#creating-and-destroying-objects)
-	- [Structure](#structure)
+- [Introduction](#introduction)
+- [Downloading](#downloading)
+- [Building](#building)
 - [Getting Started](#getting-started)
-	- [Initialization](#initialization)
-	- [Logging](#logging)
-	- [Choosing Physical Device](#choosing-physical-device)
-	- [Creating Window](#creating-window)
-	- [Creating Buffers](#creating-buffers)
-	- [Shaders and Pipelines](#shaders-and-pipelines)
-	- [Drawing](#drawing)
+    - [Api Structure](#api-structure)
+    - [Creating the Context](#creating-the-context)
+    - [Opening a Window](#opening-a-window)
+    - [Creating Buffers](#creating-buffers)
+    - [Shaders and Pipelines](#shaders-and-pipelines)
+    - [Drawing and Main Render Loop](#drawing-and-main-render-loop)
 
+# 1\. Introduction
 
-## Api Structure
+Levikno is a graphics framework built in C++ for game development and multimedia applications. The Levikno library is built on top of OpenGL and Vulkan and is designed to support and wrap around multiple graphics APIs.
+
+The core API structure of levikno is designed similar to Vulkan API calls, meaning concepts such as pipelines, buffers, descriptor layouts/sets and command buffers will be used. This is made so that less explicit APIs such as OpenGL can be integrated without abstracting too much from lower level APIs such as Vulkan.
+
+# 2\. Downloading
+
+The Levikno source code can be downloaded from the [github](https://github.com/binmian/levikno/tree/main) repository.
+
+# 3\. Building
+
+### Prerequisites:
+
+*   cmake
+*   C++17 compiler
+
+First clone the repository to a directory and enter into it
+
+```
+git clone https://github.com/binmian/levikno.git levikno
+cd levikno
+```
+
+## 3.1 Installing Vulkan and glslang
+
+Before Building, levikno optionally supports Vulkan and the glslang library for compiling glsl shader code to SPIR-V binaries. If Vulkan is not supported on your system or graphics card, Vulkan will be skipped during the build process. Due note that you won't be able to use Vulkan when choosing the graphics API. Alternately, if Vulkan is supported but the the glslang libraries are not supported or are not found, Vulkan will still be included during the build process, however loading shader code from source will not be available.
+
+If you don't need to use Vulkan or glslang, you can skip this part and move on to the next section [3.2 Building with CMake](#BuildingWithCMake).
+
+### Installing on Windows
+
+To install Vulkan on Windows, download the VulkanSDK installer from the [LunarG website](https://vulkan.lunarg.com/) and install the Vulkan libraries, if you receive error messages, check to make sure your graphics drivers are up to date and that your system supports Vulkan.
+
+For glslang, the glslang libraries need to be properly installed so that cmake can find the glslang package on Windows. Follow the instructions to build glslang from the [github repository](https://github.com/KhronosGroup/glslang?tab=readme-ov-file), you can either build and install glslang from source or through vcpkg.
+
+### Installing on Linux
+
+On Linux, Vulkan and glslang can usually be installed through your distro's package manager.
+
+On Debian based distros:
+
+```
+sudo apt install vulkan-tools libvulkan-dev vulkan-validationlayers-dev spirv-tools glslang-tools
+```
+
+On Fedora based distros:
+
+```
+sudo dnf install vulkan-tools vulkan-loader-devel mesa-vulkan-devel vulkan-validation-layers-devel glslang
+```
+
+On Arch based distros:
+
+```
+sudo pacman -S vulkan-devel glslang
+```
+
+## 3.2 Building with CMake
+
+Inside the git directory, create a new build directory and run cmake
+
+```
+mkdir build && cd build
+cmake ..
+```
+
+On Windows, build using `cmake --build .`
+
+On Linux, build using `make`
+
+# 4\. Getting Started
+
+After levikno has been built, link the levikno library to your project. Also add the include directory for levikno from the main git repository.
+
+To use levikno, include "levikno/levikno.h":
+
+```
+#include "levikno/levikno.h"
+```
+
+## 4.1 API Structure
+
+Before starting, it may be important to understand how levikno's API is structured
+
 ### Creating and Destroying Objects
-Levikno's API structure is built directly on top of Vulkan which requires a low level and explicit interface, this also requires objects to be created and destroyed when used for rendering (eg. vertex buffers, shaders, framebuffers, pipelines, etc)
-In Levikno, objects are usually created through this function format:
+
+Levikno's API structure is mostly built on top of Vulkan's API which requires a low level and explicit interface, this also requires objects to be created and destroyed when used for rendering (eg. vertex buffers, shaders, framebuffers, pipelines, etc) In levikno, objects are usually created through this function format:
+
 ```
 LvnResult createObject(Object** object, ObjectCreateInfoStruct* createInfo)
 ```
-For each object that needs to be created, in most cases a create function will be associated with it. In the example above, the object will need to be passed in by pointer in the first parameter. 
 
-The second parameter takes in a createInfo struct that tells Levikno what requirements are needed when creating this object. 
+For any object that needs to be created, in most cases a create function will be associated with it. In the example above, the object will need to be passed in by pointer in the first parameter.
 
-Each object will also have a createInfo struct associated with it.
+The second parameter usually takes in a createInfo struct that tells levikno how to create this object. Each object will also have a createInfo struct associated with it.
 
-Note that objects need to be declared as a pointer which points to the created object.
-
-Example:
-```
- // declare create info struct for LvnWindow
-LvnWindowCreateInfo windowInfo{};
-windowInfo.width = 800;
-windowInfo.height = 600;
-windowInfo.title = "window";
-
-// declare LvnWindow object as a pointer
-LvnWindow* window;
-
-// create the object by passing the object in and its createInfo
-lvn::createWindow(&window, &windowInfo);
-```
-You may have also noticed that the create object function returns a ```LvnResult``` enum. This enum returns a value which can be determined whether the function was executed successfully or not. For each create object function, it returns either ```Lvn_Result_Success``` or ```Lvn_Result_Failure``` when creating the object. In case if an error happens, the program can respond whenever the function returns on failure.
+Note that objects also need to be declared as a pointer type (eg. LvnBuffer\* buffer). In levikno, most objects from the core library are opaue structs.
 
 Example:
+
 ```
-LvnResult result = lvn::createWindow(&window, &windowInfo);
+// declare createInfo struct for LvnBuffer and set parameters
+LvnBufferCreateInfo bufferInfo{};
+bufferInfo.type = Lvn_BufferType_Vertex;
+bufferInfo.usage = Lvn_BufferUsage_Static;
+bufferInfo.data = vertices;
+bufferInfo.size = sizeof(vertices);
+
+// declare LvnBuffer object as a pointer type
+LvnBuffer* buffer;
+
+// create the object by passing it in with its createInfo struct
+lvn::createBuffer(&buffer, &bufferInfo);
+```
+
+When creating an object, the function also returns a `LvnResult` enum which can be used to determine whether the function succeeded or failed. Each create object function usually returns `Lvn_Result_Success` or `Lvn_Result_Failure`. You can use the return type to handle errors.
+
+Example:
+
+```
+LvnResult result = lvn::createBuffer(&buffer, &bufferInfo);
 if (result == Lvn_Result_Failure)
 {
-    // do something ...
+    // handle error ...
 }
 ```
 
-When an object is no longer needed it must be manually destroyed to free back memory, destroying an object requires passing it through its destroy function:
+When an object is no longer needed it must be manually destroyed, destroying an object requires passing it into its associated destroy function:
+
 ```
 void destroyObject(Object* object)
 ```
 
 Example:
+
 ```
-lvn::destroyWindow(window);
+lvn::destroyBuffer(buffer);
 ```
 
-### Structure
-When using the Levikno library, functions, structs, enums, and macros each have their own specific syntax or "style"
-* All functions are declared within the namespace ```lvn``` (ex. ```lvn::createContext()```, ```lvn::renderCmdDraw()```)
-* structs and enums have the prefix ```Lvn``` in front of its object name (ex. ```LvnFrameBuffer```, ```LvnResult```)
-* enum variables start with the prefix ```Lvn``` followed by the name of the enum and then the value separated by underscores (ex. ```Lvn_Result_Success```, ```Lvn_GraphicsApi_vulkan```)
-* macros are in all uppercase and usually start with the prefix ```LVN``` (ex. ```LVN_WARN()```)
+### Syntax Structure
 
-## Getting Started
-### Initialization
-Before anything can be used, a levikno context first needs to be created to initialize the library. For this case, we will be using GLFW and Vulkan for the window and rendering backends.
+When using the levikno library, functions, structs, enums, and macros each have their own specific syntax to differentiate them from one another:
+
+*   all functions are declared within the `lvn` namespace (ex. `lvn::createContext()`, `lvn::renderCmdDraw()`)
+*   structs and enums have the prefix `Lvn` in front of its object name (ex. `LvnBuffer`, `LvnResult`)
+*   enum variables start with the prefix `Lvn` followed by the name of the enum and then the value separated by underscores (ex. `Lvn_Result_Success`, `Lvn_GraphicsApi_vulkan`)
+*   macros are in all uppercase and usually start with the prefix `LVN` separated by underscores (ex. `LVN_TRACE()`)
+
+## 4.2 Creating the Context
+
+To use levikno, a levikno context must first be created to initialize the library. First create a `LvnContextCreateInfo` struct and set the required arguments. Levikno requires a graphics and windows api to be set before creating the context, in this case we will use Vulkan and glfw.
+
 ```
-#include <levikno/levikno.h>
+#include "levikno/levikno.h"
 
-int main()
+int main(int argc, char** argv)
 {
     LvnContextCreateInfo lvnCreateInfo{};
     lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
@@ -90,347 +177,342 @@ int main()
     lvn::createContext(&lvnCreateInfo);
 }
 ```
-The ```LvnContextCreateInfo``` struct is used for initializing and to choose what window and graphics API to use when creating windows and rendering to them. Pass the createInfo st### Loggingruct into ```lvn::createContext(&lvnCreateInfo)``` to create the levikno context.
 
-Also keep in mind that we are initializing each struct by using **value initialization** (the double curly braces at the end of ```lvnCreateInfo```). Using value initialization fills the entire struct with its default values so we won't  have to fill every parameter ourselves everytime we create a new struct.
+Pass the create context struct into `lvn::createContext()` to initialize the library.
+
+Also keep in mind that each struct needs to be intialized before being passed in to a function, this can be done with value initialization (the double curly braces at the end of lvnCreateInfo). Using value initialization fills the entire struct with its default values so we dont't have to fill out the unnecassary parameters.
 
 ### Logging
-Before we move on, it is also recommended to enable logging in case we make a mistake, log messages may have some important info that could help us in debugging. Since we are also using Vulkan which is a very specific and low level API, it can be very easy to create errors causing undefined behavior. Luckily Vulkan allows us to receive debug messages through the use of validation layers.
 
-Logging is optional and is mostly only used for debugging purposes, however keep in mind the performance. Vulkan validation layers add a bit of extra overhead which may slow down the program.
+Before moveing on, it's recommended to enable logging for event messages or potential errors and may contain info that could help with debugging. To enable logging, set the `enableLogging` parameter to true within the create context struct.
 
-To enable logging and Vulkan validation layers, add the new lines to the code:
+Because we are using Vulkan, Vulkan has a special component called validation layers which can help catch errors and misuse of the Vulkan API. To enable error logging of Vulkan validation layers or other graphics api specific errors, set the `enableGraphicsApiDebugLogs` parameter to true as well. Note that if the `enableLogging` parameter is set to false, vulkan validation layers and graphics api specific error logs will not be enabled.
+
+To enable logging, see the added lines to the code:
+
 ```
 LvnContextCreateInfo lvnCreateInfo{};
 lvnCreateInfo.windowapi = Lvn_WindowApi_glfw;
 lvnCreateInfo.graphicsapi = Lvn_GraphicsApi_vulkan;
-lvnCreateInfo.logging.enableLogging = true;
-lvnCreateInfo.logging.enableVulkanValidationLayers = true;
-	
+lvnCreateInfo.logging.enableLogging = true;                 // enable logging
+lvnCreateInfo.logging.enableGraphicsApiDebugLogs = true;    // enable validation layers and graphics api specific logs
+
 lvn::createContext(&lvnCreateInfo);
 ```
-Note that ```enableLogging``` also has to be true in order to show vulkan validation layers, this parameter controls whether message output will be enabled
 
-When the levikno context is created with logging enabled, the context will create two loggers by default, the core logger and the client logger. The core logger is technically reserved for use within the library although it can still be used outside it. The client logger is the general logger the user would use when building applications.
+Logging is optional and is mostly used for debugging purposes. If logging is enabled, keep in mind the performance, Vulkan validation layers can add some extra overhead which may slow performance.
 
-We won't be using logging that much in this tutorial so we will only use it to display info and error messages.
-Choosing Physical Device
-### Choosing Physical Device
-Before we create a window, we first have to declare a few preset values before rendering to a window. Because we are using Vulkan, we need to know which physical device (GPU) is going to be used to render our scene and presented to the screen. In most cases a desktop PC will likely have only 1 GPU, however there are some cases such as in laptops where there are two GPUs (an integrated CPU and dedicated GPU). The physical devices and their information can be obtained after the context is created:
+When creating the context with logging enabled, the context will create two loggers by default, the core logger and the client logger. The core logger is mostly reserved for use within the library although it can still be accessed outside of it. The client logger would typically be used in the application side of a project.
+
+If you don't want levikno to output logs from the core library, you can disable the core logger during context creation by setting the `disableCoreLogging` parameter to true:
+
 ```
-#include <vector>
-#include <cstdint>
+lvnCreateInfo.logging.disableCoreLogging = true;
 
 ...
-
-uint32_t deviceCount = 0;
-std::vector<LvnPhysicalDevice*> devices;
-lvn::getPhysicalDevices(nullptr, &deviceCount);
-
-devices.resize(deviceCount);
-lvn::getPhysicalDevices(devices.data(), &deviceCount);
-
-for (uint32_t i = 0; i < deviceCount; i++)
-{
-	LvnPhysicalDeviceInfo deviceInfo = lvn::getPhysicalDeviceInfo(devices[i]);
-	LVN_TRACE("name: %s, version: %d", deviceInfo.name, deviceInfo.driverVersion);
-}
-
-``` 
-We first use ```lvn::getPhysicalDevices``` to get the number of physical devices available which is then used to create a temporary storage of ```LvnPhysicalDevices*``` in an ```std::vector```. We then call ```lvn::getPhysicalDevices``` again, this time with the vector of devices passed in to acquire the physical devices. After that we can check each physical device's information such as the name of the device and version by retrieving a ```LvnPhysicalDeviceInfo``` struct through ```lvn::getPhysicalDeviceInfo```.
-
-Note that the driver and api version in the info struct directly corresponds to the information Vulkan provides in ```VkPhysicalDeviceProperties```.
-
-After a suitable physical device has been found, attach it to the ```LvnRenderInitInfo``` struct and call the render init function to initialize rendering:
 ```
-	LvnRenderInitInfo renderInfo{};
 
-	// find and check if physical device is supported
-	for (uint32_t i = 0; i < deviceCount; i++)
-	{
-		if (lvn::checkPhysicalDeviceSupport(devices[i]) == Lvn_Result_Success)
-		{
-			renderInfo.physicalDevice = devices[i];
-			break;
-		}
-	}
+### Terminating the Context
 
-	lvn::renderInit(&renderInfo);
-```
-The function ```checkPhysicalDeviceSupport``` checks if a physical device is supported, if the device has the required extensions the function will return on success. In the example above, we iterate through the list of physical devices until a physical device is found that is supported. Note that if a physical device is not suitable or a requirement is missing from the physical device such as an extension or feature, the function will return on failure. 
+If levikno no longer needs to be used, the context needs to be terminated before exiting, this is usually placed at the end of the program:
 
-### Creating Window
-Like creating any other object, we first declare the create info struct:
-```
-LvnWindowCreateInfo windowInfo{};
-```
-Then fill in all the necessary parameters:
 ```
 ...
+
+lvn::terminateContext();
+```
+
+Note that all other objects created from from levikno must be destroyed before calling to terminate the context, otherwise levikno will give log errors of undestroyed objects.
+
+## 4.3 Opening a Window
+
+Like creating any other object, first declare the createInfo struct for a window then fill in the necessary parameters. For creating a window, you must pass in the width, height, and title of the window. We can use levikno's `configWindowInit()` function to set all the parameters correctly:
+
+```
+LvnWindowCreateInfo windowInfo = lvn::configWindowInit(800, 600 "myWindow");
+```
+
+If you are wondering what the default parameters should be for the window createInfo struct, here is the full declaration below:
+
+```
 LvnWindowCreateInfo windowInfo{};
-windowInfo.width = 800;
-windowInfo.height = 600;
-windowInfo.title = "leviknoTutorial";
-windowInfo.fullscreen = false;
-windowInfo.resizable = true;
-windowInfo.minWidth = 300;
-windowInfo.minHeight = 200;
+windowInfo.width = 0;
+windowInfo.height = 0;
+windowInfo.title = "";
+windowInfo.minWidth = 0;
+windowInfo.minHeight = 0;
 windowInfo.maxWidth = -1;
 windowInfo.maxHeight = -1;
+windowInfo.fullscreen = false;
+windowInfo.resizable = true;
+windowInfo.vSync = false;
 windowInfo.pIcons = nullptr;
 windowInfo.iconCount = 0;
+windowInfo.eventCallBack = nullptr;
+windowInfo.userData = nullptr;
 ```
+
 Most of these parameters are self-explanatory
-* The ```width``` and ```height``` defines the dimensions of out window in pixels.
-* The ```title``` displays the name of the window in the title bar
-* the ```maxWidth``` and ```maxHeight``` parameters specify the maximum size of the window. By default they are set to -1 which disables it.
-* The ```pIcons``` parameter takes in an array of ```LvnWindowIconData``` structs which specifies the different icon images and sizes to use for the window.
-* The ```iconCount``` parameter is the number of icon structs within the ```pIcons``` array.
 
-Note: Whenever parameters have a prefix ```p``` in front of the type name, it indicates that an array of data can be taken in with a pointer to the first element in the array. This parameter is usually followed by another unsigned integer parameter that asks for the number of elements in the array with the suffix ```Count```. For example, ```pIcons``` and ```iconCount```
+*   the `width` and height defines the dimensions of out window in pixels.
+*   the `title` displays the name of the window in the title bar
+*   the `maxWidth` and `maxHeight` parameters specify the maximum size of the window. By default they are set to -1 which disables it.
+*   the `pIcons` parameter takes in an array of `LvnWindowIconData` structs which specifies the different icon images and sizes to use for the window.
+*   the `iconCount` parameter is the number of icon structs within the pIcons array.
+*   the `eventCallBack` and `userData` parameters take in a callback function for handling events from the window such as key inputs, mouse and scroll inputs, window size, and mouse positions.
 
-Now declare a ```LvnWindow*``` pointer and pass both the pointer and the create info struct to its respective create function:
+Note: Parameters with the prefix `p` in front of the parameter name indicates that an array of data can be taken in with a pointer to the first element in the array. This parameter is usually followed by another unsigned integer parameter that takes in the number of elements in the array with the suffix `Count`. For example, `pIcons` and `iconCount`
+
+Now to create the window, declare a `LvnWindow*` pointer and pass the object and its createInfo struct to its respective create function:
+
 ```
 ...
 
-LvnWindowCreateInfo windowInfo{};
-windowInfo.width = 800;
-windowInfo.height = 600;
-windowInfo.title = "leviknoTutorial";
-windowInfo.fullscreen = false;
-windowInfo.resizable = true;
-windowInfo.minWidth = 300;
-windowInfo.minHeight = 200;
-windowInfo.maxWidth = -1;
-windowInfo.maxHeight = -1;
-windowInfo.pIcons = nullptr;
-windowInfo.iconCount = 0;
+LvnWindowCreateInfo windowInfo = lvn::configWindowInit(800, 600 "myWindow");
 
 LvnWindow* window;
 lvn::createWindow(&window, &windowInfo);
 ```
 
-If we want to also check if an object has been successfully created, we can check the ```LvnResult``` enum the function returns:
-```
-...
+After creating our window, we can now create a main rendering loop for our window:
 
-LvnWindow* window;
-LvnResult result = lvn::createWindow(&window, &windowInfo);
-if (result == Lvn_Result_Failure)
-{
-	// do something for error
-	return -1;
-}
-```
-
-
-After successfully creating a window, we can then use our window in the main rendering loop:
 ```
 ...
 
 while (lvn::windowOpen(window))
 {
-	lvn::windowUpdate(window);
-
+    lvn::windowUpdate(window);
+    lvn::windowPollEvents();
 }
 
 lvn::destroyWindow(window);
-```
-In the example above, ```lvn::windowOpen(window)``` is a function that returns a boolean value if the window is open or not, the function returns false if the window has been closed.
 
-In the loop, ```lvn::windowUpdate(window)``` updates window and poll events related to the api.
-
-Finally make sure to destroy the window using ```lvn::destroyWindow(window)``` at the end of the program after the window closes.
-
-### Creating Buffers
-Buffers are used to store vertex and index data to draw to the screen. In Levikno, the vertex and index buffer are both stored in one ```LvnBuffer``` object. Create a ```LvnBufferCreateInfo``` struct with the following parameters:
+lvn::terminateContext();
 ```
-LvnBufferCreateInfo bufferCreateInfo{};
-bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-```
-```type``` indicates what this buffer should be used for, since we want to have a buffer that contains both the vertex and index data, we set the type to ```Lvn_BufferType_Vertex | Lvn_BufferType_Index```.
 
-Now let's create the vertex and index data for our buffer to store, I will keep this to a simple triangle:
+In the example above, `lvn::windowOpen(window)` is a function that returns a boolean value if the window is open or not, the function returns false if the window has been closed.
+
+In the loop, `lvn::windowUpdate(window)` updates the window every frame and `lvn::windowPollEvents()` checks for window events such as window resizes, focus events, move events, and other inputs.
+
+Finally make sure to destroy the window using `lvn::destroyWindow(window)` at the end of the program after the window closes.
+
+## 4.4 Creating Buffers
+
+Buffers are used to store arbitrary data for the GPU to access and use such as vertex and index data for rendering. For this case, we will create a vertex and index buffer to store vertices for a simple triangle.
+
+### Vertex Buffer
+
+To create a buffer, first declare a `LvnBufferCreateInfo` struct to specify the parameters of the buffer:
+
 ```
+...
+
 float vertices[] = 
 {
-/*      Pos (x,y,z)   |   color (r,g,b)   */
-	 0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
-	 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
-	-0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
+  /*   pos (x,y,z)   |  color (r,g,b)   */
+    0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
+    0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
+   -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
 };
+
+LvnBufferCreateInfo bufferCreateInfo{};
+bufferCreateInfo.type = Lvn_BufferType_Vertex;
+bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+bufferCreateInfo.size = sizeof(vertices);
+bufferCreateInfo.data = vertices;
+
+LvnBuffer* vertexBuffer;
+lvn::createBuffer(&vertexBuffer, &bufferCreateInfo);
+```
+
+There are a few things to note here in `bufferCreateInfo`:
+
+*   `type` specifies the type of buffer being used, buffers can be multiple types. Since we only store vertex data in this buffer, we only need to provide `Lvn_BufferType_Vertex`.
+*   `usage` specifies how the data in the buffer should be used over time, there are three main usages:
+    
+    *   `Lvn_BufferUsage_Static`: specifies that data in the buffer never changes
+    *   `Lvn_BufferUsage_Dynamic`: specifies that data in the buffer can change over time and can be updated with new data
+    *   `Lvn_BufferUsage_Resize`: specifies that data in the buffer can be resized over time to a new size and can be updated with new data
+    
+    For our case, we don't need to update our buffer data later on so we use Lvn\_BufferUsage\_Static.
+    
+*   `size` specifies the size of the buffer, here `sizeof(vertices)` gets the entire size of our vertices array.
+*   `data` specifies the data for the buffer, we give our vertices array which is also a pointer to the beginning of the array. Note that `data` can be left nullptr if you want to update the buffer later, although you would need to set the buffer usage to dynamic.
+
+### Index Buffer
+
+Now create the index buffer similarly to how we created the vertex buffer:
+
+```
+...
 
 uint32_t indices[] = 
 {
-	0, 1, 2
+    0, 1, 2
+};
+
+// use the same bufferCreateInfo struct from before
+bufferCreateInfo.type = Lvn_BufferType_Index;
+bufferCreateInfo.usage = Lvn_BufferUsage_Static;
+bufferCreateInfo.size = sizeof(indices);
+bufferCreateInfo.data = indices;
+
+LvnBuffer* indexBuffer;
+lvn::createBuffer(&indexBuffer, &bufferCreateInfo);
+```
+
+Not much is different here besides changing the type to `Lvn_BufferType_Index` and the buffer size and data.
+
+Make sure to also destroy the buffers at the end of the program once the window closes:
+
+```
+    while (lvn::windowOpen(window))
+    {
+        ...
+    }
+
+    lvn::destroyBuffer(vertexBuffer);
+    lvn::destroyBuffer(indexBuffer);
+
+    ...
+
+}
+```
+
+## 4.5 Shaders and Pipelines
+
+The next step before we can draw anything onto our window is to create a rendering pipeline for the GPU which outlines the necessary procedures for translating vertices and color onto the screen.
+
+Before creating the pipeline, here is what the LvnPipelineCreateInfo struct contains below:
+
+```
+struct LvnPipelineCreateInfo
+{
+    LvnPipelineSpecification* pipelineSpecification;
+    LvnVertexBindingDescription* pVertexBindingDescriptions;
+    uint32_t vertexBindingDescriptionCount;
+    LvnVertexAttribute* pVertexAttributes;
+    uint32_t vertexAttributeCount;
+    LvnDescriptorLayout** pDescriptorLayouts;
+    uint32_t descriptorLayoutCount;
+    LvnShader* shader;
+    LvnRenderPass* renderPass;
 };
 ```
-Notice in out vertices data, each vertex contains six floats, the first three floats define the vertex position and the next three floats contain the color data. We need to tell our buffer how the vertex data is laid out by passing in the vertex attributes and binding descriptions. Let's first create the vertex attributes, the ```LvnVertexAttribute``` struct looks like this:
+
+As you can see, the Pipeline createInfo struct requires a lot of parameters so let's go over them one at a time.
+
+### Pipeline Specification (fixed functions)
+
+`pipelineSpecification` is a pointer to a `LvnPipelineSpecification` struct which holds the pipeline's state or "fixed functions" such as the cull mode, depth stencil operations, viewports, multisampling, draw topology, and rasterization.
+
+In most cases we don't need to change any of the fixed functions after the pipeline is created hence the name "fixed". To set up our pipeline specification struct, levikno provides a config function, `configPipelineSpecificationInit()`, that sets up all of the default parameters for us.
+
+Create a `LvnPipelineSpecification` struct and a `LvnPipelineCreateInfo` below:
+
+```
+LvnPipelineSpecification pipelineSpec = lvn::configPipelineSpecificationInit();
+
+LvnPipelineCreateInfo pipelineCreateInfo{};
+pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
+```
+
+You can change some of the parameters in pipelineSpec if you want to configure the rendering pipeline.
+
+### Vertex Bindings and Attributes
+
+Recall from the part when we created our vertex buffer, notice how the vertex data being inputed has six floats per row:
+
+```
+float vertices[] =
+{
+  /*   pos (x,y,z)   |  color (r,g,b)   */
+    0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
+    0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
+   -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
+};
+```
+
+For each row or vertex, we first give three float values that define the vertex's coordinate positions, then the next three floats are the color components given in RGB.
+
+When creating the pipeline, we need to tell our pipeline how the vertex data from our buffers should be read. To do this we create a `LvnVertexAttribute` struct which looks like this:
+
 ```
 struct LvnVertexAttribute
 {
-	uint32_t binding;
-	uint32_t layout;
-	LvnVertexDataType type;
-	uint32_t offset;
+    uint32_t binding;
+    uint32_t layout;
+    LvnVertexDataType type;
+    uint32_t offset;
 };
 ```
-- ```binding``` is the binding number which this attribute takes its data from
-- ```layout``` is the shader input location number for this attribute
-- ```type``` is defines the size and type of the vertex attribute data
-- ```offset``` is the byte offset of this attribute relative to the start of the vertex input binding
 
-Now add the following lines to the code:
+*   `binding` is the binding number which this attribute takes its data from
+*   `layout` is the shader input location number for this attribute
+*   `type` is a LvnVertexDataType enum which defines the size and type of the vertex attribute data
+*   `offset` is the byte offset of this attribute relative to the start of the vertex input binding
+
+For more information on how attributes and vertex input processing works, the Vulkan docs have a detailed [guide](https://docs.vulkan.org/guide/latest/vertex_input_data_processing.html) on how it works.
+
+Now create the attributes and add to the pipeline createInfo below:
+
 ```
-LvnVertexAttribute attributes[2] = 
+LvnVertexAttribute attributes[2] =
 {
-	{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-	{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
+    { 0, 0, Lvn_VertexDataType_Vec3f, 0 },
+    { 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
 };
 
 ...
 
-bufferCreateInfo.pVertexAttributes = attributes;
-bufferCreateInfo.vertexAttributeCount = 2;
+pipelineCreateInfo.pVertexAttributes = attributes;
+pipelineCreateInfo.vertexAttributeCount = 2;
 ```
-Note how we have two vertex attributes, one for the position and the second for the color data, both have the size and type ```vec3``` in the shader.
 
-Next we also need to define the vertex binding descriptions, the struct for ```LvnVertexBindingDescription``` looks like this:
+Note how we have two vertex attributes, one for the position and the second for the color data, both have the size and type vec3 in the shader.
+
+Next we need to define the vertex binding descriptions, the struct for `LvnVertexBindingDescription` looks like this:
+
 ```
 struct LvnVertexBindingDescription
 {
-	uint32_t binding;
-	uint32_t stride;
+    uint32_t binding;
+    uint32_t stride;
 };
 ```
-- ```binding``` is the binding number that this structure describes to a place in memory
-- ```stride``` is the consecutive length in bytes of the entire vertex (size in bytes of one vertex)
 
-Add the new lines in the code below:
+*   `binding` is the binding number that this structure describes to a place in memory
+*   `stride` is the length in bytes of the entire vertex (size in bytes of one vertex)
+
+Our vertex has a stride of 6 floats (24 bytes), 3 floats for the position and 3 floats for the color data.
+
+Add the new lines to the code below to specify the vertex binding description:
+
 ```
 ...
 
 LvnVertexBindingDescription vertexBindingDescription{};
 vertexBindingDescription.binding = 0;
-vertexBindingDescription.stride = 6 * sizeof(float);
+vertexBindingDescription.stride = 6 * sizeof(float); // 3 floats for pos and 3 floats for color
 
-...
-
-bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-bufferCreateInfo.vertexBindingDescriptionCount = 1;
-```
-Our vertex has a stride of 6 floats (24 bytes), 3 floats for the position and 3 floats for the color data.
-
-The last parameters require the vertex and index data themselves as well as the total size (in bytes) of the vertex and index data:
-```
-...
-
-bufferCreateInfo.pVertices = vertices;
-bufferCreateInfo.vertexBufferSize = sizeof(vertices);
-
-bufferCreateInfo.pIndices = indices;
-bufferCreateInfo.indexBufferSize = sizeof(indices);
-```
-
-Now with all the necessary parameters filled, we can now create our buffer, the final code should look something like this:
-```
-// vertex data
-float vertices[] = 
-{
-/*      Pos (x,y,z)   |   color (r,g,b)   */
-	 0.0f,-0.5f, 0.0f, 1.0f, 0.0f, 0.0f, // v1
-	 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // v2
-	-0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // v3
-};
-
-// index data
-uint32_t indices[] = 
-{
-	0, 1, 2
-};
-
-// vertex attribute data
-LvnVertexAttribute attributes[2] = 
-{
-	{ 0, 0, Lvn_VertexDataType_Vec3f, 0 },
-	{ 0, 1, Lvn_VertexDataType_Vec3f, (3 * sizeof(float)) },
-};
-
-// define the vertex binding description
-LvnVertexBindingDescription vertexBindingDescroption{};
-vertexBindingDescroption.binding = 0;
-vertexBindingDescroption.stride = 6 * sizeof(float);
-
-// combine all the data in the createInfo struct
-LvnBufferCreateInfo bufferCreateInfo{};
-bufferCreateInfo.type = Lvn_BufferType_Vertex | Lvn_BufferType_Index;
-bufferCreateInfo.pVertexBindingDescriptions = &vertexBindingDescroption;
-bufferCreateInfo.vertexBindingDescriptionCount = 1;
-bufferCreateInfo.pVertexAttributes = attributes;
-bufferCreateInfo.vertexAttributeCount = 2;
-bufferCreateInfo.pVertices = vertices;
-bufferCreateInfo.vertexBufferSize = sizeof(vertices);
-bufferCreateInfo.pIndices = indices;
-bufferCreateInfo.indexBufferSize = sizeof(indices);
-
-LvnBuffer* buffer;
-lvn::createBuffer(&buffer, &bufferCreateInfo);
-```
-
-### Shaders and Pipelines
-The next step before we can draw anything onto our window is to create a rendering pipeline. A rendering or graphics pipeline outlines the necessary procedures for translating vertices and color onto the screen.
-
-In order to create the pipeline, let's first see what the ```LvnPipelineCreateInfo``` struct contains:
-```
-struct LvnPipelineCreateInfo
-{
-	LvnPipelineSpecification* pipelineSpecification;
-	LvnVertexBindingDescription* pVertexBindingDescriptions;
-	uint32_t vertexBindingDescriptionCount;
-	LvnVertexAttribute* pVertexAttributes;
-	uint32_t vertexAttributeCount;
-	LvnDescriptorLayout** pDescriptorLayouts;
-	uint32_t descriptorLayoutCount;
-	LvnShader* shader;
-	LvnRenderPass* renderPass;
-};
-```
-There is a lot to unpack here so let's go over each parameter one at a time.
-
-#### Pipeline Specification (fixed functions)
-```pipelineSpecification``` is a pointer to a ```LvnPipelineSpecification``` struct which holds pipeline's state or "fixed functions" such as the cull mode, depth stencil operations, viewports, multisampling, draw topology, and rasterization.
-
-In most cases we don't need to change any of these parameters after the pipeline has been creates hence the name "fixed" functions. Levikno provides a few default parameter functions which returns a fully initialized create info struct with all of the default parameters set.
-
-Create a ```LvnPipelineSpecification``` struct and a ```LvnPipelineCreateInfo``` struct:
-```
-LvnPipelineSpecification pipelineSpec = lvn::pipelineSpecificationGetConfig();
-
-LvnPipelineCreateInfo pipelineCreateInfo{};
-pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
-```
-```lvn::pipelineSpecificationGetConfig()``` returns a initialized ```LvnPipelineSpecification``` struct with all of its default parameters set for rendering.
-
-#### Vertex Attributes and Binding Description
-Next are the ```pVertexBindingDescriptions``` and ```pVertexAttributes```, recall from the [Creating Buffers](#creating-buffers) section where the vertex attributes and binding descriptions are needed to create the buffer. The same parameters are needed for creating the pipeline in order for the pipeline to know how the vertex data is laid out when it is used for rendering. If you have defined the vertex attributes and binding descriptions from the previous section, simply assign them again to the pipeline create info struct:
-```
 ...
 
 pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
 pipelineCreateInfo.vertexBindingDescriptionCount = 1;
-pipelineCreateInfo.pVertexAttributes = attributes;
-pipelineCreateInfo.vertexAttributeCount = 2;
 ```
 
-#### Descriptor Layouts
-We will be ignoring the ```pDescriptorLayouts``` and ```descriptorLayoutCount``` parameters for now since we aren't using them. Descriptor layouts and descriptor sets can be basically thought of as large chunks of resources that can be binded to the shader such as uniform buffer data and textures.
+### Descriptor Layouts
 
-#### Shader
-The ```shader``` parameter is where we add our ```LvnShader``` object, in most cases, the pipeline will use two shaders, the vertex and fragment shader used for transforming vertices and filling in the color between those vertices.
+For now we will ignore the `pDescriptorLayouts` and descriptorLayoutCount parameters since we don't need to use them. Descriptor layouts and descriptor sets are basically blueprints to organize large chunks of data that the GPU can access through the shader such as uniform buffer data and textures.
 
-We first have to create the vertex and fragment shader sources
+### Shaders
+
+The shader parameter is where we add our `LvnShader` object, in most cases, the pipeline will use two shaders, the vertex and fragment shader, for transforming vertices and computing the color data between vertices.
+
+Create the vertex and fragment shader source codes
 
 Vertex shader:
+
 ```
 #version 460
 
@@ -441,12 +523,13 @@ layout(location = 0) out vec3 fragColor;
 
 void main()
 {
-	gl_Position = vec4(inPos, 1.0);
-	fragColor = inColor;
+    gl_Position = vec4(inPos, 1.0);
+    fragColor = inColor;
 }
 ```
 
-Fragment shader:
+Fragment Shader:
+
 ```
 #version 460
 
@@ -456,17 +539,23 @@ layout(location = 0) in vec3 fragColor;
 
 void main()
 {
-	outColor = vec4(fragColor, 1.0);
+    outColor = vec4(fragColor, 1.0);
 }
 ```
 
-There are several ways we can load our shaders into Levikno through these functions:
-- ```createShaderFromSrc()``` creates the shader given the direct sources of the shader modules
-- ```createShaderFromFileSrc()``` creates the shader given the filepaths to the external files that contain the shader source
-- ```createShaderFromFileBin()``` creates a shader given the filepaths to the external binary files that contain the shader source (for vulkan this would be a SPIRV binary file ending in .spv)
+To create shaders in levikno, levikno provides several ways to load shaders:
 
-For this tutorial, we can just leave the shader sources within the main file as a string and load the shaders from src.
+*   `createShaderFromSrc()` creates the shader directly from a source string
+*   `createShaderFromFileSrc()` creates the shader from external files with the shader source code (eg. .vert, .frag, .glsl)
+*   `createShaderFromFileBin()` creates a shader from external binary files that with the shader binary code (for Vulkan this would be a SPIR-V binary file ending in .spv)
+
+For this case, we can just leave the shader source code within the main file and load the shaders from source.
+
+**Note: if you are using Vulkan and the glslang libraries were not included in during building, the createShaderFromSrc() and createShaderFromFileSrc() functions will not work and will return Lvn\_Result\_Failure. You will need to load your shaders as binaries.**
+
 ```
+...
+
 const char* vertexShader = R"(
 #version 460
 
@@ -477,8 +566,8 @@ layout(location = 0) out vec3 fragColor;
 
 void main()
 {
-	gl_Position = vec4(inPos, 1.0);
-	fragColor = inColor;
+    gl_Position = vec4(inPos, 1.0);
+    fragColor = inColor;
 })";
 
 const char* fragmentShader = R"(
@@ -490,10 +579,8 @@ layout(location = 0) in vec3 fragColor;
 
 void main()
 {
-	outColor = vec4(fragColor, 1.0);
+    outColor = vec4(fragColor, 1.0);
 })";
-
-...
 
 LvnShaderCreateInfo shaderCreateInfo{};
 shaderCreateInfo.vertexSrc = vertexShader;
@@ -502,30 +589,28 @@ shaderCreateInfo.fragmentSrc = fragmentShader;
 LvnShader* shader;
 lvn::createShaderFromSrc(&shader, &shaderCreateInfo);
 ```
-Note that ```LvnShaderCreateInfo``` is taken in by all three create shader functions and contains only two string parameters for the vertex and fragment shader. If you were loading the shaders through an external file instead, you would just replace the ```vertexSrc``` and ```fragmentSrc``` parameters with the filepaths to the external files, for example:
-```
-shaderCreateInfo.vertexSrc = "/home/user/Documents/shaders/vertexShader.vert";
-shaderCreateInfo.fragmentSrc = "/home/user/Documents/shaders/fragmentShader.frag";
 
-LvnShader* shader;
-lvn::createShaderFromFileSrc(&shader, &shaderCreateInfo); // Note that we are loading from file src
-```
+after creating the shader, add the shader to the pipeline createInfo struct:
 
-We can now add the shader to the pipeline create info struct:
 ```
 ...
 
 pipelineCreateInfo.shader = shader;
 ```
 
-#### Render Pass
-The last parameter is the ```renderPass``` parameter which takes in a ```LvnRenderPass``` object. A render pass is used to handle different color and depth attachments used for drawing our scene. Levikno does most of the background work for us when using render passes so we only care about where our render pass will be used to render, such as to a window or to an off screen framebuffer. Fortunately, when we creates a window from the [Creating Window](#creating-window) section, Levikno automatically creates a render pass along with it. The render pass can now be retrieved by calling this function:
+### Render Pass
+
+The last parameter is the `renderPass` parameter which takes in a `LvnRenderPass` object. A render pass is used to handle different color and depth attachments used for drawing our scene. Levikno does most of the background work for us when using render passes so we only care about where our render pass will be used to render, such as to a window or to an off screen framebuffer. When we created a window, levikno automatically creates a render pass along with it. The render pass can be retrieved by calling this function:
+
 ```
 LvnRenderPass* renderPass = lvn::windowGetRenderPass(window);
 pipelineCreateInfo.renderPass = renderPass;
 ```
 
-With all the parameters set, we can now combine all the parameters and create the pipeline:
+### Creating the Pipeline
+
+With all the parameters set, we can now create the pipeline:
+
 ```
 ...
 
@@ -545,57 +630,64 @@ lvn::createPipeline(&pipeline, &pipelineCreateInfo);
 
 lvn::destroyShader(shader);
 ```
-After creating the pipeline, the shader is no longer needed (unless you plan to use it again later) so we can destroy the shader right after creating the pipeline.
 
-### Drawing
-With all of our resources created, we can now draw to the window using our pipeline and buffer. In the main while loop, add the following lines of code:
+After the pipeline is created, if the shader is no longer needed it can be destroyed right after creating the pipeline.
+
+## 4.6 Drawing and Main Render Loop
+
+Drawing to the window requires a few extra functions. In the main while loop, add the following lines of code:
+
 ```
 ...
 
 while (lvn::windowOpen(window))
 {
-	lvn::windowUpdate(window);
+    lvn::windowUpdate(window);
+    lvn::windowPollEvents();
 
-	lvn::renderBeginNextFrame(window);
-	lvn::renderBeginCommandRecording(window);
+    lvn::renderBeginNextFrame(window);
+    lvn::renderBeginCommandRecording(window);
 
-	lvn::renderClearColor(window, 0.0f, 0.0f, 0.0f, 1.0f);
-	lvn::renderCmdBeginRenderPass(window);
+    lvn::renderCmdBeginRenderPass(window, 0.0f, 0.0f, 0.0f, 1.0f);
 
-	lvn::renderCmdBindPipeline(window, pipeline);
+    lvn::renderCmdBindPipeline(window, pipeline);
 
-	lvn::renderCmdBindVertexBuffer(window, buffer);
-	lvn::renderCmdBindIndexBuffer(window, buffer);
+    lvn::renderCmdBindVertexBuffer(window, 0, 1, &vertexBuffer, 0);
+    lvn::renderCmdBindIndexBuffer(window, indexBuffer, 0);
 
-	lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0])); // number of elements in indices array (3)
+    lvn::renderCmdDrawIndexed(window, sizeof(indices) / sizeof(indices[0])); // number of elements in indices array (3)
 
-	lvn::renderCmdEndRenderPass(window);
-	lvn::renderEndCommandRecording(window);
-	lvn::renderDrawSubmit(window);
+    lvn::renderCmdEndRenderPass(window);
+    lvn::renderEndCommandRecording(window);
+    lvn::renderDrawSubmit(window);
 }
 ```
-Note that most render functions have the prefix ```render``` in front of the function to indicate that it is used for rendering, you will mostly use these functions only within the rendering loop.
+
+Note that most render functions have the prefix render in front of the function to indicate that it is used for rendering, you will mostly use these functions only within the rendering loop.
 
 Also note that most rendering functions will take in the window as the first parameter since the window contains most of the necessary resources for rendering such as the swapchain images, framebuffer, render passes, and surface data.
 
-Let's break this code down:
-- ```renderBeginNextFrame()``` begins the next window frame (in Vulkan, it acquires the next image from the swap chain)
-- ```renderBeginCommandRecording()``` begins recording render commands under the window passed in. Note that rendering functions with the prefix ```renderCmd``` must be called only during command buffer recording
-- ```renderClearColor()``` takes in four floats which are the red, green, blue, and alpha, components for the background color
-- ```renderCmdBeginRenderPass()``` begins the render pass for the window given
-- ```renderCmdBindPipeline()``` binds the pipeline
-- ```renderCmdBindVertexBuffer()``` and ```renderCmdBindIndexBuffer()``` binds the vertex and index buffer respectively. Note that the buffer we created contains both the vertex and index data, if a buffer is created with only vertex data, only the bind vertex function is needed.
-- ```renderCmdDrawIndexed()``` will "draw" the vertices in our binded buffer using the index data provided and given the index count of our indices. Because our triangle only has three indices to draw three vertices, we pass 3 into our function
-- ```renderCmdEndRenderPass()``` and ```renderEndCommandRecording()``` ends the render pass and command buffer respectively
-- ```renderDrawSubmit()``` is the function that actually submits all out render commands recorded in our command buffers and sends them to the GPU (physical device). Once the GPU finishes rendering the frame, it is then presented to the window
+Let's break down what is happening in the main loop:
 
-Don't forget to also destroy all of the resources we created when the window is closed and the program ends. We also need to terminate the levikno context before the program exits to ensure if all the resources have been destroyed:
+*   `renderBeginNextFrame()` begins the next window frame (in Vulkan, it acquires the next image from the swap chain). This is usually called at the beginning of a new frame or render loop.
+*   `renderBeginCommandRecording()` begins command buffer recording for Vulkan under the surface. Note that rendering functions with the prefix `renderCmd` must be called only during command buffer recording.
+*   `renderCmdBeginRenderPass()` begins the render pass for the window given. It then takes in four float values which are the color components in RGBA for the background color.
+*   `renderCmdBindPipeline()` binds the pipeline.
+*   `renderCmdBindVertexBuffer()` binds the vertex buffer, the first parameter takes in the window, the second and third parameters are the firstBinding and bindingCount, here the binding is set to 0 and the count set to 1 because we only have one binding. The forth and fifth parameters are pBuffers and pOffsets which takes in an array of buffers and offsets if we have more than one binding.
+*   `renderCmdBindIndexBuffer()` binds the index buffer, the window and indexBuffer is passed in for the first and second parameters. The third parameter is an offset value which can be used if the index data and the vertex data are stored within the same buffer.
+*   `renderCmdDrawIndexed()` will draw the vertices using the index data from our buffers. Because our triangle only has three indices to draw three vertices, we pass 3 into our function.
+*   `renderCmdEndRenderPass()` and `renderEndCommandRecording()` ends the render pass and command buffer respectively
+*   `renderDrawSubmit()` submits the draw commands from the command buffers and sends them to the GPU to render. It then presents the drawn data to the window after the GPU finishes rendering
+
+Remember to destroy all of the object created when before terminating the context and exiting the program:
+
 ```
 ...
 
-/* we destroyed our shader earlier after creating the pipeline */
+// we destroyed our shader earlier after creating the pipeline
 
-lvn::destroyBuffer(buffer);
+lvn::destroyBuffer(vertexBuffer);
+lvn::destroyBuffer(indexBuffer);
 lvn::destroyPipeline(pipeline);
 lvn::destroyWindow(window);
 
@@ -604,10 +696,10 @@ lvn::terminateContext();
 return 0;
 ```
 
-Now build and run the program, you should now see your triangle appear.
+Now compile and run the program, a triangle should appear on the window.
 
 <p align="center">
     <img src="https://github.com/binmian/Levikno/blob/main/.github/simpleTriangleExample.png">
 </p>
 
-The [source](https://github.com/binmian/Levikno/blob/main/examples/simpleTriangle.cpp) code for this section can be found in the examples folder
+You can also check [here](https://github.com/binmian/levikno/blob/main/examples/simpleTriangle.cpp) to see the full source code for this example.

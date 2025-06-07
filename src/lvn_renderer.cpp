@@ -1171,6 +1171,11 @@ void drawCircleEx(const LvnCircle& circle, const LvnVec2& pos)
     renderer->renderModes[Lvn_RenderMode_2d].drawLists.back().push_back(drawCmd);
 }
 
+void drawPolyEx(const LvnPolygon& poly, const LvnVec2& pos)
+{
+    
+}
+
 void drawSprite(const LvnSprite& sprite, const LvnVec2& pos, const LvnColor& tint)
 {
     LvnVertexData2d vertices[] =
@@ -1337,5 +1342,7 @@ bool collisionCircleToCircle(const LvnCollisionCircle& circle1, const LvnCollisi
 {
     return (lvn::distance(circle1.pos, circle2.pos) <= circle1.radius + circle2.radius);
 }
+
+bool collisionConvexPolyToPolySAT();
 
 } /* namespace lvn */
