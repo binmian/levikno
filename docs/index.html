@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>levikno</title>
+    <meta name="description" content="leviknow is a multimedia library written in C++ for rendering graphics">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <link rel="icon" href="icon.png"> -->
+
+<style>
+
+h1, h2, h3 {
+    margin-top: 1em;
+    color:#333;
+}
+
+pre {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: sans-serif;
+    font-size: 11pt;
+    line-height: 18pt;
+    margin: 0;
+    padding: 0;
+    background-color: #eee;
+}
+
+header {
+    background-color: #000038;
+    color: #fff;
+    width: 100%;
+    height: 25px;
+    top: 0;
+    position: fixed;
+}
+
+footer {
+    position: relative;
+    border-top: solid 1px #bbb;
+    height: 10em;
+    margin-left: 20em;
+    background-color: #000038;
+}
+
+header nav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+header nav li {
+    float: left;
+    padding-left: 1em;
+}
+
+header a {
+    color: #ccc;
+    text-decoration: none;
+    text-align: center;
+}
+
+header a:hover {
+    color: #fff;
+}
+
+main nav {
+    float: left;
+    width: 20em;
+    height: calc(100% - 25px);
+    top: 25px;
+    position: fixed;
+    overflow-y: auto;
+}
+
+main nav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+main nav a {
+    display: block;
+    padding: 0.5em;
+    color: #000038;
+    text-decoration: none;
+    border-bottom: solid 1px #bbb;
+}
+
+main nav a:hover {
+    color: #fff;
+    background-color: #000038;
+}
+
+.side-nav-links-active a {
+    background-color: #ddd;
+}
+
+.side-nav-links-active a:hover {
+    color: #000038;
+    background-color: #ddd;
+}
+
+.side-nav-links-l1 a {
+    background-color: #eee;
+    padding: 0.1em;
+    padding-left: 1.5em;
+    border-bottom: none;
+}
+
+.side-nav-links-l1 a:hover {
+    color: #fff;
+    background-color: #000038;
+}
+
+.side-nav-links-l2 a {
+    background-color: #eee;
+    font-size: 92%;
+    padding: 0.1em;
+    padding-left: 2.5em;
+    border-bottom: none;
+}
+
+.side-nav-links-l2 a:hover {
+    color: #fff;
+    background-color: #000038;
+}
+
+.content {
+    margin-top: 6em;
+    padding-left: 1em;
+}
+
+.main-section {
+    margin-left: 20em;
+    margin-top: 25px;
+    border-left: solid 1px #bbb;
+    height: 100%;
+}
+
+.code-box {
+    background-color: #e5e5e5;
+    line-height: 125%;
+    max-height: 40em;
+    border: solid 1px #000038;
+    border-left: solid 5px #000038;
+    margin-bottom: 1em;
+    margin-right: 1em;
+    padding: 0.5em;
+    padding-top: 0.8em;
+    padding-bottom: 0.8em;
+    padding-left: 1em;
+    overflow: auto;
+}
+
+.code-box-inline {
+    background-color: #e5e5e5;
+    padding-left: 0.3em;
+    padding-right: 0.3em;
+    border-radius: 5px;
+    border: solid 1px #bbb;
+}
+
+.cpp-macro { color: #8e8f91; /* #6b86ed; */ }
+.cpp-macro-str { color: #bf6018; /* #6b86ed; */ }
+.cpp-func { color: #897702; }
+.cpp-expr { color: #9559d1; }
+.cpp-type { color: #0000aa; }
+.cpp-def { color: #4a3a63; }
+.cpp-enum { color: #47726f; }
+.cpp-struct-type { color: #039199; }
+.cpp-string { color: #073f11; /* #86e097; */ }
+.cpp-value { color: #c95700; }
+.cpp-comment { color: #888888; }
+
+</style>
+
+</head>
+<body>
+<header>
+    <nav>
+        <ul>
+            <li><a href="index.html">Levikno</a></li>
+            <li><a href="index.html">Documentation</a></li>
+        </ul>
+    </nav>
+    <div style="float:right;">
+        Head
+    </div>
+</header>
+<main>
+    <nav>
+        <ul>
+            <li><a href="index.html">Documentation Home</a></li>
+            <li class="side-nav-links-active"><a href="index.html">Programming Manual</a>
+                <ul class="side-nav-links-l1">
+                    <li><a href="#Introduction">1. Introduction</a></li>
+                    <li><a href="#Downloading">2. Downloading</a></li>
+                    <li><a href="#Building">3. Building</a></li>
+                    <li><a href="#GettingStarted">4. Getting Started</a>
+                        <ul class="side-nav-links-l2">
+                            <li><a href="#APIStructure">4.1 API Structure</a></li>
+                            <li><a href="#CreatingTheContext">4.2 Creating the Context</a></li>
+                            <li><a href="#OpeningWindow">4.3 Opening a Window</a></li>
+                            <li><a href="#CreatingBuffers">4.4 Creating Buffers</a></li>
+                            <li><a href="#ShadersPipelines">4.5 Shaders and Pipelines</a></li>
+                            <li><a href="#DrawingMainRenderLoop">4.6 Drawing and Main Render Loop</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <li><a href="index.html" style="border-top: solid 1px #bbbbbb;">Examples</a></li>
+            <li><a href="index.html">API Reference</a></li>
+        </ul>
+    </nav>
+    <div class="main-section">
+        <div style="text-align:center; font-size:13pt; padding-top:3em;">
+            <h1 style="color:#444;">Programming Manual</h1>
+        </div>
+        <div class="content">
+            <h1 id="Introduction">1. Introduction</h1>
+            <p>Levikno is a graphics framework built in C++ for game development and multimedia applications. The Levikno library is built on top of OpenGL and Vulkan and is designed to support and wrap around multiple graphics APIs.</p>
+            <p>The core API structure of levikno is designed similar to Vulkan API calls, meaning concepts such as pipelines, buffers, descriptor layouts/sets and command buffers will be used. This is made so that less explicit APIs such as OpenGL can be integrated without abstracting too much from lower level APIs such as Vulkan.</p>
+            <h1 id="Downloading">2. Downloading</h1>
+            <p>The Levikno source code can be downloaded from the <a href="https://github.com/binmian/levikno/tree/main" target="_blank">github</a> repository.</p>
+            <h1 id="Building">3. Building</h1>
+            <h3>Prerequisites:</h3>
+            <ul>
+                <li>cmake</li>
+                <li>C++17 compiler</li>
+            </ul>
+            <p>First clone the repository to a directory and enter into it</p>
+            <div class="code-box">
+                <pre><code>git clone https://github.com/binmian/levikno.git levikno
+cd levikno</code></pre>
+            </div>
+            <h2>3.1 Installing Vulkan and glslang</h2>
+            <p>Before Building, levikno optionally supports Vulkan and the glslang library for compiling glsl shader code to SPIR-V binaries. If Vulkan is not supported on your system or graphics card, Vulkan will be skipped during the build process. Due note that you won't be able to use Vulkan when choosing the graphics API. Alternately, if Vulkan is supported but the the glslang libraries are not supported or are not found, Vulkan will still be included during the build process, however loading shader code from source will not be available.</p>
+            <p>If you don't need to use Vulkan or glslang, you can skip this part and move on to the next section <a href="#BuildingWithCMake">3.2 Building with CMake</a>.</p>
+            <h3>Installing on Windows</h3>
+            <p>To install Vulkan on Windows, download the VulkanSDK installer from the <a href="https://vulkan.lunarg.com/" target="_blank">LunarG website</a> and install the Vulkan libraries, if you receive error messages, check to make sure your graphics drivers are up to date and that your system supports Vulkan.</p>
+            <p>For glslang, the glslang libraries need to be properly installed so that cmake can find the glslang package on Windows. Follow the instructions to build glslang from the <a href="https://github.com/KhronosGroup/glslang?tab=readme-ov-file" target="_blank">github repository</a>, you can either build and install glslang from source or through vcpkg.</p>
+            <h3>Installing on Linux</h3>
+            <p>On Linux, Vulkan and glslang can usually be installed through your distro's package manager.</p>
+            <p>On Debian based distros:</p>
+            <div class="code-box">
+                <pre><code>sudo apt install vulkan-tools libvulkan-dev vulkan-validationlayers-dev spirv-tools glslang-tools</code></pre>
+            </div>
+            <p>On Fedora based distros:</p>
+            <div class="code-box">
+                <pre><code>sudo dnf install vulkan-tools vulkan-loader-devel mesa-vulkan-devel vulkan-validation-layers-devel glslang</code></pre>
+            </div>
+            <p>On Arch based distros:</p>
+            <div class="code-box">
+                <pre><code>sudo pacman -S vulkan-devel glslang</code></pre>
+            </div>
+            <h2 id="BuildingWithCMake">3.2 Building with CMake</h2>
+            <p>Inside the git directory, create a new build directory and run cmake</p>
+            <div class="code-box">
+                <pre><code>mkdir build && cd build
+cmake ..</code></pre>
+            </div>
+            <p>On Windows, build using <code class="code-box-inline">cmake --build .</code></p>
+            <p>On Linux, build using <code class="code-box-inline">make</code></p>
+            <h1 id="GettingStarted">4. Getting Started</h1>
+            <p>After levikno has been built, link the levikno library to your project. Also add the include directory for levikno from the main git repository.</p>
+            <p>To use levikno, include "levikno/levikno.h":</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-macro">#include</span> <span class="cpp-macro-str">"levikno/levikno.h"</span></code></pre>
+            </div>
+            <h2 id="APIStructure">4.1 API Structure</h2>
+            <p>Before starting, it may be important to understand how levikno's API is structured</p>
+            <h3>Creating and Destroying Objects</h3>
+            <p>Levikno's API structure is mostly built on top of Vulkan's API which requires a low level and explicit interface, this also requires objects to be created and destroyed when used for rendering (eg. vertex buffers, shaders, framebuffers, pipelines, etc) In levikno, objects are usually created through this function format:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-type">LvnResult</span> <span class="cpp-func">createObject</span>(<span class="cpp-struct-type">Object</span>** object, <span class="cpp-struct-type">ObjectCreateInfoStruct</span>* createInfo)</code></pre>
+            </div>
+            <p>For any object that needs to be created, in most cases a create function will be associated with it. In the example above, the object will need to be passed in by pointer in the first parameter.</p>
+            <p>The second parameter usually takes in a createInfo struct that tells levikno how to create this object. Each object will also have a createInfo struct associated with it.</p>
+            <p>Note that objects also need to be declared as a pointer type (eg. LvnBuffer* buffer). In levikno, most objects from the core library are opaue structs.</p>
+            <p>Example:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-comment">// declare createInfo struct for LvnBuffer and set parameters</span>
+<span class="cpp-struct-type">LvnBufferCreateInfo</span> bufferInfo{};
+bufferInfo.type = <span class="cpp-enum">Lvn_BufferType_Vertex</span>;
+bufferInfo.usage = <span class="cpp-enum">Lvn_BufferUsage_Static</span>;
+bufferInfo.data = vertices;
+bufferInfo.size = <span class="cpp-expr">sizeof</span>(vertices);
+
+<span class="cpp-comment">// declare LvnBuffer object as a pointer type</span>
+<span class="cpp-struct-type">LvnBuffer</span>* buffer;
+
+<span class="cpp-comment">// create the object by passing it in with its createInfo struct</span>
+lvn::<span class="cpp-func">createBuffer</span>(&buffer, &bufferInfo);</code></pre>
+            </div>
+            <p>When creating an object, the function also returns a <code class="code-box-inline">LvnResult</code> enum which can be used to determine whether the function succeeded or failed. Each create object function usually returns <code class="code-box-inline">Lvn_Result_Success</code> or <code class="code-box-inline">Lvn_Result_Failure</code>. You can use the return type to handle errors.</p>
+            <p>Example:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-type">LvnResult</span> result = lvn::<span class="cpp-func">createBuffer</span>(&buffer, &bufferInfo);
+<span class="cpp-expr">if</span> (result == <span class="cpp-enum">Lvn_Result_Failure</span>)
+{
+    <span class="cpp-comment">// handle error ...</span>
+}</code></pre>
+            </div>
+            <p>When an object is no longer needed it must be manually destroyed, destroying an object requires passing it into its associated destroy function:</p>
+            <div class="code-box">
+                <pre><code>void <span class="cpp-func">destroyObject</span>(<span class="cpp-struct-type">Object</span>* object)</code></pre>
+            </div>
+            <p>Example:</p>
+            <div class="code-box">
+                <pre><code>lvn::<span class="cpp-func">destroyBuffer</span>(buffer);</code></pre>
+            </div>
+            <h3>Syntax Structure</h3>
+            <p>When using the levikno library, functions, structs, enums, and macros each have their own specific syntax to differentiate them from one another:</p>
+            <ul>
+                <li>all functions are declared within the <code class="code-box-inline">lvn</code> namespace (ex. <code class="code-box-inline">lvn::createContext()</code>, <code class="code-box-inline">lvn::renderCmdDraw()</code>)</li> 
+                <li>structs and enums have the prefix <code class="code-box-inline">Lvn</code> in front of its object name (ex. <code class="code-box-inline">LvnBuffer</code>, <code class="code-box-inline">LvnResult</code>)</li> 
+                <li>enum variables start with the prefix <code class="code-box-inline">Lvn</code> followed by the name of the enum and then the value separated by underscores (ex. <code class="code-box-inline">Lvn_Result_Success</code>, <code class="code-box-inline">Lvn_GraphicsApi_vulkan</code>)</li>
+                <li>macros are in all uppercase and usually start with the prefix <code class="code-box-inline">LVN</code> separated by underscores (ex. <code class="code-box-inline">LVN_TRACE()</code>)</li>
+            </ul>
+            <h2 id="CreatingTheContext">4.2 Creating the Context</h2>
+            <p>To use levikno, a levikno context must first be created to initialize the library. First create a <code class="code-box-inline">LvnContextCreateInfo</code> struct and set the required arguments. Levikno requires a graphics and windows api to be set before creating the context, in this case we will use Vulkan and glfw.</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-macro">#include</span> <span class="cpp-macro-str">"levikno/levikno.h"</span>
+
+<span class="cpp-type">int</span> <span class="cpp-func">main</span>(<span class="cpp-type">int</span> argc, <span class="cpp-type">char</span>** argv)
+{
+    <span class="cpp-struct-type">LvnContextCreateInfo</span> lvnCreateInfo{};
+    lvnCreateInfo.windowapi = <span class="cpp-enum">Lvn_WindowApi_glfw</span>;
+    lvnCreateInfo.graphicsapi = <span class="cpp-enum">Lvn_GraphicsApi_vulkan</span>;
+
+    lvn::<span class="cpp-func">createContext</span>(&lvnCreateInfo);
+}</code></pre>
+            </div>
+            <p>Pass the create context struct into <code class="code-box-inline">lvn::createContext()</code> to initialize the library.</p>
+            <p>Also keep in mind that each struct needs to be intialized before being passed in to a function, this can be done with value initialization (the double curly braces at the end of lvnCreateInfo). Using value initialization fills the entire struct with its default values so we don't have to fill out the unnecassary parameters.</p>
+            <h3>Logging</h3>
+            <p>Before moveing on, it's recommended to enable logging for event messages or potential errors and may contain info that could help with debugging. To enable logging, set the <code class="code-box-inline">enableLogging</code> parameter to true within the create context struct.</p>
+            <p>Because we are using Vulkan, Vulkan has a special component called validation layers which can help catch errors and misuse of the Vulkan API. To enable error logging of Vulkan validation layers or other graphics api specific errors, set the <code class="code-box-inline">enableGraphicsApiDebugLogs</code> parameter to true as well. Note that if the <code class="code-box-inline">enableLogging</code> parameter is set to false, vulkan validation layers and graphics api specific error logs will not be enabled.</p>
+            <p>To enable logging, see the added lines to the code:</p>
+            <div class="code-box">
+            <pre><code><span class="cpp-struct-type">LvnContextCreateInfo</span> lvnCreateInfo{};
+lvnCreateInfo.windowapi = <span class="cpp-enum">Lvn_WindowApi_glfw</span>;
+lvnCreateInfo.graphicsapi = <span class="cpp-enum">Lvn_GraphicsApi_vulkan</span>;
+lvnCreateInfo.logging.enableLogging = <span class="cpp-value">true</span>;                 <span class="cpp-comment">// enable logging</span>
+lvnCreateInfo.logging.enableGraphicsApiDebugLogs = <span class="cpp-value">true</span>;    <span class="cpp-comment">// enable validation layers and graphics api specific logs</span>
+
+lvn::<span class="cpp-func">createContext</span>(&lvnCreateInfo);</code></pre>
+            </div>
+            <p>Logging is optional and is mostly used for debugging purposes. If logging is enabled, keep in mind the performance, Vulkan validation layers can add some extra overhead which may slow performance.</p>
+            <p>When creating the context with logging enabled, the context will create two loggers by default, the core logger and the client logger. The core logger is mostly reserved for use within the library although it can still be accessed outside of it. The client logger would typically be used  in the application side of a project.</p>
+            <p>If you don't want levikno to output logs from the core library, you can disable the core logger during context creation by setting the <code class="code-box-inline">disableCoreLogging</code> parameter to true:</p>
+            <div class="code-box">
+                <pre><code>lvnCreateInfo.logging.disableCoreLogging = <span class="cpp-value">true</span>;
+
+...</code></pre>
+            </div>
+            <h3>Terminating the Context</h3>
+            <p>If levikno no longer needs to be used, the context needs to be terminated before exiting, this is usually placed at the end of the program:</p>
+            <div class="code-box">
+                <pre><code>...
+
+lvn::<span class="cpp-func">terminateContext</span>();</code></pre>
+            </div>
+            <p>Note that all other objects created from from levikno must be destroyed before calling to terminate the context, otherwise levikno will give log errors of undestroyed objects.</p>
+            <h2 id="OpeningWindow">4.3 Opening a Window</h2>
+            <p>Like creating any other object, first declare the createInfo struct for a window then fill in the necessary parameters. For creating a window, you must pass in the width, height, and title of the window. We can use levikno's <code class="code-box-inline">configWindowInit()</code> function to set all the parameters correctly:</p> 
+            <div class="code-box">
+                <pre><code><span class="cpp-struct-type">LvnWindowCreateInfo</span> windowInfo = lvn::<span class="cpp-func">configWindowInit</span>(<span class="cpp-value">800</span>, <span class="cpp-value">600</span> <span class="cpp-string">"myWindow"</span>);</code></pre>
+            </div>
+            <p>If you are wondering what the default parameters should be for the window createInfo struct, here is the full declaration below:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-struct-type">LvnWindowCreateInfo</span> windowInfo{};
+windowInfo.width = <span class="cpp-value">0</span>;
+windowInfo.height = <span class="cpp-value">0</span>;
+windowInfo.title = <span class="cpp-string">""</span>;
+windowInfo.minWidth = <span class="cpp-value">0</span>;
+windowInfo.minHeight = <span class="cpp-value">0</span>;
+windowInfo.maxWidth = <span class="cpp-value">-1</span>;
+windowInfo.maxHeight = <span class="cpp-value">-1</span>;
+windowInfo.fullscreen = <span class="cpp-value">false</span>;
+windowInfo.resizable = <span class="cpp-value">true</span>;
+windowInfo.vSync = <span class="cpp-value">false</span>;
+windowInfo.pIcons = <span class="cpp-value">nullptr</span>;
+windowInfo.iconCount = <span class="cpp-value">0</span>;
+windowInfo.eventCallBack = <span class="cpp-value">nullptr</span>;
+windowInfo.userData = <span class="cpp-value">nullptr</span>;</code></pre>
+            </div>
+            <p>Most of these parameters are self-explanatory</p>
+            <ul>
+                <li>the <code class="code-box-inline">width</code> and <span class="code-box-inline">height</span> defines the dimensions of out window in pixels.</li>
+                <li>the <code class="code-box-inline">title</code> displays the name of the window in the title bar</li>
+                <li>the <code class="code-box-inline">maxWidth</code> and <code class="code-box-inline">maxHeight</code> parameters specify the maximum size of the window. By default they are set to -1 which disables it.</li>
+                <li>the <code class="code-box-inline">pIcons</code> parameter takes in an array of <code class="code-box-inline">LvnWindowIconData</code> structs which specifies the different icon images and sizes to use for the window.</li>
+                <li>the <code class="code-box-inline">iconCount</code> parameter is the number of icon structs within the pIcons array.</li>
+                <li>the <code class="code-box-inline">eventCallBack</code> and <code class="code-box-inline">userData</code> parameters take in a callback function for handling events from the window such as key inputs, mouse and scroll inputs, window size, and mouse positions.</li>
+            </ul>
+            <p>Note: Parameters with the prefix <code class="code-box-inline">p</code> in front of the parameter name indicates that an array of data can be taken in with a pointer to the first element in the array. This parameter is usually followed by another unsigned integer parameter that takes in the number of elements in the array with the suffix <code class="code-box-inline">Count</code>. For example, <code class="code-box-inline">pIcons</code> and <code class="code-box-inline">iconCount</code></p>
+            <p>Now to create the window, declare a <code class="code-box-inline">LvnWindow*</code> pointer and pass the object and its createInfo struct to its respective create function:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-struct-type">LvnWindowCreateInfo</span> windowInfo = lvn::<span class="cpp-func">configWindowInit</span>(<span class="cpp-value">800</span>, <span class="cpp-value">600</span> <span class="cpp-string">"myWindow"</span>);
+
+<span class="cpp-struct-type">LvnWindow*</span> window;
+lvn::<span cpp-func>createWindow</span>(&window, &windowInfo);</code></pre>
+            </div>
+            <p>After creating our window, we can now create a main rendering loop for our window:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-expr">while</span> (lvn::<span class="cpp-func">windowOpen</span>(window))
+{
+    lvn::<code class="cpp-func">windowUpdate</code>(window);
+    lvn::<code class="cpp-func">windowPollEvents</code>();
+}
+
+lvn::<span class="cpp-func">destroyWindow</span>(window);
+
+lvn::<span class="cpp-func">terminateContext</span>();</code></pre>
+            </div>
+            <p>In the example above, <code class="code-box-inline">lvn::windowOpen(window)</code> is a function that returns a boolean value if the window is open or not, the function returns false if the window has been closed.</p>
+            <p>In the loop, <code class="code-box-inline">lvn::windowUpdate(window)</code> updates the window every frame and <code class="code-box-inline">lvn::windowPollEvents()</code> checks for window events such as window resizes, focus events, move events, and other inputs.</p>
+            <p>Finally make sure to destroy the window using <code class="code-box-inline">lvn::destroyWindow(window)</code> at the end of the program after the window closes.</p>
+            <h2 id="CreatingBuffers">4.4 Creating Buffers</h2>
+            <p>Buffers are used to store arbitrary data for the GPU to access and use such as vertex and index data for rendering. For this case, we will create a vertex and index buffer to store vertices for a simple triangle.</p>
+            <h3>Vertex Buffer</h3>
+            <p>To create a buffer, first declare a <code class="code-box-inline">LvnBufferCreateInfo</code> struct to specify the parameters of the buffer:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-type">float</span> vertices[] = 
+{
+<span class="cpp-comment">  /*   pos (x,y,z)   |  color (r,g,b)   */</span>
+   <span class="cpp-value"> 0.0f</span>,<span class="cpp-value">-0.5f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-comment">// v1</span>
+   <span class="cpp-value"> 0.5f</span>,<span class="cpp-value"> 0.5f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-comment">// v2</span>
+   <span class="cpp-value">-0.5f</span>,<span class="cpp-value"> 0.5f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>, <span class="cpp-comment">// v3</span>
+};
+
+<span class="cpp-struct-type">LvnBufferCreateInfo</span> bufferCreateInfo{};
+bufferCreateInfo.type = <span class="cpp-enum">Lvn_BufferType_Vertex</span>;
+bufferCreateInfo.usage = <span class="cpp-enum">Lvn_BufferUsage_Static</span>;
+bufferCreateInfo.size = <span class="cpp-expr">sizeof</span>(vertices);
+bufferCreateInfo.data = vertices;
+
+<span class="cpp-struct-type">LvnBuffer*</span> vertexBuffer;
+lvn::<span class="cpp-func">createBuffer</span>(&vertexBuffer, &bufferCreateInfo);</code></pre>
+            </div>
+            <p>There are a few things to note here in <code class="code-box-inline">bufferCreateInfo</code>:</p>
+            <ul>
+                <li><code class="code-box-inline">type</code> specifies the type of buffer being used, buffers can be multiple types. Since we only store vertex data in this buffer, we only need to provide <code class="code-box-inline">Lvn_BufferType_Vertex</code>.</li>
+                <li><code class="code-box-inline">usage</code> specifies how the data in the buffer should be used over time, there are three main usages:
+                    <ul>
+                        <li><code class="code-box-inline">Lvn_BufferUsage_Static</code>: specifies that data in the buffer never changes</li>
+                        <li><code class="code-box-inline">Lvn_BufferUsage_Dynamic</code>: specifies that data in the buffer can change over time and can be updated with new data</li>
+                        <li><code class="code-box-inline">Lvn_BufferUsage_Resize</code>: specifies that data in the buffer can be resized over time to a new size and can be updated with new data</li>
+                    </ul>
+                    <p>For our case, we don't need to update our buffer data later on so we use Lvn_BufferUsage_Static.</p>
+                </li>
+                <li><code class="code-box-inline">size</code> specifies the size of the buffer, here <code class="code-box-inline">sizeof(vertices)</code> gets the entire size of our vertices array.</li>
+                <li><code class="code-box-inline">data</code> specifies the data for the buffer, we give our vertices array which is also a pointer to the beginning of the array. Note that <code class="code-box-inline">data</code> can be left nullptr if you want to update the buffer later, although you would need to set the buffer usage to dynamic.</li>
+            </ul>
+            <h3>Index Buffer</h3> 
+            <p>Now create the index buffer similarly to how we created the vertex buffer:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-type">uint32_t</span> indices[] = 
+{
+    <span class="cpp-value">0</span>, <span class="cpp-value">1</span>, <span class="cpp-value">2</span>
+};
+
+<span class="cpp-comment">// use the same bufferCreateInfo struct from before</span>
+bufferCreateInfo.type = <span class="cpp-enum">Lvn_BufferType_Index</span>;
+bufferCreateInfo.usage = <span class="cpp-enum">Lvn_BufferUsage_Static</span>;
+bufferCreateInfo.size = <span class="cpp-expr">sizeof</span>(indices);
+bufferCreateInfo.data = indices;
+
+<span class="cpp-struct-type">LvnBuffer*</span> indexBuffer;
+lvn::<span class="cpp-func">createBuffer</span>(&indexBuffer, &bufferCreateInfo);</code></pre>
+            </div>
+            <p>Not much is different here besides changing the type to <code class="code-box-inline">Lvn_BufferType_Index</code> and the buffer size and data.</p>
+            <p>Make sure to also destroy the buffers at the end of the program once the window closes:</p>
+            <div class="code-box">
+                <pre><code>    <span class="cpp-expr">while</span> (lvn::<span class="cpp-func">windowOpen</span>(window))
+    {
+        ...
+    }
+
+    lvn::<span class="cpp-func">destroyBuffer</span>(vertexBuffer);
+    lvn::<span class="cpp-func">destroyBuffer</span>(indexBuffer);
+
+    ...
+
+}
+</code></pre>
+            </div>
+            <h2 id="ShadersPipelines">4.5 Shaders and Pipelines</h2>
+            <p>The next step before we can draw anything onto our window is to create a rendering pipeline for the GPU which outlines the necessary procedures for translating vertices and color onto the screen.</p>
+            <p>Before creating the pipeline, here is what the LvnPipelineCreateInfo struct contains below:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-type">struct</span> LvnPipelineCreateInfo
+{
+    <span class="cpp-struct-type">LvnPipelineSpecification</span>* pipelineSpecification;
+    <span class="cpp-struct-type">LvnVertexBindingDescription</span>* pVertexBindingDescriptions;
+    <span class="cpp-type">uint32_t</span> vertexBindingDescriptionCount;
+    <span class="cpp-struct-type">LvnVertexAttribute</span>* pVertexAttributes;
+    <span class="cpp-type">uint32_t</span> vertexAttributeCount;
+    <span class="cpp-struct-type">LvnDescriptorLayout</span>** pDescriptorLayouts;
+    <span class="cpp-type">uint32_t</span> descriptorLayoutCount;
+    <span class="cpp-struct-type">LvnShader</span>* shader;
+    <span class="cpp-struct-type">LvnRenderPass</span>* renderPass;
+};</code></pre>
+            </div>
+            <p>As you can see, the Pipeline createInfo struct requires a lot of parameters so let's go over them one at a time.</p>
+            <h3>Pipeline Specification (fixed functions)</h3>
+            <p><code class="code-box-inline">pipelineSpecification</code> is a pointer to a <code class="code-box-inline">LvnPipelineSpecification</code> struct which holds the pipeline's state or "fixed functions" such as the cull mode, depth stencil operations, viewports, multisampling, draw topology, and rasterization.</p>
+            <p>In most cases we don't need to change any of the fixed functions after the pipeline is created hence the name "fixed". To set up our pipeline specification struct, levikno provides a config function, <code class="code-box-inline">configPipelineSpecificationInit()</code>, that sets up all of the default parameters for us.</p>
+            <p>Create a <code class="code-box-inline">LvnPipelineSpecification</code> struct and a <code class="code-box-inline">LvnPipelineCreateInfo</code> below:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-struct-type">LvnPipelineSpecification</span> pipelineSpec = lvn::<span class="cpp-func">configPipelineSpecificationInit</span>();
+
+<span class="cpp-struct-type">LvnPipelineCreateInfo</span> pipelineCreateInfo{};
+pipelineCreateInfo.pipelineSpecification = &pipelineSpec;</code></pre>
+            </div>
+            <p>You can change some of the parameters in pipelineSpec if you want to configure the rendering pipeline.</p>
+            <h3>Vertex Bindings and Attributes</h3>
+            <p>Recall from the part when we created our vertex buffer, notice how the vertex data being inputed has six floats per row:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-type">float</span> vertices[] =
+{
+<span class="cpp-comment">  /*   pos (x,y,z)   |  color (r,g,b)   */</span>
+   <span class="cpp-value"> 0.0f</span>,<span class="cpp-value">-0.5f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-comment">// v1</span>
+   <span class="cpp-value"> 0.5f</span>,<span class="cpp-value"> 0.5f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-comment">// v2</span>
+   <span class="cpp-value">-0.5f</span>,<span class="cpp-value"> 0.5f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>, <span class="cpp-comment">// v3</span>
+};</code></pre>
+            </div>
+            <p>For each row or vertex, we first give three float values that define the vertex's coordinate positions, then the next three floats are the color components given in RGB.</p>
+            <p>When creating the pipeline, we need to tell our pipeline how the vertex data from our buffers should be read. To do this we create a <code class="code-box-inline">LvnVertexAttribute</code> struct which looks like this:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-type">struct</span> LvnVertexAttribute
+{
+    <span class="cpp-type">uint32_t</span> binding;
+    <span class="cpp-type">uint32_t</span> layout;
+    <span class="cpp-struct-type">LvnVertexDataType</span> type;
+    <span class="cpp-type">uint32_t</span> offset;
+};</code></pre>
+            </div>
+            <ul>
+                <li><code class="code-box-inline">binding</code> is the binding number which this attribute takes its data from</li>
+                <li><code class="code-box-inline">layout</code> is the shader input location number for this attribute</li>
+                <li><code class="code-box-inline">type</code> is a LvnVertexDataType enum which defines the size and type of the vertex attribute data</li>
+                <li><code class="code-box-inline">offset</code> is the byte offset of this attribute relative to the start of the vertex input binding</li>
+            </ul>
+            <p>For more information on how attributes and vertex input processing works, the Vulkan docs have a detailed <a href="https://docs.vulkan.org/guide/latest/vertex_input_data_processing.html" target="_blank">guide</a> on how it works.</p>
+            <p>Now create the attributes and add to the pipeline createInfo below:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-struct-type">LvnVertexAttribute</span> attributes[<span class="cpp-value">2</span>] =
+{
+    { <span class="cpp-value">0</span>, <span class="cpp-value">0</span>, <span class="cpp-enum">Lvn_VertexDataType_Vec3f</span>, <span class="cpp-value">0</span> },
+    { <span class="cpp-value">0</span>, <span class="cpp-value">1</span>, <span class="cpp-enum">Lvn_VertexDataType_Vec3f</span>, (<span class="cpp-value">3</span> * <span class="cpp-expr">sizeof</span>(<span class="cpp-type">float</span>)) },
+};
+
+...
+
+pipelineCreateInfo.pVertexAttributes = attributes;
+pipelineCreateInfo.vertexAttributeCount = <span class="cpp-value">2</span>;</code></pre>
+            </div>
+            <p>Note how we have two vertex attributes, one for the position and the second for the color data, both have the size and type vec3 in the shader.</p>
+            <p>Next we need to define the vertex binding descriptions, the struct for <code class="code-box-inline">LvnVertexBindingDescription</code> looks like this:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-type">struct</span> LvnVertexBindingDescription
+{
+    <span class="cpp-type">uint32_t</span> binding;
+    <span class="cpp-type">uint32_t</span> stride;
+};</code></pre>
+            </div>
+            <ul>
+                <li><code class="code-box-inline">binding</code> is the binding number that this structure describes to a place in memory</li>
+                <li><code class="code-box-inline">stride</code> is the length in bytes of the entire vertex (size in bytes of one vertex)</li>
+            </ul>
+            <p>Our vertex has a stride of 6 floats (24 bytes), 3 floats for the position and 3 floats for the color data.</p>
+            <p>Add the new lines to the code below to specify the vertex binding description:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-struct-type">LvnVertexBindingDescription</span> vertexBindingDescription{};
+vertexBindingDescription.binding = <span class="cpp-value">0</span>;
+vertexBindingDescription.stride = <span class="cpp-value">6</span> * <span class="cpp-expr">sizeof</span>(<span class="cpp-type">float</span>); <span class="cpp-comment">// 3 floats for pos and 3 floats for color</span>
+
+...
+
+pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+pipelineCreateInfo.vertexBindingDescriptionCount = <span class="cpp-value">1</span>;</code></pre>
+            </div>
+            <h3>Descriptor Layouts</h3>
+            <p>For now we will ignore the <code class="code-box-inline">pDescriptorLayouts</code> and <span class="code-box-inline">descriptorLayoutCount</span> parameters since we dont't need to use them. Descriptor layouts and descriptor sets are basically blueprints to organize large chunks of data that the GPU can access through the shader such as uniform buffer data and textures.</p>
+            <h3>Shaders</h3>
+            <p>The shader parameter is where we add our <code class="code-box-inline">LvnShader</code> object, in most cases, the pipeline will use two shaders, the vertex and fragment shader, for transforming vertices and computing the color data between vertices.</p>
+            <p>Create the vertex and fragment shader source codes</p>
+            <p>Vertex shader:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-macro">#version 460</span>
+
+<span class="cpp-type">layout</span>(location = <span class="cpp-value">0</span>) <span class="cpp-type">in vec3</span> inPos;
+<span class="cpp-type">layout</span>(location = <span class="cpp-value">1</span>) <span class="cpp-type">in vec3</span> inColor;
+
+<span class="cpp-type">layout</span>(location = <span class="cpp-value">0</span>) <span class="cpp-type">out vec3</span> fragColor;
+
+<span class="cpp-type">void</span> main()
+{
+    <span class="cpp-type">gl_Position</span> = <span class="cpp-type">vec4</span>(inPos, <span class="cpp-value">1.0</span>);
+    fragColor = inColor;
+}</code></pre>
+            </div>
+            <p>Fragment Shader:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-macro">#version 460</span>
+
+<span class="cpp-type">layout</span>(location = <span class="cpp-value">0</span>) <span class="cpp-type">out vec4</span> outColor;
+
+<span class="cpp-type">layout</span>(location = <span class="cpp-value">0</span>) <span class="cpp-type">in vec3</span> fragColor;
+
+<span class="cpp-type">void</span> main()
+{
+    outColor = <span class="cpp-type">vec4</span>(fragColor, <span class="cpp-value">1.0</span>);
+}</code></pre>
+            </div>
+            <p>To create shaders in levikno, levikno provides several ways to load shaders:</p>
+            <ul>
+                <li><code class="code-box-inline">createShaderFromSrc()</code> creates the shader directly from a source string</li>
+                <li><code class="code-box-inline">createShaderFromFileSrc()</code> creates the shader from external files with the shader source code (eg. .vert, .frag, .glsl)</li>
+                <li><code class="code-box-inline">createShaderFromFileBin()</code> creates a shader from external binary files that with the shader binary code (for Vulkan this would be a SPIR-V binary file ending in .spv)</li>
+            </ul>
+            <p>For this case, we can just leave the shader source code within the main file and load the shaders from source.</p>
+            <p><b>Note: if you are using Vulkan and the glslang libraries were not included in during building, the createShaderFromSrc() and createShaderFromFileSrc() functions will not work and will return Lvn_Result_Failure. You will need to load your shaders as binaries.</b></p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-type">const char</span>* vertexShader = <span class="cpp-string">R"(
+#version 460
+
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in vec3 inColor;
+
+layout(location = 0) out vec3 fragColor;
+
+void main()
+{
+    gl_Position = vec4(inPos, 1.0);
+    fragColor = inColor;
+})"</span>;
+
+<span class="cpp-type">const char</span>* fragmentShader = <span class="cpp-string">R"(
+#version 460
+
+layout(location = 0) out vec4 outColor;
+
+layout(location = 0) in vec3 fragColor;
+
+void main()
+{
+    outColor = vec4(fragColor, 1.0);
+})";</span>
+
+<span class="cpp-struct-type">LvnShaderCreateInfo</span> shaderCreateInfo{};
+shaderCreateInfo.vertexSrc = vertexShader;
+shaderCreateInfo.fragmentSrc = fragmentShader;
+
+<span class="cpp-struct-type">LvnShader</span>* shader;
+lvn::<span class="cpp-func">createShaderFromSrc</span>(&shader, &shaderCreateInfo);</code></pre>
+            </div>
+            <p>after creating the shader, add the shader to the pipeline createInfo struct:</p>
+            <div class="code-box">
+                <pre><code>...
+
+pipelineCreateInfo.shader = shader;</code></pre>
+            </div>
+            <h3>Render Pass</h3>
+            <p>The last parameter is the <code class="code-box-inline">renderPass</code> parameter which takes in a <code class="code-box-inline">LvnRenderPass</code> object. A render pass is used to handle different color and depth attachments used for drawing our scene. Levikno does most of the background work for us when using render passes so we only care about where our render pass will be used to render, such as to a window or to an off screen framebuffer. When we created a window, levikno automatically creates a render pass along with it. The render pass can be retrieved by calling this function:</p>
+            <div class="code-box">
+                <pre><code><span class="cpp-struct-type">LvnRenderPass</span>* renderPass = lvn::<span class="cpp-func">windowGetRenderPass</span>(window);
+pipelineCreateInfo.renderPass = renderPass;</code></pre>
+            </div>
+            <h3>Creating the Pipeline</h3>
+            <p>With all the parameters set, we can now create the pipeline:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-struct-type">LvnPipelineCreateInfo</span> pipelineCreateInfo{};
+pipelineCreateInfo.pipelineSpecification = &pipelineSpec;
+pipelineCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+pipelineCreateInfo.vertexBindingDescriptionCount = <span class="cpp-value">1</span>;
+pipelineCreateInfo.pVertexAttributes = attributes;
+pipelineCreateInfo.vertexAttributeCount = <span class="cpp-value">2</span>;
+pipelineCreateInfo.pDescriptorLayouts = <span class="cpp-value">nullptr</span>;
+pipelineCreateInfo.descriptorLayoutCount = <span class="cpp-value">0</span>;
+pipelineCreateInfo.shader = shader;
+pipelineCreateInfo.renderPass = renderPass;
+
+<span class="cpp-struct-type">LvnPipeline</span>* pipeline;
+lvn::<span class="cpp-func">createPipeline</span>(&pipeline, &pipelineCreateInfo);
+
+lvn::<span class="cpp-func">destroyShader</span>(shader);</code></pre>
+            </div>
+            <p>After the pipeline is created, if the shader is no longer needed it can be destroyed right after creating the pipeline.</p>
+            <h2 id="DrawingMainRenderLoop">4.6 Drawing and Main Render Loop</h2>
+            <p>Drawing to the window requires a few extra functions. In the main while loop, add the following lines of code:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-expr">while</span> (lvn::<span class="cpp-func">windowOpen</span>(window))
+{
+    lvn::<span class="cpp-func">windowUpdate</span>(window);
+    lvn::<span class="cpp-func">windowPollEvents</span>();
+
+    lvn::<span class="cpp-func">renderBeginNextFrame</span>(window);
+    lvn::<span class="cpp-func">renderBeginCommandRecording</span>(window);
+
+    lvn::<span class="cpp-func">renderCmdBeginRenderPass</span>(window, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">0.0f</span>, <span class="cpp-value">1.0f</span>);
+
+    lvn::<span class="cpp-func">renderCmdBindPipeline</span>(window, pipeline);
+
+    lvn::<span class="cpp-func">renderCmdBindVertexBuffer</span>(window, <span class="cpp-value">0</span>, <span class="cpp-value">1</span>, &vertexBuffer, <span class="cpp-value">0</span>);
+    lvn::<span class="cpp-func">renderCmdBindIndexBuffer</span>(window, indexBuffer, <span class="cpp-value">0</span>);
+
+    lvn::<span class="cpp-func">renderCmdDrawIndexed</span>(window, <span class="cpp-expr">sizeof</span>(indices) / <span class="cpp-expr">sizeof</span>(indices[<span class="cpp-value">0</span>])); <span class="cpp-comment">// number of elements in indices array (3)</span>
+
+    lvn::<span class="cpp-func">renderCmdEndRenderPass</span>(window);
+    lvn::<span class="cpp-func">renderEndCommandRecording</span>(window);
+    lvn::<span class="cpp-func">renderDrawSubmit</span>(window);
+}</code></pre>
+            </div>
+            <p>Note that most render functions have the prefix render in front of the function to indicate that it is used for rendering, you will mostly use these functions only within the rendering loop.</p>
+            <p>Also note that most rendering functions will take in the window as the first parameter since the window contains most of the necessary resources for rendering such as the swapchain images, framebuffer, render passes, and surface data.</p>
+            <p>Let's break down what is happening in the main loop:</p>
+            <ul>
+                <li><code class="code-box-inline">renderBeginNextFrame()</code> begins the next window frame (in Vulkan, it acquires the next image from the swap chain). This is usually called at the beginning of a new frame or render loop.</li>
+                <li><code class="code-box-inline">renderBeginCommandRecording()</code> begins command buffer recording for Vulkan under the surface. Note that rendering functions with the prefix <code class="code-box-inline">renderCmd</code> must be called only during command buffer recording.</li>
+                <li><code class="code-box-inline">renderCmdBeginRenderPass()</code> begins the render pass for the window given. It then takes in four float values which are the color components in RGBA for the background color.</li>
+                <li><code class="code-box-inline">renderCmdBindPipeline()</code> binds the pipeline.</li>
+                <li><code class="code-box-inline">renderCmdBindVertexBuffer()</code> binds the vertex buffer, the first parameter takes in the window, the second and third parameters are the firstBinding and bindingCount, here the binding is set to 0 and the count set to 1 because we only have one binding. The forth and fifth parameters are pBuffers and pOffsets which takes in an array of buffers and offsets if we have more than one binding.</li>
+                <li><code class="code-box-inline">renderCmdBindIndexBuffer()</code> binds the index buffer, the window and indexBuffer is passed in for the first and second parameters. The third parameter is an offset value which can be used if the index data and the vertex data are stored within the same buffer.</li>
+                <li><code class="code-box-inline">renderCmdDrawIndexed()</code> will draw the vertices using the index data from our buffers. Because our triangle only has three indices to draw three vertices, we pass 3 into our function.
+                <li><code class="code-box-inline">renderCmdEndRenderPass()</code> and <code class="code-box-inline">renderEndCommandRecording()</code> ends the render pass and command buffer respectively</li>
+                <li><code class="code-box-inline">renderDrawSubmit()</code> submits the draw commands from the command buffers and sends them to the GPU to render. It then presents the drawn data to the window after the GPU finishes rendering</li>
+</li>
+            </ul>
+            <p>Remember to destroy all of the object created when before terminating the context and exiting the program:</p>
+            <div class="code-box">
+                <pre><code>...
+
+<span class="cpp-comment">// we destroyed our shader earlier after creating the pipeline</span>
+
+lvn::<span class="cpp-func">destroyBuffer</span>(vertexBuffer);
+lvn::<span class="cpp-func">destroyBuffer</span>(indexBuffer);
+lvn::<span class="cpp-func">destroyPipeline</span>(pipeline);
+lvn::<span class="cpp-func">destroyWindow</span>(window);
+
+lvn::<span class="cpp-func">terminateContext</span>();
+
+<span class="cpp-expr">return</span> <span class="cpp-value">0</span>;</code></pre>
+            </div>
+            <p>Now compile and run the program, a triangle should appear on the window.</p>
+            <img src="simpleTriangleExample.png" alt="simple triangle example">
+            <p> You can also check <a href="https://github.com/binmian/levikno/blob/main/examples/simpleTriangle.cpp" target="_blank">here</a> to see the full source code for this example.</p>
+            <br>
+        </div>
+    </div>
+</main>
+<footer>
+</footer>
+</body>
+</html>
