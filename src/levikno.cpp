@@ -1,3 +1,20 @@
+// [FILE]: levikno.cpp
+// ------------------------------------------------------------
+// - core, logging, window, input, graphics, audio, networking,
+//   math src code implementation
+//
+// [SECTION]: Internal structs
+// [SECTION]: Core Functions
+// [SECTION]: Date Time Functions
+// [SECTION]: Event Functions
+// [SECTION]: Window Functions
+// [SECTION]: Input Functions
+// [SECTION]: Graphics Functions
+// [SECTION]: Audio Functions
+// [SECTION]: Network Functions
+// [SECTION]: Math Functions
+
+
 #include "levikno.h"
 #include "levikno_internal.h"
 
@@ -9,6 +26,7 @@
 #include "freetype/freetype.h"
 #include "enet/enet.h"
 
+// for ansi color terminal logging support
 #ifdef LVN_PLATFORM_WINDOWS
     #include <windows.h>
 #endif
@@ -26,12 +44,15 @@
 
 #include "lvn_loaders.h"
 
+// main context of library, this controls the engine state and only
+// one instance can be created
 static LvnContext* s_LvnContext = nullptr;
 
-
 // ------------------------------------------------------------
-// [SECTION]: Audio Internal structs
+// [SECTION]: Internal structs
 // ------------------------------------------------------------
+// - Note that these internal structs are defined in src code
+// - due to struct definitions from other dependencies
 
 struct LvnSound
 {
@@ -44,11 +65,6 @@ struct LvnSound
 
     ma_sound sound;
 };
-
-
-// ------------------------------------------------------------
-// [SECTION]: Network Internal structs
-// ------------------------------------------------------------
 
 struct LvnSocket
 {
@@ -4160,20 +4176,18 @@ float clampAngleDeg(float deg)
 
 float invSqrt(float num)
 {
-    union
-    {
-        float f;
-        uint32_t i;
-    } conv;
+    static_assert(std::numeric_limits<float>::is_iec559,
+                  "fast inverse square root requires IEEE-comliant 'float'");
+    static_assert(sizeof(float) == sizeof(std::uint32_t),
+                  "fast inverse square root requires 'float' to be 32-bit");
+    float f;
+    uint32_t i;
 
-    float x2;
-    const float threehalfs = 1.5f;
-
-    x2 = num * 0.5f;
-    conv.f = num;
-    conv.i = 0x5f3759df - (conv.i >> 1);
-    conv.f = conv.f * (threehalfs - (x2 * conv.f * conv.f));
-    return conv.f;
+    float x2 = num * 0.5f, y = num;
+    memcpy(&i, &y, sizeof(float));
+    i  = 0x5f3759df - ( i >> 1 );
+    memcpy(&y, &i, sizeof(float));
+    return y * ( 1.5F - ( x2 * y * y ) );
 }
 
 } /* namespace lvn */

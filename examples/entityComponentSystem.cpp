@@ -1,4 +1,5 @@
 #include "levikno/levikno.h"
+#include <cmath>
 #include <levikno/lvn_ecs.h>
 
 #include <string>
@@ -174,10 +175,9 @@ int main(int argc, char** argv)
     lvn::entityRemoveComponent<PosComponent, VelocityComponent, AcceleractionComponent>(e1);
 
 
-    // optionally if you want to restart the entire ecs system, just call lvn::ecsRestart()
+    // optional: if you want to restart the entire ecs system, call lvn::ecsRestart()
     // this will clear all components added to the components manager and reset the entity id count.
-    // doing this will make all created entities and added components prior invalid so only do this
-    // when you want to start a completely new ecs session
+    // doing this will make all prior entities and components invalid
     lvn::ecsRestart();
 
     return 0;
