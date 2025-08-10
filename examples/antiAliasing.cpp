@@ -104,13 +104,14 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 
     lvn::frameBufferResize(data->frameBuffer, e->width, e->height);
 
-    LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
+    LvnDescriptorUpdateInfo fbDescriptorUpdateInfo{};
 
     LvnTexture* frameBufferImage = lvn::frameBufferGetImage(data->frameBuffer, 0);
 
     fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
     fbDescriptorUpdateInfo.binding = 1;
     fbDescriptorUpdateInfo.descriptorCount = 1;
+    fbDescriptorUpdateInfo.firstIndex = 0;
     fbDescriptorUpdateInfo.pTextureInfos = &frameBufferImage;
 
     lvn::updateDescriptorSetData(data->fbDescriptorSet, &fbDescriptorUpdateInfo, 1);

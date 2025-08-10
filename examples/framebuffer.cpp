@@ -111,13 +111,14 @@ bool windowFrameBufferResize(LvnWindowFramebufferResizeEvent* e, void* userData)
 
     lvn::frameBufferResize(data->frameBuffer, e->width, e->height);
 
-    LvnDescriptorUpdateInfo fbDescriptorUpdateInfo;
+    LvnDescriptorUpdateInfo fbDescriptorUpdateInfo{};
 
     LvnTexture* framebufferImage = lvn::frameBufferGetImage(data->frameBuffer, 0);
 
     fbDescriptorUpdateInfo.descriptorType = Lvn_DescriptorType_ImageSampler;
     fbDescriptorUpdateInfo.binding = 1;
     fbDescriptorUpdateInfo.descriptorCount = 1;
+    fbDescriptorUpdateInfo.firstIndex = 0;
     fbDescriptorUpdateInfo.pTextureInfos = &framebufferImage;
 
     lvn::updateDescriptorSetData(data->fbDescriptorSet, &fbDescriptorUpdateInfo, 1);
@@ -188,7 +189,7 @@ int main(int argc, char** argv)
 
     // [Create texture]
     // load image data
-    LvnImageData imageData = lvn::loadImageData("res/images/woodBox.jpg", 4, true);
+    LvnImageData imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/woodBox.jpg", 4, true);
 
     // texture create info struct
     LvnTextureCreateInfo textureCreateInfo{};

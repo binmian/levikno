@@ -3812,17 +3812,19 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
 
     for (uint32_t i = 0; i < count; i++)
     {
-        VkDescriptorBufferInfo bufferInfo{};
-        LvnVector<VkDescriptorImageInfo> imageInfos(pUpdateInfo[i].descriptorCount);
+        const LvnDescriptorUpdateInfo updateInfo = pUpdateInfo[i];
 
-        if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler ||
-            pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
+        VkDescriptorBufferInfo bufferInfo{};
+        LvnVector<VkDescriptorImageInfo> imageInfos(updateInfo.descriptorCount);
+
+        if (updateInfo.descriptorType == Lvn_DescriptorType_ImageSampler ||
+            updateInfo.descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
         {
-            for (uint32_t j = 0; j < pUpdateInfo[i].descriptorCount; j++)
+            for (uint32_t j = 0; j < updateInfo.descriptorCount; j++)
             {
                 imageInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                imageInfos[j].imageView = static_cast<VkImageView>(pUpdateInfo[i].pTextureInfos[j]->imageView);
-                imageInfos[j].sampler = static_cast<VkSampler>(pUpdateInfo[i].pTextureInfos[j]->sampler);
+                imageInfos[j].imageView = static_cast<VkImageView>(updateInfo.pTextureInfos[j]->imageView);
+                imageInfos[j].sampler = static_cast<VkSampler>(updateInfo.pTextureInfos[j]->sampler);
             }
         }
 
@@ -3831,22 +3833,22 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
             VkWriteDescriptorSet descriptorWrite{};
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrite.dstSet = descriptorSets[j]; // update descriptor set for each frame in flight
-            descriptorWrite.dstBinding = pUpdateInfo[i].binding;
-            descriptorWrite.dstArrayElement = pUpdateInfo[i].firstIndex;
-            descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(pUpdateInfo[i].descriptorType);
-            descriptorWrite.descriptorCount = pUpdateInfo[i].descriptorCount;
+            descriptorWrite.dstBinding = updateInfo.binding;
+            descriptorWrite.dstArrayElement = updateInfo.firstIndex;
+            descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(updateInfo.descriptorType);
+            descriptorWrite.descriptorCount = updateInfo.descriptorCount;
 
             // if descriptor using uniform buffers
-            if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_UniformBuffer || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_StorageBuffer)
+            if (updateInfo.descriptorType == Lvn_DescriptorType_UniformBuffer || updateInfo.descriptorType == Lvn_DescriptorType_StorageBuffer)
             {
-                bufferInfo.buffer = static_cast<VkBuffer>(pUpdateInfo[i].bufferInfo->buffer->buffer);
-                bufferInfo.offset = pUpdateInfo[i].bufferInfo->offset; // offset buffer size for each frame in flight
-                bufferInfo.range = pUpdateInfo[i].bufferInfo->range;
+                bufferInfo.buffer = static_cast<VkBuffer>(updateInfo.bufferInfo->buffer->buffer);
+                bufferInfo.offset = updateInfo.bufferInfo->offset; // offset buffer size for each frame in flight
+                bufferInfo.range = updateInfo.bufferInfo->range;
                 descriptorWrite.pBufferInfo = &bufferInfo;
             }
 
             // if descriptor using textures
-            else if (pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSampler || pUpdateInfo[i].descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
+            else if (updateInfo.descriptorType == Lvn_DescriptorType_ImageSampler || updateInfo.descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
             {
                 descriptorWrite.pImageInfo = imageInfos.data();
             }

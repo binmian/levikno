@@ -234,7 +234,7 @@ int main(int argc, char** argv)
 
 
     // [Load model]
-    LvnModel model = lvn::loadModel("res/models/teapot.gltf");
+    LvnModel model = lvn::loadModel("res/models/teapot/teapot.gltf");
 
 
     // update descriptor set
