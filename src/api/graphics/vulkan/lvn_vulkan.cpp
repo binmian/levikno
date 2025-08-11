@@ -3407,17 +3407,20 @@ LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* 
 
     uint32_t imageWidth = createInfo->posx.width; // Note that all images should have the same width
     uint32_t imageHeight = createInfo->posx.height; // Note that all images should have the same height
+    uint32_t imageChannels = createInfo->posx.channels;
 
-    VkDeviceSize layerSize = createInfo->posx.size; // size of image of one side of cubemap, Note that all images should have the same size
+    VkDeviceSize layerSize = imageWidth * imageHeight * imageChannels; // size of image of one side of cubemap, Note that all images should have the same size
     VkDeviceSize imageSize = layerSize * 6; // size of total combinded 6 images of cubemap
 
-    const uint8_t* texImages[6] = { createInfo->posx.pixels.data(), createInfo->negx.pixels.data(), createInfo->posy.pixels.data(), createInfo->negy.pixels.data(), createInfo->posz.pixels.data(), createInfo->negz.pixels.data() };
-    LvnVector<uint8_t> texData(imageSize);
-
-    for (uint32_t i = 0; i < 6; i++)
+    const uint8_t* texImages[6] =
     {
-        memcpy(texData.data() + layerSize * i, texImages[i], layerSize);
-    }
+        createInfo->posx.pixels.data(),
+        createInfo->negx.pixels.data(),
+        createInfo->posy.pixels.data(),
+        createInfo->negy.pixels.data(),
+        createInfo->posz.pixels.data(),
+        createInfo->negz.pixels.data()
+    };
 
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferMemory;
@@ -3426,7 +3429,8 @@ LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* 
 
     void* bufferData;
     vmaMapMemory(vmaAllocator, stagingBufferMemory, &bufferData);
-    memcpy(bufferData, texData.data(), imageSize);
+    for (uint32_t i = 0; i < 6; i++)
+        memcpy(static_cast<char*>(bufferData) + layerSize * i, texImages[i], layerSize);
     vmaUnmapMemory(vmaAllocator, stagingBufferMemory);
 
     VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;

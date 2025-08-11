@@ -930,7 +930,6 @@ namespace gltfs
             imageData.width = 1;
             imageData.height = 1;
             imageData.channels = 4;
-            imageData.size = 4;
 
             LvnTextureSamplerCreateInfo baseColorCreateInfo{};
             baseColorCreateInfo.imageData = imageData;
@@ -983,7 +982,6 @@ namespace gltfs
             imageData.width = 1;
             imageData.height = 1;
             imageData.channels = 4;
-            imageData.size = 4;
 
             LvnTextureSamplerCreateInfo metalicRoughnessCreateInfo{};
             metalicRoughnessCreateInfo.imageData = imageData;
@@ -1036,7 +1034,6 @@ namespace gltfs
             imageData.width = 1;
             imageData.height = 1;
             imageData.channels = 4;
-            imageData.size = 4;
 
             LvnTextureSamplerCreateInfo normalCreateInfo{};
             normalCreateInfo.imageData = imageData;
@@ -1089,7 +1086,6 @@ namespace gltfs
             imageData.width = 1;
             imageData.height = 1;
             imageData.channels = 4;
-            imageData.size = 4;
 
             LvnTextureSamplerCreateInfo emissiveCreateInfo{};
             emissiveCreateInfo.imageData = imageData;
@@ -1123,7 +1119,6 @@ namespace gltfs
         imageData.width = 1;
         imageData.height = 1;
         imageData.channels = 4;
-        imageData.size = 4;
 
         LvnTextureSamplerCreateInfo baseColorCreateInfo{};
         baseColorCreateInfo.imageData = imageData;
@@ -1142,7 +1137,6 @@ namespace gltfs
         imageData.width = 1;
         imageData.height = 1;
         imageData.channels = 4;
-        imageData.size = 4;
 
         LvnTextureSamplerCreateInfo metalicRoughnessCreateInfo{};
         metalicRoughnessCreateInfo.imageData = imageData;
@@ -1161,7 +1155,6 @@ namespace gltfs
         imageData.width = 1;
         imageData.height = 1;
         imageData.channels = 4;
-        imageData.size = 4;
 
         LvnTextureSamplerCreateInfo normalCreateInfo{};
         normalCreateInfo.imageData = imageData;
@@ -1180,7 +1173,6 @@ namespace gltfs
         imageData.width = 1;
         imageData.height = 1;
         imageData.channels = 4;
-        imageData.size = 4;
 
         LvnTextureSamplerCreateInfo emissiveCreateInfo{};
         emissiveCreateInfo.imageData = imageData;

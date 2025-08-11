@@ -409,7 +409,6 @@ static LvnFont getDefaultFont()
     imageData.width = 128;
     imageData.height = 128;
     imageData.channels = 1;
-    imageData.size = 128 * 128 * 1;
 
     LvnFont font{};
     font.fontSize = 11; // default font max pixel height
@@ -443,7 +442,6 @@ static LvnResult createRendererResources(const LvnWindowCreateInfo* windowCreate
     imageData.width = 1;
     imageData.height = 1;
     imageData.channels = 4;
-    imageData.size = 4;
 
     LvnTextureCreateInfo textureCreateInfo{};
     textureCreateInfo.imageData = imageData;

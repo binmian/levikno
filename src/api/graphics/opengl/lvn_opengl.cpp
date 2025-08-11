@@ -1229,7 +1229,15 @@ LvnResult oglsImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo*
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, id);
 
-    const LvnImageData* texImages[6] = { &createInfo->posx, &createInfo->negx, &createInfo->posy, &createInfo->negy, &createInfo->posz, &createInfo->negz };
+    const LvnImageData* texImages[6] =
+    {
+        &createInfo->posx,
+        &createInfo->negx,
+        &createInfo->posy,
+        &createInfo->negy,
+        &createInfo->posz,
+        &createInfo->negz
+    };
 
     for(uint32_t i = 0; i < 6; i++)
     {

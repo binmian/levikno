@@ -16,9 +16,8 @@ int main(int argc, char** argv)
     LvnWindow* window = lvn::getRendererWindow();
     lvn::windowSetVSync(window, true);
 
-    LvnImageData whiteImage = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/debug.png", 4, true);
-
-    LvnImageData imageData = lvn::loadImageData("/home/bma/Documents/dev/levikno/examples/res/images/woodBox.jpg", 4, true);
+    LvnImageData whiteImage = std::move(lvn::loadImageData("res/images/debug.png", 4, true));
+    LvnImageData imageData = std::move(lvn::loadImageData("res/images/woodBox.jpg", 4, true));
 
     LvnTextureCreateInfo textureCreateInfo{};
     textureCreateInfo.imageData = imageData;

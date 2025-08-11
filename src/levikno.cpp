@@ -1092,7 +1092,6 @@ LvnFont loadFontFromFileTTF(const char* filepath, uint32_t fontSize, const uint3
     atlas.width = width;
     atlas.height = height;
     atlas.channels = 1;
-    atlas.size = width * height;
     atlas.pixels = LvnData<uint8_t>(pixels.data(), pixels.size());
 
     font.atlas = atlas;
@@ -1222,7 +1221,6 @@ LvnFont loadFontFromFileTTFMemory(const uint8_t* fontData, uint64_t fontDataSize
     atlas.width = width;
     atlas.height = height;
     atlas.channels = 1;
-    atlas.size = width * height;
     atlas.pixels = LvnData<uint8_t>(pixels.data(), pixels.size());
 
     font.atlas = atlas;
@@ -3115,10 +3113,10 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
     imageData.width = imageWidth;
     imageData.height = imageHeight;
     imageData.channels = forceChannels ? forceChannels : imageChannels;
-    imageData.size = imageData.width * imageData.height * imageData.channels;
-    imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
+    imageData.pixels = LvnData<uint8_t>(pixels, imgsize);
 
-    LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath);
+    LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imgsize, filepath);
 
     stbi_image_free(pixels);
 
@@ -3158,10 +3156,10 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
     imageData.width = imageWidth;
     imageData.height = imageHeight;
     imageData.channels = forceChannels ? forceChannels : imageChannels;
-    imageData.size = imageData.width * imageData.height * imageData.channels;
-    imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
+    imageData.pixels = LvnData<uint8_t>(pixels, imgsize);
 
-    LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imageData.size);
+    LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imgsize);
 
     stbi_image_free(pixels);
 
@@ -3201,10 +3199,10 @@ LvnImageData loadImageDataThread(const LvnString filepath, int forceChannels, bo
     imageData.width = imageWidth;
     imageData.height = imageHeight;
     imageData.channels = forceChannels ? forceChannels : imageChannels;
-    imageData.size = imageData.width * imageData.height * imageData.channels;
-    imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
+    imageData.pixels = LvnData<uint8_t>(pixels, imgsize);
 
-    LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath.c_str());
+    LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imgsize, filepath.c_str());
 
     stbi_image_free(pixels);
 
@@ -3244,10 +3242,10 @@ LvnImageData loadImageDataMemoryThread(const uint8_t* data, int length, int forc
     imageData.width = imageWidth;
     imageData.height = imageHeight;
     imageData.channels = forceChannels ? forceChannels : imageChannels;
-    imageData.size = imageData.width * imageData.height * imageData.channels;
-    imageData.pixels = LvnData<uint8_t>(pixels, imageData.size);
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
+    imageData.pixels = LvnData<uint8_t>(pixels, imgsize);
 
-    LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imageData.size);
+    LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imgsize);
 
     stbi_image_free(pixels);
 
@@ -3422,7 +3420,7 @@ LvnImageData imageGenColor(uint32_t width, uint32_t height, uint32_t channels, c
     imageData.width = width;
     imageData.height = height;
     imageData.channels = channels;
-    imageData.size = width * height * channels;
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnData<uint8_t>(imgBuff, imgSize);
 
     LVN_FREE(imgBuff);
@@ -3456,8 +3454,8 @@ LvnImageData imageGenWhiteNoise(uint32_t width, uint32_t height, uint32_t channe
     imageData.width = width;
     imageData.height = height;
     imageData.channels = channels;
-    imageData.size = width * height * channels;
-    imageData.pixels = LvnData<uint8_t>(imgBuff, imgSize);
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
+    imageData.pixels = LvnData<uint8_t>(imgBuff, imgsize);
 
     LVN_FREE(imgBuff);
     return imageData;
@@ -3490,7 +3488,7 @@ LvnImageData imageGenGrayScaleNoise(uint32_t width, uint32_t height, uint32_t ch
     imageData.width = width;
     imageData.height = height;
     imageData.channels = channels;
-    imageData.size = width * height * channels;
+    uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnData<uint8_t>(imgBuff, imgSize);
 
     LVN_FREE(imgBuff);

@@ -1,7 +1,5 @@
 #include <levikno/levikno.h>
 
-#include <vector>
-#include <cstdint>
 #include <chrono>
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
