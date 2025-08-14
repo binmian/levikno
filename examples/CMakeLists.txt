@@ -23,6 +23,7 @@ set(LVN_SOURCES
     pbrSpheres.cpp
     pong.cpp
     renderer2d.cpp
+    simpleCollision.cpp
     simpleMatrix.cpp
     simpleSound.cpp
     simpleText.cpp

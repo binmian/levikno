@@ -43,6 +43,10 @@ namespace lvn
                 setOglWindowContextValues();
                 return Lvn_Result_Success;
             }
+            case Lvn_GraphicsApi_None:
+            {
+                return Lvn_Result_Success;
+            }
 
             default:
             {
@@ -116,7 +120,7 @@ namespace lvn
 
 
         LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
-        if (graphicsapi == Lvn_GraphicsApi_vulkan)
+        if (graphicsapi == Lvn_GraphicsApi_vulkan || graphicsapi == Lvn_GraphicsApi_None)
         {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         }
@@ -175,10 +179,12 @@ namespace lvn
 
         window->data.userData = createInfo->userData;
 
+        // set full screen
         GLFWmonitor* fullScreen = nullptr;
         if (window->data.fullscreen)
             fullScreen = glfwGetPrimaryMonitor();
 
+        // set window resizable
         if (window->data.resizable)
             glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
         else
@@ -232,7 +238,7 @@ namespace lvn
         if (graphicsapi == Lvn_GraphicsApi_opengl)
             glfwSwapInterval(createInfo->vSync);
 
-        // Set GLFW Callbacks
+        // set GLFW Callbacks
         glfwSetWindowSizeCallback(nativeWindow, [](GLFWwindow* window, int width, int height)
         {
             LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
