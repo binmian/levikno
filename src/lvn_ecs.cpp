@@ -20,7 +20,7 @@ LvnEntity createEntity()
         return entity;
     }
 
-    LVN_CORE_ASSERT(s_EntityIndexID < s_MaxEntityIDs, "cannot create entity, maximum entity count (%zu) reached", s_MaxEntityIDs);
+    LVN_ASSERT(s_EntityIndexID < s_MaxEntityIDs, "cannot create entity, maximum entity count (%zu) reached", s_MaxEntityIDs);
     return ++s_EntityIndexID;
 }
 

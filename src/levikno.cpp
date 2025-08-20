@@ -10,8 +10,6 @@
 // [SECTION]: Window Functions
 // [SECTION]: Input Functions
 // [SECTION]: Graphics Functions
-// [SECTION]: Audio Functions
-// [SECTION]: Network Functions
 // [SECTION]: Math Functions
 
 
@@ -22,9 +20,7 @@
 
 #include "stb_image.h"
 #include "stb_image_write.h"
-#include "miniaudio.h"
 #include "freetype/freetype.h"
-#include "enet/enet.h"
 
 // for ansi color terminal logging support
 #ifdef LVN_PLATFORM_WINDOWS
@@ -42,6 +38,7 @@
     #include "lvn_vulkan.h"
 #endif
 
+
 #include "lvn_loaders.h"
 
 // main context of library, this controls the engine state and only
@@ -54,32 +51,6 @@ static LvnContext* s_LvnContext = nullptr;
 // - Note that these internal structs are defined in src code
 // - due to struct definitions from other dependencies
 
-struct LvnSound
-{
-    float volume;
-    float pan;
-    float pitch;
-    bool looping;
-
-    LvnVec3 pos;
-
-    ma_sound sound;
-};
-
-struct LvnSocket
-{
-    LvnSocketType type;
-
-    ENetHost* socket;
-    ENetPeer* connection;
-    ENetPacket* packet;
-
-    LvnAddress address;
-    uint32_t channelCount;
-    uint32_t connectionCount;
-    uint32_t inBandWidth;
-    uint32_t outBandWidth;
-};
 
 
 namespace lvn
@@ -106,24 +77,21 @@ static LvnResult                    setWindowContext(LvnContext* lvnctx, LvnWind
 static void                         terminateWindowContext(LvnContext* lvnctx);
 static LvnResult                    setGraphicsContext(LvnContext* lvnctx, LvnGraphicsApi graphicsapi);
 static void                         terminateGraphicsContext(LvnContext* lvnctx);
-static LvnResult                    initAudioContext(LvnContext* lvnctx);
-static void                         terminateAudioContext(LvnContext* lvnctx);
-static LvnResult                    initNetworkingContext();
-static void                         terminateNetworkingContext();
 static void                         initStandardPipelineSpecification(LvnContext* lvnctx);
 static void                         setDefaultStructTypeMemAllocInfos(LvnContext* lvnctx);
 static const char*                  getStructTypeEnumStr(LvnStructureType stype);
 static uint64_t                     getStructTypeSize(LvnStructureType sType);
 static LvnData<uint32_t>            initDefaultFontCodepoints();
 static LvnResult                    createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInfo* createInfo);
-static void                         createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType);
 
-template <typename T>
-static T* createObject(LvnContext* lvnctx, LvnStructureType sType);
 
-template <typename T>
-static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType);
+// defined in lvn_audio.cpp
+LvnResult initAudioContext(LvnContext* lvnctx);
+void terminateAudioContext(LvnContext* lvnctx);
 
+// defined in lvn_networking.cpp
+LvnResult initNetworkingContext();
+void terminateNetworkingContext();
 
 // Windows platform specific; enables console output colors
 #ifdef LVN_PLATFORM_WINDOWS
@@ -315,51 +283,6 @@ static void terminateGraphicsContext(LvnContext* lvnctx)
     LVN_CORE_TRACE("graphics context terminated: %s", getGraphicsApiNameEnum(lvnctx->graphicsapi));
 }
 
-static LvnResult initAudioContext(LvnContext* lvnctx)
-{
-    ma_engine* pEngine = (ma_engine*)LVN_MALLOC(sizeof(ma_engine));
-
-    if (ma_engine_init(nullptr, pEngine) != MA_SUCCESS)
-    {
-        LVN_CORE_ERROR("failed to initialize audio engine context");
-        return Lvn_Result_Failure;
-    }
-
-    lvnctx->audioEngineContextPtr = pEngine;
-
-    LVN_CORE_TRACE("audio context initialized");
-    return Lvn_Result_Success;
-}
-
-static void terminateAudioContext(LvnContext* lvnctx)
-{
-    if (lvnctx->audioEngineContextPtr != nullptr)
-    {
-        ma_engine_uninit(static_cast<ma_engine*>(lvnctx->audioEngineContextPtr));
-        lvn::memFree(lvnctx->audioEngineContextPtr);
-    }
-
-    LVN_CORE_TRACE("audio context terminated");
-}
-
-static LvnResult initNetworkingContext()
-{
-    if (enet_initialize() != 0)
-    {
-        LVN_CORE_ERROR("failed to initialize networking context");
-        return Lvn_Result_Failure;
-    }
-
-    LVN_CORE_TRACE("networking context initialized");
-    return Lvn_Result_Success;
-}
-
-static void terminateNetworkingContext()
-{
-    enet_deinitialize();
-    LVN_CORE_TRACE("networking context terminated");
-}
-
 static void initStandardPipelineSpecification(LvnContext* lvnctx)
 {
     LvnPipelineSpecification pipelineSpecification{};
@@ -548,7 +471,7 @@ static LvnResult createContextMemoryPool(LvnContext* lvnctx, LvnContextCreateInf
     return Lvn_Result_Success;
 }
 
-static void createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType)
+void createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType)
 {
     uint64_t size = lvnctx->blockMemAllocInfos[sType].size;
     uint64_t count = lvnctx->blockMemAllocInfos[sType].count;
@@ -571,51 +494,6 @@ static void createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType)
     // set the previous memory binding to the newly created memory binding
     if (prevMemBinding != nullptr)
         prevMemBinding->set_next_memory_binding(&memBinding.back());
-}
-
-template <typename T>
-static T* createObject(LvnContext* lvnctx, LvnStructureType sType)
-{
-    T* object;
-    if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
-    {
-        object = lvn::memNew<T>();
-    }
-    else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
-    {
-        auto& memBinding = lvnctx->memoryPool.memBindings[sType][0];
-        if (memBinding.find_empty_memory_binding() == nullptr)
-            lvn::createMemoryBlock(lvnctx, sType);
-
-        object = new (static_cast<T*>(memBinding.take_next())) T();
-    }
-    else
-    {
-        LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return nullptr;
-    }
-
-    lvnctx->objectMemoryAllocations.sTypes[sType].count++;
-    return object;
-}
-
-template <typename T>
-static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType)
-{
-    if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
-    {
-        lvn::memDelete<T>(obj);
-        obj = nullptr;
-    }
-    else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
-    {
-        lvnctx->memoryPool.memBindings[sType][0].push_back(obj);
-    }
-    else
-    {
-        LVN_CORE_ASSERT(false, "destroy object failed, no requirment was met before hand");
-    }
-
-    lvnctx->objectMemoryAllocations.sTypes[sType].count--;
 }
 
 // ------------------------------------------------------------
@@ -658,23 +536,23 @@ LvnResult createContext(LvnContextCreateInfo* createInfo)
     if (result != Lvn_Result_Success) { return result; }
 
     // window context
-    result = setWindowContext(lvnctx, createInfo->windowapi);
+    result = lvn::setWindowContext(lvnctx, createInfo->windowapi);
     if (result != Lvn_Result_Success) { return result; }
 
     // graphics context
-    result = setGraphicsContext(lvnctx, createInfo->graphicsapi);
+    result = lvn::setGraphicsContext(lvnctx, createInfo->graphicsapi);
     if (result != Lvn_Result_Success) { return result; }
 
     // audio context
-    result = initAudioContext(lvnctx);
+    result = lvn::initAudioContext(lvnctx);
     if (result != Lvn_Result_Success) { return result; }
 
     // networking context
-    result = initNetworkingContext();
+    result = lvn::initNetworkingContext();
     if (result != Lvn_Result_Success) { return result; }
 
     // config
-    initStandardPipelineSpecification(lvnctx);
+    lvn::initStandardPipelineSpecification(lvnctx);
 
     if (createInfo->rendering.matrixClipRegion == Lvn_ClipRegion_ApiSpecific)
     {
@@ -3537,612 +3415,6 @@ void unloadModel(LvnModel* model)
     }
 }
 
-
-// ------------------------------------------------------------
-// [SECTION]: Audio Functions
-// ------------------------------------------------------------
-
-float volumeDbToLinear(float db)
-{
-    return ma_volume_db_to_linear(db);
-}
-
-float volumeLineatToDb(float volume)
-{
-    return ma_volume_linear_to_db(volume);
-}
-
-void audioSetGlobalTimeMilliSeconds(uint64_t ms)
-{
-    ma_engine_set_time_in_milliseconds(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), ms);
-}
-
-void audioSetGlobalTimePcmFrames(uint64_t pcm)
-{
-    ma_engine_set_time_in_pcm_frames(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), pcm);
-}
-
-void audioSetMasterVolume(float volume)
-{
-    ma_engine_set_volume(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), volume);
-}
-
-uint32_t audioGetSampleRate()
-{
-    return ma_engine_get_sample_rate(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr));
-}
-
-uint64_t audioGetGlobalTimeMilliseconds()
-{
-    return ma_engine_get_time_in_milliseconds(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr));
-}
-
-uint64_t audioGetGlobalTimePcmFrames()
-{
-    return ma_engine_get_time_in_pcm_frames(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr));
-}
-
-
-void listenerSetPosition(float x, float y, float z)
-{
-    ma_engine_listener_set_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
-}
-
-void listenerSetPosition(const LvnVec3& pos)
-{
-    ma_engine_listener_set_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, pos.x, pos.y, pos.z);
-}
-
-void listenerSetDirection(float x, float y, float z)
-{
-    ma_engine_listener_set_direction(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
-}
-
-void listenerSetDirection(const LvnVec3 dir)
-{
-    ma_engine_listener_set_direction(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, dir.x, dir.y, dir.z);
-}
-
-void listenerSetVelocity(float x, float y, float z)
-{
-    ma_engine_listener_set_velocity(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
-}
-
-void listenerSetVelocity(const LvnVec3 vel)
-{
-    ma_engine_listener_set_velocity(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, vel.x, vel.y, vel.z);
-}
-
-void listenerSetWorldUp(float x, float y, float z)
-{
-    ma_engine_listener_set_world_up(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, x, y, z);
-}
-
-void listenerSetWorldUp(const LvnVec3 up)
-{
-    ma_engine_listener_set_world_up(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, up.x, up.y, up.z);
-}
-
-void listenerSetCone(float innerAngleRad, float outerAngleRad, float outerGain)
-{
-    ma_engine_listener_set_cone(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, innerAngleRad, outerAngleRad, outerGain);
-}
-
-LvnVec3 listenerGetPosition()
-{
-    ma_vec3f pos = ma_engine_listener_get_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0);
-    return LvnVec3{ pos.x, pos.y, pos.z };
-}
-
-LvnVec3 listenerGetDirection()
-{
-    ma_vec3f dir = ma_engine_listener_get_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0);
-    return LvnVec3{ dir.x, dir.y, dir.z };
-}
-
-LvnVec3 listenerGetWorldUp()
-{
-    ma_vec3f up = ma_engine_listener_get_position(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0);
-    return LvnVec3{ up.x, up.y, up.z };
-}
-
-void listenerGetCone(float* innerAngleRad, float* outerAngleRad, float* outerGain)
-{
-    ma_engine_listener_get_cone(static_cast<ma_engine*>(lvn::getContext()->audioEngineContextPtr), 0, innerAngleRad, outerAngleRad, outerGain);
-}
-
-
-LvnResult createSound(LvnSound** sound, const LvnSoundCreateInfo* createInfo)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    ma_engine* pEngine = static_cast<ma_engine*>(lvnctx->audioEngineContextPtr);
-
-    if (createInfo->filepath.empty())
-    {
-        LVN_CORE_ERROR("createSound(LvnSound**, LvnSoundCreateInfo*) | createInfo->filepath is nullptr, cannot load sound data without a valid path to the sound file");
-        return Lvn_Result_Failure;
-    }
-
-    *sound = lvn::createObject<LvnSound>(lvnctx, Lvn_Stype_Sound);
-
-    LvnSound* soundPtr = *sound;
-    soundPtr->volume = createInfo->volume;
-    soundPtr->pan = createInfo->pan;
-    soundPtr->pitch = createInfo->pitch;
-    soundPtr->pos = createInfo->pos;
-    soundPtr->looping = createInfo->looping;
-
-    ma_sound_config soundConfig{};
-
-    if (ma_sound_init_from_file(pEngine, createInfo->filepath.c_str(), createInfo->flags, NULL, NULL, &soundPtr->sound) != MA_SUCCESS)
-    {
-        LVN_CORE_ERROR("createSound(LvnSound**, LvnSoundCreateInfo*) | failed to create sound object");
-        return Lvn_Result_Failure;
-    }
-
-    ma_sound_set_volume(&soundPtr->sound, createInfo->volume);
-    ma_sound_set_pan(&soundPtr->sound, createInfo->pan);
-    ma_sound_set_pitch(&soundPtr->sound, createInfo->pitch);
-    ma_sound_set_position(&soundPtr->sound, createInfo->pos.x, createInfo->pos.y, createInfo->pos.z);
-    ma_sound_set_looping(&soundPtr->sound, createInfo->looping);
-
-    LVN_CORE_TRACE("created sound: (%p), volume: %.2f, pan: %.2f, pitch: %.2f", *sound, createInfo->volume, createInfo->pan, createInfo->pitch);
-    return Lvn_Result_Success;
-}
-
-void destroySound(LvnSound* sound)
-{
-    if (sound == nullptr) { return; }
-    LvnContext* lvnctx = lvn::getContext();
-
-    ma_sound_uninit(&sound->sound);
-
-    lvn::destroyObject(lvnctx, sound, Lvn_Stype_Sound);
-}
-
-LvnSoundCreateInfo configSoundInit(const char* filepath)
-{
-    LvnSoundCreateInfo soundInit{};
-    soundInit.pos = { 0.0f, 0.0f, 0.0f };
-    soundInit.volume = 1.0f;
-    soundInit.pan = 0.0f;
-    soundInit.pitch = 1.0f;
-    soundInit.looping = false;
-    soundInit.filepath = filepath;
-
-    return soundInit;
-}
-
-void soundSetVolume(LvnSound* sound, float volume)
-{
-    ma_sound_set_volume(&sound->sound, volume);
-}
-
-void soundSetPan(LvnSound* sound, float pan)
-{
-    ma_sound_set_pan(&sound->sound, pan);
-}
-
-void soundSetPitch(LvnSound* sound, float pitch)
-{
-    ma_sound_set_pitch(&sound->sound, pitch);
-}
-
-void soundSetPositioning(LvnSound* sound, LvnSoundPositioningFlags positioning)
-{
-    ma_sound_set_positioning(&sound->sound, static_cast<ma_positioning>(positioning));
-}
-
-void soundSetPosition(LvnSound* sound, float x, float y, float z)
-{
-    ma_sound_set_position(&sound->sound, x, y, z);
-}
-
-void soundSetPosition(LvnSound* sound, const LvnVec3& pos)
-{
-    ma_sound_set_position(&sound->sound, pos.x, pos.y, pos.z);
-}
-
-void soundSetDirection(LvnSound* sound, float x, float y, float z)
-{
-    ma_sound_set_direction(&sound->sound, x, y, z);
-}
-
-void soundSetDirection(LvnSound* sound, const LvnVec3& dir)
-{
-    ma_sound_set_direction(&sound->sound, dir.x, dir.y, dir.z);
-}
-
-void soundSetVelocity(LvnSound* sound, float x, float y, float z)
-{
-    ma_sound_set_velocity(&sound->sound, x, y, z);
-}
-
-void soundSetVelocity(LvnSound* sound, const LvnVec3& vel)
-{
-    ma_sound_set_velocity(&sound->sound, vel.x, vel.y, vel.z);
-}
-
-void soundSetCone(LvnSound* sound, float innerAngleRad, float outerAngleRad, float outerGain)
-{
-    ma_sound_group_set_cone(&sound->sound, innerAngleRad, outerAngleRad, outerGain);
-}
-
-void soundSetAttenuation(LvnSound* sound, LvnSoundAttenuationFlags attenuation)
-{
-    ma_sound_set_attenuation_model(&sound->sound, static_cast<ma_attenuation_model>(attenuation));
-}
-
-void soundSetRolloff(LvnSound* sound, float rolloff)
-{
-    ma_sound_set_rolloff(&sound->sound, rolloff);
-}
-
-void soundSetMinGain(LvnSound* sound, float minGain)
-{
-    ma_sound_set_min_gain(&sound->sound, minGain);
-}
-
-void soundSetMaxGain(LvnSound* sound, float maxGain)
-{
-    ma_sound_set_max_gain(&sound->sound, maxGain);
-}
-
-void soundSetMinDistance(LvnSound* sound, float minDist)
-{
-    ma_sound_set_min_distance(&sound->sound, minDist);
-}
-
-void soundSetMaxDistance(LvnSound* sound, float maxDist)
-{
-    ma_sound_set_max_distance(&sound->sound, maxDist);
-}
-
-void soundSetDopplerFactor(LvnSound* sound, float dopplerFactor)
-{
-    ma_sound_set_doppler_factor(&sound->sound, dopplerFactor);
-}
-
-void soundSetLooping(LvnSound* sound, bool looping)
-{
-    ma_sound_set_looping(&sound->sound, looping);
-}
-
-void soundPlayStart(LvnSound* sound)
-{
-    ma_sound_start(&sound->sound);
-}
-
-void soundPlayStop(LvnSound* sound)
-{
-    ma_sound_stop(&sound->sound);
-}
-
-void soundTogglePause(LvnSound* sound)
-{
-    if (ma_sound_is_playing(&sound->sound))
-        ma_sound_stop(&sound->sound);
-    else
-        ma_sound_start(&sound->sound);
-}
-
-LVN_API void soundScheduleStartTimePcmFrames(LvnSound* sound, uint64_t pcm)
-{
-    ma_sound_set_start_time_in_pcm_frames(&sound->sound, pcm);
-}
-
-void soundScheduleStartTimeMilliseconds(LvnSound* sound, uint64_t ms)
-{
-    ma_sound_set_start_time_in_milliseconds(&sound->sound, ms);
-}
-
-LVN_API void soundScheduleStopTimePcmFrames(LvnSound* sound, uint64_t pcm)
-{
-    ma_sound_set_stop_time_in_pcm_frames(&sound->sound, pcm);
-}
-
-void soundScheduleStopTimeMilliseconds(LvnSound* sound, uint64_t ms)
-{
-    ma_sound_set_stop_time_in_milliseconds(&sound->sound, ms);
-}
-
-void soundSetFadeMilliseconds(LvnSound* sound, float volBegin, float volEnd, uint64_t ms)
-{
-    ma_sound_set_fade_in_milliseconds(&sound->sound, volBegin, volEnd, ms);
-}
-
-void soundSetFadePcmFrames(LvnSound* sound, float volBegin, float volEnd, uint64_t pcm)
-{
-    ma_sound_set_fade_in_pcm_frames(&sound->sound, volBegin, volEnd, pcm);
-}
-
-void soundSeekToPcmFrame(LvnSound* sound, uint64_t pcm)
-{
-    ma_sound_seek_to_pcm_frame(&sound->sound, pcm);
-}
-
-float soundGetVolume(const LvnSound* sound)
-{
-    return ma_sound_get_volume(&sound->sound);
-}
-
-float soundGetPan(const LvnSound* sound)
-{
-    return ma_sound_get_pan(&sound->sound);
-}
-
-float soundGetPitch(const LvnSound* sound)
-{
-    return ma_sound_get_pitch(&sound->sound);
-}
-
-LvnSoundPositioningFlags soundGetPositioning(const LvnSound* sound)
-{
-    return static_cast<LvnSoundPositioningFlags>(ma_sound_get_positioning(&sound->sound));
-}
-
-LvnVec3 soundGetPosition(const LvnSound* sound)
-{
-    ma_vec3f pos = ma_sound_get_position(&sound->sound);
-    return LvnVec3{ pos.x, pos.y, pos.z };
-}
-
-LvnVec3 soundGetDirection(const LvnSound* sound)
-{
-    ma_vec3f dir = ma_sound_get_direction(&sound->sound);
-    return LvnVec3{ dir.x, dir.y, dir.z };
-}
-
-void soundGetCone(const LvnSound* sound, float* innerAngleRad, float* outerAngleRad, float* outerGain)
-{
-    ma_sound_get_cone(&sound->sound, innerAngleRad, outerAngleRad, outerGain);
-}
-
-LvnVec3 soundGetVelocity(const LvnSound* sound)
-{
-    ma_vec3f vel = ma_sound_get_velocity(&sound->sound);
-    return LvnVec3{ vel.x, vel.y, vel.z };
-}
-
-LvnSoundAttenuationFlags soundGetAttenuation(const LvnSound* sound)
-{
-    return static_cast<LvnSoundAttenuationFlags>(ma_sound_get_attenuation_model(&sound->sound));
-}
-
-float soundGetRolloff(const LvnSound* sound)
-{
-    return ma_sound_get_rolloff(&sound->sound);
-}
-
-float soundGetMinGain(const LvnSound* sound)
-{
-    return ma_sound_get_min_gain(&sound->sound);
-}
-
-float soundGetMaxGain(const LvnSound* sound)
-{
-    return ma_sound_get_max_gain(&sound->sound);
-}
-
-float soundGetMinDistance(const LvnSound* sound)
-{
-    return ma_sound_get_min_distance(&sound->sound);
-}
-
-float soundGetMaxDistance(const LvnSound* sound)
-{
-    return ma_sound_get_max_distance(&sound->sound);
-}
-
-float soundGetDopplerFactor(const LvnSound* sound)
-{
-    return ma_sound_get_doppler_factor(&sound->sound);
-}
-
-bool soundIsLooping(const LvnSound* sound)
-{
-    return ma_sound_is_looping(&sound->sound);
-}
-
-bool soundIsPlaying(const LvnSound* sound)
-{
-    return ma_sound_is_playing(&sound->sound);
-}
-
-bool soundAtEnd(const LvnSound* sound)
-{
-    return ma_sound_at_end(&sound->sound);
-}
-
-uint64_t soundGetTimeMilliseconds(const LvnSound* sound)
-{
-    return ma_sound_get_time_in_milliseconds(&sound->sound);
-}
-
-uint64_t soundGetTimePcmFrames(const LvnSound* sound)
-{
-    return ma_sound_get_time_in_pcm_frames(&sound->sound);
-}
-
-float soundGetLengthSeconds(LvnSound* sound)
-{
-    float length;
-    ma_sound_get_length_in_seconds(&sound->sound, &length);
-    return length;
-}
-
-// ------------------------------------------------------------
-// [SECTION]: Network Functions
-// ------------------------------------------------------------
-
-LvnResult createSocket(LvnSocket** socket, const LvnSocketCreateInfo* createInfo)
-{
-    LvnContext* lvnctx = lvn::getContext();
-
-    *socket = lvn::createObject<LvnSocket>(lvnctx, Lvn_Stype_Socket);
-    LvnSocket* socketPtr = *socket;
-
-    ENetAddress address;
-    address.host = createInfo->address.host;
-    address.port = createInfo->address.port;
-
-    if (createInfo->type == Lvn_SocketType_Client)
-    {
-        socketPtr->socket = enet_host_create(nullptr, createInfo->connectionCount, createInfo->channelCount, createInfo->inBandWidth, createInfo->outBandWidth);
-    }
-    else if (createInfo->type == Lvn_SocketType_Server)
-    {
-        socketPtr->socket = enet_host_create(&address, createInfo->connectionCount, createInfo->channelCount, createInfo->inBandWidth, createInfo->outBandWidth);
-    }
-
-    if (socketPtr->socket == nullptr)
-    {
-        LVN_CORE_ERROR("createSocket(LvnSocket**, LvnSocketCreateInfo*) | an error occured while trying to create socket");
-        return Lvn_Result_Failure;
-    }
-
-    socketPtr->connection = nullptr;
-    socketPtr->type = createInfo->type;
-    socketPtr->address = createInfo->address;
-    socketPtr->channelCount = createInfo->channelCount;
-    socketPtr->channelCount = createInfo->channelCount;
-    socketPtr->inBandWidth = createInfo->inBandWidth;
-    socketPtr->outBandWidth = createInfo->outBandWidth;
-
-    LVN_CORE_TRACE("created socket: (%p), address: (%u:%u)", createInfo->address.host, createInfo->address.port);
-    return Lvn_Result_Success;
-}
-
-void destroySocket(LvnSocket* socket)
-{
-    if (socket == nullptr) { return; }
-    LvnContext* lvnctx = lvn::getContext();
-    enet_host_destroy(socket->socket);
-    lvn::destroyObject(lvnctx, socket, Lvn_Stype_Socket);
-}
-
-LvnSocketCreateInfo configSocketClientInit(uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
-{
-    LvnSocketCreateInfo createInfo{};
-    createInfo.type = Lvn_SocketType_Client;
-    createInfo.connectionCount = connectionCount;
-    createInfo.channelCount = channelCount;
-    createInfo.inBandWidth = inBandwidth;
-    createInfo.outBandWidth = outBandWidth;
-
-    return createInfo;
-}
-
-LvnSocketCreateInfo configSocketServerInit(LvnAddress address, uint32_t connectionCount, uint32_t channelCount, uint32_t inBandwidth, uint32_t outBandWidth)
-{
-    LvnSocketCreateInfo createInfo{};
-    createInfo.type = Lvn_SocketType_Client;
-    createInfo.address = address;
-    createInfo.connectionCount = connectionCount;
-    createInfo.channelCount = channelCount;
-    createInfo.inBandWidth = inBandwidth;
-    createInfo.outBandWidth = outBandWidth;
-
-    return createInfo;
-}
-
-uint32_t socketGetHostFromStr(const char* host)
-{
-    ENetAddress address;
-    enet_address_set_host(&address, host);
-    return address.host;
-}
-
-LvnResult socketConnect(LvnSocket* socket, LvnAddress* address, uint32_t channelCount, uint32_t milliseconds)
-{
-    if (socket->type != Lvn_SocketType_Client)
-    {
-        LVN_CORE_ERROR("cannot use socket (%p) with type that is not client to connect", socket->socket);
-        return Lvn_Result_Failure;
-    }
-
-    ENetAddress enetAddress;
-    enetAddress.host = socket->address.host;
-    enetAddress.port = socket->address.port;
-
-    socket->connection = enet_host_connect(socket->socket, &enetAddress, channelCount, 0);
-
-    if (socket->connection == nullptr)
-    {
-        LVN_CORE_ERROR("no available peers for initiating a connection on socket (%p)", socket);
-        return Lvn_Result_Failure;
-    }
-
-    ENetEvent event;
-    if (enet_host_service(socket->socket, &event, milliseconds) > 0 && event.type == ENET_EVENT_TYPE_CONNECT)
-    {
-        return Lvn_Result_Success;
-    }
-
-    enet_peer_reset(socket->connection);
-    return Lvn_Result_TimeOut;
-}
-
-LvnResult socketDisconnect(LvnSocket* socket, uint32_t milliseconds)
-{
-    if (socket->type != Lvn_SocketType_Client)
-    {
-        LVN_CORE_ERROR("cannot use socket (%p) with type that is not client to disconnect", socket->socket);
-        return Lvn_Result_Failure;
-    }
-    enet_peer_disconnect(socket->connection, 0);
-
-    ENetEvent event;
-    if (enet_host_service(socket->socket, &event, milliseconds) > 0)
-    {
-        switch (event.type)
-        {
-            case ENET_EVENT_TYPE_RECEIVE:
-            {
-                enet_packet_destroy(event.packet);
-                break;
-            }
-            case ENET_EVENT_TYPE_DISCONNECT:
-            {
-                return Lvn_Result_Success;
-            }
-
-            default:
-            {
-                LVN_CORE_WARN("unknown disconnect event received on socket (%p)", socket);
-                break;
-            }
-        }
-    }
-
-    enet_peer_reset(socket->connection);
-    return Lvn_Result_Success;
-}
-
-void socketSend(LvnSocket* socket, uint8_t channel, LvnPacket* packet)
-{
-    LVN_CORE_ASSERT(packet != nullptr, "packet is nullptr when trying to send packet through socket");
-
-    ENetPacket* enetPacket = enet_packet_create(packet->data, packet->size, ENET_PACKET_FLAG_RELIABLE);
-    enet_peer_send(socket->connection, channel, enetPacket);
-    enet_host_flush(socket->socket);
-}
-
-LvnResult socketReceive(LvnSocket* socket, LvnPacket* packet, uint32_t milliseconds)
-{
-    LVN_CORE_ASSERT(packet != nullptr, "packet is nullptr when trying to receive packet from socket");
-
-    ENetEvent event;
-    if (enet_host_service(socket->socket, &event, milliseconds) > 0 && event.type == ENET_EVENT_TYPE_RECEIVE)
-    {
-        packet->data = event.packet->data;
-        packet->size = event.packet->dataLength;
-        enet_packet_destroy(event.packet);
-        return Lvn_Result_Success;
-    }
-
-    return Lvn_Result_TimeOut;
-}
 
 // ------------------------------------------------------------
 // [SECTION]: Math Functions

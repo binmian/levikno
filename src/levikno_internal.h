@@ -19,6 +19,8 @@
 // -- [SUBSECT]: Graphics Context
 // -- [SUBSECT]: Draw Command Buffer Structures
 // -- [SUBSECT]: General Graphics Structures
+// [SECTION]: Audio Internal Structs
+// [SECTION]: Networking Internal Structs
 // [SECTION]: Context Internal Structs
 // -- [SUBSECT]: Memory Alloc Structures
 // -- [SUBSECT]: Renderer Structures
@@ -772,6 +774,42 @@ struct LvnCubemap
 
 
 // ------------------------------------------------------------
+// [SECTION]: Audio Internal Structs
+// ------------------------------------------------------------
+
+struct LvnSound
+{
+    float volume;
+    float pan;
+    float pitch;
+    bool looping;
+
+    LvnVec3 pos;
+
+    void* apiData;
+};
+
+
+// ------------------------------------------------------------
+// [SECTION]: Networking Internal Structs
+// ------------------------------------------------------------
+
+struct LvnSocket
+{
+    LvnSocketType type;
+
+    void* socket;
+    void* connection;
+    void* packet;
+
+    LvnAddress address;
+    uint32_t channelCount;
+    uint32_t connectionCount;
+    uint32_t inBandWidth;
+    uint32_t outBandWidth;
+};
+
+// ------------------------------------------------------------
 // [SECTION]: Context Internal Structs
 // ------------------------------------------------------------
 
@@ -852,6 +890,53 @@ namespace lvn
     constexpr typename LvnRemoveReference<T>::type&& move(T&& arg)
     {
         return static_cast<typename LvnRemoveReference<T>::type&&>(arg);
+    }
+
+    void createMemoryBlock(LvnContext* lvnctx, LvnStructureType sType);
+
+    template <typename T>
+    static T* createObject(LvnContext* lvnctx, LvnStructureType sType)
+    {
+        T* object;
+        if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
+        {
+            object = lvn::memNew<T>();
+        }
+        else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
+        {
+            auto& memBinding = lvnctx->memoryPool.memBindings[sType][0];
+            if (memBinding.find_empty_memory_binding() == nullptr)
+                lvn::createMemoryBlock(lvnctx, sType);
+
+            object = new (static_cast<T*>(memBinding.take_next())) T();
+        }
+        else
+        {
+            LVN_CORE_ASSERT(false, "create object failed, no requirment was met before hand"); return nullptr;
+        }
+
+        lvnctx->objectMemoryAllocations.sTypes[sType].count++;
+        return object;
+    }
+
+    template <typename T>
+    static void destroyObject(LvnContext* lvnctx, T* obj, LvnStructureType sType)
+    {
+        if (lvnctx->memoryMode == Lvn_MemAllocMode_Individual)
+        {
+            lvn::memDelete<T>(obj);
+            obj = nullptr;
+        }
+        else if (lvnctx->memoryMode == Lvn_MemAllocMode_MemPool)
+        {
+            lvnctx->memoryPool.memBindings[sType][0].push_back(obj);
+        }
+        else
+        {
+            LVN_CORE_ASSERT(false, "destroy object failed, no requirment was met before hand");
+        }
+
+        lvnctx->objectMemoryAllocations.sTypes[sType].count--;
     }
 
     template <typename T>

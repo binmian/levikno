@@ -70,7 +70,7 @@ private:
 public:
     void add_entity(LvnEntity entity, const T& comp)
     {
-        LVN_CORE_ASSERT(!m_EntityToIndex.contains(entity), "entity already has component in component array");
+        LVN_ASSERT(!m_EntityToIndex.contains(entity), "entity already has component in component array");
 
         if (!m_AvailableIndices.empty())
         {
@@ -87,7 +87,7 @@ public:
 
     void remove_entity(LvnEntity entity)
     {
-        LVN_CORE_ASSERT(m_EntityToIndex.contains(entity), "entity not found within component array");
+        LVN_ASSERT(m_EntityToIndex.contains(entity), "entity not found within component array");
 
         const size_t index = m_EntityToIndex[entity];
         LVN_CORE_ASSERT(index < m_Data.size(), "index out of vector size range");
@@ -98,7 +98,7 @@ public:
 
     T& get_entity_component(LvnEntity entity)
     {
-        LVN_CORE_ASSERT(m_EntityToIndex.contains(entity), "entity not found within component array");
+        LVN_ASSERT(m_EntityToIndex.contains(entity), "entity not found within component array");
 
         const size_t index = m_EntityToIndex[entity];
         LVN_CORE_ASSERT(index < m_Data.size(), "index out of vector size range");

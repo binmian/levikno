@@ -2710,10 +2710,10 @@ template <typename T>
 class LvnArenaList
 {
 private:
-    LvnINode<T>* m_Nodes;              /* pointer to an array of nodes */
-    size_t* m_FreeNodes;             /* pointer to an array of indices for nodes that are not taken in the array */
+    LvnINode<T>* m_Nodes;            /* pointer to an array of nodes */
     size_t m_Size;                   /* the number of the currently alive nodes in the list */
     size_t m_Capacity;               /* the number of nodes allocated for the m_Nodes array */
+    size_t* m_FreeNodes;             /* pointer to an array of indices for nodes that are not taken in the array */
     size_t m_FreeSize;               /* the number of indices for nodes not taken */
     size_t m_FreeCapacity;           /* the number of indices allocated in the m_FreeNodes array; NOTE: m_FreeCapacity should always be the same value as m_Capacity */
     size_t m_Head;                   /* the index to the head of the list in the array */
@@ -6991,8 +6991,7 @@ struct LvnSocketCreateInfo
 
 struct LvnPacket
 {
-    void* data;
-    size_t size;
+    LvnBin data;
 };
 
 

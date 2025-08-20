@@ -9,6 +9,7 @@ endif()
 set(LVN_SOURCES
     antiAliasing.cpp
     bindlessTexture.cpp
+    clientServer.cpp
     colorBlending.cpp
     cubemap.cpp
     entityComponentSystem.cpp
