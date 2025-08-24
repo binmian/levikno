@@ -32,9 +32,8 @@
 *.app
 
 # Directories
-bin/
-bin-obj/
 build/
+debug/
 release/
 
 # Visual Studio Files
