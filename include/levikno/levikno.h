@@ -4,7 +4,6 @@
 // [LAYOUT]:
 // ------------------------------------------------------------
 //
-// [SECTION]: Config
 // [SECTION]: Includes
 // [SECTION]: Enums
 // [SECTION]: Struct Declaration
@@ -12,188 +11,13 @@
 // [SECTION]: Struct Implementation
 
 
-// [SECTION]: Config
-// ------------------------------------------------------------
-
-// platform
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    #ifndef LVN_PLATFORM_WINDOWS
-        #define LVN_PLATFORM_WINDOWS
-    #endif
-
-#elif __APPLE__
-    #ifndef LVN_PLATFORM_APPLE
-        #define LVN_PLATFORM_APPLE
-    #endif
-
-#elif __linux__
-    #ifndef LVN_PLATFORM_LINUX
-        #define LVN_PLATFORM_LINUX
-    #endif
-#else
-    #error "levikno does not support the current platform."
-#endif
-
-// dll
-#ifdef LVN_PLATFORM_WINDOWS
-    #ifdef LVN_SHARED_LIBRARY_EXPORT
-        #define LVN_API __declspec(dllexport)
-    #elif LVN_SHARED_LIBRARY_IMPORT
-        #define LVN_API __declspec(dllimport)
-    #else
-        #define LVN_API
-    #endif
-#else
-  #define LVN_API
-#endif
-
-
-// compiler
-#ifdef _MSC_VER
-    #define LVN_ASSERT_BREAK __debugbreak()
-    #pragma warning (disable : 4267)
-    #pragma warning (disable : 4244)
-    #pragma warning (disable : 26495)
-
-    #ifdef _DEBUG
-        #ifndef LVN_CONFIG_DEBUG
-            #define LVN_CONFIG_DEBUG
-        #endif
-    #endif
-#else
-    #ifndef NDEBUG
-        #ifndef LVN_CONFIG_DEBUG
-            #define LVN_CONFIG_DEBUG
-        #endif
-    #endif
-#endif
-
-
-// debug
-#ifdef LVN_CONFIG_DEBUG
-    #define LVN_ENABLE_ASSERTS
-#endif
-
-#if defined (LVN_ENABLE_ASSERTS)
-    #define LVN_ASSERT(x,msg) assert(x && msg)
-#else
-    #define LVN_ASSERT(x, ...)
-#endif
-
-
-// allocation
-#ifndef LVN_MALLOC
-    #define LVN_MALLOC(sz) ::lvn::memAlloc(sz)
-#endif
-
-#ifndef LVN_FREE
-    #define LVN_FREE(p) ::lvn::memFree(p)
-#endif
-
-#ifndef LVN_REALLOC
-    #define LVN_REALLOC(p,sz) ::lvn::memRealloc(p,sz)
-#endif
-
-// glslang
-#ifdef LVN_INCLUDE_GLSLANG_SUPPORTED
-    #define LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
-#endif
-
-
-// misc
-#define LVN_TRUE 1
-#define LVN_FALSE 0
-#define LVN_NULL_HANDLE nullptr
-
-#define LVN_FILE_NAME __FILE__
-#define LVN_LINE __LINE__
-#define LVN_FUNC_NAME __func__
-
-#define LVN_STR(x) #x
-#define LVN_STRINGIFY(x) LVN_STR(x)
-
-#ifndef M_PI
-    #define M_PI 3.1415926535897932384626433832795
-#endif
-
-#define LVN_PI ((float)M_PI)
-#define LVN_PI_EXACT (22.0/7.0)
-
-
-// logging
-
-/*
-*   Color          | FG | BG
-* -----------------+----+----
-*   Black          | 30 | 40
-*   Red            | 31 | 41
-*   Green          | 32 | 42
-*   Yellow         | 33 | 43
-*   Blue           | 34 | 44
-*   Magenta        | 35 | 45
-*   Cyan           | 36 | 46
-*   White          | 37 | 47
-*   Bright Black   | 90 | 100
-*   Bright Red     | 91 | 101
-*   Bright Green   | 92 | 102
-*   Bright Yellow  | 93 | 103
-*   Bright Blue    | 94 | 104
-*   Bright Magenta | 95 | 105
-*   Bright Cyan    | 96 | 106
-*   Bright White   | 97 | 107
-*
-*
-*   reset             0
-*   bold/bright       1
-*   underline         4
-*   inverse           7
-*   bold/bright off  21
-*   underline off    24
-*   inverse off      27
-*
-*
-*   Log Colors:
-*   TRACE           \x1b[0;37m
-*   DEBUG           \x1b[0;34m
-*   INFO            \x1b[0;32m
-*   WARN            \x1b[1;33m
-*   ERROR           \x1b[1;31m
-*   FATAL           \x1b[1;37;41m
-*
-*/
-
-#define LVN_LOG_COLOR_TRACE                     "\x1b[0;37m"
-#define LVN_LOG_COLOR_DEBUG                     "\x1b[0;34m"
-#define LVN_LOG_COLOR_INFO                      "\x1b[0;32m"
-#define LVN_LOG_COLOR_WARN                      "\x1b[1;33m"
-#define LVN_LOG_COLOR_ERROR                     "\x1b[1;31m"
-#define LVN_LOG_COLOR_FATAL                     "\x1b[1;37;41m"
-#define LVN_LOG_COLOR_RESET                     "\x1b[0m"
-
-
-// Core Log macros
-#define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_WARN(...)                      ::lvn::logMessageWarn(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_ERROR(...)                     ::lvn::logMessageError(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-#define LVN_CORE_FATAL(...)                     ::lvn::logMessageFatal(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-
-// Client Log macros
-#define LVN_TRACE(...)                          ::lvn::logMessageTrace(lvn::logGetClientLogger(), ##__VA_ARGS__)
-#define LVN_DEBUG(...)                          ::lvn::logMessageDebug(lvn::logGetClientLogger(), ##__VA_ARGS__)
-#define LVN_INFO(...)                           ::lvn::logMessageInfo(lvn::logGetClientLogger(), ##__VA_ARGS__)
-#define LVN_WARN(...)                           ::lvn::logMessageWarn(lvn::logGetClientLogger(), ##__VA_ARGS__)
-#define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::logGetClientLogger(), ##__VA_ARGS__)
-#define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::logGetClientLogger(), ##__VA_ARGS__)
-
-
 // [SECTION]: Includes
 // ------------------------------------------------------------
 
+#include "lvn_config.h"
+
 #include <cstdint> // uint8_t, uint16_t, uint32_t, uint64_t
 #include <cstddef> // size_t
-#include <cassert> // assert
 #include <new>     // operator new
 #include <type_traits>
 
@@ -349,6 +173,18 @@ namespace lvn
     LVN_API void                    logMessageWarn(LvnLogger* logger, const char* fmt, ...);                          // log message with level warn;  ANSI code "\x1b[1;33m"
     LVN_API void                    logMessageError(LvnLogger* logger, const char* fmt, ...);                         // log message with level error; ANSI code "\x1b[1;31m"
     LVN_API void                    logMessageFatal(LvnLogger* logger, const char* fmt, ...);                         // log message with level fatal; ANSI code "\x1b[1;37;41m"
+    LVN_API void                    logTrace(const char* fmt, ...);                                                   // log trace message on the clint logger
+    LVN_API void                    logDebug(const char* fmt, ...);                                                   // log debug message on the clint logger
+    LVN_API void                    logInfo(const char* fmt, ...);                                                    // log info message on the clint logger
+    LVN_API void                    logWarn(const char* fmt, ...);                                                    // log warn message on the clint logger
+    LVN_API void                    logError(const char* fmt, ...);                                                   // log error message on the clint logger
+    LVN_API void                    logFatal(const char* fmt, ...);                                                   // log fatal message on the clint logger
+    LVN_API void                    logCoreTrace(const char* fmt, ...);                                               // log trace message on the core logger
+    LVN_API void                    logCoreDebug(const char* fmt, ...);                                               // log debug message on the core logger
+    LVN_API void                    logCoreInfo(const char* fmt, ...);                                                // log info message on the core logger
+    LVN_API void                    logCoreWarn(const char* fmt, ...);                                                // log warn message on the core logger
+    LVN_API void                    logCoreError(const char* fmt, ...);                                               // log error message on the core logger
+    LVN_API void                    logCoreFatal(const char* fmt, ...);                                               // log fatal message on the core logger
     LVN_API LvnLogger*              logGetCoreLogger();
     LVN_API LvnLogger*              logGetClientLogger();
     LVN_API const char*             logGetANSIcodeColor(LvnLogLevel level);                                           // get the ANSI color code of the log level in a string

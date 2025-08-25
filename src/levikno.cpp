@@ -152,7 +152,7 @@ void* memAlloc(size_t size)
 {
     if (size == 0) { return nullptr; }
     void* allocmem = (*s_MemAllocFunc)(size, s_MemAllocUserData);
-    if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); exit(-1); }
+    if (!allocmem) { lvn::logCoreError("malloc failure, could not allocate memory!"); exit(-1); }
     memset(allocmem, 0, size);
     s_MemAllocCount++;
     return allocmem;
@@ -443,7 +443,7 @@ void terminateLogging()
 
     if (s_MemAllocCount > 0)
     {
-        LVN_CORE_ERROR("not all memory allocations have been freed, number of allocations remaining: %zu", s_MemAllocCount);
+        lvn::logCoreError("not all memory allocations have been freed, number of allocations remaining: %zu", s_MemAllocCount);
     }
 
     if (s_LoggingContext->coreLogger.logfile.logToFile)
@@ -499,7 +499,7 @@ void logSetFileConfig(LvnLogger* logger, bool enable, const char* filename, LvnF
         if (logger->logfile.filename.empty())
         {
             logger->logfile.filename = logger->loggerName + "_logs.txt";
-            LVN_CORE_WARN("logSetFileConfig(LvnLogger*, bool enable, const char* filename, LvnFileMode filemode) | filename not set, setting file name to name of the logger: %s_logs.txt", logger->loggerName.c_str());
+            lvn::logCoreWarn("logSetFileConfig(LvnLogger*, bool enable, const char* filename, LvnFileMode filemode) | filename not set, setting file name to name of the logger: %s_logs.txt", logger->loggerName.c_str());
         }
 
         const char* filemode = "w";
@@ -522,6 +522,7 @@ void logRenameLogger(LvnLogger* logger, const char* name)
 
 void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     if (!lvn::getLoggingContex()->logging) { return; }
 
     LvnString msgstr; msgstr.reserve(strlen(msg->msg) + 1);
@@ -571,6 +572,7 @@ LvnString logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg
 
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     if (!lvn::getLoggingContex()->logging) { return; }
 
     LvnLogMessage logMsg{};
@@ -606,6 +608,7 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     if (!logctx || !logctx->logging) { return; }
     if (!logctx->enableCoreLogging && logger == &logctx->coreLogger) { return; }
@@ -628,6 +631,7 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     if (!logctx || !logctx->logging) { return; }
     if (!logctx->enableCoreLogging && logger == &logctx->coreLogger) { return; }
@@ -650,6 +654,7 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     if (!logctx || !logctx->logging) { return; }
     if (!logctx->enableCoreLogging && logger == &logctx->coreLogger) { return; }
@@ -672,6 +677,7 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     if (!logctx || !logctx->logging) { return; }
     if (!logctx->enableCoreLogging && logger == &logctx->coreLogger) { return; }
@@ -694,6 +700,7 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     if (!logctx || !logctx->logging) { return; }
     if (!logctx->enableCoreLogging && logger == &logctx->coreLogger) { return; }
@@ -716,6 +723,7 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 {
+    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     if (!logctx || !logctx->logging) { return; }
     if (!logctx->enableCoreLogging && logger == &logctx->coreLogger) { return; }
@@ -732,6 +740,141 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
     vsnprintf(&buff[0], len + 1, fmt, argcopy);
     lvn::logMessage(logger, Lvn_LogLevel_Fatal, buff.data());
 
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logTrace(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageTrace(&lvn::getLoggingContex()->clientLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logDebug(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageDebug(&lvn::getLoggingContex()->clientLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logInfo(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageInfo(&lvn::getLoggingContex()->clientLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logWarn(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageWarn(&lvn::getLoggingContex()->clientLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logError(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageError(&lvn::getLoggingContex()->clientLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logFatal(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageFatal(&lvn::getLoggingContex()->clientLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logCoreTrace(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageTrace(&lvn::getLoggingContex()->coreLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logCoreDebug(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageDebug(&lvn::getLoggingContex()->coreLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+}
+
+void logCoreInfo(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageInfo(&lvn::getLoggingContex()->coreLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+
+}
+
+void logCoreWarn(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageWarn(&lvn::getLoggingContex()->coreLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+
+}
+
+void logCoreError(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageError(&lvn::getLoggingContex()->coreLogger, fmt, argptr);
+    va_end(argcopy);
+    va_end(argptr);
+
+}
+
+void logCoreFatal(const char* fmt, ...)
+{
+    if constexpr (!ic_LvnEnableLogging) { return; }
+    va_list argptr, argcopy;
+    va_start(argptr, fmt);
+    va_copy(argcopy, argptr);
+    lvn::logMessageFatal(&lvn::getLoggingContex()->coreLogger, fmt, argptr);
     va_end(argcopy);
     va_end(argptr);
 }
@@ -812,7 +955,7 @@ LvnResult createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCrea
     {
         if (loggerPtr->logfile.filename.empty())
         {
-            LVN_CORE_ERROR("createLogger(LvnLogger**, LvnLoggerCreateInfo*) | loggerCreateInfo->fileConfig.filename is empty, cannot log to a file without a valid file path/name");
+            lvn::logCoreError("createLogger(LvnLogger**, LvnLoggerCreateInfo*) | loggerCreateInfo->fileConfig.filename is empty, cannot log to a file without a valid file path/name");
             return Lvn_Result_Failure;
         }
 
@@ -825,7 +968,7 @@ LvnResult createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCrea
 
     loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->format.c_str());
 
-    LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
+    lvn::logCoreTrace("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
     return Lvn_Result_Success;
 }
 
