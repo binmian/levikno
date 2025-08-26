@@ -13,21 +13,12 @@ enum LvnPlatform
 
 // platform
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    #ifndef LVN_PLATFORM_WINDOWS
-        #define LVN_PLATFORM_WINDOWS
-    #endif
     inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_Windows;
 
 #elif __APPLE__
-    #ifndef LVN_PLATFORM_APPLE
-        #define LVN_PLATFORM_APPLE
-    #endif
     inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_MacOS;
 
 #elif __linux__
-    #ifndef LVN_PLATFORM_LINUX
-        #define LVN_PLATFORM_LINUX
-    #endif
     inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_Linux;
 #else
     #error "levikno does not support the current platform."
@@ -48,14 +39,8 @@ enum LvnPlatform
 
 // debug
 #if defined(_DEBUG)
-    #ifndef LVN_CONFIG_DEBUG
-        #define LVN_CONFIG_DEBUG
-    #endif
     inline constexpr bool ic_LvnDebug = true;
 #elif !defined(NDEBUG)
-    #ifndef LVN_CONFIG_DEBUG
-        #define LVN_CONFIG_DEBUG
-    #endif
     inline constexpr bool ic_LvnDebug = true;
 #else
     inline constexpr bool ic_LvnDebug = false;
@@ -115,19 +100,18 @@ enum LvnPlatform
 *
 */
 
-#define LVN_LOG_COLOR_TRACE                     "\x1b[0;37m"
-#define LVN_LOG_COLOR_DEBUG                     "\x1b[0;34m"
-#define LVN_LOG_COLOR_INFO                      "\x1b[0;32m"
-#define LVN_LOG_COLOR_WARN                      "\x1b[1;33m"
-#define LVN_LOG_COLOR_ERROR                     "\x1b[1;31m"
-#define LVN_LOG_COLOR_FATAL                     "\x1b[1;37;41m"
-#define LVN_LOG_COLOR_RESET                     "\x1b[0m"
+inline constexpr const char* ic_LvnLogColorTrace = "\x1b[0;37m";
+inline constexpr const char* ic_LvnLogColorDebug = "\x1b[0;34m";
+inline constexpr const char* ic_LvnLogColorInfo  = "\x1b[0;32m";
+inline constexpr const char* ic_LvnLogColorWarn  = "\x1b[1;33m";
+inline constexpr const char* ic_LvnLogColorError = "\x1b[1;31m";
+inline constexpr const char* ic_LvnLogColorFatal = "\x1b[1;37;41m";
+inline constexpr const char* ic_LvnLogColorReset = "\x1b[0m";
 
 #ifndef LVN_DISABLE_LOGGING
-    #ifndef LVN_ENABLE_LOGGING
-        #define LVN_ENABLE_LOGGING
-    #endif
     inline constexpr bool ic_LvnEnableLogging = true;
+#else
+    inline constexpr bool ic_LvnEnableLogging = false;
 #endif
 
 

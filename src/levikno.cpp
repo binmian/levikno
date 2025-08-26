@@ -1,4 +1,5 @@
 #include "levikno.h"
+#include "lvn_config.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -52,13 +53,13 @@ static const char* getLogLevelColor(LvnLogLevel level)
 {
     switch (level)
     {
-        case Lvn_LogLevel_None:     { return LVN_LOG_COLOR_RESET; }
-        case Lvn_LogLevel_Trace:    { return LVN_LOG_COLOR_TRACE; }
-        case Lvn_LogLevel_Debug:    { return LVN_LOG_COLOR_DEBUG; }
-        case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
-        case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
-        case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
-        case Lvn_LogLevel_Fatal:    { return LVN_LOG_COLOR_FATAL; }
+        case Lvn_LogLevel_None:     { return ic_LvnLogColorReset; }
+        case Lvn_LogLevel_Trace:    { return ic_LvnLogColorTrace; }
+        case Lvn_LogLevel_Debug:    { return ic_LvnLogColorDebug; }
+        case Lvn_LogLevel_Info:     { return ic_LvnLogColorInfo; }
+        case Lvn_LogLevel_Warn:     { return ic_LvnLogColorWarn; }
+        case Lvn_LogLevel_Error:    { return ic_LvnLogColorError; }
+        case Lvn_LogLevel_Fatal:    { return ic_LvnLogColorFatal; }
     }
 
     return nullptr;
@@ -84,27 +85,27 @@ const static LvnLogPattern s_LogPatterns[] =
 {
     { '$', [](LvnLogMessage* msg) -> LvnString { return "\n"; } },
     { 'n', [](LvnLogMessage* msg) -> LvnString { return msg->loggerName; } },
-    { 'l', [](LvnLogMessage* msg) -> LvnString { return getLogLevelName(msg->level); }},
-    { '#', [](LvnLogMessage* msg) -> LvnString { return getLogLevelColor(msg->level); }},
-    { '^', [](LvnLogMessage* msg) -> LvnString { return LVN_LOG_COLOR_RESET; }},
+    { 'l', [](LvnLogMessage* msg) -> LvnString { return lvn::getLogLevelName(msg->level); }},
+    { '#', [](LvnLogMessage* msg) -> LvnString { return lvn::getLogLevelColor(msg->level); }},
+    { '^', [](LvnLogMessage* msg) -> LvnString { return ic_LvnLogColorReset; }},
     { 'v', [](LvnLogMessage* msg) -> LvnString { return msg->msg; }},
     { '%', [](LvnLogMessage* msg) -> LvnString { return "%"; } },
-    { 'T', [](LvnLogMessage* msg) -> LvnString { return dateGetTimeHHMMSS(); } },
-    { 't', [](LvnLogMessage* msg) -> LvnString { return dateGetTime12HHMMSS(); } },
-    { 'Y', [](LvnLogMessage* msg) -> LvnString { return dateGetYearStr(); }},
-    { 'y', [](LvnLogMessage* msg) -> LvnString { return dateGetYear02dStr(); } },
-    { 'm', [](LvnLogMessage* msg) -> LvnString { return dateGetMonthNumStr(); } },
-    { 'B', [](LvnLogMessage* msg) -> LvnString { return dateGetMonthName(); } },
-    { 'b', [](LvnLogMessage* msg) -> LvnString { return dateGetMonthNameShort(); } },
-    { 'd', [](LvnLogMessage* msg) -> LvnString { return dateGetDayNumStr(); } },
-    { 'A', [](LvnLogMessage* msg) -> LvnString { return dateGetWeekDayName(); } },
-    { 'a', [](LvnLogMessage* msg) -> LvnString { return dateGetWeekDayNameShort(); } },
-    { 'H', [](LvnLogMessage* msg) -> LvnString { return dateGetHourNumStr(); } },
-    { 'h', [](LvnLogMessage* msg) -> LvnString { return dateGetHour12NumStr(); } },
-    { 'M', [](LvnLogMessage* msg) -> LvnString { return dateGetMinuteNumStr(); } },
-    { 'S', [](LvnLogMessage* msg) -> LvnString { return dateGetSecondNumStr(); } },
-    { 'P', [](LvnLogMessage* msg) -> LvnString { return dateGetTimeMeridiem(); } },
-    { 'p', [](LvnLogMessage* msg) -> LvnString { return dateGetTimeMeridiemLower(); }},
+    { 'T', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetTimeHHMMSS(); } },
+    { 't', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetTime12HHMMSS(); } },
+    { 'Y', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetYearStr(); }},
+    { 'y', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetYear02dStr(); } },
+    { 'm', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetMonthNumStr(); } },
+    { 'B', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetMonthName(); } },
+    { 'b', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetMonthNameShort(); } },
+    { 'd', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetDayNumStr(); } },
+    { 'A', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetWeekDayName(); } },
+    { 'a', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetWeekDayNameShort(); } },
+    { 'H', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetHourNumStr(); } },
+    { 'h', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetHour12NumStr(); } },
+    { 'M', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetMinuteNumStr(); } },
+    { 'S', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetSecondNumStr(); } },
+    { 'P', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetTimeMeridiem(); } },
+    { 'p', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetTimeMeridiemLower(); }},
 };
 
 static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
@@ -893,13 +894,13 @@ const char* logGetANSIcodeColor(LvnLogLevel level)
 {
     switch (level)
     {
-        case Lvn_LogLevel_None:     { return LVN_LOG_COLOR_RESET; }
-        case Lvn_LogLevel_Trace:    { return LVN_LOG_COLOR_TRACE; }
-        case Lvn_LogLevel_Debug:    { return LVN_LOG_COLOR_DEBUG; }
-        case Lvn_LogLevel_Info:     { return LVN_LOG_COLOR_INFO; }
-        case Lvn_LogLevel_Warn:     { return LVN_LOG_COLOR_WARN; }
-        case Lvn_LogLevel_Error:    { return LVN_LOG_COLOR_ERROR; }
-        case Lvn_LogLevel_Fatal:    { return LVN_LOG_COLOR_FATAL; }
+        case Lvn_LogLevel_None:     { return ic_LvnLogColorReset; }
+        case Lvn_LogLevel_Trace:    { return ic_LvnLogColorTrace; }
+        case Lvn_LogLevel_Debug:    { return ic_LvnLogColorDebug; }
+        case Lvn_LogLevel_Info:     { return ic_LvnLogColorInfo; }
+        case Lvn_LogLevel_Warn:     { return ic_LvnLogColorWarn; }
+        case Lvn_LogLevel_Error:    { return ic_LvnLogColorError; }
+        case Lvn_LogLevel_Fatal:    { return ic_LvnLogColorFatal; }
     }
 
     return nullptr;

@@ -12,7 +12,7 @@ int main(int argc, char** argv)
     lvn::logInfo("logging example, more info in source code\n");
 
     // [Logging functions & macros]
-    // log messages are seperates through log levels
+    // log messages are seperated through log levels
 
     lvn::logMessageTrace(lvn::logGetClientLogger(), "this is a trace log message");
     lvn::logMessageDebug(lvn::logGetClientLogger(), "this is a debug log message");
@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 
     printf("\n");
 
-    // log messages can also be called through macros which has the same definition of the log calls above
+    // another way to log messages, these functions use the internal client logger that levikno provides
     lvn::logTrace("trace message");
     lvn::logDebug("debug message");
     lvn::logInfo("info message");
@@ -158,17 +158,17 @@ int main(int argc, char** argv)
     // - the log levels go from lowest to highest: trace (1) -> debug (2) -> info (3) -> warn (4) -> error(5) -> fatal (6)
     // - you can set a minimum log level for each logger which will omit any log messages below a certain log level
 
-    // here we set the log level to error
+    // here we set the minimum log level to error
     lvn::logSetLevel(logger, Lvn_LogLevel_Error);
 
-    // log messages below the error level will not print
-    lvn::logMessageTrace(logger, "this trace message will not print");
-    lvn::logMessageInfo(logger, "this info message will not print");
-    lvn::logMessageWarn(logger, "this warn message will not print");
+    // log messages below the error level will not be displayed
+    lvn::logMessageTrace(logger, "this trace message is displayed");
+    lvn::logMessageInfo(logger, "this info message is displayed");
+    lvn::logMessageWarn(logger, "this warn message is displayed");
 
-    // log messages at or above the error level will print
-    lvn::logMessageError(logger, "this error message will print");
-    lvn::logMessageFatal(logger, "this fatal message will print");
+    // log messages at or above the error level will be displayed
+    lvn::logMessageError(logger, "this error message is displayed");
+    lvn::logMessageFatal(logger, "this fatal message is displayed");
 
     // set the log level to none to allow all levels
     lvn::logSetLevel(logger, Lvn_LogLevel_None);
