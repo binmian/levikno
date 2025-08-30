@@ -171,13 +171,7 @@ namespace lvn
             glfwSetWindowIcon(nativeWindow, static_cast<int>(window->data.iconCount), images.data());
         }
 
-        // set window graphics api related data (eg. swapchains, framebuffers)
         window->nativeWindow = nativeWindow;
-        // if (createGraphicsRelatedAPIData(window) != Lvn_Result_Success)
-        // {
-        //     lvn::logCoreError("[glfw] failed to create graphics api related data for window: (%p), native glfw window <GLFWwindow*> (%p)", window, nativeWindow);
-        //     return Lvn_Result_Failure;
-        // }
 
         // set window size parameters & vsync
         glfwSetWindowSizeLimits(nativeWindow, window->data.minWidth, window->data.minHeight, window->data.maxWidth, window->data.maxHeight);
@@ -185,7 +179,7 @@ namespace lvn
 
         if (graphicsapi == Lvn_GraphicsApi_opengl)
         {
-            glfwMakeContextCurrent(nativeWindow)    ;
+            glfwMakeContextCurrent(nativeWindow);
             glfwSwapInterval(createInfo->vSync);
         }
 

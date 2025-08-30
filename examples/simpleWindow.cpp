@@ -2,7 +2,7 @@
 
 #include "levikno/api/lvn_glfw.h"
 
-int main(void)
+int main(int argc, char** argv)
 {
     LvnLoggingContextCreateInfo logctxCreateInfo{};
 
@@ -15,10 +15,10 @@ int main(void)
 
     lvn::initWindowContext(&winctxCreateInfo);
 
-    LvnWindowCreateInfo createInfo = lvn::configWindowInit("simpleWindow", 800, 600);
+    LvnWindowCreateInfo winCreateInfo = lvn::configWindowInit("simpleWindow", 800, 600);
 
     LvnWindow* window;
-    lvn::createWindow(&window, &createInfo);
+    lvn::createWindow(&window, &winCreateInfo);
 
     while (lvn::windowOpen(window))
     {
@@ -30,4 +30,6 @@ int main(void)
 
     lvn::terminateWindowContext();
     lvn::terminateLogging();
+
+    return 0;
 }
