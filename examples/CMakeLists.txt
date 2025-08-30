@@ -2,6 +2,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
 
 set(LVN_SOURCES
     logging.cpp
+    simpleWindow.cpp
 )
 
 foreach(LVN_SRC ${LVN_SOURCES})

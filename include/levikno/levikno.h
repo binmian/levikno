@@ -51,6 +51,34 @@ enum LvnFileMode
     Lvn_FileMode_Append,
 };
 
+enum LvnGraphicsApi
+{
+    Lvn_GraphicsApi_None = 0,
+    Lvn_GraphicsApi_OpenGL,
+    Lvn_GraphicsApi_Vulkan,
+
+    Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
+    Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
+};
+
+enum LvnStructureType
+{
+    Lvn_Stype_Undefined = 0,
+    Lvn_Stype_Logger,
+    Lvn_Stype_Window,
+    Lvn_Stype_FrameBuffer,
+    Lvn_Stype_Shader,
+    Lvn_Stype_DescriptorLayout,
+    Lvn_Stype_Pipeline,
+    Lvn_Stype_Buffer,
+    Lvn_Stype_Sampler,
+    Lvn_Stype_Texture,
+    Lvn_Stype_Cubemap,
+    Lvn_Stype_Sound,
+    Lvn_Stype_Socket,
+
+    Lvn_Stype_Max_Value,
+};
 
 // [SECTION]: Struct Declaration
 // ------------------------------------------------------------
@@ -69,6 +97,8 @@ class LvnVector;
 
 class LvnString;
 
+template<typename T>
+struct LvnPair;
 
 // callbacks
 typedef void* (*LvnMemAllocFunc)(size_t sz, void* userData);
@@ -504,6 +534,12 @@ public:
 };
 LvnString operator+(const char* str, const LvnString& other);
 
+template<typename T>
+struct LvnPair
+{
+    T first;
+    T second;
+};
 
 // logging
 struct LvnLoggerCreateInfo
