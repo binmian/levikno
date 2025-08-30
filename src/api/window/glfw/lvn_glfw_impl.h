@@ -1,13 +1,11 @@
-#ifndef HG_LEVIKNO_GLFW_H
-#define HG_LEVIKNO_GLFW_H
+#ifndef HG_LEVIKNO_GLFW_IMPL_H
+#define HG_LEVIKNO_GLFW_IMPL_H
 
 #include "lvn_window_internal.h"
+#include "api/lvn_glfw.h"
 
 namespace lvn
 {
-    LvnResult glfwImplInitWindowContext(LvnWindowContext* windowContext);
-    void glfwImplTerminateWindowContext();
-
     LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo);
     void glfwImplDestroyWindow(LvnWindow* window);
 

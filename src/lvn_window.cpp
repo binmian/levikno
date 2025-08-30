@@ -1,7 +1,6 @@
 #include "lvn_window.h"
 #include "lvn_window_internal.h"
 
-#include "lvn_glfw.h"
 
 static LvnWindowContext* s_WindowContext = nullptr;
 
@@ -276,10 +275,9 @@ LvnResult initWindowContext(LvnWindowContextCreateInfo* createInfo)
         return Lvn_Result_AlreadyCalled;
 
     s_WindowContext = lvn::memNew<LvnWindowContext>();
-
     LvnWindowContext* winctx = lvn::getWindowContext();
-    winctx->windowapi = createInfo->windowapi;
 
+    // set rendering backend
     if (!createInfo->forceBackendNone && createInfo->renderingBackend == Lvn_GraphicsApi_None)
     {
         lvn::logCoreWarn("window context rendering backend was not set, the rendering backend will automatically be set to be configured with opengl");
@@ -290,29 +288,29 @@ LvnResult initWindowContext(LvnWindowContextCreateInfo* createInfo)
         winctx->graphicsBackend = createInfo->renderingBackend;
 
     // set window context
-    LvnResult result = Lvn_Result_Failure;
-    switch (winctx->windowapi)
+    if (createInfo->windowContextInitCallback == nullptr)
     {
-        case Lvn_WindowApi_None:
-        {
-            lvn::logCoreTrace("no window context selected; windows api is set to none");
-            return Lvn_Result_Success;
-        }
-        case Lvn_WindowApi_glfw:
-        {
-            result = lvn::glfwImplInitWindowContext(winctx);
-            break;
-        }
+        lvn::logCoreError("cannot create window context, init window context callback function must not be nullptr");
+        return Lvn_Result_Failure;
+    }
+    if (createInfo->windowContextTerminateCallback == nullptr)
+    {
+        lvn::logCoreError("cannot create window context, terminate window context callback function must not be nullptr");
+        return Lvn_Result_Failure;
     }
 
-    //windowInputInit();
+    winctx->implInitWindowContext = createInfo->windowContextInitCallback;
+    winctx->implTerminateWindowContext = createInfo->windowContextTerminateCallback;
 
-    if (result != Lvn_Result_Success)
+    if (winctx->implInitWindowContext(winctx) != Lvn_Result_Success)
+    {
         lvn::logCoreError("could not create window context for: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
-    else
-        lvn::logCoreTrace("window context set: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
+        return Lvn_Result_Failure;
+    }
 
-    return result;
+    lvn::logCoreTrace("window context set: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
+    //windowInputInit();
+    return Lvn_Result_Success;
 }
 
 void terminateWindowContext()
@@ -320,6 +318,9 @@ void terminateWindowContext()
     if (!s_WindowContext)
         return;
 
+    s_WindowContext->implTerminateWindowContext();
+
+    lvn::logCoreTrace("window context terminated: %s", lvn::getWindowApiNameEnum(s_WindowContext->windowapi));
     lvn::memDelete<LvnWindowContext>(s_WindowContext);
 }
 

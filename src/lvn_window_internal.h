@@ -69,6 +69,9 @@ struct LvnWindowContext
     LvnWindowApi        windowapi;    /* window api enum */
     LvnGraphicsApi      graphicsBackend;
 
+    LvnResult           (*implInitWindowContext)(LvnWindowContext*);
+    void                (*implTerminateWindowContext)();
+
     LvnResult           (*createWindow)(LvnWindow*, const LvnWindowCreateInfo*);
     void                (*destroyWindow)(LvnWindow*);
     void                (*updateWindow)(LvnWindow*);

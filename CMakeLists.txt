@@ -23,6 +23,8 @@ endif()
 
 set(LVN_SOURCES
     include/levikno/levikno.h
+    include/levikno/api/lvn_glfw.h
+
     src/levikno.cpp
     src/lvn_cds.cpp
     src/lvn_internal.h
@@ -34,8 +36,8 @@ set(LVN_SOURCES
     src/external/glad/src/glad.c
 
     #glfw
-    src/api/window/glfw/lvn_glfw.h
-    src/api/window/glfw/lvn_glfw.cpp
+    src/api/window/glfw/lvn_glfw_impl.h
+    src/api/window/glfw/lvn_glfw_impl.cpp
 )
 
 # Subdirectories
@@ -63,6 +65,7 @@ target_sources(levikno
 target_include_directories(levikno
     PRIVATE
         include/levikno
+        include/levikno/api
         src
         src/external/glfw/include
         src/external/glad/include

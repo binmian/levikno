@@ -502,7 +502,8 @@ struct LvnWindowCreateInfo
 
 struct LvnWindowContextCreateInfo
 {
-    LvnWindowApi windowapi;
+    LvnResult (*windowContextInitCallback)(LvnWindowContext*);
+    void (*windowContextTerminateCallback)();
     LvnGraphicsApi renderingBackend;
     bool forceBackendNone;
 };

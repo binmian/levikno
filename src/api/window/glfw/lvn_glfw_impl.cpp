@@ -1,6 +1,5 @@
-#include "lvn_glfw.h"
-#include "levikno.h"
-#include "lvn_window.h"
+#include "lvn_glfw_impl.h"
+
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -21,7 +20,7 @@ namespace lvn
         lvn::logCoreError("[glfw]: (%d): %s", error, descripion);
     }
 
-    LvnResult glfwImplInitWindowContext(LvnWindowContext* windowContext)
+    LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext)
     {
         if (s_glfwInit)
         {
@@ -37,6 +36,7 @@ namespace lvn
         }
         s_glfwInit = true;
 
+        windowContext->windowapi = Lvn_WindowApi_glfw;
         windowContext->createWindow = glfwImplCreateWindow;
         windowContext->destroyWindow = glfwImplDestroyWindow;
         windowContext->updateWindow = glfwImplUpdateWindow;
@@ -90,7 +90,7 @@ namespace lvn
         return Lvn_Result_Success;
     }
 
-    void glfwImplTerminateWindowContext()
+    void implGlfwTerminateWindowContext()
     {
         for (uint32_t i = 0; i < sizeof(s_CursorIcons) / sizeof(s_CursorIcons[0]); i++)
         {
@@ -185,7 +185,7 @@ namespace lvn
 
         if (graphicsapi == Lvn_GraphicsApi_opengl)
         {
-            glfwMakeContextCurrent(nativeWindow);
+            glfwMakeContextCurrent(nativeWindow)    ;
             glfwSwapInterval(createInfo->vSync);
         }
 
