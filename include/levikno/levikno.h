@@ -185,7 +185,7 @@ namespace lvn
 
 
     // logging
-    LVN_API LvnResult               initLogging(LvnLoggingContextCreateInfo* createInfo);
+    LVN_API LvnResult               initLogging(LvnLoggingContextCreateInfo* createInfo = nullptr);
     LVN_API void                    terminateLogging();
     LVN_API LvnLoggingContext*      getLoggingContex();
     LVN_API void                    logEnable(bool enable);                                                           // enable or disable logging

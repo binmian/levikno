@@ -4,9 +4,7 @@
 
 int main(int argc, char** argv)
 {
-    LvnLoggingContextCreateInfo logctxCreateInfo{};
-
-    lvn::initLogging(&logctxCreateInfo);
+    lvn::initLogging();
 
     LvnWindowContextCreateInfo winctxCreateInfo{};
     winctxCreateInfo.windowContextInitCallback = lvn::implGlfwInitWindowContext;

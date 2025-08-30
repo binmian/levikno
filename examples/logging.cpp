@@ -5,9 +5,7 @@
 
 int main(int argc, char** argv)
 {
-    LvnLoggingContextCreateInfo logCreateInfo{};
-
-    lvn::initLogging(&logCreateInfo);
+    lvn::initLogging();
 
     lvn::logInfo("logging example, more info in source code\n");
 

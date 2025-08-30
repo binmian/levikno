@@ -387,20 +387,20 @@ LvnResult initLogging(LvnLoggingContextCreateInfo* createInfo)
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     logctx->logging = true;
 
-    logctx->enableCoreLogging = !createInfo->core.disableCoreLogging;
+    logctx->enableCoreLogging = createInfo == nullptr ? true : !createInfo->core.disableCoreLogging;
 
     // core
-    if (!createInfo->core.name.empty())
+    if (createInfo != nullptr && !createInfo->core.name.empty())
         logctx->coreLogger.loggerName = createInfo->core.name;
     else
         logctx->coreLogger.loggerName = "CORE";
 
-    if (createInfo->core.level != Lvn_LogLevel_None)
+    if (createInfo != nullptr && createInfo->core.level != Lvn_LogLevel_None)
         logctx->coreLogger.logLevel = createInfo->core.level;
     else
         logctx->coreLogger.logLevel = Lvn_LogLevel_None;
 
-    if (!createInfo->core.logPattern.empty())
+    if (createInfo != nullptr && !createInfo->core.logPattern.empty())
     {
         logctx->coreLogger.logPatternFormat = createInfo->core.logPattern;
         logctx->coreLogger.logPatterns = lvn::logParseFormat(createInfo->core.logPattern.c_str());
@@ -412,17 +412,17 @@ LvnResult initLogging(LvnLoggingContextCreateInfo* createInfo)
     }
 
     // client
-    if (!createInfo->client.name.empty())
+    if (createInfo != nullptr && !createInfo->client.name.empty())
         logctx->clientLogger.loggerName = createInfo->client.name;
     else
         logctx->clientLogger.loggerName = "CLIENT";
 
-    if (createInfo->client.level != Lvn_LogLevel_None)
+    if (createInfo != nullptr && createInfo->client.level != Lvn_LogLevel_None)
         logctx->clientLogger.logLevel = createInfo->client.level;
     else
         logctx->clientLogger.logLevel = Lvn_LogLevel_None;
 
-    if (!createInfo->client.logPattern.empty())
+    if (createInfo != nullptr && !createInfo->client.logPattern.empty())
     {
         logctx->clientLogger.logPatternFormat = createInfo->client.logPattern;
         logctx->clientLogger.logPatterns = lvn::logParseFormat(createInfo->client.logPattern.c_str());

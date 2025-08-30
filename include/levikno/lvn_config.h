@@ -13,12 +13,21 @@ enum LvnPlatform
 
 // platform
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+    #ifndef LVN_PLATFORM_WINDOWS
+        #define LVN_PLATFORM_WINDOWS
+    #endif
     inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_Windows;
 
 #elif __APPLE__
+    #ifndef LVN_PLATFORM_MACOS
+        #define LVN_PLATFORM_MACOS
+    #endif
     inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_MacOS;
 
 #elif __linux__
+    #ifndef LVN_PLATFORM_LINUX
+        #define LVN_PLATFORM_LINUX
+    #endif
     inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_Linux;
 #else
     #error "levikno does not support the current platform."
@@ -39,8 +48,14 @@ enum LvnPlatform
 
 // debug
 #if defined(_DEBUG)
+    #ifndef LVN_CONFIG_DEBUG
+        #define LVN_CONFIG_DEBUG
+    #endif
     inline constexpr bool ic_LvnDebug = true;
 #elif !defined(NDEBUG)
+    #ifndef LVN_CONFIG_DEBUG
+        #define LVN_CONFIG_DEBUG
+    #endif
     inline constexpr bool ic_LvnDebug = true;
 #else
     inline constexpr bool ic_LvnDebug = false;
@@ -51,10 +66,12 @@ enum LvnPlatform
     #define LVN_ENABLE_ASSERTS
 #endif
 
-#if defined (LVN_ENABLE_ASSERTS)
+#ifdef LVN_ENABLE_ASSERTS
     #define LVN_ASSERT(x,msg) assert(x && msg)
+    inline constexpr bool ic_LvnEnableAsserts = true;
 #else
     #define LVN_ASSERT(x, ...)
+    inline constexpr bool ic_LvnEnableAsserts = false;
 #endif
 
 

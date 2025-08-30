@@ -2,12 +2,24 @@ cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Levikno
+# levikno
 project(Levikno)
 
 option(LVN_BUILD_EXAMPLES "Build example programs" TRUE)
 option(LVN_INCLUDE_GLSLANG "include glslang libraries and shader source compile support" TRUE)
 
+# platform
+if (WIN32)
+    add_definitions(-DLVN_PLATFORM_WINDOWS)
+
+elseif(APPLE)
+    add_definitions(-DLVN_PLATFORM_MACOS)
+
+elseif(UNIX AND NOT APPLE)
+    add_definitions(-DLVN_PLATFORM_LINUX)
+else()
+    add_definitions(-DLVN_PLATFORM_UNKNOWN)
+endif()
 
 # output dirs
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
