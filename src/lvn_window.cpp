@@ -17,6 +17,7 @@ static const char* getWindowApiNameEnum(LvnWindowApi api)
         // case Lvn_WindowApi_win32: { return "win32"; }
     }
 
+    lvn::logCoreError("Unknown Graphics API selected!");
     return "";
 }
 
@@ -309,7 +310,6 @@ LvnResult initWindowContext(LvnWindowContextCreateInfo* createInfo)
     }
 
     lvn::logCoreTrace("window context set: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
-    //windowInputInit();
     return Lvn_Result_Success;
 }
 
@@ -326,11 +326,11 @@ void terminateWindowContext()
 
 LvnWindowContext* getWindowContext()
 {
-    LVN_ASSERT(s_WindowContext, "cannot get window context, window context was not created");
+    LVN_ASSERT(s_WindowContext != nullptr, "cannot get window context, window context was not created");
     return s_WindowContext;
 }
 
-LvnGraphicsApi getWindowGraphicsBackend()
+LvnGraphicsApi getWindowGraphicsBackendEnum()
 {
     return lvn::getWindowContext()->graphicsBackend;
 }
@@ -361,23 +361,23 @@ void destroyWindow(LvnWindow* window)
 
 LvnWindowCreateInfo configWindowInit(const char* title, int width, int height)
 {
-    LvnWindowCreateInfo windowCreateInfo{};
-    windowCreateInfo.width = width;
-    windowCreateInfo.height = height;
-    windowCreateInfo.title = title;
-    windowCreateInfo.minWidth = 0;
-    windowCreateInfo.minHeight = 0;
-    windowCreateInfo.maxWidth = -1;
-    windowCreateInfo.maxHeight = -1;
-    windowCreateInfo.fullscreen = false;
-    windowCreateInfo.resizable = true;
-    windowCreateInfo.vSync = false;
-    windowCreateInfo.pIcons = nullptr;
-    windowCreateInfo.iconCount = 0;
-    windowCreateInfo.eventCallBack = nullptr;
-    windowCreateInfo.userData = nullptr;
+    LvnWindowCreateInfo createInfo{};
+    createInfo.width = width;
+    createInfo.height = height;
+    createInfo.title = title;
+    createInfo.minWidth = 0;
+    createInfo.minHeight = 0;
+    createInfo.maxWidth = -1;
+    createInfo.maxHeight = -1;
+    createInfo.fullscreen = false;
+    createInfo.resizable = true;
+    createInfo.vSync = false;
+    createInfo.pIcons = nullptr;
+    createInfo.iconCount = 0;
+    createInfo.eventCallBack = nullptr;
+    createInfo.userData = nullptr;
 
-    return windowCreateInfo;
+    return createInfo;
 }
 
 void windowUpdate(LvnWindow* window)

@@ -287,7 +287,7 @@ namespace lvn
     LVN_API LvnResult                   initWindowContext(LvnWindowContextCreateInfo* createInfo);
     LVN_API void                        terminateWindowContext();
     LVN_API LvnWindowContext*           getWindowContext();
-    LVN_API LvnGraphicsApi              getWindowGraphicsBackend();
+    LVN_API LvnGraphicsApi              getWindowGraphicsBackendEnum();
 
     LVN_API LvnResult                   createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo);
     LVN_API void                        destroyWindow(LvnWindow* window);
@@ -485,19 +485,6 @@ struct LvnWindowCreateInfo
 
     void (*eventCallBack)(LvnEvent*);   // set function ptr used as a callback to get events from this window
     void* userData;                     // pass a ptr of a variable or struct to use and get data during window callbacks
-
-    LvnWindowCreateInfo()
-    {
-        width = 0;
-        height = 0;
-        minWidth = 0, minHeight = 0;
-        maxWidth = -1, maxHeight = -1;
-        fullscreen = false, resizable = true, vSync = false;
-        pIcons = nullptr;
-        iconCount = 0;
-        eventCallBack = nullptr;
-        userData = nullptr;
-    }
 };
 
 struct LvnWindowContextCreateInfo

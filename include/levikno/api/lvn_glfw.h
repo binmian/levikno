@@ -1,8 +1,10 @@
 #ifndef HG_LVN_GLFW_H
 #define HG_LVN_GLFW_H
 
-#include "../lvn_window.h"
+#include "../lvn_config.h"
 
+
+struct LvnWindowContext;
 
 namespace lvn
 {

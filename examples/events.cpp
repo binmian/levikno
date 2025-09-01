@@ -1,6 +1,6 @@
-#include "levikno/lvn_window.h"
+#include <levikno/lvn_window.h>
 
-#include "levikno/api/lvn_glfw.h"
+#include <levikno/api/lvn_glfw.h>
 
 bool keyHold(LvnKeyHoldEvent* event, void* userData)
 {

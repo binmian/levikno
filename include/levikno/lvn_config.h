@@ -11,6 +11,16 @@ enum LvnPlatform
     Lvn_Platform_MacOS,
 };
 
+enum LvnResult : int
+{
+    Lvn_Result_Success              =  0,
+    Lvn_Result_Failure              = -1,
+    Lvn_Result_AlreadyCalled        = -2,
+    Lvn_Result_MemAllocFailure      = -3,
+    Lvn_Result_TimeOut              = -4,
+};
+
+
 // platform
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
     #ifndef LVN_PLATFORM_WINDOWS

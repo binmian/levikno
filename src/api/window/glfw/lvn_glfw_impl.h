@@ -2,7 +2,6 @@
 #define HG_LEVIKNO_GLFW_IMPL_H
 
 #include "lvn_window_internal.h"
-#include "api/lvn_glfw.h"
 
 namespace lvn
 {

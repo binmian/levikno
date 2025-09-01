@@ -3,7 +3,7 @@
 
 #include "lvn_window.h"
 #include "levikno.h"
-#include "lvn_internal.h"
+#include "levikno_internal.h"
 
 
 struct LvnEvent

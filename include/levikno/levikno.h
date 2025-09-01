@@ -25,15 +25,6 @@
 // [SECTION]: Enums
 // ------------------------------------------------------------
 
-enum LvnResult : int
-{
-    Lvn_Result_Success              =  0,
-    Lvn_Result_Failure              = -1,
-    Lvn_Result_AlreadyCalled        = -2,
-    Lvn_Result_MemAllocFailure      = -3,
-    Lvn_Result_TimeOut              = -4,
-};
-
 enum LvnLogLevel
 {
     Lvn_LogLevel_None       = 0,
@@ -91,19 +82,53 @@ struct LvnLogMessage;
 struct LvnLogPattern;
 
 
-// classes
+// classes & custom data structures
 template <typename T>
 class LvnVector;
 
 class LvnString;
 
+template <typename T>
+struct LvnLinkedIndexNode;
+
+template <typename T>
+using LvnINode = LvnLinkedIndexNode<T>;
+
+template <typename T>
+class LvnArenaList;
+
+template <typename T, typename Container>
+class LvnQueue;
+
+struct LvnHash;
+template <typename K, typename T>
+struct LvnHashEntry;
+template <typename K, typename T, typename Hash>
+class LvnHashMap;
+
+template <typename T>
+class LvnUniquePtr;
+
 template<typename T>
 struct LvnPair;
+
+template<typename T1, typename T2>
+struct LvnDoublePair;
+
+// templates
+template <typename T> struct LvnFloatType;
+template <> struct LvnFloatType<float> { using type = float; };
+template <> struct LvnFloatType<double> { using type = double; };
+template <typename T> using LvnFloatType_t = typename LvnFloatType<T>::type;
 
 // callbacks
 typedef void* (*LvnMemAllocFunc)(size_t sz, void* userData);
 typedef void  (*LvnMemFreeFunc)(void* ptr, void* userData);
 typedef void* (*LvnMemReallocFunc)(void* ptr, size_t sz, void* userData);
+
+
+// [SECTION]: Functions
+// ------------------------------------------------------------
 
 namespace lvn
 {
@@ -154,6 +179,14 @@ namespace lvn
         (*lvn::getMemFreeFunc())(ptr, lvn::getMemUserData());
     }
 
+    template <typename T, typename... Args>
+    LVN_API constexpr LvnUniquePtr<T> makeUniquePtr(Args&&... args)
+    {
+        T* ptr = lvn::memNew<T>(1, false);
+        new (ptr) T(args...);
+        return LvnUniquePtr<T>(ptr);
+    }
+
 
     LVN_API int                     dateGetYear();                                      // get the year number (eg. 2025)
     LVN_API int                     dateGetYear02d();                                   // get the last two digits of the year number (eg. 25)
@@ -163,7 +196,7 @@ namespace lvn
     LVN_API int                     dateGetHour12();                                    // get the hour of the current day in 12 hour format (0...12)
     LVN_API int                     dateGetMinute();                                    // get the minute of the current day (0...60)
     LVN_API int                     dateGetSecond();                                    // get the second of the current dat (0...60)
-    LVN_API long long               dateGetSecondsSinceEpoch();                         // get the time in seconds since 00::00:00 UTC 1 January 1970
+    LVN_API size_t                  dateGetSecondsSinceEpoch();                         // get the time in seconds since 00::00:00 UTC 1 January 1970
 
     LVN_API const char*             dateGetMonthName();                                 // get the current month name (eg. January, April)
     LVN_API const char*             dateGetMonthNameShort();                            // get the current month shortened name (eg. Jan, Apr)
@@ -223,6 +256,7 @@ namespace lvn
 
     LVN_API LvnResult               createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo);
     LVN_API void                    destroyLogger(LvnLogger* logger);
+    LVN_API LvnLoggerCreateInfo     configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel);
 } /* namespace lvn */
 
 
@@ -534,11 +568,946 @@ public:
 };
 LvnString operator+(const char* str, const LvnString& other);
 
+// -- LvnLinkedIndexNode, LvnArenaList
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::list
+// - arena list is designed to be more cache effecient by using indexed nodes to an allocated array instead of allocated memory per node
+// - inserting into LvnArenaList has at worst O(n) linear time complexity
+
+// LvnLinkedIndexNode
+template <typename T>
+struct LvnLinkedIndexNode
+{
+    size_t next;
+    size_t prev;
+    bool hasPrev, hasNext, taken;
+    T value;
+
+    T* operator->() { return &value; }
+};
+
+// LvnArenaList
+template <typename T>
+class LvnArenaList
+{
+private:
+    LvnINode<T>* m_Nodes;            /* pointer to an array of nodes */
+    size_t m_Size;                   /* the number of the currently alive nodes in the list */
+    size_t m_Capacity;               /* the number of nodes allocated for the m_Nodes array */
+    size_t* m_FreeNodes;             /* pointer to an array of indices for nodes that are not taken in the array */
+    size_t m_FreeSize;               /* the number of indices for nodes not taken */
+    size_t m_FreeCapacity;           /* the number of indices allocated in the m_FreeNodes array; NOTE: m_FreeCapacity should always be the same value as m_Capacity */
+    size_t m_Head;                   /* the index to the head of the list in the array */
+    size_t m_Tail;                   /* the index to the tail of the list in the array */
+
+    void destruct()
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            for (size_t i = 0; i < m_Capacity; i++)
+            {
+                if (m_Nodes[i].taken)
+                    m_Nodes[i].value.~T();
+            }
+        }
+    }
+
+    void destruct_at(LvnINode<T>& node)
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+            node.value.~T();
+        node.next = 0;
+        node.prev = 0;
+        node.hasPrev = false;
+        node.hasNext = false;
+        node.taken = false;
+    }
+
+public:
+    LvnArenaList() : m_Nodes(nullptr), m_FreeNodes(nullptr), m_Size(0), m_Capacity(0), m_FreeSize(0), m_FreeCapacity(0), m_Head(0), m_Tail(0) {}
+    ~LvnArenaList()
+    {
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_Size = m_Capacity = m_FreeSize = m_FreeCapacity = m_Head = m_Tail = 0;
+        m_Nodes = nullptr;
+        m_FreeNodes = nullptr;
+    }
+
+    LvnArenaList(const LvnArenaList<T>& other)
+    {
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Nodes = lvn::memNew<LvnINode<T>>(other.m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+            new (&m_Nodes[i]) LvnINode<T>(other.m_Nodes[i]);
+        m_FreeNodes = lvn::memNew<size_t>(other.m_FreeSize, false);
+        for (size_t i = 0; i < other.m_FreeSize; i++)
+            new (&m_FreeNodes[i]) size_t(other.m_FreeNodes[i]);
+    }
+    LvnArenaList(LvnArenaList<T>&& other)
+    {
+        m_Nodes = other.m_Nodes;
+        m_FreeNodes = other.m_FreeNodes;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        other.m_Nodes = nullptr;
+        other.m_FreeNodes = nullptr;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_FreeSize = 0;
+        other.m_FreeCapacity = 0;
+        other.m_Head = 0;
+        other.m_Tail = 0;
+    }
+    LvnArenaList& operator=(const LvnArenaList<T>& other)
+    {
+        if (this == &other) return *this;
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Nodes = lvn::memNew<LvnINode<T>>(other.m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+            new (&m_Nodes[i]) LvnINode<T>(other.m_Nodes[i]);
+        m_FreeNodes = lvn::memNew<size_t>(other.m_FreeSize, false);
+        for (size_t i = 0; i < other.m_FreeSize; i++)
+            new (&m_FreeNodes[i]) size_t(other.m_FreeNodes[i]);
+        return *this;
+    }
+    LvnArenaList& operator=(LvnArenaList<T>&& other)
+    {
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_Nodes = other.m_Nodes;
+        m_FreeNodes = other.m_FreeNodes;
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_FreeSize = other.m_FreeSize;
+        m_FreeCapacity = other.m_FreeCapacity;
+        m_Head = other.m_Head;
+        m_Tail = other.m_Tail;
+        other.m_Nodes = nullptr;
+        other.m_FreeNodes = nullptr;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_FreeSize = 0;
+        other.m_FreeCapacity = 0;
+        other.m_Head = 0;
+        other.m_Tail = 0;
+        return *this;
+    }
+
+    T& operator [](size_t index)
+    {
+        return at_index(index);
+    }
+    const T& operator [](size_t index) const
+    {
+        return at_index(index);
+    }
+
+    T& at_index(size_t index)
+    {
+        LVN_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+        return m_Nodes[nodeIndex].value;
+    }
+    const T& at_index(size_t index) const
+    {
+        LVN_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+        return m_Nodes[nodeIndex].value;
+    }
+
+    LvnINode<T>& node_index(size_t index, size_t* pIndex = nullptr)
+    {
+        LVN_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+
+        if (pIndex) *pIndex = nodeIndex;
+        return m_Nodes[nodeIndex];
+    }
+    const LvnINode<T>& node_index(size_t index, size_t* pIndex = nullptr) const
+    {
+        LVN_ASSERT(index < m_Size, "list index out of range");
+        size_t nodeIndex = m_Head;
+        for (size_t i = 0; i < index; i++)
+        {
+            if (m_Nodes[nodeIndex].hasNext)
+                nodeIndex = m_Nodes[nodeIndex].next;
+        }
+
+        if (pIndex) *pIndex = nodeIndex;
+        return m_Nodes[nodeIndex];
+    }
+
+    void erase_index(const size_t index)
+    {
+        LVN_ASSERT(index < m_Size, "list index out of range");
+
+        if (index == 0) { pop_front(); return; }
+        else if (index == m_Size - 1) { pop_back(); return; }
+
+        size_t nodeIndex;
+        LvnINode<T>& node = node_index(index, &nodeIndex);
+        if (node.hasNext)
+        {
+            LvnINode<T>& next = m_Nodes[node.next];
+            next.prev = node.prev;
+        }
+        if (node.hasPrev)
+        {
+            LvnINode<T>& prev = m_Nodes[node.prev];
+            prev.next = node.next;
+        }
+
+        /* push back free node */
+        LVN_ASSERT(m_FreeSize < m_FreeCapacity, "free nodes array is full");
+        m_FreeNodes[m_FreeSize] = nodeIndex;
+        m_FreeSize++;
+
+        destruct_at(node);
+        m_Size--;
+    }
+    void insert_index(const size_t index, const T& value)
+    {
+        LVN_ASSERT(index <= m_Size, "list index out of range");
+
+        if (index == 0) { push_front(value); return; }
+        if (index == m_Size) { push_back(value); return; }
+
+        if (m_Size >= m_Capacity)
+            reserve(m_Size + 1);
+
+        size_t currentNodeIndex;
+        LvnINode<T>& node = node_index(index, &currentNodeIndex);
+
+        /* check if there are indices to free nodes */
+        if (m_FreeSize != 0)
+        {
+            size_t nodeIndex = m_FreeNodes[m_FreeSize - 1];
+            LvnINode<T>& newNode = m_Nodes[nodeIndex];
+            newNode = node;
+            newNode.prev = currentNodeIndex;
+            newNode.hasPrev = true;
+            newNode.taken = true;
+
+            if (index == m_Size - 1) /* if insert is on last index, move tail to next */
+                m_Tail = nodeIndex;
+
+            node.value = value;
+            node.next = nodeIndex;
+            node.hasNext = true;
+            m_Size++;
+            m_FreeSize--;
+            return;
+        }
+
+        /* find an index linearly */
+        for (size_t i = 0; i < m_Capacity; i++)
+        {
+            if (!m_Nodes[i].taken)
+            {
+                if (node.hasNext)
+                    m_Nodes[node.next].prev = i;
+
+                LvnINode<T>& newNode = m_Nodes[i];
+                newNode = node;
+                newNode.prev = currentNodeIndex;
+                newNode.hasPrev = true;
+                newNode.taken = true;
+
+                if (index == m_Size - 1) /* if insert is on last index, move tail to next */
+                    m_Tail = i;
+
+                node.value = value;
+                node.next = i;
+                node.hasNext = true;
+                m_Size++;
+                return;
+            }
+        }
+
+        LVN_ASSERT(false, "could not find empty node to insert index");
+    }
+    void push_back(const T& data)
+    {
+        if (!m_Size)
+        {
+            reserve(m_Size + 1);
+            m_Head = m_Tail = 0;
+            m_Nodes[m_Head].value = data;
+            m_Nodes[m_Head].taken = true;
+            m_Size++;
+            return;
+        }
+
+        if (m_Size >= m_Capacity)
+            reserve(m_Size + 1);
+
+        LvnINode<T>& node = m_Nodes[m_Tail];
+
+        /* check if there are indices to free nodes */
+        if (m_FreeSize != 0)
+        {
+            size_t nodeIndex = m_FreeNodes[m_FreeSize - 1];
+            LvnINode<T>& newNode = m_Nodes[nodeIndex];
+            newNode.value = data;
+            newNode.prev = m_Tail;
+            newNode.hasPrev = true;
+            newNode.taken = true;
+
+            node.next = nodeIndex;
+            node.hasNext = true;
+            m_Tail = nodeIndex;
+            m_Size++;
+            m_FreeSize--;
+            return;
+        }
+
+        /* find an index linearly */
+        for (size_t i = 0; i < m_Capacity; i++)
+        {
+            if (!m_Nodes[i].taken)
+            {
+                LvnINode<T>& newNode = m_Nodes[i];
+                newNode.value = data;
+                newNode.prev = m_Tail;
+                newNode.hasPrev = true;
+                newNode.taken = true;
+
+                node.next = i;
+                node.hasNext = true;
+                m_Tail = i;
+                m_Size++;
+                return;
+            }
+        }
+
+        LVN_ASSERT(false, "could not find empty node to push back element");
+    }
+    void push_front(const T& data)
+    {
+        if (!m_Size)
+        {
+            reserve(m_Size + 1);
+            m_Head = m_Tail = 0;
+            m_Nodes[m_Head].value = data;
+            m_Nodes[m_Head].taken = true;
+            m_Size++;
+            return;
+        }
+
+        if (m_Size >= m_Capacity)
+            reserve(m_Size + 1);
+
+        LvnINode<T>& node = m_Nodes[m_Head];
+
+        /* check if there are indices to free nodes */
+        if (m_FreeSize != 0)
+        {
+            size_t nodeIndex = m_FreeNodes[m_FreeSize - 1];
+            LvnINode<T>& newNode = m_Nodes[nodeIndex];
+            newNode.value = data;
+            newNode.next = m_Head;
+            newNode.hasNext = true;
+            newNode.taken = true;
+
+            node.prev = nodeIndex;
+            node.hasPrev = true;
+            m_Head = nodeIndex;
+            m_Size++;
+            m_FreeSize--;
+            return;
+        }
+
+        /* find an index linearly */
+        for (size_t i = 0; i < m_Capacity; i++)
+        {
+            if (!m_Nodes[i].taken)
+            {
+                LvnINode<T>& newNode = m_Nodes[i];
+                newNode.value = data;
+                newNode.next = m_Head;
+                newNode.hasNext = true;
+                newNode.taken = true;
+
+                node.prev = i;
+                node.hasPrev = true;
+                m_Head = i;
+                m_Size++;
+                return;
+            }
+        }
+
+        LVN_ASSERT(false, "could not find empty node to push front element");
+    }
+    void pop_back()
+    {
+        if (!m_Size) { return; }
+        if (m_Size == 1) { destruct_at(m_Nodes[m_Head]); m_Tail = m_Head = 0; m_Size--; return; }
+
+        /* push back free node */
+        LVN_ASSERT(m_FreeSize < m_FreeCapacity, "free nodes array is full");
+        m_FreeNodes[m_FreeSize] = m_Tail;
+        m_FreeSize++;
+
+        /* set prev node to tail */
+        LvnINode<T>& node = m_Nodes[m_Tail];
+        LvnINode<T>& prev = m_Nodes[node.prev];
+        m_Tail = node.prev;
+        prev.next = 0;
+        prev.hasNext = false;
+
+        destruct_at(node);
+        m_Size--;
+    }
+    void pop_front()
+    {
+        if (!m_Size) { return; }
+        if (m_Size == 1) { destruct_at(m_Nodes[m_Head]); m_Tail = m_Head = 0; m_Size--; return; }
+
+        /* push back free node */
+        LVN_ASSERT(m_FreeSize < m_FreeCapacity, "free nodes array is full");
+        m_FreeNodes[m_FreeSize] = m_Head;
+        m_FreeSize++;
+
+        /* set next node to head */
+        LvnINode<T>& node = m_Nodes[m_Head];
+        LvnINode<T>& next = m_Nodes[node.next];
+        m_Head = node.next;
+        next.prev = 0;
+        next.hasPrev = false;
+
+        destruct_at(node);
+        m_Size--;
+    }
+
+    void reserve(size_t size)
+    {
+        if (size <= m_Capacity) { return; }
+        LvnINode<T>* temp = lvn::memNew<LvnINode<T>>(size, false);
+        for (size_t i = 0; i < m_Capacity; i++)
+            new (&temp[i]) LvnINode<T>(m_Nodes[i]);
+        destruct();
+        lvn::memDelete<LvnINode<T>>(m_Nodes, 0);
+        m_Nodes = temp;
+        m_Capacity = size;
+        size_t* freeTemp = lvn::memNew<size_t>(size, false);
+        for (size_t i = 0; i < m_FreeSize; i++)
+            new (&freeTemp[i]) size_t(m_FreeNodes[i]);
+        lvn::memDelete<size_t>(m_FreeNodes, 0);
+        m_FreeNodes = freeTemp;
+        m_FreeCapacity = size;
+    }
+
+    size_t      size() const { return m_Size; }
+    bool        empty() const { return m_Size == 0; }
+    void        clear() { destruct(); lvn::memDelete<LvnINode<T>>(m_Nodes, 0); m_Size = 0; for (size_t i = 0; i < m_FreeCapacity; i++) m_FreeNodes[i] = i; m_FreeSize = m_FreeCapacity; m_Head = m_Tail = 0; }
+    void        clear_free() { destruct(); lvn::memDelete<LvnINode<T>>(m_Nodes, 0); lvn::memDelete<size_t>(m_FreeNodes, 0); m_Nodes = nullptr; m_FreeNodes = nullptr; m_Head = m_Tail = m_Size = m_Capacity = m_FreeSize = m_FreeCapacity = 0; }
+
+    T&          front() { LVN_ASSERT(m_Size, "cannot call front on empty list"); return m_Nodes[m_Head].value; }
+    const T&    front() const { LVN_ASSERT(m_Size, "cannot call front on empty list"); return m_Nodes[m_Head].value; }
+
+    T&          back() { LVN_ASSERT(m_Size, "cannot call back on empty list"); return m_Nodes[m_Tail].value; }
+    const T&    back() const { LVN_ASSERT(m_Size, "cannot call back on empty list"); return m_Nodes[m_Tail].value; }
+};
+
+
+// -- LvnQueue
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::queue
+// - LvnQueue is a wrapper around LvnArenaList by default
+// - designed to be more cache effecient based on indexed nodes from a singular allocated array
+
+template <typename T, typename Container = LvnArenaList<T>>
+class LvnQueue
+{
+private:
+    Container m_Container;
+
+public:
+    LvnQueue() = default;
+    LvnQueue(const T* data, size_t size)
+    {
+        m_Container.reserve(size);
+        for (size_t i = 0; i < size; i++)
+            m_Container.push_back(data[i]);
+    }
+
+    size_t      size() const { return m_Container.size(); }
+    bool        empty() const { return m_Container.empty(); }
+    void        push(const T& value) { m_Container.push_back(value); }
+    void        pop() { m_Container.pop_front(); }
+    T&          front() { return m_Container.front(); }
+    const T&    front() const { return m_Container.front(); }
+    T&          back() { return m_Container.back(); }
+    const T&    back() const { return m_Container.back(); }
+};
+
+// -- LvnHash, LvnHashEntry, LvnHashMap
+// ------------------------------------------------------------
+// simple and light weight replacement to std::hash, std::unordered_map
+// designed to be more cache effecient, all hash entries stored in a single allocated array
+// note that LvnHashMap only takes in integral types for the key value
+
+struct LvnHash
+{
+    /* splitmix64 */
+    size_t operator()(size_t k) const
+    {
+        k += 0x9E3779B97F4A7C15;
+        k = (k ^ (k >> 30)) * 0xBF58476D1CE4E5B9;
+        k = (k ^ (k >> 27)) * 0x94D049BB133111EB;
+        k = k ^ (k >> 31);
+        return k;
+    }
+};
+
+template <typename K, typename T>
+struct LvnHashEntry
+{
+    T data;
+    K key;
+    size_t nextIndex;
+    bool taken, hasNext;
+};
+
+template <typename K, typename T, typename Hash = LvnHash>
+class LvnHashMap
+{
+    static_assert(std::is_integral_v<K>, "cannot have non integral type as key");
+    using MoveRef = std::remove_reference_t<T>&&;
+private:
+    LvnHashEntry<K, T>* m_HashEntries;
+    size_t m_Size;
+    size_t m_Capacity;
+    Hash m_Hasher;
+
+    void destruct()
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            for (size_t i = 0; i < m_Capacity; i++)
+            {
+                if (m_HashEntries[i].taken)
+                    m_HashEntries[i].data.~T();
+            }
+        }
+    }
+    bool erase_recursive(size_t index)
+    {
+        if (m_HashEntries[index].hasNext)
+        {
+            size_t nextIndex = m_HashEntries[index].nextIndex;
+            m_HashEntries[index].key = m_HashEntries[nextIndex].key;
+            m_HashEntries[index].nextIndex = m_HashEntries[nextIndex].nextIndex;
+            m_HashEntries[index].taken = m_HashEntries[nextIndex].taken;
+            m_HashEntries[index].hasNext = m_HashEntries[nextIndex].hasNext;
+            m_HashEntries[index].data = static_cast<MoveRef>(m_HashEntries[nextIndex].data);
+            if (erase_recursive(nextIndex))
+            {
+                m_HashEntries[index].nextIndex = 0;
+                m_HashEntries[index].hasNext = false;
+            }
+        }
+        else /* last entry in chain */
+        {
+            if (m_HashEntries[index].taken && !std::is_trivially_destructible_v<T>)
+                m_HashEntries[index].data.~T();
+            m_HashEntries[index].key = 0;
+            m_HashEntries[index].nextIndex = 0;
+            m_HashEntries[index].taken = false;
+            m_HashEntries[index].hasNext = false;
+            return true;
+        }
+
+        return false;
+    }
+
+public:
+    LvnHashMap()
+        : m_HashEntries(nullptr), m_Size(0), m_Capacity(0) {}
+    ~LvnHashMap()
+    {
+        destruct();
+        lvn::memDelete(m_HashEntries, 0);
+        m_Size = m_Capacity = 0;
+        m_HashEntries = nullptr;
+    }
+
+    LvnHashMap(size_t size)
+        : m_Size(0)
+    {
+        reserve(size);
+    }
+
+    LvnHashMap(const LvnHashMap& other)
+    {
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = lvn::memNew<LvnHashEntry<K, T>>(m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+        {
+            if (other.m_HashEntries[i].taken)
+                new (&m_HashEntries[i]) LvnHashEntry<K, T>(other.m_HashEntries[i]);
+        }
+    }
+    LvnHashMap(LvnHashMap&& other)
+    {
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = other.m_HashEntries;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_HashEntries = nullptr;
+    }
+    LvnHashMap& operator=(const LvnHashMap& other)
+    {
+        if (this == &other) return *this;
+        destruct();
+        lvn::memDelete<LvnHashEntry<K, T>>(m_HashEntries, 0);
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = lvn::memNew<LvnHashEntry<K, T>>(other.m_Capacity, false);
+        for (size_t i = 0; i < other.m_Capacity; i++)
+        {
+            if (other.m_HashEntries[i].taken)
+                new (&m_HashEntries[i]) LvnHashEntry<K, T>(other.m_HashEntries[i]);
+        }
+        return *this;
+    }
+    LvnHashMap& operator=(LvnHashMap&& other)
+    {
+        destruct();
+        lvn::memDelete<LvnHashEntry<K, T>>(m_HashEntries, 0);
+        m_Size = other.m_Size;
+        m_Capacity = other.m_Capacity;
+        m_HashEntries = other.m_HashEntries;
+        other.m_Size = 0;
+        other.m_Capacity = 0;
+        other.m_HashEntries = nullptr;
+        return *this;
+    }
+
+    T& operator[](const K& key)
+    {
+        return at(key);
+    }
+    const T& operator[](K key) const
+    {
+        return at(key);
+    }
+
+    /* reserves new memory space and rehashes entries */
+    void reserve(size_t size)
+    {
+        /* step 1: reserve/allocate memory */
+        if (size <= m_Size) return;
+        LvnHashEntry<K, T>* temp = m_HashEntries;
+        size_t tempSize = m_Capacity;
+        m_HashEntries = lvn::memNew<LvnHashEntry<K, T>>(size);
+        m_Capacity = size;
+
+        /* step 2: rehash and insert entries into new table */
+        m_Size = 0;
+        for (size_t i = 0; i < tempSize; i++)
+        {
+            if (temp[i].taken)
+                insert(temp[i].key, static_cast<MoveRef>(temp[i].data));
+        }
+        destruct();
+        lvn::memDelete<LvnHashEntry<K, T>>(temp, 0);
+    }
+    void insert(const K& key, const T& value)
+    {
+        /* resize/rehash when size exceeds 70% capacity (0.7 load factor) */
+        if (m_Size * 10 >= m_Capacity * 7)
+            reserve(m_Capacity ? m_Capacity * 2 : 8);
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+        {
+            m_HashEntries[index].data = value;
+            return;
+        }
+
+        /* iterate through entries if key not found */
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+            {
+                entry->data = value;
+                return;
+            }
+        }
+
+        /* add a new entry if key still not found */
+        LvnHashEntry<K, T>* findEntry = &m_HashEntries[index];
+        while (findEntry->taken)
+        {
+            index = (index + 1) % m_Capacity;
+            findEntry = &m_HashEntries[index];
+        }
+
+        findEntry->key = key;
+        findEntry->data = value;
+        findEntry->taken = true;
+        m_Size++;
+
+        if (entry->key != findEntry->key)
+        {
+            entry->nextIndex = index;
+            entry->hasNext = true;
+        }
+    }
+    void insert(const K& key, T&& value)
+    {
+        /* resize/rehash when size exceeds 70% capacity (0.7 load factor) */
+        if (m_Size * 10 >= m_Capacity * 7)
+            reserve(m_Capacity ? m_Capacity * 2 : 8);
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+        {
+            m_HashEntries[index].data = static_cast<MoveRef>(value);
+            return;
+        }
+
+        /* iterate through entries if key not found */
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+            {
+                entry->data = static_cast<MoveRef>(value);
+                return;
+            }
+        }
+
+        /* add a new entry if key still not found */
+        LvnHashEntry<K, T>* findEntry = &m_HashEntries[index];
+        while (findEntry->taken)
+        {
+            index = (index + 1) % m_Capacity;
+            findEntry = &m_HashEntries[index];
+        }
+
+        findEntry->key = key;
+        findEntry->data = static_cast<MoveRef>(value);
+        findEntry->taken = true;
+        m_Size++;
+
+        if (entry->key != findEntry->key)
+        {
+            entry->nextIndex = index;
+            entry->hasNext = true;
+        }
+    }
+    void erase(const K& key)
+    {
+        if (m_Size == 0) return;
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].key == key)
+        {
+            erase_recursive(index);
+            return;
+        }
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+            {
+                erase_recursive(index);
+                return;
+            }
+        }
+    }
+    T& at(const K& key)
+    {
+        if (m_Size == 0)
+            insert(key, T{});
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+            return m_HashEntries[index].data;
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+                return entry->data;
+        }
+
+        /* if key not found, create new entry */
+        insert(key, T{});
+        return at(key);
+    }
+    const T& at(const K& key) const
+    {
+        if (m_Size == 0)
+            insert(key, T{});
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (m_HashEntries[index].taken && m_HashEntries[index].key == key)
+            return m_HashEntries[index].data;
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+                return entry->data;
+        }
+
+        /* if key not found, create new entry */
+        insert(key, T{});
+        return at(key);
+    }
+
+    bool contains(const K& key)
+    {
+        if (m_Size == 0) return false;
+
+        size_t index = m_Hasher.operator()(key) % m_Capacity;
+        if (key == m_HashEntries[index].key)
+            return true;
+
+        LvnHashEntry<K, T>* entry = &m_HashEntries[index];
+        while (entry->hasNext)
+        {
+            index = entry->nextIndex;
+            entry = &m_HashEntries[entry->nextIndex];
+
+            if (entry->key == key)
+                return true;
+        }
+
+        return false;
+    }
+
+    bool                   empty() { return m_Size == 0; }
+    void                   clear() { if (m_Size) { destruct(); } m_Size = 0; }
+    void                   clear_free() { lvn::memDelete<LvnHashEntry<K, T>>(m_HashEntries, m_Capacity); m_Size = m_Capacity = 0; m_HashEntries = nullptr; }
+    size_t                 size() { return m_Size; }
+    size_t                 capacity() { return m_Capacity; }
+    size_t                 memcap() { return m_Capacity * sizeof(LvnHashEntry<K, T>); }
+    LvnHashEntry<K, T>*    data() { return m_HashEntries; }
+};
+
+// -- LvnUniquePtr
+// ------------------------------------------------------------
+// - simple and light weight replacement to std::unique_ptr
+// - note that pointers given to LvnUniquePtr must be allocated from lvn::memNew()
+// - a makeUniquePtr() function is given to properly allocate pointers for LvnUniquePtr
+
+template <typename T>
+class LvnUniquePtr
+{
+private:
+    T* m_Ptr;
+
+public:
+    LvnUniquePtr() : m_Ptr(nullptr) {}
+    ~LvnUniquePtr() { lvn::memDelete<T>(m_Ptr); }
+
+    explicit LvnUniquePtr(T* ptr) : m_Ptr(ptr) {}
+
+    template <typename U, typename = typename std::enable_if_t<std::is_convertible_v<U*, T*>>>
+    LvnUniquePtr(LvnUniquePtr<U>&& other) : m_Ptr(other.release()) {}
+
+    LvnUniquePtr(LvnUniquePtr&& other)
+    {
+        m_Ptr = other.m_Ptr;
+        other.m_Ptr = nullptr;
+    }
+    LvnUniquePtr& operator=(LvnUniquePtr&& other)
+    {
+        lvn::memDelete<T>(m_Ptr);
+        m_Ptr = other.m_Ptr;
+        other.m_Ptr = nullptr;
+        return *this;
+    }
+
+    LvnUniquePtr(const LvnUniquePtr& other) = delete;
+    LvnUniquePtr& operator=(const LvnUniquePtr& other) = delete;
+
+    T*          operator->() { return m_Ptr; }
+    const T*    operator->() const { return m_Ptr; }
+
+    T&          operator*() { return *m_Ptr; }
+    const T&    operator*() const { return *m_Ptr; }
+
+    operator    bool() const { return m_Ptr; }
+
+    T*          get() { return m_Ptr; }
+    const T*    get() const { return m_Ptr; }
+
+    T*          release() { T* temp = m_Ptr; m_Ptr = nullptr; return temp; }
+
+    void        reset(T* ptr = nullptr) { if (m_Ptr) { lvn::memDelete<T>(m_Ptr); } m_Ptr = ptr; }
+};
+
 template<typename T>
 struct LvnPair
 {
     T first;
     T second;
+};
+
+template<typename T1, typename T2>
+struct LvnDoublePair
+{
+    union { T1 p1, x, width, first; };
+    union { T2 p2, y, height, second; };
 };
 
 // logging

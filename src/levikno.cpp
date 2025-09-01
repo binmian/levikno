@@ -1,5 +1,5 @@
 #include "levikno.h"
-#include "lvn_internal.h"
+#include "levikno_internal.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -257,7 +257,7 @@ int dateGetSecond()
     return tm.tm_sec;
 }
 
-long long dateGetSecondsSinceEpoch()
+size_t dateGetSecondsSinceEpoch()
 {
     return time(NULL);
 }
@@ -470,7 +470,7 @@ void terminateLogging()
 
 LvnLoggingContext* getLoggingContex()
 {
-    LVN_ASSERT(s_LoggingContext, "cannot get logging context, logging context was not created");
+    LVN_ASSERT(s_LoggingContext != nullptr, "cannot get logging context, logging context was not created");
     return s_LoggingContext;
 }
 
@@ -1121,6 +1121,20 @@ void destroyLogger(LvnLogger* logger)
 
     LvnLoggingContext* logctx = lvn::getLoggingContex();
     lvn::destroyObject  <LvnLogger>(logger, Lvn_Stype_Logger);
+}
+
+LvnLoggerCreateInfo configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel)
+{
+    LvnLoggerCreateInfo createInfo{};
+    createInfo.loggerName = loggerName;
+    createInfo.format = logFormat;
+    createInfo.level = logLevel;
+
+    createInfo.fileConfig.enableLogToFile = false;
+    createInfo.fileConfig.filemode = Lvn_FileMode_Write;
+    createInfo.fileConfig.filename = loggerName;
+
+    return createInfo;
 }
 
 } /* namespace lvn */
