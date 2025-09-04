@@ -284,7 +284,7 @@ namespace lvn
     /* [Window] */
     LVN_API LvnWindowApi                getWindowApi();
     LVN_API const char*                 getWindowApiName();
-    LVN_API LvnResult                   initWindowContext(LvnWindowContextCreateInfo* createInfo);
+    LVN_API LvnResult                   initWindowContext(const LvnWindowContextCreateInfo* createInfo);
     LVN_API void                        terminateWindowContext();
     LVN_API LvnWindowContext*           getWindowContext();
     LVN_API LvnGraphicsApi              getWindowGraphicsBackendEnum();
@@ -489,8 +489,8 @@ struct LvnWindowCreateInfo
 
 struct LvnWindowContextCreateInfo
 {
-    LvnResult (*windowContextInitCallback)(LvnWindowContext*);
-    void (*windowContextTerminateCallback)();
+    LvnResult (*windowContextInitFunc)(LvnWindowContext*);
+    void (*windowContextTerminateFunc)();
     LvnGraphicsApi renderingBackend;
     bool forceBackendNone;
 };

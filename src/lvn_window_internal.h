@@ -2,7 +2,6 @@
 #define HG_LVN_WINDOW_INTERNAL_H
 
 #include "lvn_window.h"
-#include "levikno.h"
 #include "levikno_internal.h"
 
 

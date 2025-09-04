@@ -4,6 +4,8 @@ set(LVN_SOURCES
     entityComponentSystem.cpp
     events.cpp
     logging.cpp
+    multithreading.cpp
+    simpleTriangle.cpp
     simpleWindow.cpp
 )
 
@@ -13,5 +15,5 @@ foreach(LVN_SRC ${LVN_SOURCES})
 
     add_executable(${LVN_SRC_NAME} ${LVN_SRC})
     target_include_directories(${LVN_SRC_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
-    target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno lvnwindow)
+    target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno lvnwindow lvngraphics)
 endforeach()

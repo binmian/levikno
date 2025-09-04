@@ -34,6 +34,50 @@ if (BUILD_SHARED_LIBS)
 endif()
 
 
+# Find VulkanSDK
+set(MIN_VULKAN_VERSION 1.2)
+find_package(Vulkan ${MIN_VULKAN_VERSION})
+
+if(Vulkan_FOUND)
+    message("Vulkan found")
+    add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
+
+    set (LVN_VULKAN_SRC
+        src/api/graphics/vulkan/lvn_vulkan_impl.cpp
+        src/api/graphics/vulkan/lvn_vulkan_impl.h
+    )
+
+    # Find glslang
+    find_package(glslang CONFIG)
+
+    # include libs
+    set(LVN_VULKAN_LIBS Vulkan::Vulkan)
+
+    if (LVN_INCLUDE_GLSLANG)
+        if (TARGET glslang::glslang)
+            message("glslang found")
+            set(LVN_USE_GLSLANG)
+        else()
+            message("cannot find glslang, skipping glslang source compile features")
+        endif()
+
+        if (TARGET glslang::SPIRV)
+            message("glslang-SPIRV found")
+        else()
+            message("cannot find SPIRV, skipping glslang source compile features")
+        endif()
+
+        if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
+            add_definitions(-DLVN_INCLUDE_GLSLANG_SUPPORTED)
+            list(APPEND LVN_VULKAN_LIBS glslang::glslang glslang::SPIRV)
+        endif()
+    endif()
+
+else()
+    message("cannot find Vulkan, skipping vulkan")
+endif()
+
+
 set(LVN_SRC_CORE
     include/levikno/levikno.h
     include/levikno/lvn_ecs.h
@@ -45,8 +89,8 @@ set(LVN_SRC_CORE
 )
 
 set(LVN_SRC_WINDOW
-    include/levikno/api/lvn_glfw.h
     include/levikno/lvn_window.h
+    include/levikno/api/lvn_glfw.h
     src/lvn_window.cpp
     src/lvn_window_internal.h
 
@@ -57,6 +101,7 @@ set(LVN_SRC_WINDOW
 
 set(LVN_SRC_GRAPHICS
     include/levikno/lvn_graphics.h
+    include/levikno/api/lvn_vulkan.h
     src/lvn_graphics.cpp
     src/lvn_graphics_internal.h
 
@@ -66,8 +111,7 @@ set(LVN_SRC_GRAPHICS
 
     # vulkan
     src/external/vk_mem_alloc.h
-    src/api/graphics/vulkan/lvn_vulkan.cpp
-    src/api/graphics/vulkan/lvn_vulkan.h
+    ${LVN_VULKAN_SRC}
 
     # stb
     src/external/stb_image.h
@@ -144,6 +188,10 @@ target_sources(lvngraphics
     ${LVN_SRC_GRAPHICS}
 )
 
+target_link_libraries(lvngraphics PRIVATE
+    ${LVN_VULKAN_LIBS}
+)
+
 target_include_directories(lvngraphics
     PRIVATE
         include/levikno
@@ -152,6 +200,7 @@ target_include_directories(lvngraphics
         src/external
         src/external/glfw/include
         src/external/glad/include
+        src/external/vulkan/include
 )
 
 # Build definitions

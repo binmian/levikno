@@ -5,9 +5,10 @@
 
 int main(int argc, char** argv)
 {
-    lvn::initLogging();
+    // init context
+    lvn::initContext();
 
-    lvn::logInfo("logging example, more info in source code\n");
+    LVN_INFO("logging example, more info in source code\n");
 
     // [Logging functions & macros]
     // log messages are seperated through log levels
@@ -21,13 +22,13 @@ int main(int argc, char** argv)
 
     printf("\n");
 
-    // another way to log messages, these functions use the internal client logger that levikno provides
-    lvn::logTrace("trace message");
-    lvn::logDebug("debug message");
-    lvn::logInfo("info message");
-    lvn::logWarn("warn message");
-    lvn::logError("error message");
-    lvn::logFatal("fatal message");
+    // another way to log messages via macros, these macros use the internal client logger that levikno provides
+    LVN_TRACE("trace message");
+    LVN_DEBUG("debug message");
+    LVN_INFO("info message");
+    LVN_WARN("warn message");
+    LVN_ERROR("error message");
+    LVN_FATAL("fatal message");
 
     printf("\n");
 
@@ -36,10 +37,10 @@ int main(int argc, char** argv)
     // logging can be enabled and disabled at any time after logging is initiated
 
     lvn::logEnable(false);
-    lvn::logTrace("this message will not be displayed");
+    LVN_TRACE("this message will not be displayed");
 
     lvn::logEnable(true);
-    lvn::logTrace("this message will be displayed");
+    LVN_TRACE("this message will be displayed");
 
     printf("\n");
 
@@ -55,7 +56,7 @@ int main(int argc, char** argv)
 
     lvn::logMessageTrace(lvn::logGetCoreLogger(), "this message is from the core logger");
 
-    lvn::logCoreTrace("this message is also from the core logger");
+    LVN_CORE_TRACE("this message is also from the core logger");
 
     lvn::logEnableCoreLogging(false);
 
@@ -189,7 +190,7 @@ int main(int argc, char** argv)
     lvn::destroyLogger(logger);
 
     // terminate context
-    lvn::terminateLogging();
+    lvn::terminateContext();
 
     return 0;
 }

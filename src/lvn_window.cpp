@@ -17,7 +17,7 @@ static const char* getWindowApiNameEnum(LvnWindowApi api)
         // case Lvn_WindowApi_win32: { return "win32"; }
     }
 
-    lvn::logCoreError("Unknown Graphics API selected!");
+    LVN_CORE_ERROR("Unknown Graphics API selected!");
     return "";
 }
 
@@ -266,11 +266,11 @@ const char* getWindowApiName()
         // case Lvn_WindowApi_win32: { return "win32"; }
     }
 
-    lvn::logCoreError("Unknown Windows API selected!");
+    LVN_CORE_ERROR("Unknown Windows API selected!");
     return "";
 }
 
-LvnResult initWindowContext(LvnWindowContextCreateInfo* createInfo)
+LvnResult initWindowContext(const LvnWindowContextCreateInfo* createInfo)
 {
     if (s_WindowContext)
         return Lvn_Result_AlreadyCalled;
@@ -281,35 +281,35 @@ LvnResult initWindowContext(LvnWindowContextCreateInfo* createInfo)
     // set rendering backend
     if (!createInfo->forceBackendNone && createInfo->renderingBackend == Lvn_GraphicsApi_None)
     {
-        lvn::logCoreWarn("window context rendering backend was not set, the rendering backend will automatically be set to be configured with opengl");
-        lvn::logCoreInfo("to force levikno to use no rendering backend, set \'forceBackendNone\' to be true");
+        LVN_CORE_WARN("window context rendering backend was not set, the rendering backend will automatically be set to be configured with opengl");
+        LVN_CORE_INFO("to force levikno to use no rendering backend, set \'forceBackendNone\' to be true");
         winctx->graphicsBackend = Lvn_GraphicsApi_opengl;
     }
     else
         winctx->graphicsBackend = createInfo->renderingBackend;
 
     // set window context
-    if (createInfo->windowContextInitCallback == nullptr)
+    if (createInfo->windowContextInitFunc == nullptr)
     {
-        lvn::logCoreError("cannot create window context, init window context callback function must not be nullptr");
+        LVN_CORE_ERROR("cannot create window context, init window context function must not be nullptr");
         return Lvn_Result_Failure;
     }
-    if (createInfo->windowContextTerminateCallback == nullptr)
+    if (createInfo->windowContextTerminateFunc == nullptr)
     {
-        lvn::logCoreError("cannot create window context, terminate window context callback function must not be nullptr");
+        LVN_CORE_ERROR("cannot create window context, terminate window context function must not be nullptr");
         return Lvn_Result_Failure;
     }
 
-    winctx->implInitWindowContext = createInfo->windowContextInitCallback;
-    winctx->implTerminateWindowContext = createInfo->windowContextTerminateCallback;
+    winctx->implInitWindowContext = createInfo->windowContextInitFunc;
+    winctx->implTerminateWindowContext = createInfo->windowContextTerminateFunc;
 
     if (winctx->implInitWindowContext(winctx) != Lvn_Result_Success)
     {
-        lvn::logCoreError("could not create window context for: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
+        LVN_CORE_ERROR("could not create window context for: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
         return Lvn_Result_Failure;
     }
 
-    lvn::logCoreTrace("window context set: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
+    LVN_CORE_TRACE("window context set: %s", lvn::getWindowApiNameEnum(winctx->windowapi));
     return Lvn_Result_Success;
 }
 
@@ -320,7 +320,7 @@ void terminateWindowContext()
 
     s_WindowContext->implTerminateWindowContext();
 
-    lvn::logCoreTrace("window context terminated: %s", lvn::getWindowApiNameEnum(s_WindowContext->windowapi));
+    LVN_CORE_TRACE("window context terminated: %s", lvn::getWindowApiNameEnum(s_WindowContext->windowapi));
     lvn::memDelete<LvnWindowContext>(s_WindowContext);
 }
 
@@ -341,13 +341,13 @@ LvnResult createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo
 
     if (createInfo->width < 0 || createInfo->height < 0)
     {
-        lvn::logCoreError("createWindow(LvnWindow**, LvnWindowCreateInfo*) | cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
+        LVN_CORE_ERROR("createWindow(LvnWindow**, LvnWindowCreateInfo*) | cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
         return Lvn_Result_Failure;
     }
 
     *window = lvn::createObject<LvnWindow>(Lvn_Stype_Window);
 
-    lvn::logCoreTrace("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title.c_str(), createInfo->width, createInfo->height);
+    LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title.c_str(), createInfo->width, createInfo->height);
     return winctx->createWindow(*window, createInfo);
 }
 

@@ -9,8 +9,6 @@
 
 namespace lvn
 {
-    LvnResult vksImplCreateContext(LvnGraphicsContext* graphicsContext);
-    void vksImplTerminateContext();
     void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
     LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
     LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
@@ -166,7 +164,7 @@ struct VulkanPipeline
     VkPipelineLayout pipelineLayout;
 };
 
-struct VulkanBackend
+struct VulkanBackends
 {
     bool                                enableValidationLayers;
     VkInstance                          instance;

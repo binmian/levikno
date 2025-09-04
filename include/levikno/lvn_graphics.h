@@ -866,9 +866,11 @@ struct LvnFont
 
 struct LvnGraphicsContextCreateInfo
 {
-    LvnGraphicsApi graphicsapi;
-    LvnResult (*graphicsContextInitCallback)(LvnGraphicsContext*);
-    void (*graphicsContextTerminateCallback)();
+    LvnResult (*graphicsContextInitFunc)(LvnGraphicsContext*);
+    void (*graphicsContextTerminateFunc)();
+
+    uint32_t maxFramesInFlight;
+    LvnTextureFormat fbFormat;
 };
 
 #endif /* !HG_LVN_GRAPHICS_H */

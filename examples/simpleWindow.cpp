@@ -4,11 +4,11 @@
 
 int main(int argc, char** argv)
 {
-    lvn::initLogging();
+    lvn::initContext();
 
     LvnWindowContextCreateInfo winctxCreateInfo{};
-    winctxCreateInfo.windowContextInitCallback = lvn::implGlfwInitWindowContext;
-    winctxCreateInfo.windowContextTerminateCallback = lvn::implGlfwTerminateWindowContext;
+    winctxCreateInfo.windowContextInitFunc = lvn::implGlfwInitWindowContext;
+    winctxCreateInfo.windowContextTerminateFunc = lvn::implGlfwTerminateWindowContext;
     winctxCreateInfo.renderingBackend = Lvn_GraphicsApi_opengl;
     lvn::initWindowContext(&winctxCreateInfo);
 
@@ -17,16 +17,11 @@ int main(int argc, char** argv)
     LvnWindow* window;
     lvn::createWindow(&window, &winCreateInfo);
 
-    while (lvn::windowOpen(window))
-    {
-        lvn::windowUpdate(window);
-        lvn::windowPollEvents();
-    }
 
     lvn::destroyWindow(window);
 
     lvn::terminateWindowContext();
-    lvn::terminateLogging();
+    lvn::terminateContext();
 
     return 0;
 }

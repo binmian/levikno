@@ -18,7 +18,7 @@ static GLFWwindow* getMainOglWindowContext();
 
 static void GLFWerrorCallback(int error, const char* descripion)
 {
-    lvn::logCoreError("[glfw]: (%d): %s", error, descripion);
+    LVN_CORE_ERROR("[glfw]: (%d): %s", error, descripion);
 }
 
 static GLFWwindow* getMainOglWindowContext()
@@ -31,14 +31,14 @@ LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext)
 {
     if (s_glfwInit)
     {
-        lvn::logCoreWarn("glfw already initialized!");
+        LVN_CORE_WARN("glfw already initialized!");
         return Lvn_Result_AlreadyCalled;
     }
 
     int success = glfwInit();
     if (!success)
     {
-        LVN_ASSERT(success, "Failed to initialize glfw");
+        LVN_ASSERT(false, "Failed to initialize glfw");
         return Lvn_Result_Failure;
     }
     s_glfwInit = true;
@@ -92,7 +92,6 @@ LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext)
     s_CursorIcons[Lvn_MouseCursor_NotAllowed] = glfwCreateStandardCursor(GLFW_NOT_ALLOWED_CURSOR);
 
     // set gl context
-    
 
     glfwSetErrorCallback(GLFWerrorCallback);
 
@@ -111,7 +110,7 @@ void implGlfwTerminateWindowContext()
         glfwTerminate();
         s_glfwInit = false;
     }
-    else lvn::logCoreWarn("glfw already terminated!");
+    else LVN_CORE_WARN("glfw already terminated!");
 }
 
 LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo)
@@ -156,11 +155,11 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     // create window
     GLFWwindow* nativeWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title.c_str(), fullScreen, glfwWindow);
-    lvn::logCoreTrace("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", nativeWindow, window->data.title.c_str(), window->data.width, window->data.height);
+    LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", nativeWindow, window->data.title.c_str(), window->data.width, window->data.height);
 
     if (!nativeWindow)
     {
-        lvn::logCoreError("failed to create window: \"%s\" (w:%d, h:%d)", window->data.title.c_str(), window->data.width, window->data.height);
+        LVN_CORE_ERROR("failed to create window: \"%s\" (w:%d, h:%d)", window->data.title.c_str(), window->data.width, window->data.height);
         return Lvn_Result_Failure;
     }
 
@@ -237,8 +236,8 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
             case Lvn_GraphicsApi_vulkan:
             {
             #if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-                VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(lvnWindow->apiData);
-                surfaceData->frameBufferResized = true;
+                // VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(lvnWindow->apiData);
+                // surfaceData->frameBufferResized = true;
             #endif
                 break;
             }
@@ -475,8 +474,8 @@ void glfwImplSetWindowVSync(LvnWindow* window, bool enable)
         case Lvn_GraphicsApi_vulkan:
         {
         #if defined(LVN_GRAPHICS_API_INCLUDE_VULKAN)
-            VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-            surfaceData->frameBufferResized = true; // set resize to true to recreate swapchain
+            // VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+            // surfaceData->frameBufferResized = true; // set resize to true to recreate swapchain
         #endif
             break;
         }

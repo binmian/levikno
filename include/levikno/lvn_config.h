@@ -127,18 +127,42 @@ enum LvnResult : int
 *
 */
 
-inline constexpr const char* ic_LvnLogColorTrace = "\x1b[0;37m";
-inline constexpr const char* ic_LvnLogColorDebug = "\x1b[0;34m";
-inline constexpr const char* ic_LvnLogColorInfo  = "\x1b[0;32m";
-inline constexpr const char* ic_LvnLogColorWarn  = "\x1b[1;33m";
-inline constexpr const char* ic_LvnLogColorError = "\x1b[1;31m";
-inline constexpr const char* ic_LvnLogColorFatal = "\x1b[1;37;41m";
-inline constexpr const char* ic_LvnLogColorReset = "\x1b[0m";
+#define LVN_LOG_COLOR_TRACE "\x1b[0;37m";
+#define LVN_LOG_COLOR_DEBUG "\x1b[0;34m";
+#define LVN_LOG_COLOR_INFO  "\x1b[0;32m";
+#define LVN_LOG_COLOR_WARN  "\x1b[1;33m";
+#define LVN_LOG_COLOR_ERROR "\x1b[1;31m";
+#define LVN_LOG_COLOR_FATAL "\x1b[1;37;41m";
+#define LVN_LOG_COLOR_RESET "\x1b[0m";
 
 #ifndef LVN_DISABLE_LOGGING
     inline constexpr bool ic_LvnEnableLogging = true;
+    #define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+    #define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+    #define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+    #define LVN_CORE_WARN(...)                      ::lvn::logMessageWarn(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+    #define LVN_CORE_ERROR(...)                     ::lvn::logMessageError(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+    #define LVN_CORE_FATAL(...)                     ::lvn::logMessageFatal(lvn::logGetCoreLogger(), ##__VA_ARGS__)
+    #define LVN_TRACE(...)                          ::lvn::logMessageTrace(lvn::logGetClientLogger(), ##__VA_ARGS__)
+    #define LVN_DEBUG(...)                          ::lvn::logMessageDebug(lvn::logGetClientLogger(), ##__VA_ARGS__)
+    #define LVN_INFO(...)                           ::lvn::logMessageInfo(lvn::logGetClientLogger(), ##__VA_ARGS__)
+    #define LVN_WARN(...)                           ::lvn::logMessageWarn(lvn::logGetClientLogger(), ##__VA_ARGS__)
+    #define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::logGetClientLogger(), ##__VA_ARGS__)
+    #define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::logGetClientLogger(), ##__VA_ARGS__)
 #else
     inline constexpr bool ic_LvnEnableLogging = false;
+    #define LVN_CORE_TRACE(...)
+    #define LVN_CORE_DEBUG(...)
+    #define LVN_CORE_INFO(...)
+    #define LVN_CORE_WARN(...)
+    #define LVN_CORE_ERROR(...)
+    #define LVN_CORE_FATAL(...)
+    #define LVN_TRACE(...)
+    #define LVN_DEBUG(...)
+    #define LVN_INFO(...)
+    #define LVN_WARN(...)
+    #define LVN_ERROR(...)
+    #define LVN_FATAL(...)
 #endif
 
 

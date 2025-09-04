@@ -9,7 +9,7 @@ struct LvnWindowContext;
 namespace lvn
 {
     LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext);
-    void implGlfwTerminateWindowContext();
+    void      implGlfwTerminateWindowContext();
 }
 
 #endif /* !HG_LVN_GLFW_H */

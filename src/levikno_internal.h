@@ -17,7 +17,7 @@ struct LvnLogger
     LvnLogFile logfile;
 };
 
-struct LvnLoggingContext
+struct LvnContext
 {
     bool                                 logging;
     bool                                 enableCoreLogging;
@@ -26,6 +26,7 @@ struct LvnLoggingContext
     LvnVector<LvnLogPattern>             userLogPatterns;
     LvnString                            appName;
     size_t                               sTypeMemoryAllocationCounts[Lvn_Stype_Max_Value];
+    size_t                               memAllocCount;
 };
 
 template<typename T> struct LvnRemoveReference { using type = T; };
@@ -39,7 +40,7 @@ namespace lvn
     {
         LVN_ASSERT(stype != Lvn_Stype_Max_Value, "sType cannot be max value"); 
         T* object = lvn::memNew<T>();
-        lvn::getLoggingContex()->sTypeMemoryAllocationCounts[stype] += 1;
+        lvn::getContext()->sTypeMemoryAllocationCounts[stype] += 1;
         return object;
     }
 
@@ -48,7 +49,7 @@ namespace lvn
     {
         LVN_ASSERT(stype != Lvn_Stype_Max_Value, "sType cannot be max value"); 
         lvn::memDelete<T>(object);
-        lvn::getLoggingContex()->sTypeMemoryAllocationCounts[stype] -= 1;
+        lvn::getContext()->sTypeMemoryAllocationCounts[stype] -= 1;
     }
 
     template <typename T>

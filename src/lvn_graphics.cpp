@@ -11,7 +11,8 @@ namespace lvn
 
 static LvnGraphicsContext* s_GraphicsContext = nullptr;
 
-static const char* getGraphicsApiNameEnum(LvnGraphicsApi api);
+static const char*    getGraphicsApiNameEnum(LvnGraphicsApi api);
+static void           initStandardPipelineFixedFuncs(LvnGraphicsContext* graphicsctx);
 
 static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
 {
@@ -22,8 +23,73 @@ static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
         case Lvn_GraphicsApi_opengl: { return "opengl"; }
     }
 
-    lvn::logCoreError("Unknown Graphics API selected!");
+    LVN_CORE_ERROR("Unknown Graphics API selected!");
     return "";
+}
+
+static void initStandardPipelineFixedFuncs(LvnGraphicsContext* graphicsctx)
+{
+    LvnPipelineFixedFunctions pipelineFixedFuncs{};
+
+    // Input Assembly
+    pipelineFixedFuncs.inputAssembly.topology = Lvn_TopologyType_Triangle;
+    pipelineFixedFuncs.inputAssembly.primitiveRestartEnable = false;
+
+    // Viewport
+    pipelineFixedFuncs.viewport.x = 0.0f;
+    pipelineFixedFuncs.viewport.y = 0.0f;
+    pipelineFixedFuncs.viewport.width = 800.0f;
+    pipelineFixedFuncs.viewport.height = 600.0f;
+    pipelineFixedFuncs.viewport.minDepth = 0.0f;
+    pipelineFixedFuncs.viewport.maxDepth = 1.0f;
+
+    // Scissor
+    pipelineFixedFuncs.scissor.offset = { 0, 0 };
+    pipelineFixedFuncs.scissor.extent = { 800, 600 };
+
+    // Rasterizer
+    pipelineFixedFuncs.rasterizer.depthClampEnable = false;
+    pipelineFixedFuncs.rasterizer.rasterizerDiscardEnable = false;
+    pipelineFixedFuncs.rasterizer.lineWidth = 1.0f;
+    pipelineFixedFuncs.rasterizer.cullMode = Lvn_CullFaceMode_Disable;
+    pipelineFixedFuncs.rasterizer.frontFace = Lvn_CullFrontFace_Clockwise;
+    pipelineFixedFuncs.rasterizer.depthBiasEnable = false;
+    pipelineFixedFuncs.rasterizer.depthBiasConstantFactor = 0.0f;
+    pipelineFixedFuncs.rasterizer.depthBiasClamp = 0.0f;
+    pipelineFixedFuncs.rasterizer.depthBiasSlopeFactor = 0.0f;
+
+    // MultiSampling
+    pipelineFixedFuncs.multisampling.sampleShadingEnable = false;
+    pipelineFixedFuncs.multisampling.rasterizationSamples = Lvn_SampleCount_1_Bit;
+    pipelineFixedFuncs.multisampling.minSampleShading = 1.0f;
+    pipelineFixedFuncs.multisampling.sampleMask = nullptr;
+    pipelineFixedFuncs.multisampling.alphaToCoverageEnable = false;
+    pipelineFixedFuncs.multisampling.alphaToOneEnable = false;
+
+    // Color Attachments
+    pipelineFixedFuncs.colorBlend.colorBlendAttachmentCount = 0; // If no attachments are provided, an attachment will automatically be created
+    pipelineFixedFuncs.colorBlend.pColorBlendAttachments = nullptr; 
+
+    // Color Blend
+    pipelineFixedFuncs.colorBlend.logicOpEnable = false;
+    pipelineFixedFuncs.colorBlend.blendConstants[0] = 0.0f;
+    pipelineFixedFuncs.colorBlend.blendConstants[1] = 0.0f;
+    pipelineFixedFuncs.colorBlend.blendConstants[2] = 0.0f;
+    pipelineFixedFuncs.colorBlend.blendConstants[3] = 0.0f;
+
+    // Depth Stencil
+    pipelineFixedFuncs.depthstencil.enableDepth = false;
+    pipelineFixedFuncs.depthstencil.depthOpCompare = Lvn_CompareOp_Never;
+    pipelineFixedFuncs.depthstencil.enableStencil = false;
+    pipelineFixedFuncs.depthstencil.stencil.compareMask = 0x00;
+    pipelineFixedFuncs.depthstencil.stencil.writeMask = 0x00;
+    pipelineFixedFuncs.depthstencil.stencil.reference = 0;
+    pipelineFixedFuncs.depthstencil.stencil.compareOp = Lvn_CompareOp_Never;
+    pipelineFixedFuncs.depthstencil.stencil.depthFailOp = Lvn_StencilOp_Keep;
+    pipelineFixedFuncs.depthstencil.stencil.failOp = Lvn_StencilOp_Keep;
+    pipelineFixedFuncs.depthstencil.stencil.passOp = Lvn_StencilOp_Keep;
+
+    graphicsctx->defaultPipelineFixedFuncs = pipelineFixedFuncs;
 }
 
 LvnGraphicsApi getGraphicsApi()
@@ -39,28 +105,32 @@ LvnResult initGraphicsContext(LvnGraphicsContextCreateInfo* createInfo)
     s_GraphicsContext = lvn::memNew<LvnGraphicsContext>();
     LvnGraphicsContext* graphicsctx = lvn::getGraphicsContext();
 
+    lvn::initStandardPipelineFixedFuncs(graphicsctx);
+
     // set graphics context
-    if (createInfo->graphicsContextInitCallback == nullptr)
+    if (createInfo->graphicsContextInitFunc == nullptr)
     {
-        lvn::logCoreError("cannot create graphics context, init graphics context callback function must not be nullptr");
+        LVN_CORE_ERROR("cannot create graphics context, init graphics context function must not be nullptr");
         return Lvn_Result_Failure;
     }
-    if (createInfo->graphicsContextTerminateCallback == nullptr)
+    if (createInfo->graphicsContextTerminateFunc == nullptr)
     {
-        lvn::logCoreError("cannot create graphics context, terminate graphics context callback function must not be nullptr");
+        LVN_CORE_ERROR("cannot create graphics context, terminate graphics context function must not be nullptr");
         return Lvn_Result_Failure;
     }
 
-    graphicsctx->implInitGraphicsContext = createInfo->graphicsContextInitCallback;
-    graphicsctx->implTerminateGraphicsContext = createInfo->graphicsContextTerminateCallback;
+    graphicsctx->implInitGraphicsContext = createInfo->graphicsContextInitFunc;
+    graphicsctx->implTerminateGraphicsContext = createInfo->graphicsContextTerminateFunc;
 
     if (graphicsctx->implInitGraphicsContext(graphicsctx) != Lvn_Result_Success)
     {
-        lvn::logCoreError("could not create graphics context for: %s", lvn::getGraphicsApiNameEnum(graphicsctx->graphicsapi));
+        LVN_CORE_ERROR("could not create graphics context for: %s", lvn::getGraphicsApiNameEnum(graphicsctx->graphicsapi));
         return Lvn_Result_Failure;
     }
 
-    lvn::logCoreTrace("graphics context set: %s", lvn::getGraphicsApiNameEnum(graphicsctx->graphicsapi));
+    graphicsctx->implInitGraphicsContext(graphicsctx);
+
+    LVN_CORE_TRACE("graphics context set: %s", lvn::getGraphicsApiNameEnum(graphicsctx->graphicsapi));
     return Lvn_Result_Success;
 }
 
@@ -71,7 +141,7 @@ void terminateGraphicsContext()
 
     s_GraphicsContext->implTerminateGraphicsContext();
 
-    lvn::logCoreTrace("window context terminated: %s", lvn::getGraphicsApiNameEnum(s_GraphicsContext->graphicsapi));
+    LVN_CORE_TRACE("window context terminated: %s", lvn::getGraphicsApiNameEnum(s_GraphicsContext->graphicsapi));
     lvn::memDelete<LvnGraphicsContext>(s_GraphicsContext);
 }
 
@@ -111,7 +181,7 @@ LvnResult checkPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 {
     if (physicalDevice == nullptr)
     {
-        lvn::logCoreError("cannot check physical device support, physicalDevice is nullptr");
+        LVN_CORE_ERROR("cannot check physical device support, physicalDevice is nullptr");
         return Lvn_Result_Failure;
     }
 
@@ -122,7 +192,7 @@ LvnResult setPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 {
     if (physicalDevice == nullptr)
     {
-        lvn::logCoreError("cannot set physical device, physicalDevice is nullptr");
+        LVN_CORE_ERROR("cannot set physical device, physicalDevice is nullptr");
         return Lvn_Result_Failure;
     }
 
@@ -224,19 +294,19 @@ LvnResult createShaderFromSrc(LvnShader** shader, const LvnShaderCreateInfo* cre
 {
     if (createInfo->vertexSrc.empty())
     {
-        lvn::logCoreError("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
+        LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
         return Lvn_Result_Failure;
     }
 
     if (createInfo->fragmentSrc.empty())
     {
-        lvn::logCoreError("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
+        LVN_CORE_ERROR("createShaderFromSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
         return Lvn_Result_Failure;
     }
 
     *shader = lvn::createObject<LvnShader>(Lvn_Stype_Shader);
 
-    lvn::logCoreTrace("created shader (from source): (%p)", *shader);
+    LVN_CORE_TRACE("created shader (from source): (%p)", *shader);
     return lvn::getGraphicsContext()->createShaderFromSrc(*shader, createInfo);
 }
 
@@ -244,19 +314,19 @@ LvnResult createShaderFromFileSrc(LvnShader** shader, const LvnShaderCreateInfo*
 {
     if (createInfo->vertexSrc.empty())
     {
-        lvn::logCoreError("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
+        LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
         return Lvn_Result_Failure;
     }
 
     if (createInfo->fragmentSrc.empty())
     {
-        lvn::logCoreError("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
+        LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
         return Lvn_Result_Failure;
     }
 
     *shader = lvn::createObject<LvnShader>(Lvn_Stype_Shader);
 
-    lvn::logCoreTrace("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
+    LVN_CORE_TRACE("created shader (from source file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
     return lvn::getGraphicsContext()->createShaderFromFileSrc(*shader, createInfo);
 }
 
@@ -264,19 +334,19 @@ LvnResult createShaderFromFileBin(LvnShader** shader, const LvnShaderCreateInfo*
 {
     if (createInfo->vertexSrc.empty())
     {
-        lvn::logCoreError("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
+        LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->vertexSrc is nullptr, cannot create shader without the vertex shader source");
         return Lvn_Result_Failure;
     }
 
     if (createInfo->fragmentSrc.empty())
     {
-        lvn::logCoreError("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
+        LVN_CORE_ERROR("createShaderFileBin(LvnShader**, LvnShaderCreateInfo*) | createInfo->fragmentSrc is nullptr, cannot create shader without the fragment shader source");
         return Lvn_Result_Failure;
     }
 
     *shader = lvn::createObject<LvnShader>(Lvn_Stype_Shader);
 
-    lvn::logCoreTrace("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
+    LVN_CORE_TRACE("created shader (from binary file): (%p), vertex file: %s, fragment file: %s", *shader, createInfo->vertexSrc.c_str(), createInfo->fragmentSrc.c_str());
     return lvn::getGraphicsContext()->createShaderFromFileBin(*shader, createInfo);
 }
 
@@ -284,23 +354,23 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const L
 {
     if (!createInfo->descriptorBindingCount)
     {
-        lvn::logCoreError("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->descriptorBindingCount is 0, cannot create descriptor layout without the descriptor bindings count");
+        LVN_CORE_ERROR("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->descriptorBindingCount is 0, cannot create descriptor layout without the descriptor bindings count");
         return Lvn_Result_Failure;
     }
 
     if (!createInfo->pDescriptorBindings)
     {
-        lvn::logCoreError("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings is nullptr, cannot create descriptor layout without the pointer to the array of descriptor bindings");
+        LVN_CORE_ERROR("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings is nullptr, cannot create descriptor layout without the pointer to the array of descriptor bindings");
         return Lvn_Result_Failure;
     }
 
     for (uint32_t i = 0; i < createInfo->descriptorBindingCount; i++)
     {
         if (createInfo->pDescriptorBindings[i].maxAllocations == 0)
-            lvn::logCoreWarn("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings[%u].maxAllocations is 0, no descriptors will be allocated for this binding which may not be intentional", i);
+            LVN_CORE_WARN("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings[%u].maxAllocations is 0, no descriptors will be allocated for this binding which may not be intentional", i);
 
         if (createInfo->pDescriptorBindings[i].descriptorCount == 0)
-            lvn::logCoreWarn("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings[%u].descriptorCount is 0, no descriptors will be created for this binding which may not be intentional", i);
+            LVN_CORE_WARN("createDescriptorLayout(LvnDescriptorLayout**, LvnDescriptorLayoutCreateInfo*) | createInfo->pDescriptorBindings[%u].descriptorCount is 0, no descriptors will be created for this binding which may not be intentional", i);
     }
 
     *descriptorLayout = lvn::createObject<LvnDescriptorLayout>(Lvn_Stype_DescriptorLayout);
@@ -309,7 +379,7 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const L
     descriptorLayoutPtr->descriptorSets.resize(createInfo->maxSets);
     descriptorLayoutPtr->descriptorSetIndex = 0;
 
-    lvn::logCoreTrace("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
+    LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
     return lvn::getGraphicsContext()->createDescriptorLayout(*descriptorLayout, createInfo);
 }
 
@@ -317,7 +387,7 @@ LvnResult allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorL
 {
     *descriptorSet = &descriptorLayout->descriptorSets[descriptorLayout->descriptorSetIndex++];
 
-    lvn::logCoreTrace("allocated descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
+    LVN_CORE_TRACE("allocated descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
     return lvn::getGraphicsContext()->allocateDescriptorSet(*descriptorSet, descriptorLayout);
 }
 
@@ -326,24 +396,24 @@ LvnResult createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* cr
     // vertex binding descriptions
     if (!createInfo->pVertexBindingDescriptions)
     {
-        lvn::logCoreError("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexBindingDescriptions is nullptr; cannot create vertex buffer without the vertex binding descriptions");
+        LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexBindingDescriptions is nullptr; cannot create vertex buffer without the vertex binding descriptions");
         return Lvn_Result_Failure;
     }
     else if (!createInfo->vertexBindingDescriptionCount)
     {
-        lvn::logCoreError("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexBindingDescriptionCount is 0; cannot create vertex buffer without the vertex binding descriptions");
+        LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexBindingDescriptionCount is 0; cannot create vertex buffer without the vertex binding descriptions");
         return Lvn_Result_Failure;
     }
 
     // vertex attributes
     if (!createInfo->pVertexAttributes)
     {
-        lvn::logCoreError("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes is nullptr; cannot create vertex buffer without the vertex attributes");
+        LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes is nullptr; cannot create vertex buffer without the vertex attributes");
         return Lvn_Result_Failure;
     }
     else if (!createInfo->vertexAttributeCount)
     {
-        lvn::logCoreError("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexAttributeCount is 0; cannot create vertex buffer without the vertex attributes");
+        LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->vertexAttributeCount is 0; cannot create vertex buffer without the vertex attributes");
         return Lvn_Result_Failure;
     }
 
@@ -351,14 +421,14 @@ LvnResult createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* cr
     {
         if (createInfo->pVertexAttributes[i].format == Lvn_AttributeFormat_Undefined)
         {
-            lvn::logCoreError("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_AttributeFormat_Undefined, cannot create vertex buffer without a vertex data type", i);
+            LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->pVertexAttributes[%d].type is Lvn_AttributeFormat_Undefined, cannot create vertex buffer without a vertex data type", i);
             return Lvn_Result_Failure;
         }
     }
 
     *pipeline = lvn::createObject<LvnPipeline>(Lvn_Stype_Pipeline);
 
-    lvn::logCoreTrace("created pipeline: (%p)", *pipeline);
+    LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
     return lvn::getGraphicsContext()->createPipeline(*pipeline, createInfo);
 }
 
@@ -366,7 +436,7 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCr
 {
     if (createInfo->pColorAttachments == nullptr)
     {
-        lvn::logCoreError("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments is nullptr, cannot create framebuffer without one or more color attachments");
+        LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments is nullptr, cannot create framebuffer without one or more color attachments");
         return Lvn_Result_Failure;
     }
 
@@ -376,12 +446,12 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCr
     {
         if (createInfo->pColorAttachments[i].index >= totalAttachments)
         {
-            lvn::logCoreError("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index is greater than or equal to total attachments, color attachment index must be less than the total number of attachments", i);
+            LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index is greater than or equal to total attachments, color attachment index must be less than the total number of attachments", i);
             return Lvn_Result_Failure;
         }
         if (createInfo->depthAttachment != nullptr && createInfo->pColorAttachments[i].index == createInfo->depthAttachment->index)
         {
-            lvn::logCoreError("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index has the same value as createInfo->depthAttachment->index, color attachment index must not be the same as the depth attachment index", i);
+            LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index has the same value as createInfo->depthAttachment->index, color attachment index must not be the same as the depth attachment index", i);
             return Lvn_Result_Failure;
         }
     }
@@ -390,14 +460,14 @@ LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCr
     {
         if (createInfo->depthAttachment->index >= totalAttachments)
         {
-            lvn::logCoreError("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index is greater than or equal to total attachments, depth attachment index must be less than the total number of attachments");
+            LVN_CORE_ERROR("createFrameBuffer(LvnFrameBuffer**, LvnFrameBufferCreateInfo*) | createInfo->pColorAttachments[%u].index is greater than or equal to total attachments, depth attachment index must be less than the total number of attachments");
             return Lvn_Result_Failure;
         }
     }
 
     *frameBuffer = lvn::createObject<LvnFrameBuffer>(Lvn_Stype_FrameBuffer);
 
-    lvn::logCoreTrace("created framebuffer: (%p)", *frameBuffer);
+    LVN_CORE_TRACE("created framebuffer: (%p)", *frameBuffer);
     return lvn::getGraphicsContext()->createFrameBuffer(*frameBuffer, createInfo);
 }
 
@@ -406,13 +476,13 @@ LvnResult createBuffer(LvnBuffer** buffer, const LvnBufferCreateInfo* createInfo
     // check valid buffer type
     if (createInfo->type == Lvn_BufferType_Unknown)
     {
-        lvn::logCoreError("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type is \'Lvn_BufferType_Unknown\'; cannot create vertex buffer without knowing the type of buffer usage");
+        LVN_CORE_ERROR("createBuffer(LvnBuffer*, LvnBufferCreateInfo*) | createInfo->type is \'Lvn_BufferType_Unknown\'; cannot create vertex buffer without knowing the type of buffer usage");
         return Lvn_Result_Failure;
     }
 
     *buffer = lvn::createObject<LvnBuffer>(Lvn_Stype_Buffer);
 
-    lvn::logCoreTrace("created buffer: (%p)", *buffer);
+    LVN_CORE_TRACE("created buffer: (%p)", *buffer);
     return lvn::getGraphicsContext()->createBuffer(*buffer, createInfo);
 }
 
@@ -420,7 +490,7 @@ LvnResult createSampler(LvnSampler** sampler, const LvnSamplerCreateInfo* create
 {
     *sampler = lvn::createObject<LvnSampler>(Lvn_Stype_Sampler);
 
-    lvn::logCoreTrace("created sampler: (%p)");
+    LVN_CORE_TRACE("created sampler: (%p)");
     return lvn::getGraphicsContext()->createSampler(*sampler, createInfo);
 }
 
@@ -428,7 +498,7 @@ LvnResult createTexture(LvnTexture** texture, const LvnTextureCreateInfo* create
 {
     *texture = lvn::createObject<LvnTexture>(Lvn_Stype_Texture);
 
-    lvn::logCoreTrace("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes",
+    LVN_CORE_TRACE("created texture: (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes",
         *texture,
         createInfo->imageData.pixels.data(),
         createInfo->imageData.width,
@@ -443,7 +513,7 @@ LvnResult createTexture(LvnTexture** texture, const LvnTextureSamplerCreateInfo*
 {
     *texture = lvn::createObject<LvnTexture>(Lvn_Stype_Texture);
 
-    lvn::logCoreTrace("created texture (seperate sampler): (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes, sampler object used: (%p)",
+    LVN_CORE_TRACE("created texture (seperate sampler): (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes, sampler object used: (%p)",
         *texture,
         createInfo->imageData.pixels.data(),
         createInfo->imageData.width,
@@ -459,32 +529,32 @@ LvnResult createCubemap(LvnCubemap** cubemap, const LvnCubemapCreateInfo* create
 {
     if (createInfo->posx.pixels.data() == nullptr)
     {
-        lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posx.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posx.pixels does not point to a valid pointer array");
         return Lvn_Result_Failure;
     }
     if (createInfo->negx.pixels.data() == nullptr)
     {
-        lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negx.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negx.pixels does not point to a valid pointer array");
         return Lvn_Result_Failure;
     }
     if (createInfo->posy.pixels.data() == nullptr)
     {
-        lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posy.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posy.pixels does not point to a valid pointer array");
         return Lvn_Result_Failure;
     }
     if (createInfo->negy.pixels.data() == nullptr)
     {
-        lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negy.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negy.pixels does not point to a valid pointer array");
         return Lvn_Result_Failure;
     }
     if (createInfo->posz.pixels.data() == nullptr)
     {
-        lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posz.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posz.pixels does not point to a valid pointer array");
         return Lvn_Result_Failure;
     }
     if (createInfo->negz.pixels.data() == nullptr)
     {
-        lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negz.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negz.pixels does not point to a valid pointer array");
         return Lvn_Result_Failure;
     }
 
@@ -495,13 +565,13 @@ LvnResult createCubemap(LvnCubemap** cubemap, const LvnCubemapCreateInfo* create
     //  createInfo->posz.width * createInfo->posz.height ==
     //  createInfo->negz.width * createInfo->negz.height))
     // {
-    //  lvn::logCoreError("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | not all images have the same dimensions, all cubemap images must have the same width and height");
+    //  LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | not all images have the same dimensions, all cubemap images must have the same width and height");
     //  return Lvn_Result_Failure;
     // }
 
     *cubemap = lvn::createObject<LvnCubemap>(Lvn_Stype_Cubemap);
 
-    lvn::logCoreTrace("created cubemap: (%p)", *cubemap);
+    LVN_CORE_TRACE("created cubemap: (%p)", *cubemap);
     return lvn::getGraphicsContext()->createCubemap(*cubemap, createInfo);
 }
 
@@ -603,7 +673,7 @@ uint32_t getAttributeFormatSize(LvnAttributeFormat format)
 
         default:
         {
-            lvn::logCoreWarn("unknown vertex data type enum: (%u)", format);
+            LVN_CORE_WARN("unknown vertex data type enum: (%u)", format);
             return 0;
         }
     }
@@ -651,7 +721,7 @@ uint32_t getAttributeFormatComponentSize(LvnAttributeFormat format)
 
         default:
         {
-            lvn::logCoreWarn("unknown vertex data type enum: (%u)", format);
+            LVN_CORE_WARN("unknown vertex data type enum: (%u)", format);
             return 0;
         }
     }
@@ -689,7 +759,7 @@ void bufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t off
 {
     if (buffer->usage == Lvn_BufferUsage_Static)
     {
-        lvn::logCoreError("[opengl] cannot change data of buffer that has static buffer usage set Lvn_BufferUsage_Static, buffer: (%p)", buffer);
+        LVN_CORE_ERROR("[opengl] cannot change data of buffer that has static buffer usage set Lvn_BufferUsage_Static, buffer: (%p)", buffer);
         return;
     }
 
@@ -700,7 +770,7 @@ void bufferResize(LvnBuffer* buffer, uint64_t size)
 {
     if (buffer->usage != Lvn_BufferUsage_Resize)
     {
-        lvn::logCoreError("[opengl] cannot change data of buffer that does not have resize buffer usage set Lvn_BufferUsage_Resize, buffer: (%p)", buffer);
+        LVN_CORE_ERROR("[opengl] cannot change data of buffer that does not have resize buffer usage set Lvn_BufferUsage_Resize, buffer: (%p)", buffer);
         return;
     }
 
@@ -745,7 +815,7 @@ LvnDepthImageFormat findSupportedDepthImageFormat(LvnDepthImageFormat* pDepthIma
 {
     if (pDepthImageFormats == nullptr)
     {
-        lvn::logCoreError("cannot find supported depth image format, no depth image candidates given");
+        LVN_CORE_ERROR("cannot find supported depth image format, no depth image candidates given");
         return (LvnDepthImageFormat)(0);
     }
 
@@ -756,18 +826,18 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 {
     if (filepath == nullptr)
     {
-        lvn::logCoreError("loadImageData(const char*, int, bool) | invalid filepath, filepath must not be nullptr");
+        LVN_CORE_ERROR("loadImageData(const char*, int, bool) | invalid filepath, filepath must not be nullptr");
         return {};
     }
 
     if (forceChannels < 0)
     {
-        lvn::logCoreError("loadImageData(const char*, int, bool) | forceChannels < 0, channels cannot be negative");
+        LVN_CORE_ERROR("loadImageData(const char*, int, bool) | forceChannels < 0, channels cannot be negative");
         return {};
     }
     else if (forceChannels > 4)
     {
-        lvn::logCoreError("loadImageData(const char*, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+        LVN_CORE_ERROR("loadImageData(const char*, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
         return {};
     }
 
@@ -777,7 +847,7 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
 
     if (!pixels)
     {
-        lvn::logCoreError("loadImageData(const char*, int, bool) | failed to load image pixel data from file: %s", filepath);
+        LVN_CORE_ERROR("loadImageData(const char*, int, bool) | failed to load image pixel data from file: %s", filepath);
         return {};
     }
 
@@ -788,7 +858,7 @@ LvnImageData loadImageData(const char* filepath, int forceChannels, bool flipVer
     uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnVector<uint8_t>(pixels, imgsize);
 
-    lvn::logCoreTrace("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imgsize, filepath);
+    LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imgsize, filepath);
 
     stbi_image_free(pixels);
 
@@ -799,18 +869,18 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
 {
     if (!data)
     {
-        lvn::logCoreError("loadImageDataMemory(const unsigned char*, int, int, bool) | invalid data, image memory data must not be nullptr");
+        LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*, int, int, bool) | invalid data, image memory data must not be nullptr");
         return {};
     }
 
     if (forceChannels < 0)
     {
-        lvn::logCoreError("loadImageDataMemory(conts unsigned char*, int, int, bool) | forceChannels < 0, channels cannot be negative");
+        LVN_CORE_ERROR("loadImageDataMemory(conts unsigned char*, int, int, bool) | forceChannels < 0, channels cannot be negative");
         return {};
     }
     else if (forceChannels > 4)
     {
-        lvn::logCoreError("loadImageDataMemory(const unsigned char*, int, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+        LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*, int, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
         return {};
     }
 
@@ -820,7 +890,7 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
 
     if (!pixels)
     {
-        lvn::logCoreError("loadImageDataMemory(const unsigned char*) | failed to load image pixel data from memory: %p", data);
+        LVN_CORE_ERROR("loadImageDataMemory(const unsigned char*) | failed to load image pixel data from memory: %p", data);
         return {};
     }
 
@@ -831,7 +901,7 @@ LvnImageData loadImageDataMemory(const uint8_t* data, int length, int forceChann
     uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnVector<uint8_t>(pixels, imgsize);
 
-    lvn::logCoreTrace("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imgsize);
+    LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imgsize);
 
     stbi_image_free(pixels);
 
@@ -842,18 +912,18 @@ LvnImageData loadImageDataThread(const LvnString filepath, int forceChannels, bo
 {
     if (filepath.empty())
     {
-        lvn::logCoreError("loadImageDataThread(const char*, int, bool) | invalid filepath, filepath is empty string");
+        LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | invalid filepath, filepath is empty string");
         return {};
     }
 
     if (forceChannels < 0)
     {
-        lvn::logCoreError("loadImageDataThread(const char*, int, bool) | forceChannels < 0, channels cannot be negative");
+        LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | forceChannels < 0, channels cannot be negative");
         return {};
     }
     else if (forceChannels > 4)
     {
-        lvn::logCoreError("loadImageDataThread(const char*, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+        LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
         return {};
     }
 
@@ -863,7 +933,7 @@ LvnImageData loadImageDataThread(const LvnString filepath, int forceChannels, bo
 
     if (!pixels)
     {
-        lvn::logCoreError("loadImageDataThread(const char*, int, bool) | failed to load image pixel data from file: %s", filepath.c_str());
+        LVN_CORE_ERROR("loadImageDataThread(const char*, int, bool) | failed to load image pixel data from file: %s", filepath.c_str());
         return {};
     }
 
@@ -874,7 +944,7 @@ LvnImageData loadImageDataThread(const LvnString filepath, int forceChannels, bo
     uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnVector<uint8_t>(pixels, imgsize);
 
-    lvn::logCoreTrace("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imgsize, filepath.c_str());
+    LVN_CORE_TRACE("loaded image data <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imgsize, filepath.c_str());
 
     stbi_image_free(pixels);
 
@@ -885,18 +955,18 @@ LvnImageData loadImageDataMemoryThread(const uint8_t* data, int length, int forc
 {
     if (!data)
     {
-        lvn::logCoreError("loadImageDataMemoryThread(const unsigned char*, int, int, bool) | invalid data, image memory data must not be nullptr");
+        LVN_CORE_ERROR("loadImageDataMemoryThread(const unsigned char*, int, int, bool) | invalid data, image memory data must not be nullptr");
         return {};
     }
 
     if (forceChannels < 0)
     {
-        lvn::logCoreError("loadImageDataMemoryThread(conts unsigned char*, int, int, bool) | forceChannels < 0, channels cannot be negative");
+        LVN_CORE_ERROR("loadImageDataMemoryThread(conts unsigned char*, int, int, bool) | forceChannels < 0, channels cannot be negative");
         return {};
     }
     else if (forceChannels > 4)
     {
-        lvn::logCoreError("loadImageDataMemoryThread(const unsigned char*, int, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+        LVN_CORE_ERROR("loadImageDataMemoryThread(const unsigned char*, int, int, bool) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
         return {};
     }
 
@@ -906,7 +976,7 @@ LvnImageData loadImageDataMemoryThread(const uint8_t* data, int length, int forc
 
     if (!pixels)
     {
-        lvn::logCoreError("loadImageDataMemoryThread(const unsigned char*) | failed to load image pixel data from memory: %p", data);
+        LVN_CORE_ERROR("loadImageDataMemoryThread(const unsigned char*) | failed to load image pixel data from memory: %p", data);
         return {};
     }
 
@@ -917,7 +987,7 @@ LvnImageData loadImageDataMemoryThread(const uint8_t* data, int length, int forc
     uint64_t imgsize = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnVector<uint8_t>(pixels, imgsize);
 
-    lvn::logCoreTrace("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imgsize);
+    LVN_CORE_TRACE("loaded image data from memory <unsigned char*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes", pixels, imageData.width, imageData.height, imageData.channels, imgsize);
 
     stbi_image_free(pixels);
 
@@ -928,18 +998,18 @@ LvnImageHdrData loadHdrImageData(const char* filepath, int forceChannels, bool f
 {
     if (filepath == nullptr)
     {
-        lvn::logCoreError("loadHdrImageData(const char*) | invalid filepath, filepath must not be nullptr");
+        LVN_CORE_ERROR("loadHdrImageData(const char*) | invalid filepath, filepath must not be nullptr");
         return {};
     }
 
     if (forceChannels < 0)
     {
-        lvn::logCoreError("loadHdrImageData(const char*) | forceChannels < 0, channels cannot be negative");
+        LVN_CORE_ERROR("loadHdrImageData(const char*) | forceChannels < 0, channels cannot be negative");
         return {};
     }
     else if (forceChannels > 4)
     {
-        lvn::logCoreError("loadHdrImageData(const char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
+        LVN_CORE_ERROR("loadHdrImageData(const char*) | forceChannels > 4, channels cannot be higher than 4 components (rgba)");
         return {};
     }
 
@@ -949,7 +1019,7 @@ LvnImageHdrData loadHdrImageData(const char* filepath, int forceChannels, bool f
 
     if (!pixels)
     {
-        lvn::logCoreError("loadHdrImageData(const char*) | failed to load image pixel data from file: %s", filepath);
+        LVN_CORE_ERROR("loadHdrImageData(const char*) | failed to load image pixel data from file: %s", filepath);
         return {};
     }
 
@@ -960,7 +1030,7 @@ LvnImageHdrData loadHdrImageData(const char* filepath, int forceChannels, bool f
     imageData.size = imageData.width * imageData.height * imageData.channels;
     imageData.pixels = LvnVector<float>(pixels, imageData.size);
 
-    lvn::logCoreTrace("loaded hdr image data <float*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath);
+    LVN_CORE_TRACE("loaded hdr image data <float*> (%p), (w:%u,h:%u,ch:%u), total memory size: %u bytes, filepath: %s", pixels, imageData.width, imageData.height, imageData.channels, imageData.size, filepath);
 
     stbi_image_free(pixels);
 
@@ -1186,7 +1256,7 @@ LvnModel loadModel(const char* filepath)
         return lvn::loadObjModel(filepath);
     }
 
-    lvn::logCoreWarn("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
+    LVN_CORE_WARN("loadModel(const char*) | could not load model, file extension type not recognized (%s), Filepath: %s", extensionType.c_str(), filepath);
     */
     return {};
 }

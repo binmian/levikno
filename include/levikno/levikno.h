@@ -76,8 +76,8 @@ enum LvnStructureType
 
 struct LvnLogger;
 struct LvnLoggerCreateInfo;
-struct LvnLoggingContext;
-struct LvnLoggingContextCreateInfo;
+struct LvnContext;
+struct LvnContextCreateInfo;
 struct LvnLogMessage;
 struct LvnLogPattern;
 
@@ -187,6 +187,11 @@ namespace lvn
         return LvnUniquePtr<T>(ptr);
     }
 
+    // context
+    LVN_API LvnResult               initContext(LvnContextCreateInfo* createInfo = nullptr);
+    LVN_API void                    terminateContext();
+    LVN_API LvnContext*             getContext();
+
 
     LVN_API int                     dateGetYear();                                      // get the year number (eg. 2025)
     LVN_API int                     dateGetYear02d();                                   // get the last two digits of the year number (eg. 25)
@@ -218,9 +223,6 @@ namespace lvn
 
 
     // logging
-    LVN_API LvnResult               initLogging(LvnLoggingContextCreateInfo* createInfo = nullptr);
-    LVN_API void                    terminateLogging();
-    LVN_API LvnLoggingContext*      getLoggingContex();
     LVN_API void                    logEnable(bool enable);                                                           // enable or disable logging
     LVN_API void                    logEnableCoreLogging(bool enable);                                                // enable or disable logging from the core logger
     LVN_API void                    logSetLevel(LvnLogger* logger, LvnLogLevel level);                                // sets the log level of logger, will only print messages with set log level and higher
@@ -1510,6 +1512,62 @@ struct LvnDoublePair
     union { T2 p2, y, height, second; };
 };
 
+class LvnThread
+{
+private:
+    void* m_Thread;
+
+public:
+    LvnThread() = default;
+    ~LvnThread();
+    LvnThread(void (*funcptr)(void*), void* arg);
+
+    LvnThread(const LvnThread&) = delete;
+    LvnThread& operator=(const LvnThread&) = delete;
+
+    LvnThread(LvnThread&& other);
+    LvnThread& operator=(LvnThread&& other);
+
+    void join();
+    bool joinable();
+    uint64_t id();
+};
+
+class LvnMutex
+{
+private:
+    void* m_Mutex;
+
+public:
+    LvnMutex();
+    ~LvnMutex();
+
+    LvnMutex(const LvnMutex&) = delete;
+    LvnMutex& operator=(const LvnMutex&) = delete;
+
+    LvnMutex(LvnMutex&& other);
+    LvnMutex& operator=(LvnMutex&& other);
+
+    void lock();
+    void unlock();
+};
+
+class LvnLockGaurd
+{
+private:
+    LvnMutex& m_Mutex;
+
+public:
+    LvnLockGaurd(LvnMutex& mutex) : m_Mutex(mutex) { m_Mutex.lock(); }
+    ~LvnLockGaurd() { m_Mutex.unlock(); }
+
+    LvnLockGaurd(const LvnMutex&) = delete;
+    LvnLockGaurd& operator=(const LvnMutex&) = delete;
+
+    void lock() { m_Mutex.lock(); }
+    void unlock() { m_Mutex.unlock(); }
+};
+
 // logging
 struct LvnLoggerCreateInfo
 {
@@ -1546,24 +1604,27 @@ struct LvnLogFile
     bool logToFile;
 };
 
-struct LvnLoggingContextCreateInfo
+struct LvnContextCreateInfo
 {
-    bool enableGraphicsApiDebugLogs;        // enable debug output for graphics api calls (eg. vulkan validation layer, opengl debug callbacks)
-
     struct
     {
-        bool disableCoreLogging;            // whether to disable core logging in the library
-        LvnLogLevel level;                  // set the log level of the core logger
-        LvnString logPattern;               // set the log pattern of the core logger
-        LvnString name;                     // set the name of the core logger
-    } core;
+        bool enableGraphicsApiDebugLogs;        // enable debug output for graphics api calls (eg. vulkan validation layer, opengl debug callbacks)
 
-    struct
-    {
-        LvnLogLevel level;                  // set the log level of the client logger
-        LvnString logPattern;               // set the log pattern of the client logger
-        LvnString name;                     // set the name of the client logger
-    } client;
+        struct
+        {
+            bool disableCoreLogging;            // whether to disable core logging in the library
+            LvnLogLevel level;                  // set the log level of the core logger
+            LvnString logPattern;               // set the log pattern of the core logger
+            LvnString name;                     // set the name of the core logger
+        } core;
+
+        struct
+        {
+            LvnLogLevel level;                  // set the log level of the client logger
+            LvnString logPattern;               // set the log pattern of the client logger
+            LvnString name;                     // set the name of the client logger
+        } client;
+    } logging;
 };
 
 #endif /* !HG_LEVIKNO_H */
