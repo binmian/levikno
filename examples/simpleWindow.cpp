@@ -17,6 +17,11 @@ int main(int argc, char** argv)
     LvnWindow* window;
     lvn::createWindow(&window, &winCreateInfo);
 
+    while (lvn::windowOpen(window))
+    {
+        lvn::windowUpdate(window);
+        lvn::windowPollEvents();
+    }
 
     lvn::destroyWindow(window);
 

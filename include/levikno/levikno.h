@@ -1016,6 +1016,8 @@ public:
         m_Size--;
     }
 
+    /* FIXME: LvnArenaList only constructs nodes currently in list, but checks for uninitialized nodes on new push */
+    /*        temp fix is to initialize allocations from memory callbacks to 0 */
     void reserve(size_t size)
     {
         if (size <= m_Capacity) { return; }

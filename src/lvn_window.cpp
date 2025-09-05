@@ -431,11 +431,6 @@ void* windowGetNativeWindow(LvnWindow* window)
     return window->nativeWindow;
 }
 
-LvnRenderPass* windowGetRenderPass(LvnWindow* window)
-{
-    return &window->renderPass;
-}
-
 void windowSetContextCurrent(LvnWindow* window)
 {
     lvn::getWindowContext()->setWindowContextCurrent(window);

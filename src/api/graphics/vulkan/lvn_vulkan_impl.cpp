@@ -1,16 +1,12 @@
 #include "lvn_vulkan_impl.h"
+#include "lvn_vulkan_backends.h"
 
 #include "api/lvn_vulkan.h"
-#include "lvn_config.h"
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
-
-#ifdef LVN_INCLUDE_GLSLANG_SRC_COMPILE_SUPPORT
-#include <glslang/Include/glslang_c_interface.h>
-#endif
 
 #ifdef LVN_ENABLE_ASSERTS
     #define VMA_ASSERT(expr) (static_cast<bool>(expr) ? void(0) : LVN_CORE_ERROR("[VMA] " #expr))
@@ -1192,7 +1188,6 @@ namespace vks
         vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
     }
 
-
 } /* namespace vks */
 
 LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
@@ -1419,8 +1414,14 @@ LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 {
     VulkanBackends* vkBackends = s_VkBackends;
     VkPhysicalDevice vkPhysicalDevice = static_cast<VkPhysicalDevice>(physicalDevice->physicalDevice);
-    return vks::setupRenderInit(vkBackends, vkPhysicalDevice);;
+    return vks::setupRenderInit(vkBackends, vkPhysicalDevice);
 }
+
+LvnResult createVulkanWindowSurfaceData(void* window)
+{
+    return Lvn_Result_Failure;
+}
+
 
 LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {

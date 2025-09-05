@@ -27,6 +27,9 @@ struct LvnContext
     LvnString                            appName;
     size_t                               sTypeMemoryAllocationCounts[Lvn_Stype_Max_Value];
     size_t                               memAllocCount;
+
+    // api
+    void*                                sharedSuface;
 };
 
 template<typename T> struct LvnRemoveReference { using type = T; };

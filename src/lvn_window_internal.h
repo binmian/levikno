@@ -45,22 +45,11 @@ struct LvnWindowData
     void* userData;
 };
 
-struct LvnRenderPass
-{
-    void* nativeRenderPass;
-};
-
 struct LvnWindow
 {
     LvnWindowData data;              // holds data of window (eg. width, height)
-    void* nativeWindow;              // pointer to window api handle (eg. GLFWwindow)
-    void* apiData;                   // used for graphics api related uses
-    LvnRenderPass renderPass;        // pointer to native render pass for this window (vulkan)
-    uint32_t topologyTypeEnum;       // topologyType used to render primitives (opengl)
-    uint32_t vao;                    // vertex array object per pipeline object (opengl)
-    uint32_t indexOffset;            // index offset when binding index buffer (opengl)
-    LvnHashMap<uint32_t, uint32_t>* bindingDescriptions;
-    LvnVector<uint8_t> cmdBuffer;    // command buffer to store draw commands in byte data
+    void* nativeWindow;              // pointer to window native handle
+    void* apiData;
 };
 
 struct LvnWindowContext
