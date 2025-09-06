@@ -1,5 +1,4 @@
-#include "levikno/levikno.h"
-#include <levikno/lvn_window.h>
+#include <levikno/lvn_graphics.h>
 
 #include <levikno/api/lvn_glfw.h>
 
@@ -109,12 +108,14 @@ int main(int argc, char** argv)
 {
     lvn::initContext();
 
-    LvnWindowContextCreateInfo winctxCreateInfo{};
-    winctxCreateInfo.windowContextInitFunc = lvn::implGlfwInitWindowContext;
-    winctxCreateInfo.windowContextTerminateFunc = lvn::implGlfwTerminateWindowContext;
-    winctxCreateInfo.renderingBackend = Lvn_GraphicsApi_opengl;
+    LvnGraphicsContextCreateInfo graphicsctx{};
+    graphicsctx.windowapi = Lvn_WindowApi_glfw;
+    graphicsctx.graphicsapi = Lvn_GraphicsApi_opengl;
+    graphicsctx.windowInitFunc = lvn::implGlfwInitWindowContext;
+    graphicsctx.windowTerminateFunc = lvn::implGlfwTerminateWindowContext;
+    graphicsctx.noGraphicsInit = true;
 
-    lvn::initWindowContext(&winctxCreateInfo);
+    lvn::initGraphicsContext(&graphicsctx);
 
     LvnWindowCreateInfo winCreateInfo = lvn::configWindowInit("events", 800, 600);
     winCreateInfo.eventCallBack = eventCallBackFn; // set the event call back function to record callbacks
@@ -130,7 +131,7 @@ int main(int argc, char** argv)
 
     lvn::destroyWindow(window);
 
-    lvn::terminateWindowContext();
+    lvn::terminateGraphicsContext();
     lvn::terminateContext();
 
     return 0;

@@ -1,3 +1,4 @@
+#include "lvn_graphics.h"
 #include "lvn_graphics_internal.h"
 
 #include <stb_image.h>
@@ -6,13 +7,28 @@
 #include <cstring>
 #include <ctime>
 
+
 namespace lvn
 {
 
 static LvnGraphicsContext* s_GraphicsContext = nullptr;
 
+static const char*    getWindowApiNameEnum(LvnWindowApi api);
 static const char*    getGraphicsApiNameEnum(LvnGraphicsApi api);
 static void           initStandardPipelineFixedFuncs(LvnGraphicsContext* graphicsctx);
+
+static const char* getWindowApiNameEnum(LvnWindowApi api)
+{
+    switch (api)
+    {
+        case Lvn_WindowApi_None:  { return "None";  }
+        case Lvn_WindowApi_glfw:  { return "glfw";  }
+        // case Lvn_WindowApi_win32: { return "win32"; }
+    }
+
+    LVN_CORE_ERROR("Unknown Graphics API selected!");
+    return "";
+}
 
 static const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
 {
@@ -92,6 +108,429 @@ static void initStandardPipelineFixedFuncs(LvnGraphicsContext* graphicsctx)
     graphicsctx->defaultPipelineFixedFuncs = pipelineFixedFuncs;
 }
 
+// -- event functions
+bool dispatchKeyHoldEvent(LvnEvent* event, bool(*func)(LvnKeyHoldEvent*, void*))
+{
+    if (event->type == Lvn_EventType_KeyHold)
+    {
+        LvnKeyHoldEvent eventType{};
+        eventType.type = Lvn_EventType_KeyHold;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+        eventType.name = "LvnKeyHoldEvent";
+        eventType.handled = false;
+        eventType.keyCode = event->data.code;
+        eventType.repeat = event->data.repeat;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchKeyPressedEvent(LvnEvent* event, bool(*func)(LvnKeyPressedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_KeyPressed)
+    {
+        LvnKeyPressedEvent eventType{};
+        eventType.type = Lvn_EventType_KeyPressed;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+        eventType.name = "LvnKeyPressedEvent";
+        eventType.handled = false;
+        eventType.keyCode = event->data.code;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchKeyReleasedEvent(LvnEvent* event, bool(*func)(LvnKeyReleasedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_KeyReleased)
+    {
+        LvnKeyReleasedEvent eventType{};
+        eventType.type = Lvn_EventType_KeyReleased;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+        eventType.name = "LvnKeyReleasedEvent";
+        eventType.handled = false;
+        eventType.keyCode = event->data.code;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchKeyTypedEvent(LvnEvent* event, bool(*func)(LvnKeyTypedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_KeyTyped)
+    {
+        LvnKeyTypedEvent eventType{};
+        eventType.type = Lvn_EventType_KeyTyped;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
+        eventType.name = "LvnKeyTypedEvent";
+        eventType.handled = false;
+        eventType.key = event->data.ucode;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchMouseButtonPressedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonPressedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_MouseButtonPressed)
+    {
+        LvnMouseButtonPressedEvent eventType{};
+        eventType.type = Lvn_EventType_MouseButtonPressed;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_MouseButton | Lvn_EventCategory_Mouse;
+        eventType.name = "LvnMouseButtonPressedEvent";
+        eventType.handled = false;
+        eventType.buttonCode = event->data.code;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchMouseButtonReleasedEvent(LvnEvent* event, bool(*func)(LvnMouseButtonReleasedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_MouseButtonReleased)
+    {
+        LvnMouseButtonReleasedEvent eventType{};
+        eventType.type = Lvn_EventType_MouseButtonReleased;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_MouseButton | Lvn_EventCategory_Mouse;
+        eventType.name = "LvnMouseButtonReleasedEvent";
+        eventType.handled = false;
+        eventType.buttonCode = event->data.code;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchMouseMovedEvent(LvnEvent* event, bool(*func)(LvnMouseMovedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_MouseMoved)
+    {
+        LvnMouseMovedEvent eventType{};
+        eventType.type = Lvn_EventType_MouseMoved;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_Mouse;
+        eventType.name = "LvnMouseMovedEvent";
+        eventType.handled = false;
+        eventType.x = event->data.xd;
+        eventType.y = event->data.yd;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchMouseScrolledEvent(LvnEvent* event, bool(*func)(LvnMouseScrolledEvent*, void*))
+{
+    if (event->type == Lvn_EventType_MouseScrolled)
+    {
+        LvnMouseScrolledEvent eventType{};
+        eventType.type = Lvn_EventType_MouseScrolled;
+        eventType.category = Lvn_EventCategory_Input | Lvn_EventCategory_MouseButton | Lvn_EventCategory_Mouse;
+        eventType.name = "LvnMouseScrolledEvent";
+        eventType.handled = false;
+        eventType.x = static_cast<float>(event->data.xd);
+        eventType.y = static_cast<float>(event->data.yd);
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchWindowCloseEvent(LvnEvent* event, bool(*func)(LvnWindowCloseEvent*, void*))
+{
+    if (event->type == Lvn_EventType_WindowClose)
+    {
+        LvnWindowCloseEvent eventType{};
+        eventType.type = Lvn_EventType_WindowClose;
+        eventType.category = Lvn_EventCategory_Window;
+        eventType.name = "LvnWindowCloseEvent";
+        eventType.handled = false;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchWindowFocusEvent(LvnEvent* event, bool(*func)(LvnWindowFocusEvent*, void*))
+{
+    if (event->type == Lvn_EventType_WindowFocus)
+    {
+        LvnWindowFocusEvent eventType{};
+        eventType.type = Lvn_EventType_WindowFocus;
+        eventType.category = Lvn_EventCategory_Window;
+        eventType.name = "LvnWindowFocusEvent";
+        eventType.handled = false;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchWindowFramebufferResizeEvent(LvnEvent* event, bool(*func)(LvnWindowFramebufferResizeEvent*, void*))
+{
+    if (event->type == Lvn_EventType_WindowFramebufferResize)
+    {
+        LvnWindowFramebufferResizeEvent eventType{};
+        eventType.type = Lvn_EventType_WindowFramebufferResize;
+        eventType.category = Lvn_EventCategory_Window;
+        eventType.name = "LvnWindowFramebufferResizeEvent";
+        eventType.handled = false;
+        eventType.width = event->data.x;
+        eventType.height = event->data.y;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchWindowLostFocusEvent(LvnEvent* event, bool(*func)(LvnWindowLostFocusEvent*, void*))
+{
+    if (event->type == Lvn_EventType_WindowLostFocus)
+    {
+        LvnWindowLostFocusEvent eventType{};
+        eventType.type = Lvn_EventType_WindowLostFocus;
+        eventType.category = Lvn_EventCategory_Window;
+        eventType.name = "LvnWindowLostFocusEvent";
+        eventType.handled = false;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchWindowMovedEvent(LvnEvent* event, bool(*func)(LvnWindowMovedEvent*, void*))
+{
+    if (event->type == Lvn_EventType_WindowMoved)
+    {
+        LvnWindowMovedEvent eventType{};
+        eventType.type = Lvn_EventType_WindowMoved;
+        eventType.category = Lvn_EventCategory_Window;
+        eventType.name = "LvnWindowMovedEvent";
+        eventType.handled = false;
+        eventType.x = event->data.x;
+        eventType.y = event->data.y;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+bool dispatchWindowResizeEvent(LvnEvent* event, bool(*func)(LvnWindowResizeEvent*, void*))
+{
+
+    if (event->type == Lvn_EventType_WindowResize)
+    {
+        LvnWindowResizeEvent eventType{};
+        eventType.type = Lvn_EventType_WindowResize;
+        eventType.category = Lvn_EventCategory_Window;
+        eventType.name = "LvnWindowResizeEvent";
+        eventType.handled = false;
+        eventType.width = event->data.x;
+        eventType.height = event->data.y;
+
+        return func(&eventType, event->userData);
+    }
+
+    return false;
+}
+
+// -- window functions
+LvnWindowApi getWindowApi()
+{
+    return lvn::getGraphicsContext()->windowapi;
+}
+
+const char* getWindowApiName()
+{
+    switch (lvn::getGraphicsContext()->windowapi)
+    {
+        case Lvn_WindowApi_None:  { return "None";  }
+        case Lvn_WindowApi_glfw:  { return "glfw";  }
+        // case Lvn_WindowApi_win32: { return "win32"; }
+    }
+
+    LVN_CORE_ERROR("Unknown Windows API selected!");
+    return "";
+}
+
+LvnResult createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo)
+{
+    LvnGraphicsContext* graphicsctx = lvn::getGraphicsContext();
+
+    if (createInfo->width < 0 || createInfo->height < 0)
+    {
+        LVN_CORE_ERROR("createWindow(LvnWindow**, LvnWindowCreateInfo*) | cannot create window with negative dimensions (w:%d,h:%d)", createInfo->width, createInfo->height);
+        return Lvn_Result_Failure;
+    }
+
+    *window = lvn::createObject<LvnWindow>(Lvn_Stype_Window);
+
+    LVN_CORE_TRACE("created window: (%p), \"%s\" (w:%d,h:%d)", *window, createInfo->title.c_str(), createInfo->width, createInfo->height);
+    return graphicsctx->createWindow(*window, createInfo);
+}
+
+void destroyWindow(LvnWindow* window)
+{
+    if (window == nullptr) { return; }
+    LvnGraphicsContext* winctx = lvn::getGraphicsContext();
+    winctx->destroyWindow(window);
+    lvn::destroyObject<LvnWindow>(window, Lvn_Stype_Window);
+}
+
+LvnWindowCreateInfo configWindowInit(const char* title, int width, int height)
+{
+    LvnWindowCreateInfo createInfo{};
+    createInfo.width = width;
+    createInfo.height = height;
+    createInfo.title = title;
+    createInfo.minWidth = 0;
+    createInfo.minHeight = 0;
+    createInfo.maxWidth = -1;
+    createInfo.maxHeight = -1;
+    createInfo.fullscreen = false;
+    createInfo.resizable = true;
+    createInfo.vSync = false;
+    createInfo.pIcons = nullptr;
+    createInfo.iconCount = 0;
+    createInfo.eventCallBack = nullptr;
+    createInfo.userData = nullptr;
+
+    return createInfo;
+}
+
+void windowUpdate(LvnWindow* window)
+{
+    lvn::getGraphicsContext()->updateWindow(window);
+}
+
+bool windowOpen(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->windowOpen(window);
+}
+
+void windowPollEvents()
+{
+    lvn::getGraphicsContext()->windowPollEvents();
+}
+
+LvnPair<int> windowGetDimensions(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowSize(window);
+}
+
+int windowGetWidth(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowWidth(window);
+}
+
+int windowGetHeight(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowHeight(window);
+}
+
+void windowSetEventCallback(LvnWindow* window, void (*callback)(LvnEvent*), void* userData)
+{
+    window->data.eventCallBackFn = callback;
+    window->data.userData = userData;
+}
+
+void windowSetVSync(LvnWindow* window, bool enable)
+{
+    lvn::getGraphicsContext()->setWindowVSync(window, enable);
+}
+
+bool windowGetVSync(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowVSync(window);
+}
+
+void* windowGetNativeWindow(LvnWindow* window)
+{
+    return window->nativeWindow;
+}
+
+void windowSetContextCurrent(LvnWindow* window)
+{
+    lvn::getGraphicsContext()->setWindowContextCurrent(window);
+}
+
+// -- input
+bool keyPressed(LvnWindow* window, int keycode)
+{
+    return lvn::getGraphicsContext()->keyPressed(window, keycode);
+}
+
+bool keyReleased(LvnWindow* window, int keycode)
+{
+    return lvn::getGraphicsContext()->keyReleased(window, keycode);
+}
+
+bool mouseButtonPressed(LvnWindow* window, int button)
+{
+    return lvn::getGraphicsContext()->mouseButtonPressed(window, button);
+}
+
+bool mouseButtonReleased(LvnWindow* window, int button)
+{
+    return lvn::getGraphicsContext()->mouseButtonReleased(window, button);
+}
+
+LvnPair<float> mouseGetPos(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getMousePos(window);
+}
+
+void mouseGetPos(LvnWindow* window, float* xpos, float* ypos)
+{
+    lvn::getGraphicsContext()->getMousePosPtr(window, xpos, ypos);
+}
+
+float mouseGetX(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getMouseX(window);
+}
+
+float mouseGetY(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getMouseY(window);
+}
+
+void mouseSetCursor(LvnWindow* window, LvnMouseCursor cursor)
+{
+    lvn::getGraphicsContext()->setMouseCursor(window, cursor);
+}
+
+void mouseSetInputMode(LvnWindow* window, LvnMouseInputMode mode)
+{
+    lvn::getGraphicsContext()->SetMouseInputMode(window, mode);
+}
+
+LvnPair<int> windowGetPos(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowPos(window);
+}
+
+void windowGetPos(LvnWindow* window, int* xpos, int* ypos)
+{
+    lvn::getGraphicsContext()->getWindowPosPtr(window, xpos, ypos);
+}
+
+LvnPair<int> windowGetSize(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowSize(window);
+}
+
+void windowGetSize(LvnWindow* window, int* width, int* height)
+{
+    lvn::getGraphicsContext()->getWindowSizePtr(window, width, height);
+}
+
+
+// -- graphics functions
 LvnGraphicsApi getGraphicsApi()
 {
     return lvn::getGraphicsContext()->graphicsapi;
@@ -104,33 +543,62 @@ LvnResult initGraphicsContext(LvnGraphicsContextCreateInfo* createInfo)
 
     s_GraphicsContext = lvn::memNew<LvnGraphicsContext>();
     LvnGraphicsContext* graphicsctx = lvn::getGraphicsContext();
+    graphicsctx->windowapi = createInfo->windowapi;
+    graphicsctx->graphicsapi = createInfo->graphicsapi;
+    graphicsctx->noGraphicsCtx = createInfo->noGraphicsInit;
+    graphicsctx->enableGraphicsApiDebugLogs = createInfo->enableGraphicsApiDebugLogs;
 
     lvn::initStandardPipelineFixedFuncs(graphicsctx);
 
+
+    // set window api funcs
+    if (createInfo->windowapi != Lvn_WindowApi_None && createInfo->windowInitFunc == nullptr)
+    {
+        LVN_CORE_ERROR("cannot create window context, init window context function must not be nullptr");
+        return Lvn_Result_Failure;
+    }
+    if (createInfo->windowapi != Lvn_WindowApi_None && createInfo->windowTerminateFunc == nullptr)
+    {
+        LVN_CORE_ERROR("cannot create window context, terminate window context function must not be nullptr");
+        return Lvn_Result_Failure;
+    }
+
+    graphicsctx->implInitWindowFunc = createInfo->windowInitFunc;
+    graphicsctx->implTerminateWindowFunc = createInfo->windowTerminateFunc;
+
+    if (createInfo->windowapi != Lvn_WindowApi_None && graphicsctx->implInitWindowFunc(graphicsctx) != Lvn_Result_Success)
+    {
+        LVN_CORE_ERROR("could not create window context for: %s", lvn::getWindowApiNameEnum(graphicsctx->windowapi));
+        return Lvn_Result_Failure;
+    }
+    LVN_CORE_TRACE("window context set: %s", lvn::getWindowApiNameEnum(graphicsctx->windowapi));
+
+
     // set graphics context
-    if (createInfo->graphicsContextInitFunc == nullptr)
+    if (createInfo->noGraphicsInit)
+        return Lvn_Result_Success;
+
+    if (createInfo->graphicsapi != Lvn_GraphicsApi_None && createInfo->graphicsInitFunc == nullptr)
     {
         LVN_CORE_ERROR("cannot create graphics context, init graphics context function must not be nullptr");
         return Lvn_Result_Failure;
     }
-    if (createInfo->graphicsContextTerminateFunc == nullptr)
+    if (createInfo->graphicsapi != Lvn_GraphicsApi_None && createInfo->graphicsTerminateFunc == nullptr)
     {
         LVN_CORE_ERROR("cannot create graphics context, terminate graphics context function must not be nullptr");
         return Lvn_Result_Failure;
     }
 
-    graphicsctx->implInitGraphicsContext = createInfo->graphicsContextInitFunc;
-    graphicsctx->implTerminateGraphicsContext = createInfo->graphicsContextTerminateFunc;
+    graphicsctx->implInitGraphicsContext = createInfo->graphicsInitFunc;
+    graphicsctx->implTerminateGraphicsContext = createInfo->graphicsTerminateFunc;
 
-    if (graphicsctx->implInitGraphicsContext(graphicsctx) != Lvn_Result_Success)
+    if (createInfo->graphicsapi != Lvn_GraphicsApi_None && graphicsctx->implInitGraphicsContext(graphicsctx) != Lvn_Result_Success)
     {
         LVN_CORE_ERROR("could not create graphics context for: %s", lvn::getGraphicsApiNameEnum(graphicsctx->graphicsapi));
         return Lvn_Result_Failure;
     }
-
-    graphicsctx->implInitGraphicsContext(graphicsctx);
-
     LVN_CORE_TRACE("graphics context set: %s", lvn::getGraphicsApiNameEnum(graphicsctx->graphicsapi));
+
     return Lvn_Result_Success;
 }
 
@@ -139,10 +607,17 @@ void terminateGraphicsContext()
     if (!s_GraphicsContext)
         return;
 
-    s_GraphicsContext->implTerminateGraphicsContext();
+    s_GraphicsContext->implTerminateWindowFunc();
+    LVN_CORE_TRACE("window context terminated: %s", lvn::getWindowApiNameEnum(s_GraphicsContext->windowapi));
 
-    LVN_CORE_TRACE("window context terminated: %s", lvn::getGraphicsApiNameEnum(s_GraphicsContext->graphicsapi));
+    if (!s_GraphicsContext->noGraphicsCtx)
+    {
+        s_GraphicsContext->implTerminateGraphicsContext();
+        LVN_CORE_TRACE("graphics context terminated: %s", lvn::getGraphicsApiNameEnum(s_GraphicsContext->graphicsapi));
+    }
+
     lvn::memDelete<LvnGraphicsContext>(s_GraphicsContext);
+    s_GraphicsContext = nullptr;
 }
 
 LvnGraphicsContext* getGraphicsContext()

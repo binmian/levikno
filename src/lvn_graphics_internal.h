@@ -5,73 +5,56 @@
 #include "levikno_internal.h"
 
 
-struct LvnGraphicsContext
+// -- window
+struct LvnEvent
 {
-    LvnGraphicsApi              graphicsapi;
-    bool                        enableGraphicsApiDebugLogs;
-    LvnTextureFormat            frameBufferColorFormat;
-    uint32_t                    maxFramesInFlight;
-    LvnPipelineFixedFunctions   defaultPipelineFixedFuncs;
+    LvnEventType type;
+    int category;
+    const char* name;
+    bool handled;
+    void* userData;
 
-    LvnResult                   (*implInitGraphicsContext)(LvnGraphicsContext*);
-    void                        (*implTerminateGraphicsContext)();
+    struct Data
+    {
+        union
+        {
+            int x;
+            double xd;
+        };
+        union
+        {
+            int y;
+            double yd;
+        };
 
-    void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
-    LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
-    LvnResult                   (*setPhysicalDevice)(LvnPhysicalDevice*);
-
-    LvnResult                   (*createShaderFromSrc)(LvnShader*, const LvnShaderCreateInfo*);
-    LvnResult                   (*createShaderFromFileSrc)(LvnShader*, const LvnShaderCreateInfo*);
-    LvnResult                   (*createShaderFromFileBin)(LvnShader*, const LvnShaderCreateInfo*);
-    LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, const LvnDescriptorLayoutCreateInfo*);
-    LvnResult                   (*allocateDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
-    LvnResult                   (*createPipeline)(LvnPipeline*, const LvnPipelineCreateInfo*);
-    LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, const LvnFrameBufferCreateInfo*);
-    LvnResult                   (*createBuffer)(LvnBuffer*, const LvnBufferCreateInfo*);
-    LvnResult                   (*createSampler)(LvnSampler*, const LvnSamplerCreateInfo*);
-    LvnResult                   (*createTexture)(LvnTexture*, const LvnTextureCreateInfo*);
-    LvnResult                   (*createTextureSampler)(LvnTexture*, const LvnTextureSamplerCreateInfo*);
-    LvnResult                   (*createCubemap)(LvnCubemap*, const LvnCubemapCreateInfo*);
-
-    void                        (*destroyShader)(LvnShader*);
-    void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
-    void                        (*destroyPipeline)(LvnPipeline*);
-    void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
-    void                        (*destroyBuffer)(LvnBuffer*);
-    void                        (*destroySampler)(LvnSampler*);
-    void                        (*destroyTexture)(LvnTexture*);
-    void                        (*destroyCubemap)(LvnCubemap*);
-
-    void                        (*renderBeginNextFrame)(LvnCommandBuffer*);
-    void                        (*renderDrawSubmit)(LvnCommandBuffer*);
-    void                        (*renderBeginCommandRecording)(LvnCommandBuffer*);
-    void                        (*renderEndCommandRecording)(LvnCommandBuffer*);
-    void                        (*renderCmdDraw)(LvnCommandBuffer*, uint32_t);
-    void                        (*renderCmdDrawIndexed)(LvnCommandBuffer*, uint32_t);
-    void                        (*renderCmdDrawInstanced)(LvnCommandBuffer*, uint32_t, uint32_t, uint32_t);
-    void                        (*renderCmdDrawIndexedInstanced)(LvnCommandBuffer*, uint32_t, uint32_t, uint32_t);
-    void                        (*renderCmdSetStencilReference)(uint32_t);
-    void                        (*renderCmdSetStencilMask)(uint32_t, uint32_t);
-    void                        (*renderCmdBeginRenderPass)(LvnCommandBuffer*, float r, float g, float b, float a);
-    void                        (*renderCmdEndRenderPass)(LvnCommandBuffer*);
-    void                        (*renderCmdBindPipeline)(LvnCommandBuffer*, LvnPipeline*);
-    void                        (*renderCmdBindVertexBuffer)(LvnCommandBuffer*, uint32_t, uint32_t, LvnBuffer**, uint64_t*);
-    void                        (*renderCmdBindIndexBuffer)(LvnCommandBuffer*, LvnBuffer*, uint64_t);
-    void                        (*renderCmdBindDescriptorSets)(LvnCommandBuffer*, LvnPipeline*, uint32_t, uint32_t, LvnDescriptorSet**);
-    void                        (*renderCmdBeginFrameBuffer)(LvnCommandBuffer*, LvnFrameBuffer*);
-    void                        (*renderCmdEndFrameBuffer)(LvnCommandBuffer*, LvnFrameBuffer*);
-
-    void                        (*bufferUpdateData)(LvnBuffer*, void*, uint64_t, uint64_t);
-    void                        (*bufferResize)(LvnBuffer*, uint64_t);
-    void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
-    LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
-    LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);
-    void                        (*framebufferResize)(LvnFrameBuffer*, uint32_t, uint32_t);
-    void                        (*frameBufferSetClearColor)(LvnFrameBuffer*, uint32_t, float, float, float, float);
-
-    LvnDepthImageFormat         (*findSupportedDepthImageFormat)(LvnDepthImageFormat*, uint32_t);
+        int code;
+        unsigned int ucode;
+        bool repeat;
+    } data;
 };
 
+struct LvnWindowData
+{                                        // [Same use with LvnWindowCreateinfo]
+    int width, height;                   // width and height of window
+    LvnString title;                     // title of window
+    int minWidth, minHeight;             // minimum width and height of window
+    int maxWidth, maxHeight;             // maximum width and height of window
+    bool fullscreen, resizable, vSync;   // sets window to fullscreen; enables window resizing; vSync controls window framerate
+    LvnWindowIconData* pIcons;           // icon images used for window/app icon
+    uint32_t iconCount;                  // iconCount is the number of icons in pIcons
+    void (*eventCallBackFn)(LvnEvent*);  // function ptr used as a callback to get events from this window
+    void* userData;
+};
+
+struct LvnWindow
+{
+    LvnWindowData data;              // holds data of window (eg. width, height)
+    void* nativeWindow;              // pointer to window native handle
+    void* apiData;
+};
+
+
+// -- graphics
 struct LvnPhysicalDevice
 {
     LvnPhysicalDeviceProperties properties;
@@ -157,6 +140,112 @@ struct LvnFrameBuffer
 struct LvnCubemap
 {
     LvnTexture textureData;
+};
+
+struct LvnGraphicsContext
+{
+    LvnGraphicsApi              graphicsapi;
+    LvnWindowApi                windowapi;
+    bool                        noGraphicsCtx;
+
+    bool                        enableGraphicsApiDebugLogs;
+    LvnTextureFormat            frameBufferColorFormat;
+    uint32_t                    maxFramesInFlight;
+    LvnPipelineFixedFunctions   defaultPipelineFixedFuncs;
+
+    // -- window
+    LvnResult                   (*implInitWindowFunc)(LvnGraphicsContext*);
+    void                        (*implTerminateWindowFunc)();
+
+    LvnResult                   (*createWindow)(LvnWindow*, const LvnWindowCreateInfo*);
+    void                        (*destroyWindow)(LvnWindow*);
+    void                        (*updateWindow)(LvnWindow*);
+    bool                        (*windowOpen)(LvnWindow*);
+    void                        (*windowPollEvents)();
+    LvnPair<int>                (*getDimensions)(LvnWindow*);
+    unsigned int                (*getWindowWidth)(LvnWindow*);
+    unsigned int                (*getWindowHeight)(LvnWindow*);
+    void                        (*setWindowVSync)(LvnWindow*, bool);
+    bool                        (*getWindowVSync)(LvnWindow*);
+    void                        (*setWindowContextCurrent)(LvnWindow*);
+
+    bool                        (*keyPressed)(LvnWindow*, int);
+    bool                        (*keyReleased)(LvnWindow*, int);
+    bool                        (*mouseButtonPressed)(LvnWindow*, int);
+    bool                        (*mouseButtonReleased)(LvnWindow*, int);
+
+    LvnPair<float>              (*getMousePos)(LvnWindow*);
+    void                        (*getMousePosPtr)(LvnWindow*, float*, float*);
+    float                       (*getMouseX)(LvnWindow*);
+    float                       (*getMouseY)(LvnWindow*);
+    void                        (*setMouseCursor)(LvnWindow*, LvnMouseCursor);
+    void                        (*SetMouseInputMode)(LvnWindow*, LvnMouseInputMode);
+
+    LvnPair<int>                (*getWindowPos)(LvnWindow*);
+    void                        (*getWindowPosPtr)(LvnWindow*, int*, int*);
+    LvnPair<int>                (*getWindowSize)(LvnWindow*);
+    void                        (*getWindowSizePtr)(LvnWindow*, int*, int*);
+
+    // -- graphics
+    LvnResult                   (*implInitGraphicsContext)(LvnGraphicsContext*);
+    void                        (*implTerminateGraphicsContext)();
+
+    LvnResult                   (*createSurfaceData)();
+
+    void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
+    LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
+    LvnResult                   (*setPhysicalDevice)(LvnPhysicalDevice*);
+
+    LvnResult                   (*createShaderFromSrc)(LvnShader*, const LvnShaderCreateInfo*);
+    LvnResult                   (*createShaderFromFileSrc)(LvnShader*, const LvnShaderCreateInfo*);
+    LvnResult                   (*createShaderFromFileBin)(LvnShader*, const LvnShaderCreateInfo*);
+    LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, const LvnDescriptorLayoutCreateInfo*);
+    LvnResult                   (*allocateDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
+    LvnResult                   (*createPipeline)(LvnPipeline*, const LvnPipelineCreateInfo*);
+    LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, const LvnFrameBufferCreateInfo*);
+    LvnResult                   (*createBuffer)(LvnBuffer*, const LvnBufferCreateInfo*);
+    LvnResult                   (*createSampler)(LvnSampler*, const LvnSamplerCreateInfo*);
+    LvnResult                   (*createTexture)(LvnTexture*, const LvnTextureCreateInfo*);
+    LvnResult                   (*createTextureSampler)(LvnTexture*, const LvnTextureSamplerCreateInfo*);
+    LvnResult                   (*createCubemap)(LvnCubemap*, const LvnCubemapCreateInfo*);
+
+    void                        (*destroyShader)(LvnShader*);
+    void                        (*destroyDescriptorLayout)(LvnDescriptorLayout*);
+    void                        (*destroyPipeline)(LvnPipeline*);
+    void                        (*destroyFrameBuffer)(LvnFrameBuffer*);
+    void                        (*destroyBuffer)(LvnBuffer*);
+    void                        (*destroySampler)(LvnSampler*);
+    void                        (*destroyTexture)(LvnTexture*);
+    void                        (*destroyCubemap)(LvnCubemap*);
+
+    void                        (*renderBeginNextFrame)(LvnCommandBuffer*);
+    void                        (*renderDrawSubmit)(LvnCommandBuffer*);
+    void                        (*renderBeginCommandRecording)(LvnCommandBuffer*);
+    void                        (*renderEndCommandRecording)(LvnCommandBuffer*);
+    void                        (*renderCmdDraw)(LvnCommandBuffer*, uint32_t);
+    void                        (*renderCmdDrawIndexed)(LvnCommandBuffer*, uint32_t);
+    void                        (*renderCmdDrawInstanced)(LvnCommandBuffer*, uint32_t, uint32_t, uint32_t);
+    void                        (*renderCmdDrawIndexedInstanced)(LvnCommandBuffer*, uint32_t, uint32_t, uint32_t);
+    void                        (*renderCmdSetStencilReference)(uint32_t);
+    void                        (*renderCmdSetStencilMask)(uint32_t, uint32_t);
+    void                        (*renderCmdBeginRenderPass)(LvnCommandBuffer*, float r, float g, float b, float a);
+    void                        (*renderCmdEndRenderPass)(LvnCommandBuffer*);
+    void                        (*renderCmdBindPipeline)(LvnCommandBuffer*, LvnPipeline*);
+    void                        (*renderCmdBindVertexBuffer)(LvnCommandBuffer*, uint32_t, uint32_t, LvnBuffer**, uint64_t*);
+    void                        (*renderCmdBindIndexBuffer)(LvnCommandBuffer*, LvnBuffer*, uint64_t);
+    void                        (*renderCmdBindDescriptorSets)(LvnCommandBuffer*, LvnPipeline*, uint32_t, uint32_t, LvnDescriptorSet**);
+    void                        (*renderCmdBeginFrameBuffer)(LvnCommandBuffer*, LvnFrameBuffer*);
+    void                        (*renderCmdEndFrameBuffer)(LvnCommandBuffer*, LvnFrameBuffer*);
+
+    void                        (*bufferUpdateData)(LvnBuffer*, void*, uint64_t, uint64_t);
+    void                        (*bufferResize)(LvnBuffer*, uint64_t);
+    void                        (*updateDescriptorSetData)(LvnDescriptorSet*, LvnDescriptorUpdateInfo*, uint32_t);
+    LvnTexture*                 (*frameBufferGetImage)(LvnFrameBuffer*, uint32_t);
+    LvnRenderPass*              (*frameBufferGetRenderPass)(LvnFrameBuffer*);
+    void                        (*framebufferResize)(LvnFrameBuffer*, uint32_t, uint32_t);
+    void                        (*frameBufferSetClearColor)(LvnFrameBuffer*, uint32_t, float, float, float, float);
+
+    LvnDepthImageFormat         (*findSupportedDepthImageFormat)(LvnDepthImageFormat*, uint32_t);
 };
 
 #endif /* !HG_LVN_GRAPHICS_INTERNAL_H */

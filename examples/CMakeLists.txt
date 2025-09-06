@@ -14,6 +14,9 @@ foreach(LVN_SRC ${LVN_SOURCES})
     string(REPLACE ".cpp" "" LVN_SRC_NAME ${LVN_SRC_NAME})
 
     add_executable(${LVN_SRC_NAME} ${LVN_SRC})
-    target_include_directories(${LVN_SRC_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
-    target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno lvnwindow lvngraphics)
+    target_include_directories(${LVN_SRC_NAME} PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/src/api
+    )
+    target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno lvngraphics)
 endforeach()
