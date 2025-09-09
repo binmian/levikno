@@ -1,14 +1,11 @@
-#ifndef HG_LVN_VULKAN_IMPL_H
-#define HG_LVN_VULKAN_IMPL_H
+#ifndef HG_LVN_VULKAN_H
+#define HG_LVN_VULKAN_H
 
-#include "lvn_graphics.h"
+#include "lvn_graphics_internal.h"
 
 
 namespace lvn
 {
-    LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext);
-    void implVkTerminateGraphicsContext();
-
     void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
     LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
     LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
@@ -66,4 +63,4 @@ namespace lvn
     LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count);
 }
 
-#endif /* !HG_LVN_VULKAN_IMPL_H */
+#endif /* !HG_LVN_VULKAN_H */

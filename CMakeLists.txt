@@ -26,6 +26,13 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 
+# build shared
+if (BUILD_SHARED_LIBS)
+    set(CMAKE_C_VISIBILITY_PRESET hidden)
+    set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+    set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+endif()
+
 
 # Find VulkanSDK
 set(MIN_VULKAN_VERSION 1.2)
@@ -36,10 +43,8 @@ if(Vulkan_FOUND)
     add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
 
     set (LVN_VULKAN_SRC
-        src/api/lvn_vulkan_impl.cpp
-        src/api/lvn_vulkan_impl.h
-        src/api/lvn_vulkan_backends.h
-        src/external/vk_mem_alloc.h
+        src/api/graphics/vulkan/lvn_vulkan_impl.cpp
+        src/api/graphics/vulkan/lvn_vulkan_impl.h
     )
 
     # Find glslang
@@ -83,22 +88,29 @@ set(LVN_SRC_CORE
     src/lvn_ecs.cpp
 )
 
+set(LVN_SRC_WINDOW
+    include/levikno/lvn_window.h
+    include/levikno/api/lvn_glfw.h
+    src/lvn_window.cpp
+    src/lvn_window_internal.h
+
+    #glfw
+    src/api/window/glfw/lvn_glfw_impl.h
+    src/api/window/glfw/lvn_glfw_impl.cpp
+)
+
 set(LVN_SRC_GRAPHICS
-    # graphics
     include/levikno/lvn_graphics.h
+    include/levikno/api/lvn_vulkan.h
     src/lvn_graphics.cpp
     src/lvn_graphics_internal.h
-    src/lvn_graphics_internal.h
-
-    # glfw
-    src/api/lvn_glfw_impl.cpp
-    src/api/lvn_glfw_impl.h
 
     # glad
     src/external/glad/src/glad.c
     src/external/glad/include/glad/glad.h
 
     # vulkan
+    src/external/vk_mem_alloc.h
     ${LVN_VULKAN_SRC}
 
     # stb
@@ -118,7 +130,7 @@ set(GLFW_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
 
 add_subdirectory(src/external/glfw)
 
-list(APPEND LVN_SRC_GRAPHICS $<TARGET_OBJECTS:glfw>)
+list(APPEND LVN_SRC_WINDOW $<TARGET_OBJECTS:glfw>)
 include_directories(BEFORE SYSTEM src/external/glfw/include)
 
 # library
@@ -145,6 +157,28 @@ target_compile_definitions(levikno PRIVATE
     $<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
 )
 
+# window
+add_library(lvnwindow STATIC)
+
+target_sources(lvnwindow
+    PRIVATE
+    ${LVN_SRC_WINDOW}
+)
+
+target_include_directories(lvnwindow
+    PRIVATE
+        include/levikno
+        include/levikno/api
+        src
+        src/external/glfw/include
+        src/api/window/glfw
+)
+
+# Build definitions
+target_compile_definitions(lvnwindow PRIVATE
+    $<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
+    $<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
+)
 
 # graphics
 add_library(lvngraphics STATIC)
@@ -161,8 +195,8 @@ target_link_libraries(lvngraphics PRIVATE
 target_include_directories(lvngraphics
     PRIVATE
         include/levikno
+        include/levikno/api
         src
-        src/api
         src/external
         src/external/glfw/include
         src/external/glad/include

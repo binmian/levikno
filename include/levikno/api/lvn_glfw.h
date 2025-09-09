@@ -4,11 +4,11 @@
 #include "../lvn_config.h"
 
 
-struct LvnGraphicsContext;
+struct LvnWindowContext;
 
 namespace lvn
 {
-    LvnResult implGlfwInitWindowContext(LvnGraphicsContext* windowContext);
+    LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext);
     void      implGlfwTerminateWindowContext();
 }
 

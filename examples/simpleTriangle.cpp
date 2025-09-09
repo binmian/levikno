@@ -1,3 +1,4 @@
+#include <levikno/lvn_window.h>
 #include <levikno/lvn_graphics.h>
 
 #include <levikno/api/lvn_glfw.h>
@@ -6,21 +7,25 @@
 
 int main(int argc, char** argv)
 {
-    lvn::initContext();
+    LvnContextCreateInfo ctxinfo{};
+    ctxinfo.logging.enableGraphicsApiDebugLogs = true;
+    lvn::initContext(&ctxinfo);
+
+    LvnWindowContextCreateInfo winctx{};
+    winctx.windowContextInitFunc = lvn::implGlfwInitWindowContext;
+    winctx.windowContextTerminateFunc = lvn::implGlfwTerminateWindowContext;
+    winctx.renderingBackend = Lvn_GraphicsApi_vulkan;
+    lvn::initWindowContext(&winctx);
 
     LvnGraphicsContextCreateInfo graphicsctx{};
-    graphicsctx.windowapi = Lvn_WindowApi_glfw;
-    graphicsctx.graphicsapi = Lvn_GraphicsApi_vulkan;
-    graphicsctx.windowInitFunc = lvn::implGlfwInitWindowContext;
-    graphicsctx.windowTerminateFunc = lvn::implGlfwTerminateWindowContext;
-    graphicsctx.graphicsInitFunc = lvn::implVkInitGraphicsContext;
-    graphicsctx.graphicsTerminateFunc = lvn::implVkTerminateGraphicsContext;
-    graphicsctx.enableGraphicsApiDebugLogs = true;
+    graphicsctx.graphicsContextInitFunc = lvn::implVkInitGraphicsContext;
+    graphicsctx.graphicsContextTerminateFunc = lvn::implVkTerminateGraphicsContext;
     lvn::initGraphicsContext(&graphicsctx);
 
 
 
     lvn::terminateGraphicsContext();
+    lvn::terminateWindowContext();
 
     lvn::terminateContext();
 }
