@@ -165,6 +165,10 @@ target_sources(lvnwindow
     ${LVN_SRC_WINDOW}
 )
 
+target_link_libraries(lvnwindow PRIVATE
+    levikno
+)
+
 target_include_directories(lvnwindow
     PRIVATE
         include/levikno
@@ -189,6 +193,7 @@ target_sources(lvngraphics
 )
 
 target_link_libraries(lvngraphics PRIVATE
+    levikno
     ${LVN_VULKAN_LIBS}
 )
 

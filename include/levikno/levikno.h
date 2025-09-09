@@ -115,6 +115,10 @@ struct LvnPair;
 template<typename T1, typename T2>
 struct LvnDoublePair;
 
+class LvnThread;
+class LvnMutex;
+class LvnLockGaurd;
+
 // templates
 template <typename T> struct LvnFloatType;
 template <> struct LvnFloatType<float> { using type = float; };
