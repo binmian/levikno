@@ -530,7 +530,6 @@ void logRenameLogger(LvnLogger* logger, const char* name)
 
 void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     if (!lvn::getContext()->logging) { return; }
 
     LvnString msgstr; msgstr.reserve(strlen(msg->msg) + 1);
@@ -580,7 +579,6 @@ LvnString logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg
 
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     if (!lvn::getContext()->logging) { return; }
 
     LvnLogMessage logMsg{};
@@ -616,7 +614,6 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
@@ -639,7 +636,6 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
@@ -662,7 +658,6 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
@@ -685,7 +680,6 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
@@ -708,7 +702,6 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageError(LvnLogger* logger, const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
@@ -731,7 +724,6 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
 
 void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
@@ -754,7 +746,6 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
 
 void logTrace(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Trace)) { return; }
@@ -776,7 +767,6 @@ void logTrace(const char* fmt, ...)
 
 void logDebug(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Debug)) { return; }
@@ -798,7 +788,6 @@ void logDebug(const char* fmt, ...)
 
 void logInfo(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Info)) { return; }
@@ -820,7 +809,6 @@ void logInfo(const char* fmt, ...)
 
 void logWarn(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Warn)) { return; }
@@ -842,7 +830,6 @@ void logWarn(const char* fmt, ...)
 
 void logError(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Error)) { return; }
@@ -864,7 +851,6 @@ void logError(const char* fmt, ...)
 
 void logFatal(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Fatal)) { return; }
@@ -886,7 +872,6 @@ void logFatal(const char* fmt, ...)
 
 void logCoreTrace(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Trace)) { return; }
@@ -908,7 +893,6 @@ void logCoreTrace(const char* fmt, ...)
 
 void logCoreDebug(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Debug)) { return; }
@@ -930,7 +914,6 @@ void logCoreDebug(const char* fmt, ...)
 
 void logCoreInfo(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Info)) { return; }
@@ -952,7 +935,6 @@ void logCoreInfo(const char* fmt, ...)
 
 void logCoreWarn(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Warn)) { return; }
@@ -974,7 +956,6 @@ void logCoreWarn(const char* fmt, ...)
 
 void logCoreError(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Error)) { return; }
@@ -996,7 +977,6 @@ void logCoreError(const char* fmt, ...)
 
 void logCoreFatal(const char* fmt, ...)
 {
-    if constexpr (!ic_LvnEnableLogging) { return; }
     LvnContext* lvnctx = lvn::getContext();
     if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
     if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Fatal)) { return; }

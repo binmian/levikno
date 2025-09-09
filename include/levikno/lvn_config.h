@@ -26,19 +26,14 @@ enum LvnResult : int
     #ifndef LVN_PLATFORM_WINDOWS
         #define LVN_PLATFORM_WINDOWS
     #endif
-    inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_Windows;
-
 #elif __APPLE__
     #ifndef LVN_PLATFORM_MACOS
         #define LVN_PLATFORM_MACOS
     #endif
-    inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_MacOS;
-
 #elif __linux__
     #ifndef LVN_PLATFORM_LINUX
         #define LVN_PLATFORM_LINUX
     #endif
-    inline constexpr LvnPlatform ic_LvnPlatform = Lvn_Platform_Linux;
 #else
     #error "levikno does not support the current platform."
 #endif
@@ -61,14 +56,10 @@ enum LvnResult : int
     #ifndef LVN_CONFIG_DEBUG
         #define LVN_CONFIG_DEBUG
     #endif
-    inline constexpr bool ic_LvnDebug = true;
 #elif !defined(NDEBUG)
     #ifndef LVN_CONFIG_DEBUG
         #define LVN_CONFIG_DEBUG
     #endif
-    inline constexpr bool ic_LvnDebug = true;
-#else
-    inline constexpr bool ic_LvnDebug = false;
 #endif
 
 // assert
@@ -78,10 +69,8 @@ enum LvnResult : int
 
 #ifdef LVN_ENABLE_ASSERTS
     #define LVN_ASSERT(x,msg) assert(x && msg)
-    inline constexpr bool ic_LvnEnableAsserts = true;
 #else
     #define LVN_ASSERT(x, ...)
-    inline constexpr bool ic_LvnEnableAsserts = false;
 #endif
 
 
@@ -136,7 +125,6 @@ enum LvnResult : int
 #define LVN_LOG_COLOR_RESET "\x1b[0m";
 
 #ifndef LVN_DISABLE_LOGGING
-    inline constexpr bool ic_LvnEnableLogging = true;
     #define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::logGetCoreLogger(), ##__VA_ARGS__)
     #define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::logGetCoreLogger(), ##__VA_ARGS__)
     #define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::logGetCoreLogger(), ##__VA_ARGS__)
@@ -150,7 +138,6 @@ enum LvnResult : int
     #define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::logGetClientLogger(), ##__VA_ARGS__)
     #define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::logGetClientLogger(), ##__VA_ARGS__)
 #else
-    inline constexpr bool ic_LvnEnableLogging = false;
     #define LVN_CORE_TRACE(...)
     #define LVN_CORE_DEBUG(...)
     #define LVN_CORE_INFO(...)
