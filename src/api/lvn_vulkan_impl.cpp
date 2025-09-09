@@ -1417,7 +1417,7 @@ LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
     return vks::setupRenderInit(vkBackends, vkPhysicalDevice);
 }
 
-LvnResult createVulkanWindowSurfaceData(void* window)
+LvnResult vksImplCreateWindowSurfaceData(LvnWindow* window)
 {
     return Lvn_Result_Failure;
 }

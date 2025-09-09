@@ -13,7 +13,7 @@ namespace lvn
     LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
     LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 
-    LvnResult createVulkanWindowSurfaceData(void* nativeWindow);
+    LvnResult vksImplCreateWindowSurfaceData(LvnWindow* window);
     LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
     LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
     LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo);

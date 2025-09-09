@@ -1,9 +1,8 @@
 #ifndef HG_LVN_GLFW_H
 #define HG_LVN_GLFW_H
 
-#include "../lvn_config.h"
 
-
+enum LvnResult : int;
 struct LvnGraphicsContext;
 
 namespace lvn
