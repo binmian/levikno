@@ -67,11 +67,18 @@ int main(int argc, char** argv)
     // a logger object controls how log messages should be displayed,
     // if the core and client logger is not enough, new logget objects can be created:
 
+    // a levikno logger first requires a sink before it is created in order to send its log messages somewhere,
+    // here we just use levikno's internally provided print output function
+    LvnSink sink{};
+    sink.logFunc = lvn::logOutputMessage;
+
     // logger create info struct
     LvnLoggerCreateInfo loggerCreateInfo{};
     loggerCreateInfo.loggerName = "myLogger";     // name of the logger
     loggerCreateInfo.format = "%n: %v%$";         // log pattern, the logger stores the log pattern which tells the logger how log messages should be formatted and displayed
     loggerCreateInfo.level = Lvn_LogLevel_None;   // the log level tells the logger which log levels to display and log levels to omit
+    loggerCreateInfo.pSinks = &sink;              // add the sinks as a pointer array
+    loggerCreateInfo.sinkCount = 1;               // include the sink count, the number of sinks in the pSinks array
 
     // create the logger
     LvnLogger* logger;

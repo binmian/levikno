@@ -86,6 +86,7 @@ set(LVN_SRC_CORE
     src/levikno_internal.h
     src/lvn_cds.cpp
     src/lvn_ecs.cpp
+    src/lvn_platform.cpp
 )
 
 set(LVN_SRC_WINDOW

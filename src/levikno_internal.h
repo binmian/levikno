@@ -13,18 +13,21 @@ struct LvnLogger
     LvnString logPatternFormat;
     LvnLogLevel logLevel;
     LvnVector<LvnLogPattern> logPatterns;
-
-    LvnLogFile logfile;
+    LvnVector<LvnSink> sinks;
 };
 
 struct LvnContext
 {
+    // logging
     bool                                 logging;
     bool                                 enableCoreLogging;
     LvnLogger                            coreLogger;
     LvnLogger                            clientLogger;
-    LvnVector<LvnLogPattern>             userLogPatterns;
     LvnString                            appName;
+    LvnVector<LvnLogPattern>             userLogPatterns;
+    LvnSink                              coreSink;
+
+    // memory
     size_t                               sTypeMemoryAllocationCounts[Lvn_Stype_Max_Value];
     size_t                               memAllocCount;
 

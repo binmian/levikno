@@ -3,7 +3,6 @@
 #include "lvn_config.h"
 
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <cstdarg>
 #include <ctime>
@@ -15,15 +14,6 @@ static LvnContext* s_LvnContext = nullptr;
 
 namespace lvn
 {
-
-// memory allocation functions
-static void*   mallocWrapper(size_t size, void* userData)               { (void)userData; return malloc(size); }
-static void    freeWrapper(void* ptr, void* userData)                   { (void)userData; free(ptr); }
-static void*   reallocWrapper(void* ptr, size_t size, void* userData)   { (void)userData; return realloc(ptr, size); }
-static LvnMemAllocFunc    s_MemAllocFunc = mallocWrapper;
-static LvnMemFreeFunc     s_MemFreeFunc = freeWrapper;
-static LvnMemReallocFunc  s_MemReallocFunc = reallocWrapper;
-static void*              s_MemAllocUserData = nullptr;
 
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
@@ -150,57 +140,6 @@ static const char* getStypeEnumName(LvnStructureType stype)
 
         default:                           { return ""; }
     }
-}
-
-void* memAlloc(size_t size)
-{
-    if (size == 0) { return nullptr; }
-    void* allocmem = (*s_MemAllocFunc)(size, s_MemAllocUserData);
-    if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); exit(-1); }
-    memset(allocmem, 0, size);
-    lvn::getContext()->memAllocCount++;
-    return allocmem;
-}
-
-void memFree(void* ptr)
-{
-    if (ptr == nullptr) { return; }
-    (*s_MemFreeFunc)(ptr, s_MemAllocUserData);
-    lvn::getContext()->memAllocCount--;
-}
-
-void* memRealloc(void* ptr, size_t size)
-{
-    if (!ptr) { return lvn::memAlloc(size); }
-    return (*s_MemReallocFunc)(ptr, size, s_MemAllocUserData);
-}
-
-void setMemFuncs(LvnMemAllocFunc allocFunc, LvnMemFreeFunc freeFunc, LvnMemReallocFunc reallocFunc, void* userData)
-{
-    s_MemAllocFunc = allocFunc;
-    s_MemFreeFunc = freeFunc;
-    s_MemReallocFunc = reallocFunc;
-    s_MemAllocUserData = userData;
-}
-
-LvnMemAllocFunc getMemAllocFunc()
-{
-    return s_MemAllocFunc;
-}
-
-LvnMemFreeFunc getMemFreeFunc()
-{
-    return s_MemFreeFunc;
-}
-
-LvnMemReallocFunc getMemReallocFunc()
-{
-    return s_MemReallocFunc;
-}
-
-void* getMemUserData()
-{
-    return s_MemAllocUserData;
 }
 
 size_t getMemAllocCount()
@@ -410,6 +349,12 @@ LvnResult initContext(LvnContextCreateInfo* createInfo)
         lvnctx->coreLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
         lvnctx->coreLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
     }
+    if (createInfo == nullptr || !createInfo->logging.core.noOutputSink)
+    {
+        LvnSink sink{};
+        sink.logFunc = lvn::logOutputMessage;
+        lvnctx->coreLogger.sinks.push_back(sink);
+    }
 
     // client
     if (createInfo != nullptr && !createInfo->logging.client.name.empty())
@@ -432,6 +377,12 @@ LvnResult initContext(LvnContextCreateInfo* createInfo)
         lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
         lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
     }
+    if (createInfo == nullptr || !createInfo->logging.client.noOutputSink)
+    {
+        LvnSink sink{};
+        sink.logFunc = lvn::logOutputMessage;
+        lvnctx->clientLogger.sinks.push_back(sink);
+    }
 
     #ifdef LVN_PLATFORM_WINDOWS
     enableLogANSIcodeColors();
@@ -453,17 +404,6 @@ void terminateContext()
 
     if (s_LvnContext->memAllocCount > 0)
         LVN_CORE_ERROR("<memAlloc>: not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->memAllocCount);
-
-    if (s_LvnContext->coreLogger.logfile.logToFile)
-    {
-        fclose(static_cast<FILE*>(s_LvnContext->coreLogger.logfile.fileptr));
-        s_LvnContext->coreLogger.logfile.fileptr = nullptr;
-    }
-    if (s_LvnContext->clientLogger.logfile.logToFile)
-    {
-        fclose(static_cast<FILE*>(s_LvnContext->clientLogger.logfile.fileptr));
-        s_LvnContext->clientLogger.logfile.fileptr = nullptr;
-    }
 
     lvn::memDelete<LvnContext>(s_LvnContext);
 }
@@ -489,35 +429,6 @@ void logSetLevel(LvnLogger* logger, LvnLogLevel level)
     logger->logLevel = level;
 }
 
-void logSetFileConfig(LvnLogger* logger, bool enable, const char* filename, LvnFileMode filemode)
-{
-    // if log to file was enabled before, fileptr needs to be closed
-    if (logger->logfile.logToFile)
-    {
-        fclose(static_cast<FILE*>(logger->logfile.fileptr));
-        logger->logfile.fileptr = nullptr;
-    }
-
-    logger->logfile.logToFile = enable;
-    logger->logfile.filename = filename;
-    logger->logfile.filemode = filemode;
-
-    if (enable)
-    {
-        if (logger->logfile.filename.empty())
-        {
-            logger->logfile.filename = logger->loggerName + "_logs.txt";
-            LVN_CORE_WARN("logSetFileConfig(LvnLogger*, bool enable, const char* filename, LvnFileMode filemode) | filename not set, setting file name to name of the logger: %s_logs.txt", logger->loggerName.c_str());
-        }
-
-        const char* filemode = "w";
-        if (logger->logfile.filemode == Lvn_FileMode_Write) filemode = "w";
-        else if (logger->logfile.filemode == Lvn_FileMode_Append) filemode = "a";
-
-        logger->logfile.fileptr = fopen(logger->logfile.filename.c_str(), filemode);
-    }
-}
-
 bool logCheckLevel(LvnLogger* logger, LvnLogLevel level)
 {
     return (level >= logger->logLevel);
@@ -528,11 +439,11 @@ void logRenameLogger(LvnLogger* logger, const char* name)
     logger->loggerName = name;
 }
 
-void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
+LvnString logGetMessage(LvnLogger* logger, LvnLogMessage* msg)
 {
-    if (!lvn::getContext()->logging) { return; }
+    if (!lvn::getContext()->logging) { return ""; }
 
-    LvnString msgstr; msgstr.reserve(strlen(msg->msg) + 1);
+    LvnString msgstr; msgstr.reserve(strlen(msg->msg) + 1); // NOTE: reserve may not be same as fully formatted string
 
     for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
     {
@@ -546,7 +457,7 @@ void logOutputMessage(LvnLogger* logger, LvnLogMessage* msg)
         }
     }
 
-    printf("%s", msgstr.c_str());
+    return lvn::move(msgstr);
 }
 
 LvnString logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI)
@@ -574,7 +485,7 @@ LvnString logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg
         }
     }
 
-    return msgstr;
+    return lvn::move(msgstr);
 }
 
 void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
@@ -587,29 +498,9 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
     logMsg.level = level;
     logMsg.timeEpoch = lvn::dateGetSecondsSinceEpoch();
 
-    lvn::logOutputMessage(logger, &logMsg);
-
-    if (logger->logfile.logToFile)
-    {
-        LvnString msgstr; msgstr.reserve(strlen(msg) + 1);
-
-        for (uint32_t i = 0; i < logger->logPatterns.size(); i++)
-        {
-            if (logger->logPatterns[i].symbol == '#' || logger->logPatterns[i].symbol == '^')
-                continue;
-
-            if (logger->logPatterns[i].func == nullptr) // no special format character '%' found
-            {
-                msgstr += logger->logPatterns[i].symbol;
-            }
-            else // call func of special format
-            {
-                msgstr += logger->logPatterns[i].func(&logMsg);
-            }
-        }
-
-        fprintf(static_cast<FILE*>(logger->logfile.fileptr), "%s", msgstr.c_str());
-    }
+    LvnString log = lvn::move(lvn::logGetMessage(logger, &logMsg));
+    for (uint32_t i = 0; i < logger->sinks.size(); i++)
+        logger->sinks[i].logFunc(log.c_str()      );
 }
 
 void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
@@ -1063,27 +954,11 @@ LvnResult createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCrea
     loggerPtr->loggerName = loggerCreateInfo->loggerName;
     loggerPtr->logPatternFormat = loggerCreateInfo->format;
     loggerPtr->logLevel = loggerCreateInfo->level;
-
-    loggerPtr->logfile.logToFile = loggerCreateInfo->fileConfig.enableLogToFile;
-    loggerPtr->logfile.filename = loggerCreateInfo->fileConfig.filename;
-    loggerPtr->logfile.filemode = loggerCreateInfo->fileConfig.filemode;
-
-    if (loggerPtr->logfile.logToFile)
-    {
-        if (loggerPtr->logfile.filename.empty())
-        {
-            LVN_CORE_ERROR("createLogger(LvnLogger**, LvnLoggerCreateInfo*) | loggerCreateInfo->fileConfig.filename is empty, cannot log to a file without a valid file path/name");
-            return Lvn_Result_Failure;
-        }
-
-        const char* filemode = "w";
-        if (loggerPtr->logfile.filemode == Lvn_FileMode_Write) filemode = "w";
-        else if (loggerPtr->logfile.filemode == Lvn_FileMode_Append) filemode = "a";
-
-        loggerPtr->logfile.fileptr = fopen(loggerPtr->logfile.filename.c_str(), filemode);
-    }
-
     loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->format.c_str());
+
+    loggerPtr->sinks.resize(loggerCreateInfo->sinkCount);
+    for (uint32_t i = 0; i < loggerCreateInfo->sinkCount; i++)
+         loggerPtr->sinks[i] = loggerCreateInfo->pSinks[i];
 
     LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
     return Lvn_Result_Success;
@@ -1093,28 +968,25 @@ void destroyLogger(LvnLogger* logger)
 {
     if (logger == nullptr) { return; }
 
-    if (logger->logfile.logToFile)
-    {
-        fclose(static_cast<FILE*>(logger->logfile.fileptr));
-        logger->logfile.fileptr = nullptr;
-    }
-
     LvnContext* lvnctx = lvn::getContext();
     lvn::destroyObject  <LvnLogger>(logger, Lvn_Stype_Logger);
 }
 
-LvnLoggerCreateInfo configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel)
+LvnLoggerCreateInfo configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel, LvnSink* pSinks, uint32_t sinkCount)
 {
     LvnLoggerCreateInfo createInfo{};
     createInfo.loggerName = loggerName;
     createInfo.format = logFormat;
     createInfo.level = logLevel;
-
-    createInfo.fileConfig.enableLogToFile = false;
-    createInfo.fileConfig.filemode = Lvn_FileMode_Write;
-    createInfo.fileConfig.filename = loggerName;
+    createInfo.pSinks = pSinks;
+    createInfo.sinkCount = sinkCount;
 
     return createInfo;
+}
+
+void logAddSink(LvnLogger* logger, const LvnSink& sink)
+{
+    logger->sinks.push_back(sink);
 }
 
 } /* namespace lvn */
@@ -1165,7 +1037,26 @@ LvnString& LvnString::operator=(const LvnString& other)
     memcpy(m_Data, other.m_Data, other.m_Capacity);
     return *this;
 }
-
+LvnString::LvnString(LvnString&& other)
+{
+    m_Size = other.m_Size;
+    m_Capacity = other.m_Capacity;
+    m_Data = other.m_Data;
+    other.m_Size = 0;
+    other.m_Capacity = 0;
+    other.m_Data = nullptr;
+}
+LvnString& LvnString::operator=(LvnString&& other)
+{
+    lvn::memDelete<char>(m_Data);
+    m_Size = other.m_Size;
+    m_Capacity = other.m_Capacity;
+    m_Data = other.m_Data;
+    other.m_Size = 0;
+    other.m_Capacity = 0;
+    other.m_Data = nullptr;
+    return *this;
+}
 char& LvnString::operator [](size_t index)
 {
     LVN_ASSERT(index < length(), "string index out of range");

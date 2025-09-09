@@ -80,6 +80,7 @@ struct LvnContext;
 struct LvnContextCreateInfo;
 struct LvnLogMessage;
 struct LvnLogPattern;
+struct LvnSink;
 
 
 // classes & custom data structures
@@ -136,9 +137,12 @@ typedef void* (*LvnMemReallocFunc)(void* ptr, size_t sz, void* userData);
 
 namespace lvn
 {
+    // -- memory allocation
     LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
     LVN_API void                    memFree(void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
     LVN_API void*                   memRealloc(void* ptr, size_t size);                 // custom memory realloc function
+    LVN_API void*                   memCopy(void* dst, const void* src, size_t size);   // custom memory copy function
+    LVN_API void*                   memSet(void* ptr, int c, size_t size);              // custom memory set function
 
     LVN_API void                    setMemFuncs(LvnMemAllocFunc allocFunc, LvnMemFreeFunc freeFunc, LvnMemReallocFunc reallocFunc, void* userData);
     LVN_API LvnMemAllocFunc         getMemAllocFunc();
@@ -230,10 +234,9 @@ namespace lvn
     LVN_API void                    logEnable(bool enable);                                                           // enable or disable logging
     LVN_API void                    logEnableCoreLogging(bool enable);                                                // enable or disable logging from the core logger
     LVN_API void                    logSetLevel(LvnLogger* logger, LvnLogLevel level);                                // sets the log level of logger, will only print messages with set log level and higher
-    LVN_API void                    logSetFileConfig(LvnLogger* logger, bool enable, const char* filename = "", LvnFileMode filemode = Lvn_FileMode_Write);  // sets the log file config, whether to enable logging and the log file name and mode
     LVN_API bool                    logCheckLevel(LvnLogger* logger, LvnLogLevel level);                              // checks level with loger, returns true if level is the same or higher level than the level of the logger
     LVN_API void                    logRenameLogger(LvnLogger* logger, const char* name);                             // renames the name of the logger
-    LVN_API void                    logOutputMessage(LvnLogger* logger, LvnLogMessage* msg);                          // prints the log message
+    LVN_API LvnString               logGetMessage(LvnLogger* logger, LvnLogMessage* msg);                             // gets the message of the logger
     LVN_API LvnString               logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI = false); // formats the log message into the log pattern set by the logger
     LVN_API void                    logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);                // log message with given log level
     LVN_API void                    logMessageTrace(LvnLogger* logger, const char* fmt, ...);                         // log message with level trace; ANSI code "\x1b[0;37m"
@@ -259,10 +262,12 @@ namespace lvn
     LVN_API const char*             logGetANSIcodeColor(LvnLogLevel level);                                           // get the ANSI color code of the log level in a string
     LVN_API LvnResult               logSetPatternFormat(LvnLogger* logger, const char* patternfmt);                   // set the log pattern of the logger; messages outputed from that logger will be in this format
     LVN_API LvnResult               logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);                      // add user defined log patterns to the library
+    LVN_API int                     logOutputMessage(const char* logmsg);                                             // log messages to output
 
     LVN_API LvnResult               createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo);
     LVN_API void                    destroyLogger(LvnLogger* logger);
-    LVN_API LvnLoggerCreateInfo     configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel);
+    LVN_API LvnLoggerCreateInfo     configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel, LvnSink* pSinks, uint32_t sinkCount);
+    LVN_API void                    logAddSink(LvnLogger* logger, const LvnSink& sink);
 } /* namespace lvn */
 
 
@@ -486,6 +491,8 @@ public:
     LvnString(const char* data, size_t size);
     LvnString(const LvnString& other);
     LvnString& operator=(const LvnString& other);
+    LvnString(LvnString&& other);
+    LvnString& operator=(LvnString&& other);
 
     char& operator [](size_t index);
     const char& operator [](size_t index) const;
@@ -1575,18 +1582,18 @@ public:
 };
 
 // logging
+struct LvnSink
+{
+    int (*logFunc)(const char*);
+};
+
 struct LvnLoggerCreateInfo
 {
     LvnString loggerName;
     LvnString format;
     LvnLogLevel level;
-
-    struct
-    {
-        bool enableLogToFile;
-        LvnString filename;
-        LvnFileMode filemode;
-    } fileConfig;
+    LvnSink* pSinks;
+    uint32_t sinkCount;
 };
 
 struct LvnLogMessage
@@ -1619,6 +1626,7 @@ struct LvnContextCreateInfo
         struct
         {
             bool disableCoreLogging;            // whether to disable core logging in the library
+            bool noOutputSink;                  // dont add a sink for log output for this logger
             LvnLogLevel level;                  // set the log level of the core logger
             LvnString logPattern;               // set the log pattern of the core logger
             LvnString name;                     // set the name of the core logger
@@ -1626,6 +1634,7 @@ struct LvnContextCreateInfo
 
         struct
         {
+            bool noOutputSink;                  // dont add a sink for log output for this logger
             LvnLogLevel level;                  // set the log level of the client logger
             LvnString logPattern;               // set the log pattern of the client logger
             LvnString name;                     // set the name of the client logger

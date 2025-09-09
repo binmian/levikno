@@ -980,11 +980,8 @@ namespace vks
         return Lvn_Result_Success;
     }
 
-    static LvnMutex s_CopyBufferMutex;
     void copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset)
     {
-        LvnLockGaurd lock(s_CopyBufferMutex);
-
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1048,11 +1045,8 @@ namespace vks
         return Lvn_Result_Success;
     }
 
-    static LvnMutex s_TransitionImageLayoutMutex;
     static void transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
     {
-        LvnLockGaurd lock(s_TransitionImageLayoutMutex);
-
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1140,11 +1134,8 @@ namespace vks
         vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
     }
 
-    static LvnMutex s_CopyBufferToImageMutex;
     static void copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount)
     {
-        LvnLockGaurd lock(s_CopyBufferToImageMutex);
-
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
