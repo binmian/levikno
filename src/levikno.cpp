@@ -984,9 +984,31 @@ LvnLoggerCreateInfo configLoggerInit(const char* loggerName, const char* logForm
     return createInfo;
 }
 
-void logAddSink(LvnLogger* logger, const LvnSink& sink)
+void loggerAddSink(LvnLogger* logger, const LvnSink& sink)
 {
+    LVN_ASSERT(logger != nullptr, "logger cannot be nullptr");
     logger->sinks.push_back(sink);
+}
+
+void loggerRemoveSink(LvnLogger* logger, uint32_t id)
+{
+    LVN_ASSERT(logger != nullptr, "logger cannot be nullptr");
+    for (uint32_t i = 0; i < logger->sinks.size(); i++)
+        if (logger->sinks[i].id == id)
+            logger->sinks.erase_index(i);
+}
+
+void loggerGetSinks(LvnLogger* logger, LvnSink** pSinks, uint32_t* sinkCount)
+{
+    LVN_ASSERT(logger != nullptr, "logger cannot be nullptr");
+    if (!pSinks && sinkCount)
+        *sinkCount = logger->sinks.size();
+    else if (pSinks && sinkCount)
+    {
+        LVN_ASSERT(*sinkCount <= logger->sinks.size(), "sink count cannot be greater than the number of sinks in logger");
+        for (uint32_t i = 0; i < *sinkCount; i++)
+            *pSinks[i] = logger->sinks[i];
+    }
 }
 
 } /* namespace lvn */

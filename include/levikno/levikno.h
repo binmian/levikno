@@ -120,12 +120,6 @@ class LvnThread;
 class LvnMutex;
 class LvnLockGaurd;
 
-// templates
-template <typename T> struct LvnFloatType;
-template <> struct LvnFloatType<float> { using type = float; };
-template <> struct LvnFloatType<double> { using type = double; };
-template <typename T> using LvnFloatType_t = typename LvnFloatType<T>::type;
-
 // callbacks
 typedef void* (*LvnMemAllocFunc)(size_t sz, void* userData);
 typedef void  (*LvnMemFreeFunc)(void* ptr, void* userData);
@@ -260,14 +254,16 @@ namespace lvn
     LVN_API LvnLogger*              logGetCoreLogger();
     LVN_API LvnLogger*              logGetClientLogger();
     LVN_API const char*             logGetANSIcodeColor(LvnLogLevel level);                                           // get the ANSI color code of the log level in a string
+    LVN_API int                     logOutputMessage(const char* logmsg);                                             // log messages to output
     LVN_API LvnResult               logSetPatternFormat(LvnLogger* logger, const char* patternfmt);                   // set the log pattern of the logger; messages outputed from that logger will be in this format
     LVN_API LvnResult               logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);                      // add user defined log patterns to the library
-    LVN_API int                     logOutputMessage(const char* logmsg);                                             // log messages to output
 
     LVN_API LvnResult               createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo);
     LVN_API void                    destroyLogger(LvnLogger* logger);
     LVN_API LvnLoggerCreateInfo     configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel, LvnSink* pSinks, uint32_t sinkCount);
-    LVN_API void                    logAddSink(LvnLogger* logger, const LvnSink& sink);
+    LVN_API void                    loggerAddSink(LvnLogger* logger, const LvnSink& sink);
+    LVN_API void                    loggerRemoveSink(LvnLogger* logger, uint32_t id);
+    LVN_API void                    loggerGetSinks(LvnLogger* logger, LvnSink** pSinks, uint32_t* sinkCount);
 } /* namespace lvn */
 
 
@@ -1585,6 +1581,7 @@ public:
 struct LvnSink
 {
     int (*logFunc)(const char*);
+    uint32_t id;
 };
 
 struct LvnLoggerCreateInfo

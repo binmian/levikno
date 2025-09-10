@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 
     // [Creating loggers]
     // a logger object controls how log messages should be displayed,
-    // if the core and client logger is not enough, new logget objects can be created:
+    // if the core and client logger is not enough, new loggeg objects can be created:
 
     // a levikno logger first requires a sink before it is created in order to send its log messages somewhere,
     // here we just use levikno's internally provided print output function

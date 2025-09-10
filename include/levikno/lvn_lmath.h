@@ -12,7 +12,6 @@
 
 
 #include "lvn_config.h"
-#include "levikno.h"
 
 #include <limits>
 #include <cmath>
@@ -68,6 +67,11 @@ enum LvnClipRegion
 
 // [SECTION]: Struct Declaration
 // ------------------------------------------------------------
+
+template <typename T> struct LvnFloatType;
+template <> struct LvnFloatType<float> { using type = float; };
+template <> struct LvnFloatType<double> { using type = double; };
+template <typename T> using LvnFloatType_t = typename LvnFloatType<T>::type;
 
 typedef int length_t;
 
@@ -273,11 +277,23 @@ namespace lvn
     template <typename T>
     LVN_API T               clamp(const T& val, const T& low, const T& high) { return lvn::max(lvn::min(val, high), low); }
     template <typename T>
-    LVN_API LvnPair<T>      midpoint(const T& x1, const T& y1, const T& x2, const T& y2) { return { (x1 + x2) / static_cast<T>(2), (y1 + y2) / static_cast<T>(2) }; }
+    LVN_API LvnVec<2,T>     midpoint(const T& x1, const T& y1, const T& x2, const T& y2) { return LvnVec<2, T>((x1 + x2) / static_cast<T>(2), (y1 + y2) / static_cast<T>(2)); }
+    template <typename T>
+    LVN_API LvnVec<3,T>     midpoint(const T& x1, const T& y1, const T& z1, const T& x2, const T& y2, const T& z2) { return LvnVec<3, T>((x1 + x2) / static_cast<T>(2), (y1 + y2) / static_cast<T>(2), (z1 + z2) / static_cast<T>(2)); }
+    template <typename T>
+    LVN_API LvnVec<4,T>     midpoint(const T& x1, const T& y1, const T& z1, const T& w1, const T& x2, const T& y2, const T& z2, const T& w2) { return LvnVec<4, T>((x1 + x2) / static_cast<T>(2), (y1 + y2) / static_cast<T>(2), (z1 + z2) / static_cast<T>(2), (w1 + w2) / static_cast<T>(2)); }
+    template <typename T>
+    LVN_API LvnVec<2,T>     midpoint(const LvnVec<2,T>& v1, const LvnVec<2,T>& v2) { return LvnVec<2,T>((v1.x + v2.x) / static_cast<T>(2), (v1.y + v2.y) / static_cast<T>(2)); }
+    template <typename T>
+    LVN_API LvnVec<3,T>     midpoint(const LvnVec<3,T>& v1, const LvnVec<3,T>& v2) { return LvnVec<3,T>((v1.x + v2.x) / static_cast<T>(2), (v1.y + v2.y) / static_cast<T>(2), (v1.z + v2.z) / static_cast<T>(2)); }
+    template <typename T>
+    LVN_API LvnVec<4,T>     midpoint(const LvnVec<4,T>& v1, const LvnVec<4,T>& v2) { return LvnVec<4,T>((v1.x + v2.x) / static_cast<T>(2), (v1.y + v2.y) / static_cast<T>(2), (v1.z + v2.z) / static_cast<T>(2), (v1.w + v2.w) / static_cast<T>(2)); }
     template <typename T>
     LVN_API T               distance(const T& x1, const T& y1, const T& x2, const T& y2) { return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)); }
     template <typename T>
     LVN_API T               distance(const T& x1, const T& y1, const T& z1, const T& x2, const T& y2, const T& z2) { return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2)); }
+    template <typename T>
+    LVN_API T               distance(const T& x1, const T& y1, const T& z1, const T& w1, const T& x2, const T& y2, const T& z2, const T& w2) { return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2)+(w1-w2)*(w1-w2)); }
     template <typename T>
     LVN_API T               distance(const LvnVec<2, T>& v1, const LvnVec<2, T>& v2) { return sqrt((v1.x-v2.x)*(v1.x-v2.x)+(v1.y-v2.y)*(v1.y-v2.y)); }
     template <typename T>
