@@ -1618,8 +1618,6 @@ struct LvnContextCreateInfo
 {
     struct
     {
-        bool enableGraphicsApiDebugLogs;        // enable debug output for graphics api calls (eg. vulkan validation layer, opengl debug callbacks)
-
         struct
         {
             bool disableCoreLogging;            // whether to disable core logging in the library

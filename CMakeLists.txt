@@ -2,24 +2,47 @@ cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_CXX_STANDARD 17)
 
+include(FindPkgConfig)
+
+
 # levikno
 project(Levikno)
 
 option(LVN_BUILD_EXAMPLES "Build example programs" TRUE)
 option(LVN_INCLUDE_GLSLANG "include glslang libraries and shader source compile support" TRUE)
+option(LVN_INCLUDE_GLFW "include glfw support" TRUE)
 
 # platform
 if (WIN32)
     add_definitions(-DLVN_PLATFORM_WINDOWS)
-
+    add_definitions(-DLVN_INCLUDE_WIN32)
 elseif(APPLE)
-    add_definitions(-DLVN_PLATFORM_MACOS)
-
+    add_definitions(-DLVN_PLATFORM_OSX)
+    add_definitions(-DLVN_INCLUDE_COCOA)
 elseif(UNIX AND NOT APPLE)
     add_definitions(-DLVN_PLATFORM_LINUX)
 else()
     add_definitions(-DLVN_PLATFORM_UNKNOWN)
 endif()
+
+# x11
+find_package(X11)
+
+if (X11_FOUND)
+    add_definitions(-DLVN_INCLUDE_X11)
+endif()
+
+# wayland
+pkg_check_modules(Wayland QUIET
+    wayland-client>=0.2.7
+    wayland-cursor>=0.2.7
+    wayland-egl>=0.2.7
+    xkbcommon>=0.5.0)
+
+if (Wayland_FOUND)
+    add_definitions(-DLVN_INCLUDE_WAYLAND)
+endif()
+
 
 # output dirs
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -34,20 +57,25 @@ if (BUILD_SHARED_LIBS)
 endif()
 
 
-# Find VulkanSDK
+# glfw
+if (LVN_INCLUDE_GLFW)
+    add_definitions(-DLVN_INCLUDE_GLFW)
+endif()
+
+# find vulkanSDK
 set(MIN_VULKAN_VERSION 1.2)
 find_package(Vulkan ${MIN_VULKAN_VERSION})
 
 if(Vulkan_FOUND)
     message("Vulkan found")
-    add_definitions(-DLVN_GRAPHICS_API_INCLUDE_VULKAN)
+    add_definitions(-DLVN_INCLUDE_VULKAN)
 
     set (LVN_VULKAN_SRC
-        src/api/graphics/vulkan/lvn_vulkan_impl.cpp
-        src/api/graphics/vulkan/lvn_vulkan_impl.h
+        src/api/lvn_impl_vulkan.cpp
+        src/api/lvn_impl_vulkan.h
     )
 
-    # Find glslang
+    # find glslang
     find_package(glslang CONFIG)
 
     # include libs
@@ -87,28 +115,21 @@ set(LVN_SRC_CORE
     src/lvn_cds.cpp
     src/lvn_ecs.cpp
     src/lvn_platform.cpp
-)
-
-set(LVN_SRC_WINDOW
-    include/levikno/lvn_window.h
-    include/levikno/api/lvn_glfw.h
-    src/lvn_window.cpp
-    src/lvn_window_internal.h
-
-    #glfw
-    src/api/window/glfw/lvn_glfw_impl.h
-    src/api/window/glfw/lvn_glfw_impl.cpp
+    src/lvn_platform.h
 )
 
 set(LVN_SRC_GRAPHICS
     include/levikno/lvn_graphics.h
-    include/levikno/api/lvn_vulkan.h
     src/lvn_graphics.cpp
     src/lvn_graphics_internal.h
 
     # glad
     src/external/glad/src/glad.c
     src/external/glad/include/glad/glad.h
+
+    #glfw
+    src/api/lvn_impl_glfw.h
+    src/api/lvn_impl_glfw.cpp
 
     # vulkan
     src/external/vk_mem_alloc.h
@@ -131,7 +152,7 @@ set(GLFW_LIBRARY_TYPE "OBJECT" CACHE STRING "" FORCE)
 
 add_subdirectory(src/external/glfw)
 
-list(APPEND LVN_SRC_WINDOW $<TARGET_OBJECTS:glfw>)
+list(APPEND LVN_SRC_GRAPHICS $<TARGET_OBJECTS:glfw>)
 include_directories(BEFORE SYSTEM src/external/glfw/include)
 
 # library
@@ -145,42 +166,14 @@ target_sources(levikno
 target_include_directories(levikno
     PRIVATE
         include/levikno
-        include/levikno/api
         src
+        src/api
         src/external/glfw/include
         src/external/glad/include
-        src/api/window/glfw
 )
 
 # Build definitions
 target_compile_definitions(levikno PRIVATE
-    $<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
-    $<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
-)
-
-# window
-add_library(lvnwindow STATIC)
-
-target_sources(lvnwindow
-    PRIVATE
-    ${LVN_SRC_WINDOW}
-)
-
-target_link_libraries(lvnwindow PRIVATE
-    levikno
-)
-
-target_include_directories(lvnwindow
-    PRIVATE
-        include/levikno
-        include/levikno/api
-        src
-        src/external/glfw/include
-        src/api/window/glfw
-)
-
-# Build definitions
-target_compile_definitions(lvnwindow PRIVATE
     $<$<CONFIG:Debug>:LVN_CONFIG_DEBUG>
     $<$<CONFIG:Release>:LVN_CONFIG_RELEASE>
 )
@@ -201,7 +194,6 @@ target_link_libraries(lvngraphics PRIVATE
 target_include_directories(lvngraphics
     PRIVATE
         include/levikno
-        include/levikno/api
         src
         src/external
         src/external/glfw/include

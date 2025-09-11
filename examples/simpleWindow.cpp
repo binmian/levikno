@@ -1,16 +1,15 @@
-#include <levikno/lvn_window.h>
+#include <levikno/lvn_graphics.h>
 
-#include <levikno/api/lvn_glfw.h>
 
 int main(int argc, char** argv)
 {
     lvn::initContext();
 
-    LvnWindowContextCreateInfo winctxCreateInfo{};
-    winctxCreateInfo.windowContextInitFunc = lvn::implGlfwInitWindowContext;
-    winctxCreateInfo.windowContextTerminateFunc = lvn::implGlfwTerminateWindowContext;
-    winctxCreateInfo.renderingBackend = Lvn_GraphicsApi_opengl;
-    lvn::initWindowContext(&winctxCreateInfo);
+    LvnGraphicsContextCreateInfo graphicsInfo{};
+    graphicsInfo.windowapi = Lvn_WindowApi_glfw;
+    graphicsInfo.graphicsapi = Lvn_GraphicsApi_opengl;
+
+    lvn::initGraphicsContext(&graphicsInfo);
 
     LvnWindowCreateInfo winCreateInfo = lvn::configWindowInit("simpleWindow", 800, 600);
 
@@ -25,7 +24,7 @@ int main(int argc, char** argv)
 
     lvn::destroyWindow(window);
 
-    lvn::terminateWindowContext();
+    lvn::terminateGraphicsContext();
     lvn::terminateContext();
 
     return 0;

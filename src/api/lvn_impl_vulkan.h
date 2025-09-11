@@ -6,6 +6,9 @@
 
 namespace lvn
 {
+    LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext);
+    void implVkTerminateGraphicsContext();
+
     void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount);
     LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
     LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);

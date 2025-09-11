@@ -1,5 +1,7 @@
+#include "lvn_platform.h"
 #include "levikno.h"
 #include "levikno_internal.h"
+#include "lvn_graphics_internal.h"
 
 #include <cstring>
 
@@ -8,6 +10,13 @@
 #   include <cstdlib>
 #endif
 
+#ifdef LVN_INCLUDE_GLFW
+#   include "lvn_impl_glfw.h"
+#endif
+
+#ifdef LVN_INCLUDE_VULKAN
+#   include "lvn_impl_vulkan.h"
+#endif
 
 namespace lvn
 {
@@ -85,6 +94,132 @@ void* getMemUserData()
 int logOutputMessage(const char* logmsg)
 {
     return printf("%s", logmsg);
+}
+
+LvnResult initWindowApiFuncs(LvnGraphicsContext* ctx)
+{
+    LvnResult result = Lvn_Result_Failure;
+    switch (ctx->windowapi)
+    {
+        case Lvn_WindowApi_None:
+        {
+            LVN_CORE_TRACE("no window api selected, window related functions will not be set");
+            return Lvn_Result_Success;
+        }
+        case Lvn_WindowApi_glfw:
+        {
+#ifdef LVN_INCLUDE_GLFW
+            result = lvn::implGlfwInitWindowContext(ctx);
+#endif
+            break;
+        }
+
+        default:
+        {
+            LVN_CORE_ERROR("unrecognized window api: (%d), cannot create window api related functions", ctx->windowapi);
+            return Lvn_Result_Failure;
+        }
+    }
+
+    if (result != Lvn_Result_Success)
+    {
+        LVN_CORE_ERROR("could not create window api related functions for: %s", lvn::getWindowApiNameEnum(ctx->windowapi));
+        return Lvn_Result_Failure;
+    }
+
+    LVN_CORE_TRACE("window api set: %s", lvn::getWindowApiNameEnum(ctx->windowapi));
+    return result;
+}
+
+void terminateWindowApiFuncs(LvnGraphicsContext* ctx)
+{
+    switch (ctx->windowapi)
+    {
+        case Lvn_WindowApi_None: { break; }
+        case Lvn_WindowApi_glfw:
+        {
+#ifdef LVN_INCLUDE_GLFW
+            lvn::implGlfwTerminateWindowContext();
+#endif
+            break;
+        }
+
+        default:
+        {
+            LVN_CORE_ERROR("unrecognized window api: (%d), cannot terminate window api related functions", ctx->windowapi);
+            return;
+        }
+    }
+
+    LVN_CORE_TRACE("window api terminated: %s", lvn::getWindowApiNameEnum(ctx->windowapi));
+}
+
+LvnResult initGraphicsApiFuncs(LvnGraphicsContext* ctx)
+{
+    LvnResult result = Lvn_Result_Failure;
+    switch (ctx->graphicsapi)
+    {
+        case Lvn_GraphicsApi_None:
+        {
+            LVN_CORE_TRACE("no graphics api selected, graphics related functions will not be set");
+            return Lvn_Result_Success;
+        }
+        case Lvn_GraphicsApi_opengl:
+        {
+            // TODO: add opengl impl
+            result = Lvn_Result_Success;
+            break;
+        }
+        case Lvn_GraphicsApi_vulkan:
+        {
+#ifdef LVN_INCLUDE_VULKAN
+            result = lvn::implVkInitGraphicsContext(ctx);
+#endif
+            break;
+        }
+
+        default:
+        {
+            LVN_CORE_ERROR("unrecognized graphics api: (%d), cannot create graphics api related functions", ctx->graphicsapi);
+            return Lvn_Result_Failure;
+        }
+    }
+
+    if (result != Lvn_Result_Success)
+    {
+        LVN_CORE_ERROR("could not create graphics api related functions for: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
+        return Lvn_Result_Failure;
+    }
+
+    LVN_CORE_TRACE("graphics api set: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
+    return result;
+}
+
+void terminateGraphicsApiFuncs(LvnGraphicsContext* ctx)
+{
+    switch (ctx->graphicsapi)
+    {
+        case Lvn_GraphicsApi_None: { break; }
+        case Lvn_GraphicsApi_opengl:
+        {
+            break;
+        }
+        case Lvn_GraphicsApi_vulkan:
+        {
+#ifdef LVN_INCLUDE_VULKAN
+            lvn::implVkTerminateGraphicsContext();
+#endif
+            break;
+        }
+
+        default:
+        {
+            LVN_CORE_ERROR("unrecognized graphics api: (%d), cannot terminate graphics api related functions", ctx->graphicsapi);
+            return;
+        }
+    }
+
+    LVN_CORE_TRACE("graphics api terminated: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
 }
 
 } /* namespace lvn */

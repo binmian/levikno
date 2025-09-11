@@ -1,11 +1,25 @@
-#include "lvn_glfw_impl.h"
+#include "lvn_impl_glfw.h"
 
-#include "api/lvn_glfw.h"
 #include "levikno.h"
+#include "lvn_graphics.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#ifdef LVN_INCLUDE_WIN32
+    #define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+#ifdef LVN_INCLUDE_COCOA
+    #define GLFW_EXPOSE_NATIVE_COCOA
+#endif
+#ifdef LVN_INCLUDE_X11
+    #define GLFW_EXPOSE_NATIVE_X11
+#endif
+#ifdef LVN_INCLUDE_WAYLAND
+    #define GLFW_EXPOSE_NATIVE_WAYLAND
+#endif
+
+#include <GLFW/glfw3native.h>
 
 namespace lvn
 {
@@ -13,14 +27,14 @@ namespace lvn
 static bool s_glfwInit = false;
 static GLFWcursor* s_CursorIcons[10];
 
-static void        GLFWerrorCallback(int error, const char* descripion);
+static void GLFWerrorCallback(int error, const char* descripion);
 
 static void GLFWerrorCallback(int error, const char* descripion)
 {
     LVN_CORE_ERROR("[glfw]: (%d): %s", error, descripion);
 }
 
-LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext)
+LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
 {
     if (s_glfwInit)
     {
@@ -36,37 +50,39 @@ LvnResult implGlfwInitWindowContext(LvnWindowContext* windowContext)
     }
     s_glfwInit = true;
 
-    windowContext->windowapi = Lvn_WindowApi_glfw;
-    windowContext->createWindow = glfwImplCreateWindow;
-    windowContext->destroyWindow = glfwImplDestroyWindow;
-    windowContext->updateWindow = glfwImplUpdateWindow;
-    windowContext->windowOpen = glfwImplWindowOpen;
-    windowContext->windowPollEvents = glfwImplWindowPollEvents;
-    windowContext->getDimensions = glfwImplGetDimensions;
-    windowContext->getWindowWidth = glfwImplGetWindowWidth;
-    windowContext->getWindowHeight = glfwImplGetWindowHeight;
-    windowContext->setWindowVSync = glfwImplSetWindowVSync;
-    windowContext->getWindowVSync = glfwImplGetWindowVSync;
-    windowContext->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
-    windowContext->keyPressed = glfwImplKeyPressed;
-    windowContext->keyReleased = glfwImplKeyReleased;
-    windowContext->mouseButtonPressed = glfwImplMouseButtonPressed;
-    windowContext->mouseButtonReleased = glfwImplMouseButtonReleased;
+    graphicsctx->windowapi = Lvn_WindowApi_glfw;
+    graphicsctx->createWindow = glfwImplCreateWindow;
+    graphicsctx->destroyWindow = glfwImplDestroyWindow;
+    graphicsctx->updateWindow = glfwImplUpdateWindow;
+    graphicsctx->windowOpen = glfwImplWindowOpen;
+    graphicsctx->windowPollEvents = glfwImplWindowPollEvents;
+    graphicsctx->getDimensions = glfwImplGetDimensions;
+    graphicsctx->getWindowWidth = glfwImplGetWindowWidth;
+    graphicsctx->getWindowHeight = glfwImplGetWindowHeight;
+    graphicsctx->setWindowVSync = glfwImplSetWindowVSync;
+    graphicsctx->getWindowVSync = glfwImplGetWindowVSync;
+    graphicsctx->getNativeWindow = glfwImplGetNativeWindow;
+    graphicsctx->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
 
-    windowContext->getMousePos = glfwImplGetMousePos;
-    windowContext->getMousePosPtr = glfwImplGetMousePosPtr;
-    windowContext->getMouseX = glfwImplGetMouseX;
-    windowContext->getMouseY = glfwImplGetMouseY;
-    windowContext->setMouseCursor = glfwImplSetMouseCursor;
-    windowContext->SetMouseInputMode = glfwImplSetMouseInputMode;
+    graphicsctx->keyPressed = glfwImplKeyPressed;
+    graphicsctx->keyReleased = glfwImplKeyReleased;
+    graphicsctx->mouseButtonPressed = glfwImplMouseButtonPressed;
+    graphicsctx->mouseButtonReleased = glfwImplMouseButtonReleased;
 
-    windowContext->getWindowPos = glfwImplGetWindowPos;
-    windowContext->getWindowPosPtr = glfwImplGetWindowPosPtr;
-    windowContext->getWindowSize = glfwImplGetWindowSize;
-    windowContext->getWindowSizePtr = glfwImplGetWindowSizePtr;
+    graphicsctx->getMousePos = glfwImplGetMousePos;
+    graphicsctx->getMousePosPtr = glfwImplGetMousePosPtr;
+    graphicsctx->getMouseX = glfwImplGetMouseX;
+    graphicsctx->getMouseY = glfwImplGetMouseY;
+    graphicsctx->setMouseCursor = glfwImplSetMouseCursor;
+    graphicsctx->SetMouseInputMode = glfwImplSetMouseInputMode;
+
+    graphicsctx->getWindowPos = glfwImplGetWindowPos;
+    graphicsctx->getWindowPosPtr = glfwImplGetWindowPosPtr;
+    graphicsctx->getWindowSize = glfwImplGetWindowSize;
+    graphicsctx->getWindowSizePtr = glfwImplGetWindowSizePtr;
 
 
-    LvnGraphicsApi graphicsapi = windowContext->graphicsBackend;
+    LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
 
     if (graphicsapi == Lvn_GraphicsApi_vulkan || graphicsapi == Lvn_GraphicsApi_None)
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -104,38 +120,18 @@ void implGlfwTerminateWindowContext()
 
 LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo)
 {
-    window->data.width = createInfo->width;
-    window->data.height = createInfo->height;
-    window->data.title = createInfo->title;
-    window->data.minWidth = createInfo->minWidth;
-    window->data.minHeight = createInfo->minHeight;
-    window->data.maxWidth = createInfo->maxWidth;
-    window->data.maxHeight = createInfo->maxHeight;
-    window->data.fullscreen = createInfo->fullscreen;
-    window->data.resizable = createInfo->resizable;
-    window->data.vSync = createInfo->vSync;
-    window->data.pIcons = createInfo->pIcons;
-    window->data.iconCount = createInfo->iconCount;
-
-    if (createInfo->eventCallBack == nullptr)
-        window->data.eventCallBackFn = glfwImplEventCallBackFn;
-    else
-        window->data.eventCallBackFn = createInfo->eventCallBack;
-
-    window->data.userData = createInfo->userData;
-
     // set full screen
     GLFWmonitor* fullScreen = nullptr;
-    if (window->data.fullscreen)
+    if (window->fullscreen)
         fullScreen = glfwGetPrimaryMonitor();
 
     // set window resizable
-    if (window->data.resizable)
+    if (window->resizable)
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     else
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    LvnGraphicsApi graphicsapi = lvn::getWindowGraphicsBackendEnum();
+    LvnGraphicsApi graphicsapi = lvn::getGraphicsApi();
     LvnContext* lvnctx = lvn::getContext();
 
     // get shared context (opengl)
@@ -144,35 +140,37 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
             sharedContext = static_cast<GLFWwindow*>(lvnctx->sharedSuface);
 
     // create window
-    GLFWwindow* glfwWindow = glfwCreateWindow(window->data.width, window->data.height, window->data.title.c_str(), fullScreen, sharedContext);
-    LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", glfwWindow, window->data.title.c_str(), window->data.width, window->data.height);
+    GLFWwindow* glfwWindow = glfwCreateWindow(window->width, window->height, window->title.c_str(), fullScreen, sharedContext);
+    LVN_CORE_TRACE("[glfw] created window <GLFWwindow*> (%p): \"%s\" (w:%d,h:%d)", glfwWindow, window->title.c_str(), window->width, window->height);
 
     if (!glfwWindow)
     {
-        LVN_CORE_ERROR("failed to create window: \"%s\" (w:%d, h:%d)", window->data.title.c_str(), window->data.width, window->data.height);
+        LVN_CORE_ERROR("failed to create window: \"%s\" (w:%d, h:%d)", window->title.c_str(), window->width, window->height);
         return Lvn_Result_Failure;
     }
 
-    if (window->data.pIcons != nullptr)
+    // set icon images for window
+    if (!window->icons.empty())
     {
-        LvnVector<GLFWimage> images(window->data.iconCount);
+        LvnVector<GLFWimage> images(window->icons.size());
 
-        for (uint32_t i = 0; i < window->data.iconCount; i++)
+        for (uint32_t i = 0; i < window->icons.size(); i++)
         {
             GLFWimage image{};
-            image.pixels = window->data.pIcons[i].image;
-            image.width = window->data.pIcons[i].width;
-            image.height = window->data.pIcons[i].height;
+            image.pixels = window->icons[i].pixels.data();
+            image.width = window->icons[i].width;
+            image.height = window->icons[i].height;
             images.push_back(image);
         }
 
-        glfwSetWindowIcon(glfwWindow, static_cast<int>(window->data.iconCount), images.data());
+        glfwSetWindowIcon(glfwWindow, static_cast<int>(images.size()), images.data());
     }
 
+    // set the native window
     window->nativeWindow = glfwWindow;
 
     // set window size parameters & vsync
-    glfwSetWindowSizeLimits(glfwWindow, window->data.minWidth, window->data.minHeight, window->data.maxWidth, window->data.maxHeight);
+    glfwSetWindowSizeLimits(glfwWindow, window->minWidth, window->minHeight, window->maxWidth, window->maxHeight);
     glfwSetWindowUserPointer(glfwWindow, window);
 
     if (graphicsapi == Lvn_GraphicsApi_opengl)
@@ -184,7 +182,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
     // set GLFW Callbacks
     glfwSetWindowSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         data->width = width;
         data->height = height;
 
@@ -201,8 +199,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
     {
-        LvnWindow* lvnWindow = ((LvnWindow*)glfwGetWindowUserPointer(window));
-        LvnWindowData* data = &lvnWindow->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         data->width = width;
         data->height = height;
 
@@ -216,7 +213,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
         data->eventCallBackFn(&event);
 
-        switch (lvn::getWindowGraphicsBackendEnum())
+        switch (lvn::getGraphicsApi())
         {
             case Lvn_GraphicsApi_opengl:
             {
@@ -240,7 +237,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetWindowPosCallback(glfwWindow, [](GLFWwindow* window, int x, int y)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         LvnEvent event{};
         event.type = Lvn_EventType_WindowMoved;
         event.category = Lvn_EventCategory_Window;
@@ -254,7 +251,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetWindowFocusCallback(glfwWindow, [](GLFWwindow* window, int focused)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         if (focused)
         {
             LvnEvent event{};
@@ -279,7 +276,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetWindowCloseCallback(glfwWindow, [](GLFWwindow* window)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         LvnEvent event{};
         event.type = Lvn_EventType_WindowClose;
         event.category = Lvn_EventCategory_Window;
@@ -291,7 +288,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetKeyCallback(glfwWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
 
         switch (action)
         {
@@ -336,7 +333,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetCharCallback(glfwWindow, [](GLFWwindow* window, unsigned int keycode)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         LvnEvent event{};
         event.type = Lvn_EventType_KeyTyped;
         event.category = Lvn_EventCategory_Input | Lvn_EventCategory_Keyboard;
@@ -348,7 +345,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow* window, int button, int action, int mods)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
 
         switch (action)
         {
@@ -379,7 +376,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetScrollCallback(glfwWindow, [](GLFWwindow* window, double xOffset, double yOffset)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
 
         LvnEvent event{};
         event.type = Lvn_EventType_MouseScrolled;
@@ -393,7 +390,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
     glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow* window, double xPos, double yPos)
     {
-        LvnWindowData* data = &((LvnWindow*)glfwGetWindowUserPointer(window))->data;
+        LvnWindow* data = (LvnWindow*)glfwGetWindowUserPointer(window);
         LvnEvent event{};
         event.type = Lvn_EventType_MouseMoved;
         event.category = Lvn_EventCategory_Input | Lvn_EventCategory_Mouse;
@@ -415,7 +412,7 @@ void glfwImplDestroyWindow(LvnWindow* window)
 
 void glfwImplUpdateWindow(LvnWindow* window)
 {
-    if (lvn::getWindowGraphicsBackendEnum() == Lvn_GraphicsApi_opengl)
+    if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
         glfwSwapBuffers(static_cast<GLFWwindow*>(window->nativeWindow));
 }
 
@@ -452,9 +449,9 @@ unsigned int glfwImplGetWindowHeight(LvnWindow* window)
 
 void glfwImplSetWindowVSync(LvnWindow* window, bool enable)
 {
-    window->data.vSync = enable;
+    window->vSync = enable;
 
-    switch (lvn::getWindowGraphicsBackendEnum())
+    switch (lvn::getGraphicsApi())
     {
         case Lvn_GraphicsApi_opengl:
         {
@@ -476,23 +473,43 @@ void glfwImplSetWindowVSync(LvnWindow* window, bool enable)
 
 bool glfwImplGetWindowVSync(LvnWindow* window)
 {
-    return window->data.vSync;
+    return window->vSync;
+}
+
+void* glfwImplGetNativeWindow(LvnWindow* window)
+{
+    GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
+
+#if defined(LVN_INCLUDE_WIN32)
+    return glfwGetWin32Window(glfwWindow);
+#elif defined(LVN_INCLUDE_COCOA)
+    return glfwGetCocoaWindow(glfwWindow);
+#elif defined(LVN_INCLUDE_X11) || defined(LVN_INCLUDE_WAYLAND)
+#ifdef LVN_INCLUDE_WAYLAND
+    wl_surface* winhandle = nullptr;
+    winhandle = glfwGetWaylandWindow(glfwWindow);
+    if (winhandle) return winhandle;
+#endif
+#ifdef LVN_INCLUDE_X11
+Window winid = glfwGetX11Window(glfwWindow);
+    window->nativeId = winid;
+    return &window->nativeId;
+#endif
+#endif
+
+    LVN_ASSERT(false, "no native window can be retrieved");
+    return nullptr;
 }
 
 void glfwImplSetWindowContextCurrent(LvnWindow* window)
 {
-    if (lvn::getWindowGraphicsBackendEnum() == Lvn_GraphicsApi_opengl)
+    if (lvn::getGraphicsApi() == Lvn_GraphicsApi_opengl)
     {
         // GLFWwindow* sharedContext = static_cast<GLFWwindow*>(lvn::getMainOglWindowContext());
         // glfwMakeContextCurrent(window ? static_cast<GLFWwindow*>(window->nativeWindow) : sharedContext);
 
         glfwMakeContextCurrent(static_cast<GLFWwindow*>(window->nativeWindow));
     }
-}
-
-void glfwImplEventCallBackFn(LvnEvent* e) // default function for event call backs if no function is set
-{
-    return;
 }
 
 bool glfwImplKeyPressed(LvnWindow* window, int keycode)

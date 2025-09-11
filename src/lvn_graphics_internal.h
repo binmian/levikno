@@ -5,16 +5,92 @@
 #include "levikno_internal.h"
 
 
+struct LvnEvent
+{
+    LvnEventType type;
+    int category;
+    const char* name;
+    bool handled;
+    void* userData;
+
+    struct Data
+    {
+        union
+        {
+            int x;
+            double xd;
+        };
+        union
+        {
+            int y;
+            double yd;
+        };
+
+        int code;
+        unsigned int ucode;
+        bool repeat;
+    } data;
+};
+
+struct LvnWindow
+{
+    int width, height;                   // width and height of window
+    LvnString title;                     // title of window
+    int minWidth, minHeight;             // minimum width and height of window
+    int maxWidth, maxHeight;             // maximum width and height of window
+    bool fullscreen, resizable, vSync;   // sets window to fullscreen; enables window resizing; vSync controls window framerate
+    LvnVector<LvnImage> icons;           // icon images used for window
+    void (*eventCallBackFn)(LvnEvent*);  // function ptr used as a callback to get events from this window
+    void* userData;
+    void* nativeWindow;                  // pointer to native window handle depending on window backend (eg. x11, wayland), if using glfw, GLFWwindow handle is used for this
+    int nativeId;                        // window id for x11 windows
+    void* apiData;
+};
+
+struct LvnWindowContext
+{
+};
+
 struct LvnGraphicsContext
 {
+    LvnWindowApi                windowapi;
     LvnGraphicsApi              graphicsapi;
+
     bool                        enableGraphicsApiDebugLogs;
     LvnTextureFormat            frameBufferColorFormat;
     uint32_t                    maxFramesInFlight;
     LvnPipelineFixedFunctions   defaultPipelineFixedFuncs;
 
-    LvnResult                   (*implInitGraphicsContext)(LvnGraphicsContext*);
-    void                        (*implTerminateGraphicsContext)();
+
+    LvnResult                   (*createWindow)(LvnWindow*, const LvnWindowCreateInfo*);
+    void                        (*destroyWindow)(LvnWindow*);
+    void                        (*updateWindow)(LvnWindow*);
+    bool                        (*windowOpen)(LvnWindow*);
+    void                        (*windowPollEvents)();
+    LvnPair<int>                (*getDimensions)(LvnWindow*);
+    unsigned int                (*getWindowWidth)(LvnWindow*);
+    unsigned int                (*getWindowHeight)(LvnWindow*);
+    void                        (*setWindowVSync)(LvnWindow*, bool);
+    bool                        (*getWindowVSync)(LvnWindow*);
+    void*                       (*getNativeWindow)(LvnWindow*);
+    void                        (*setWindowContextCurrent)(LvnWindow*);
+
+    bool                        (*keyPressed)(LvnWindow*, int);
+    bool                        (*keyReleased)(LvnWindow*, int);
+    bool                        (*mouseButtonPressed)(LvnWindow*, int);
+    bool                        (*mouseButtonReleased)(LvnWindow*, int);
+
+    LvnPair<float>              (*getMousePos)(LvnWindow*);
+    void                        (*getMousePosPtr)(LvnWindow*, float*, float*);
+    float                       (*getMouseX)(LvnWindow*);
+    float                       (*getMouseY)(LvnWindow*);
+    void                        (*setMouseCursor)(LvnWindow*, LvnMouseCursor);
+    void                        (*SetMouseInputMode)(LvnWindow*, LvnMouseInputMode);
+
+    LvnPair<int>                (*getWindowPos)(LvnWindow*);
+    void                        (*getWindowPosPtr)(LvnWindow*, int*, int*);
+    LvnPair<int>                (*getWindowSize)(LvnWindow*);
+    void                        (*getWindowSizePtr)(LvnWindow*, int*, int*);
 
     void                        (*getPhysicalDevices)(LvnPhysicalDevice**, uint32_t*);
     LvnResult                   (*checkPhysicalDeviceSupport)(LvnPhysicalDevice*);
@@ -158,5 +234,12 @@ struct LvnCubemap
 {
     LvnTexture textureData;
 };
+
+
+namespace lvn
+{
+    const char* getWindowApiNameEnum(LvnWindowApi api);
+    const char* getGraphicsApiNameEnum(LvnGraphicsApi api);
+}
 
 #endif /* !HG_LVN_GRAPHICS_INTERNAL_H */

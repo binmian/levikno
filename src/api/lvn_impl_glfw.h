@@ -1,10 +1,13 @@
 #ifndef HG_LEVIKNO_GLFW_IMPL_H
 #define HG_LEVIKNO_GLFW_IMPL_H
 
-#include "lvn_window_internal.h"
+#include "lvn_graphics_internal.h"
 
 namespace lvn
 {
+    LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx);
+    void implGlfwTerminateWindowContext();
+
     LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo);
     void glfwImplDestroyWindow(LvnWindow* window);
 
@@ -16,8 +19,8 @@ namespace lvn
     unsigned int glfwImplGetWindowHeight(LvnWindow* window);
     void glfwImplSetWindowVSync(LvnWindow* window, bool enable);
     bool glfwImplGetWindowVSync(LvnWindow* window);
+    void* glfwImplGetNativeWindow(LvnWindow* window);
     void glfwImplSetWindowContextCurrent(LvnWindow* window);
-    void glfwImplEventCallBackFn(LvnEvent* e);
 
     bool glfwImplKeyPressed(LvnWindow* window, int keycode);
     bool glfwImplKeyReleased(LvnWindow* window, int keycode);

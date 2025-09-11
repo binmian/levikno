@@ -1,7 +1,5 @@
-#include "levikno/levikno.h"
-#include <levikno/lvn_window.h>
-
-#include <levikno/api/lvn_glfw.h>
+#include <levikno/levikno.h>
+#include <levikno/lvn_graphics.h>
 
 bool keyHold(LvnKeyHoldEvent* event, void* userData)
 {
@@ -109,12 +107,11 @@ int main(int argc, char** argv)
 {
     lvn::initContext();
 
-    LvnWindowContextCreateInfo winctxCreateInfo{};
-    winctxCreateInfo.windowContextInitFunc = lvn::implGlfwInitWindowContext;
-    winctxCreateInfo.windowContextTerminateFunc = lvn::implGlfwTerminateWindowContext;
-    winctxCreateInfo.renderingBackend = Lvn_GraphicsApi_opengl;
+    LvnGraphicsContextCreateInfo graphicsInfo{};
+    graphicsInfo.windowapi = Lvn_WindowApi_glfw;
+    graphicsInfo.graphicsapi = Lvn_GraphicsApi_opengl;
 
-    lvn::initWindowContext(&winctxCreateInfo);
+    lvn::initGraphicsContext(&graphicsInfo);
 
     LvnWindowCreateInfo winCreateInfo = lvn::configWindowInit("events", 800, 600);
     winCreateInfo.eventCallBack = eventCallBackFn; // set the event call back function to record callbacks
@@ -130,7 +127,7 @@ int main(int argc, char** argv)
 
     lvn::destroyWindow(window);
 
-    lvn::terminateWindowContext();
+    lvn::terminateGraphicsContext();
     lvn::terminateContext();
 
     return 0;

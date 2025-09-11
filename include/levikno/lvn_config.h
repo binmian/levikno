@@ -8,7 +8,7 @@ enum LvnPlatform
 {
     Lvn_Platform_Linux,
     Lvn_Platform_Windows,
-    Lvn_Platform_MacOS,
+    Lvn_Platform_OSX,
 };
 
 enum LvnResult : int
@@ -27,8 +27,8 @@ enum LvnResult : int
         #define LVN_PLATFORM_WINDOWS
     #endif
 #elif __APPLE__
-    #ifndef LVN_PLATFORM_MACOS
-        #define LVN_PLATFORM_MACOS
+    #ifndef LVN_PLATFORM_OSX
+        #define LVN_PLATFORM_OSX
     #endif
 #elif __linux__
     #ifndef LVN_PLATFORM_LINUX
