@@ -2,6 +2,7 @@
 
 #include "levikno.h"
 #include "lvn_graphics.h"
+#include "lvn_graphics_internal.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -21,11 +22,16 @@
 
 #include <GLFW/glfw3native.h>
 
+struct LvnGlfwWindowContext
+{
+    bool init;
+    GLFWcursor* cursorIcons[10];
+};
+
 namespace lvn
 {
 
-static bool s_glfwInit = false;
-static GLFWcursor* s_CursorIcons[10];
+static LvnGlfwWindowContext* s_GlfwWindowCxt = nullptr;
 
 static void GLFWerrorCallback(int error, const char* descripion);
 
@@ -36,11 +42,13 @@ static void GLFWerrorCallback(int error, const char* descripion)
 
 LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
 {
-    if (s_glfwInit)
+    if (s_GlfwWindowCxt)
     {
         LVN_CORE_WARN("glfw already initialized!");
         return Lvn_Result_AlreadyCalled;
     }
+
+    s_GlfwWindowCxt = lvn::memNew<LvnGlfwWindowContext>();
 
     int success = glfwInit();
     if (!success)
@@ -48,9 +56,10 @@ LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
         LVN_ASSERT(false, "Failed to initialize glfw");
         return Lvn_Result_Failure;
     }
-    s_glfwInit = true;
 
-    graphicsctx->windowapi = Lvn_WindowApi_glfw;
+    s_GlfwWindowCxt->init = true;
+
+    graphicsctx->windowapi = Lvn_WindowApi_Glfw;
     graphicsctx->createWindow = glfwImplCreateWindow;
     graphicsctx->destroyWindow = glfwImplDestroyWindow;
     graphicsctx->updateWindow = glfwImplUpdateWindow;
@@ -63,6 +72,7 @@ LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
     graphicsctx->getWindowVSync = glfwImplGetWindowVSync;
     graphicsctx->getNativeWindow = glfwImplGetNativeWindow;
     graphicsctx->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
+    graphicsctx->getNativeWindowApi = glfwImplGetNativeWindowApi;
 
     graphicsctx->keyPressed = glfwImplKeyPressed;
     graphicsctx->keyReleased = glfwImplKeyReleased;
@@ -87,16 +97,16 @@ LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
     if (graphicsapi == Lvn_GraphicsApi_vulkan || graphicsapi == Lvn_GraphicsApi_None)
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    s_CursorIcons[Lvn_MouseCursor_Arrow] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_Ibeam] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_Crosshair] = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_PointingHand] = glfwCreateStandardCursor(GLFW_POINTING_HAND_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_ResizeEW] = glfwCreateStandardCursor(GLFW_RESIZE_EW_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_ResizeNS] = glfwCreateStandardCursor(GLFW_RESIZE_NS_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_ResizeNWSE] = glfwCreateStandardCursor(GLFW_RESIZE_NWSE_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_ResizeNESW] = glfwCreateStandardCursor(GLFW_RESIZE_NESW_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_ResizeAll] = glfwCreateStandardCursor(GLFW_RESIZE_ALL_CURSOR);
-    s_CursorIcons[Lvn_MouseCursor_NotAllowed] = glfwCreateStandardCursor(GLFW_NOT_ALLOWED_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_Arrow] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_Ibeam] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_Crosshair] = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_PointingHand] = glfwCreateStandardCursor(GLFW_POINTING_HAND_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_ResizeEW] = glfwCreateStandardCursor(GLFW_RESIZE_EW_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_ResizeNS] = glfwCreateStandardCursor(GLFW_RESIZE_NS_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_ResizeNWSE] = glfwCreateStandardCursor(GLFW_RESIZE_NWSE_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_ResizeNESW] = glfwCreateStandardCursor(GLFW_RESIZE_NESW_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_ResizeAll] = glfwCreateStandardCursor(GLFW_RESIZE_ALL_CURSOR);
+    s_GlfwWindowCxt->cursorIcons[Lvn_MouseCursor_NotAllowed] = glfwCreateStandardCursor(GLFW_NOT_ALLOWED_CURSOR);
 
     glfwSetErrorCallback(GLFWerrorCallback);
 
@@ -105,17 +115,17 @@ LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
 
 void implGlfwTerminateWindowContext()
 {
-    for (uint32_t i = 0; i < sizeof(s_CursorIcons) / sizeof(s_CursorIcons[0]); i++)
-    {
-        glfwDestroyCursor(s_CursorIcons[i]);
-    }
+    for (uint32_t i = 0; i < sizeof(s_GlfwWindowCxt->cursorIcons) / sizeof(s_GlfwWindowCxt->cursorIcons[0]); i++)
+        glfwDestroyCursor(s_GlfwWindowCxt->cursorIcons[i]);
 
-    if (s_glfwInit)
+    if (s_GlfwWindowCxt->init)
     {
         glfwTerminate();
-        s_glfwInit = false;
+        s_GlfwWindowCxt->init = false;
     }
     else LVN_CORE_WARN("glfw already terminated!");
+
+    lvn::memDelete<LvnGlfwWindowContext>(s_GlfwWindowCxt);
 }
 
 LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo)
@@ -179,6 +189,31 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         glfwSwapInterval(createInfo->vSync);
     }
 
+#if defined(LVN_INCLUDE_WIN32)
+    window->nativeWindowData.win32.nativeWindow = glfwGetWin32Window(glfwWindow);
+#elif defined(LVN_INCLUDE_COCOA)
+    window->nativeWindowData.cocoa.nativeWindow = glfwGetCocoaWindow(glfwWindow);
+#elif defined(LVN_INCLUDE_X11) || defined(LVN_INCLUDE_WAYLAND)
+#ifdef LVN_INCLUDE_WAYLAND
+    if (lvn::getNativeWindowApi() == Lvn_WindowApi_Wayland)
+    {
+        window->nativeWindowData.wl.surface = glfwGetWaylandWindow(glfwWindow);
+        window->nativeWindowData.wl.display = glfwGetWaylandDisplay();
+    }
+#endif /* LVN_INCLUDE_WAYLAND */
+#ifdef LVN_INCLUDE_X11
+    if (lvn::getNativeWindowApi() == Lvn_WindowApi_X11)
+        window->nativeWindowData.x11.nativeWindow = glfwGetX11Window(glfwWindow);
+#endif /* LVN_INCLUDE_X11 */
+
+#endif /* LVN_INCLUDE_X11 || LVN_INCLUDE_WAYLAND */
+
+    LvnEvent createEvent{};
+    createEvent.type = Lvn_EventType_WindowCreated;
+    createEvent.category = Lvn_EventCategory_Window;
+    createEvent.handled = false;
+    lvn::internalWindowEventCallbackFn(window, &createEvent);
+
     // set GLFW Callbacks
     glfwSetWindowSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
     {
@@ -195,6 +230,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.userData = data->userData;
 
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
     });
 
     glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
@@ -212,6 +248,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.userData = data->userData;
 
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
 
         switch (lvn::getGraphicsApi())
         {
@@ -247,6 +284,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.userData = data->userData;
 
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
     });
 
     glfwSetWindowFocusCallback(glfwWindow, [](GLFWwindow* window, int focused)
@@ -261,6 +299,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
             event.userData = data->userData;
 
             data->eventCallBackFn(&event);
+            lvn::internalWindowEventCallbackFn(data, &event);
         }
         else
         {
@@ -271,6 +310,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
             event.userData = data->userData;
 
             data->eventCallBackFn(&event);
+            lvn::internalWindowEventCallbackFn(data, &event);
         }
     });
 
@@ -284,6 +324,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.userData = data->userData;
 
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
     });
 
     glfwSetKeyCallback(glfwWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -302,6 +343,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
                 event.data.repeat = false;
                 event.userData = data->userData;
                 data->eventCallBackFn(&event);
+                lvn::internalWindowEventCallbackFn(data, &event);
                 break;
             }
             case GLFW_RELEASE:
@@ -314,6 +356,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
                 event.data.repeat = false;
                 event.userData = data->userData;
                 data->eventCallBackFn(&event);
+                lvn::internalWindowEventCallbackFn(data, &event);
                 break;
             }
             case GLFW_REPEAT:
@@ -326,6 +369,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
                 event.data.repeat = true;
                 event.userData = data->userData;
                 data->eventCallBackFn(&event);
+                lvn::internalWindowEventCallbackFn(data, &event);
                 break;
             }
         }
@@ -341,6 +385,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.data.ucode = keycode;
         event.userData = data->userData;
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
     });
 
     glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow* window, int button, int action, int mods)
@@ -358,6 +403,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
                 event.data.code = button;
                 event.userData = data->userData;
                 data->eventCallBackFn(&event);
+                lvn::internalWindowEventCallbackFn(data, &event);
                 break;
             }
             case GLFW_RELEASE:
@@ -369,6 +415,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
                 event.data.code = button;
                 event.userData = data->userData;
                 data->eventCallBackFn(&event);
+                lvn::internalWindowEventCallbackFn(data, &event);
                 break;
             }
         }
@@ -386,6 +433,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.data.yd = yOffset;
         event.userData = data->userData;
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
     });
 
     glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow* window, double xPos, double yPos)
@@ -399,6 +447,7 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
         event.data.yd = yPos;
         event.userData = data->userData;
         data->eventCallBackFn(&event);
+        lvn::internalWindowEventCallbackFn(data, &event);
     });
 
     return Lvn_Result_Success;
@@ -406,7 +455,12 @@ LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* cre
 
 void glfwImplDestroyWindow(LvnWindow* window)
 {
-    // destroyGraphicsRelatedAPIData(window);
+    LvnEvent createEvent{};
+    createEvent.type = Lvn_EventType_WindowDestroy;
+    createEvent.category = Lvn_EventCategory_Window;
+    createEvent.handled = false;
+    lvn::internalWindowEventCallbackFn(window, &createEvent);
+
     glfwDestroyWindow(static_cast<GLFWwindow*>(window->nativeWindow));
 }
 
@@ -575,10 +629,10 @@ float glfwImplGetMouseY(LvnWindow* window)
 
 void glfwImplSetMouseCursor(LvnWindow* window, LvnMouseCursor cursor)
 {
-    LVN_ASSERT(static_cast<uint32_t>(cursor) < (sizeof(s_CursorIcons) / sizeof(s_CursorIcons[0])), "cursor mode index out of range");
+    LVN_ASSERT(static_cast<uint32_t>(cursor) < (sizeof(s_GlfwWindowCxt->cursorIcons) / sizeof(s_GlfwWindowCxt->cursorIcons[0])), "cursor mode index out of range");
 
     GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
-    glfwSetCursor(glfwWin, s_CursorIcons[cursor]);
+    glfwSetCursor(glfwWin, s_GlfwWindowCxt->cursorIcons[cursor]);
 }
 
 void glfwImplSetMouseInputMode(LvnWindow* window, LvnMouseInputMode mode)
@@ -623,6 +677,21 @@ void glfwImplGetWindowSizePtr(LvnWindow* window, int* width, int* height)
 {
     GLFWwindow* glfwWin = static_cast<GLFWwindow*>(window->nativeWindow);
     glfwGetWindowSize(glfwWin, &(*width), &(*height));
+}
+
+LvnWindowApi glfwImplGetNativeWindowApi()
+{
+    int platform = glfwGetPlatform();
+    switch (platform)
+    {
+        case GLFW_PLATFORM_WIN32: { return Lvn_WindowApi_Win32; }
+        case GLFW_PLATFORM_COCOA: { return Lvn_WindowApi_Cocoa; }
+        case GLFW_PLATFORM_WAYLAND: { return Lvn_WindowApi_Wayland; }
+        case GLFW_PLATFORM_X11: { return Lvn_WindowApi_X11; }
+        case GLFW_PLATFORM_NULL: { return Lvn_WindowApi_None; }
+
+        default: { return Lvn_WindowApi_None; }
+    }
 }
 
 } /* namespace lvn */

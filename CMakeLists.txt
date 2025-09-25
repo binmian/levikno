@@ -29,7 +29,13 @@ endif()
 find_package(X11)
 
 if (X11_FOUND)
+    message("X11 found")
     add_definitions(-DLVN_INCLUDE_X11)
+    add_definitions(-DLVN_INCLUDE_X11_XLIB)
+    if (X11_xcb_FOUND)
+        message("X11 xcb found")
+        add_definitions(-DLVN_INCLUDE_X11_XCB)
+    endif()
 endif()
 
 # wayland

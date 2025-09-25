@@ -106,7 +106,7 @@ LvnResult initWindowApiFuncs(LvnGraphicsContext* ctx)
             LVN_CORE_TRACE("no window api selected, window related functions will not be set");
             return Lvn_Result_Success;
         }
-        case Lvn_WindowApi_glfw:
+        case Lvn_WindowApi_Glfw:
         {
 #ifdef LVN_INCLUDE_GLFW
             result = lvn::implGlfwInitWindowContext(ctx);
@@ -136,7 +136,7 @@ void terminateWindowApiFuncs(LvnGraphicsContext* ctx)
     switch (ctx->windowapi)
     {
         case Lvn_WindowApi_None: { break; }
-        case Lvn_WindowApi_glfw:
+        case Lvn_WindowApi_Glfw:
         {
 #ifdef LVN_INCLUDE_GLFW
             lvn::implGlfwTerminateWindowContext();

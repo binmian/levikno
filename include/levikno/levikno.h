@@ -42,16 +42,6 @@ enum LvnFileMode
     Lvn_FileMode_Append,
 };
 
-enum LvnGraphicsApi
-{
-    Lvn_GraphicsApi_None = 0,
-    Lvn_GraphicsApi_OpenGL,
-    Lvn_GraphicsApi_Vulkan,
-
-    Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
-    Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
-};
-
 enum LvnStructureType
 {
     Lvn_Stype_Undefined = 0,

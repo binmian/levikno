@@ -108,7 +108,7 @@ int main(int argc, char** argv)
     lvn::initContext();
 
     LvnGraphicsContextCreateInfo graphicsInfo{};
-    graphicsInfo.windowapi = Lvn_WindowApi_glfw;
+    graphicsInfo.windowapi = Lvn_WindowApi_Glfw;
     graphicsInfo.graphicsapi = Lvn_GraphicsApi_opengl;
 
     lvn::initGraphicsContext(&graphicsInfo);

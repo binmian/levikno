@@ -38,6 +38,8 @@ namespace lvn
     void glfwImplGetWindowPosPtr(LvnWindow* window, int* xpos, int* ypos);
     LvnPair<int> glfwImplGetWindowSize(LvnWindow* window);
     void glfwImplGetWindowSizePtr(LvnWindow* window, int* width, int* height);
+
+    LvnWindowApi glfwImplGetNativeWindowApi();
 }
 
 #endif // !HG_CHONPS_GLFW_H

@@ -87,7 +87,7 @@ struct VulkanWindowSurfaceData
 
 struct VulkanPipelineCreateData
 {
-    LvnPipelineFixedFunctions* pipelineSpecification;
+    LvnPipelineFixedFunctions* pipelineFixedFuncs;
     VkRenderPass renderPass;
     VkPipelineVertexInputStateCreateInfo vertexInputInfo;
     VkExtent2D* swapChainExtent;
@@ -105,11 +105,27 @@ struct VulkanPipeline
     VkPipelineLayout pipelineLayout;
 };
 
+struct VulkanPlatform
+{
+    struct
+    {
+        bool surfaceSupport;
+        bool win32Support;
+        bool cocoaSupport;
+        bool waylandSupport;
+        bool x11xcbSupport;
+        bool x11libSupport;
+        bool debugSupport;
+    } extensions;
+};
+
 struct VulkanBackends
 {
     bool                                enableValidationLayers;
+    bool                                physicalDeviceSet;
     VkInstance                          instance;
     VkDebugUtilsMessengerEXT            debugMessenger;
+    VulkanPlatform                      vkplatform;
 
     LvnVector<LvnPhysicalDevice>        lvnPhysicalDevices;
     VkPhysicalDevice                    physicalDevice;
@@ -122,7 +138,7 @@ struct VulkanBackends
     VkCommandPool                       commandPool;
     VmaAllocator                        vmaAllocator;
 
-    LvnPipelineFixedFunctions           defaultPipelineSpecification;
+    LvnPipelineFixedFunctions           defaultPipelineFixedFuncs;
     bool                                gammaCorrect;
     uint32_t                            maxFramesInFlight;
     VkFormat                            frameBufferColorFormat;

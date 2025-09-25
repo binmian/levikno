@@ -21,12 +21,12 @@
 enum LvnEventType
 {
     Lvn_EventType_None = 0,
-    Lvn_EventType_AppTick,
-    Lvn_EventType_AppRender,
     Lvn_EventType_KeyPressed,
     Lvn_EventType_KeyReleased,
     Lvn_EventType_KeyHold,
     Lvn_EventType_KeyTyped,
+    Lvn_EventType_WindowCreated,
+    Lvn_EventType_WindowDestroy,
     Lvn_EventType_WindowClose,
     Lvn_EventType_WindowResize,
     Lvn_EventType_WindowFramebufferResize,
@@ -222,13 +222,21 @@ enum LvnMouseInputMode
 enum LvnWindowApi
 {
     Lvn_WindowApi_None = 0,
+    Lvn_WindowApi_Win32,
+    Lvn_WindowApi_Cocoa,
+    Lvn_WindowApi_Wayland,
+    Lvn_WindowApi_X11,
     Lvn_WindowApi_Glfw,
-    // Lvn_WindowApi_Win32,
+};
 
-    Lvn_WindowApi_glfw  = Lvn_WindowApi_Glfw,
-    Lvn_WindowApi_GLFW  = Lvn_WindowApi_Glfw,
-    // Lvn_WindowApi_win32 = Lvn_WindowApi_Win32,
-    // Lvn_WindowApi_WIN32 = Lvn_WindowApi_Win32,
+enum LvnGraphicsApi
+{
+    Lvn_GraphicsApi_None = 0,
+    Lvn_GraphicsApi_OpenGL,
+    Lvn_GraphicsApi_Vulkan,
+
+    Lvn_GraphicsApi_opengl = Lvn_GraphicsApi_OpenGL,
+    Lvn_GraphicsApi_vulkan = Lvn_GraphicsApi_Vulkan,
 };
 
 enum LvnPhysicalDeviceType
@@ -471,8 +479,6 @@ enum LvnAnimationPath
 
 struct LvnAnimation;
 struct LvnAnimationChannel;
-struct LvnAppRenderEvent;
-struct LvnAppTickEvent;
 struct LvnBuffer;
 struct LvnBufferCreateInfo;
 struct LvnCamera;
@@ -576,6 +582,7 @@ namespace lvn
     // -- window functions
     LVN_API LvnWindowApi                getWindowApi();
     LVN_API const char*                 getWindowApiName();
+    LVN_API LvnWindowApi                getNativeWindowApi();
 
     LVN_API LvnResult                   createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo);
     LVN_API void                        destroyWindow(LvnWindow* window);

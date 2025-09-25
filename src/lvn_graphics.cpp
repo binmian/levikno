@@ -1,3 +1,4 @@
+#include "lvn_graphics.h"
 #include "levikno.h"
 #include "lvn_graphics_internal.h"
 
@@ -85,9 +86,12 @@ const char* getWindowApiNameEnum(LvnWindowApi api)
 {
     switch (api)
     {
-        case Lvn_WindowApi_None:   { return "None"; }
-        case Lvn_WindowApi_glfw:   { return "glfw"; }
-        // case Lvn_WindowApi_win32: { return "win32"; }
+        case Lvn_WindowApi_None:    { return "None"; }
+        case Lvn_WindowApi_Glfw:    { return "glfw";  }
+        case Lvn_WindowApi_Win32:   { return "win32"; }
+        case Lvn_WindowApi_Cocoa:   { return "cocoa"; }
+        case Lvn_WindowApi_Wayland: { return "wayland"; }
+        case Lvn_WindowApi_X11:     { return "x11"; }
     }
 
     LVN_CORE_ERROR("unknown graphics api selected");
@@ -107,6 +111,10 @@ const char* getGraphicsApiNameEnum(LvnGraphicsApi api)
     return "";
 }
 
+void internalWindowEventCallbackFn(LvnWindow* window, LvnEvent* event)
+{
+    lvn::getGraphicsContext()->internalWindowListenEventFn(window, event);
+}
 
 LvnGraphicsApi getGraphicsApi()
 {
@@ -400,13 +408,21 @@ const char* getWindowApiName()
 {
     switch (lvn::getGraphicsContext()->windowapi)
     {
-        case Lvn_WindowApi_None:  { return "None";  }
-        case Lvn_WindowApi_glfw:  { return "glfw";  }
-        // case Lvn_WindowApi_win32: { return "win32"; }
+        case Lvn_WindowApi_None:    { return "None";  }
+        case Lvn_WindowApi_Glfw:    { return "glfw";  }
+        case Lvn_WindowApi_Win32:   { return "win32"; }
+        case Lvn_WindowApi_Cocoa:   { return "cocoa"; }
+        case Lvn_WindowApi_Wayland: { return "wayland"; }
+        case Lvn_WindowApi_X11:     { return "x11"; }
     }
 
     LVN_CORE_ERROR("unknown window api selected");
     return "";
+}
+
+LvnWindowApi getNativeWindowApi()
+{
+    return lvn::getGraphicsContext()->getNativeWindowApi();
 }
 
 LvnResult createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo)

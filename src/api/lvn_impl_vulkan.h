@@ -13,7 +13,6 @@ namespace lvn
     LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice);
     LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 
-    LvnResult createVulkanWindowSurfaceData(void* nativeWindow);
     LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
     LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
     LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
@@ -31,7 +30,7 @@ namespace lvn
     void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout);
     void vksImplDestroyPipeline(LvnPipeline* pipeline);
     void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer);
-    void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer);
+    void vksImplDestroyBuffer(LvnBuffer* buffer);
     void vksImplDestroySampler(LvnSampler* sampler);
     void vksImplDestroyTexture(LvnTexture* texture);
     void vksImplDestroyCubemap(LvnCubemap* cubemap);
@@ -64,6 +63,7 @@ namespace lvn
     void vksImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a);
 
     LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count);
+    void vksImplInternalWindowListenEventFn(LvnWindow* window, LvnEvent* event);
 }
 
 #endif /* !HG_LVN_VULKAN_H */

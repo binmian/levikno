@@ -1,8 +1,8 @@
 #include "lvn_impl_vulkan.h"
+#include "lvn_graphics.h"
 #include "lvn_impl_vulkan_backends.h"
 
 #include "lvn_graphics_internal.h"
-
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -15,6 +15,20 @@
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
+
+#ifdef LVN_INCLUDE_WIN32
+#   include <vulkan/vulkan_win32.h>
+#endif
+#ifdef LVN_INCLUDE_COCOA
+#   include <vulkan/vulkan_macos.h>
+#endif
+#ifdef LVN_INCLUDE_WAYLAND
+#   include <vulkan/vulkan_wayland.h>
+#endif
+#ifdef LVN_INCLUDE_X11_OWO
+#   include <vulkan/vulkan_xcb.h>
+#   include <vulkan/vulkan_xlib.h>
+#endif
 
 static const char* s_ValidationLayers[] =
 {
@@ -47,12 +61,15 @@ namespace vks
     static bool                                 checkValidationLayerSupport();
     static LvnResult                            setupDebugMessenger(VulkanBackends* vkBackends);
     static LvnVector<VkPhysicalDevice>          getPhysicalDevices(VkInstance instance);
-    static VkPhysicalDevice                     getBestPhysicalDevice(VkInstance instance, const LvnVector<VkPhysicalDevice>& physicalDevices);
+    static VkPhysicalDevice                     getBestPhysicalDevice(VkInstance instance, const LvnVector<VkPhysicalDevice>& physicalDevices, VkSurfaceKHR surface = VK_NULL_HANDLE);
     static VulkanQueueFamilyIndices             findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
     static bool                                 checkDeviceExtensionSupport(VkPhysicalDevice device);
+    static LvnResult                            createVulkanSurface(VkInstance instance, LvnWindow* window, VkSurfaceKHR* surface);
     static VulkanSwapChainSupportDetails        querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device);
-    static LvnResult                            createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface);
-    static LvnResult                            setupRenderInit(VulkanBackends* vkBackends, VkPhysicalDevice physicalDevice);
+    static LvnResult                            createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface = VK_NULL_HANDLE);
+    static LvnResult                            setupRenderInit(VulkanBackends* vkBackends, VkPhysicalDevice physicalDevice = VK_NULL_HANDLE, VkSurfaceKHR surface = VK_NULL_HANDLE);
+    static LvnResult                            createVulkanWindowSurfaceData(LvnWindow* window, VkSurfaceKHR surface);
+    static void                                 destroyVulkanWindowSurfaceData(LvnWindow* window);
     static VkFormat                             findSupportedFormat(VkPhysicalDevice physicalDevice, const VkFormat* candidates, uint32_t count, VkImageTiling tiling, VkFormatFeatureFlags features);
     static VkFormat                             findDepthFormat(VkPhysicalDevice physicalDevice);
     static bool                                 hasStencilComponent(VkFormat format);
@@ -68,10 +85,32 @@ namespace vks
     static LvnResult                            createCommandBuffers(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
     static LvnResult                            createSyncObjects(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData);
     static LvnResult                            createBuffer(VulkanBackends* vkBackends, VkBuffer* buffer, VmaAllocation* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage);
-    static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
+    static VulkanPipeline                       createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData);
     static LvnResult                            createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage);
     static void                                 transitionImageLayout(VulkanBackends* vkBackends, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
+    static void                                 copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset);
     static void                                 copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
+    static VkPrimitiveTopology                  getVulkanTopologyTypeEnum(LvnTopologyType topologyType);
+    static VkCullModeFlags                      getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode);
+    static VkFrontFace                          getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace);
+    static VkFormat                             getVulkanColorFormatEnum(LvnColorImageFormat format);
+    static VkFormat                             getVulkanDepthFormatEnum(LvnDepthImageFormat format);
+    static VkColorComponentFlags                getColorComponents(LvnPipelineColorWriteMask colorMask);
+    static VkBlendFactor                        getBlendFactorEnum(LvnColorBlendFactor blendFactor);
+    static VkBlendOp                            getBlendOperationEnum(LvnColorBlendOperation blendOp);
+    static VkCompareOp                          getCompareOpEnum(LvnCompareOperation compare);
+    static VkStencilOp                          getStencilOpEnum(LvnStencilOperation stencilOp);
+    static VkFormat                             getVertexAttributeFormatEnum(LvnAttributeFormat format);
+    static VkSampleCountFlagBits                getMaxUsableSampleCount(VulkanBackends* vkBackends);
+    static VkSampleCountFlagBits                getSampleCountFlagEnum(LvnSampleCount samples);
+    static uint32_t                             getSampleCountValue(VkSampleCountFlagBits samples);
+    static VkSampleCountFlagBits                getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples);
+    static VkDescriptorType                     getDescriptorTypeEnum(LvnDescriptorType type);
+    static VkBufferUsageFlags                   getUniformBufferTypeEnum(LvnBufferType type);
+    static VkShaderStageFlags                   getShaderStageFlagEnum(LvnShaderStage stage);
+    static VkFilter                             getTextureFilterEnum(LvnTextureFilter filter);
+    static VkSamplerAddressMode                 getTextureWrapModeEnum(LvnTextureMode mode);
+    static VkPipelineColorBlendAttachmentState  createColorAttachment();
 
     static VulkanBackends* getVulkanBackends()
     {
@@ -155,14 +194,57 @@ namespace vks
 
     static LvnVector<const char*> getRequiredExtensions(VulkanBackends* vkBackends)
     {
-        uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions;
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        uint32_t extensionCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        LvnVector<VkExtensionProperties> extensionsProps(extensionCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionsProps.data());
 
-        LvnVector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+        for (uint32_t i = 0; i < extensionCount; i++)
+        {
+            if (strcmp(extensionsProps[i].extensionName, "VK_KHR_surface") == 0)
+                vkBackends->vkplatform.extensions.surfaceSupport = true;
 
-        if (vkBackends->enableValidationLayers)
-            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            if (strcmp(extensionsProps[i].extensionName, "VK_KHR_win32_surface") == 0)
+                vkBackends->vkplatform.extensions.win32Support = true;
+
+            if (strcmp(extensionsProps[i].extensionName, "VK_EXT_metal_surface") == 0)
+                vkBackends->vkplatform.extensions.cocoaSupport = true;
+
+            if (strcmp(extensionsProps[i].extensionName, "VK_KHR_wayland_surface") == 0)
+                vkBackends->vkplatform.extensions.waylandSupport = true;
+
+            if (strcmp(extensionsProps[i].extensionName, "VK_KHR_xcb_surface") == 0)
+                vkBackends->vkplatform.extensions.x11xcbSupport = true;
+            else if (strcmp(extensionsProps[i].extensionName, "VK_KHR_xlib_surface") == 0)
+                vkBackends->vkplatform.extensions.x11libSupport = true;
+
+            if (vkBackends->enableValidationLayers && strcmp(extensionsProps[i].extensionName, "VK_EXT_debug_utils") == 0)
+                vkBackends->vkplatform.extensions.debugSupport = true;
+        }
+
+        LvnVector<const char*> extensions;
+
+        if (vkBackends->vkplatform.extensions.surfaceSupport)
+            extensions.push_back("VK_KHR_surface");
+
+        if (vkBackends->vkplatform.extensions.win32Support)
+            extensions.push_back("VK_KHR_win32_surface");
+
+        if (vkBackends->vkplatform.extensions.cocoaSupport)
+            extensions.push_back("VK_EXT_metal_surface");
+
+        if (vkBackends->vkplatform.extensions.waylandSupport)
+            extensions.push_back("VK_KHR_wayland_surface");
+
+        if (vkBackends->vkplatform.extensions.x11xcbSupport)
+            extensions.push_back("VK_KHR_xcb_surface");
+        else if (vkBackends->vkplatform.extensions.x11xcbSupport)
+            extensions.push_back("VK_KHR_xlib_surface");
+
+        if (vkBackends->vkplatform.extensions.surfaceSupport)
+            extensions.push_back("VK_EXT_debug_utils");
+
+        LVN_ASSERT(!extensions.empty(), "cannot retrieve vulkan instance extensions");
 
         return extensions;
     }
@@ -268,28 +350,20 @@ namespace vks
         return physicalDevices;
     }
 
-    static VkPhysicalDevice getBestPhysicalDevice(VkInstance instance, const LvnVector<VkPhysicalDevice>& physicalDevices)
+    static VkPhysicalDevice getBestPhysicalDevice(VkInstance instance, const LvnVector<VkPhysicalDevice>& physicalDevices, VkSurfaceKHR surface)
     {
-        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-        VkSurfaceKHR surface;
-        GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-
-        if (glfwCreateWindowSurface(instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
-        {
-            LVN_CORE_ERROR("[vulkan] check physical device support, failed to create temporary window surface at (%p) when checking physical device support", surface);
-            return VK_NULL_HANDLE;
-        }
-
         size_t bestScore = 0;
         VkPhysicalDevice bestDevice = VK_NULL_HANDLE;
 
         for (const auto& physicalDevice : physicalDevices)
         {
-            VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(physicalDevice, surface);
-
             // check queue families
-            if (!queueIndices.has_graphics || !queueIndices.has_present)
-                continue;
+            if (surface)
+            {
+                VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(physicalDevice, surface);
+                if (!queueIndices.has_graphics || !queueIndices.has_present)
+                    continue;
+            }
 
             // check device extension support
             if (!vks::checkDeviceExtensionSupport(physicalDevice))
@@ -321,10 +395,6 @@ namespace vks
             }
         }
 
-        vkDestroySurfaceKHR(instance, surface, nullptr);
-        glfwDestroyWindow(glfwWindow);
-        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-
         return bestDevice;
     }
 
@@ -348,7 +418,8 @@ namespace vks
             }
 
             VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+            if (surface)
+                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
             if (presentSupport)
             {
@@ -356,10 +427,10 @@ namespace vks
                 indices.has_present = true;
             }
 
-            if (indices.has_graphics && indices.has_present)
-            {
+            if (surface && indices.has_graphics && indices.has_present) // with surface, screen rendering
                 break;
-            }
+            if (!surface && indices.has_graphics) // no surface, offscreen rendering
+                break;
 
             i++;
         }
@@ -399,6 +470,28 @@ namespace vks
         return true;
     }
 
+    static LvnResult createVulkanSurface(VkInstance instance, LvnWindow* window, VkSurfaceKHR* surface)
+    {
+        if (!surface)
+            return Lvn_Result_Failure;
+
+        LvnGraphicsContext* graphicsctx = lvn::getGraphicsContext();
+
+#ifdef LVN_INCLUDE_WAYLAND
+        VkWaylandSurfaceCreateInfoKHR surfaceCreateInfo{};
+        surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+        surfaceCreateInfo.display = static_cast<wl_display*>(window->nativeWindowData.wl.display);
+        surfaceCreateInfo.surface = static_cast<wl_surface*>(window->nativeWindowData.wl.surface);
+        if (vkCreateWaylandSurfaceKHR(instance, &surfaceCreateInfo, nullptr, surface) != VK_SUCCESS)
+        {
+            LVN_CORE_ERROR("[vulkan] failed to create vulkan surface under wayland");
+            return Lvn_Result_Failure;
+        }
+#endif
+
+        return Lvn_Result_Success;
+    }
+
     static VulkanSwapChainSupportDetails querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device)
     {
         VulkanSwapChainSupportDetails details{};
@@ -428,18 +521,23 @@ namespace vks
 
     static LvnResult createLogicalDevice(VulkanBackends* vkBackends, VkSurfaceKHR surface)
     {
-        // Find queue families
+        // find queue families
         VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(vkBackends->physicalDevice, surface);
         vkBackends->deviceIndices = queueIndices;
 
-        // Check queue families
-        if (!queueIndices.has_graphics || !queueIndices.has_present)
+        // check queue families
+        if (!queueIndices.has_graphics)
         {
-            LVN_CORE_ERROR("[vulkan] failed to create logical device, physical device does not support queue families needed");
+            LVN_CORE_ERROR("[vulkan] failed to create logical device, physical device does not support graphics queue family");
+            return Lvn_Result_Failure;
+        }
+        if (surface && !queueIndices.has_present)
+        {
+            LVN_CORE_ERROR("[vulkan] failed to create logical device, physical device does not support present queue family");
             return Lvn_Result_Failure;
         }
 
-        // Check device extension support
+        // check device extension support
         if (!vks::checkDeviceExtensionSupport(vkBackends->physicalDevice))
         {
             LVN_CORE_ERROR("[vulkan] failed to create logical device, physical device does not support required extensions");
@@ -465,7 +563,7 @@ namespace vks
             queueCreateInfos.push_back(queueGraphicsCreateInfo);
         }
 
-        // Create Logical Device
+        // create logical device
         VkPhysicalDeviceFeatures deviceFeatures{};
 
         if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
@@ -475,9 +573,7 @@ namespace vks
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.queueCreateInfoCount = queueCreateInfos.size();
-
         createInfo.pEnabledFeatures = &deviceFeatures;
-
         createInfo.ppEnabledExtensionNames = s_DeviceExtensions;
         createInfo.enabledExtensionCount = ARRAY_LEN(s_DeviceExtensions);
 
@@ -495,14 +591,15 @@ namespace vks
             return Lvn_Result_Failure;
         }
 
-        // Get device queues
-        vkGetDeviceQueue(vkBackends->device, queueIndices.presentIndex, 0, &vkBackends->presentQueue);
+        // get device queues
         vkGetDeviceQueue(vkBackends->device, queueIndices.graphicsIndex, 0, &vkBackends->graphicsQueue);
+        if (surface)
+            vkGetDeviceQueue(vkBackends->device, queueIndices.presentIndex, 0, &vkBackends->presentQueue);
 
         return Lvn_Result_Success;
     }
 
-    static LvnResult setupRenderInit(VulkanBackends* vkBackends, VkPhysicalDevice physicalDevice)
+    static LvnResult setupRenderInit(VulkanBackends* vkBackends, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
     {
         if (vkBackends->device != VK_NULL_HANDLE)
             vkDeviceWaitIdle(vkBackends->device);
@@ -523,55 +620,39 @@ namespace vks
             vkBackends->device = VK_NULL_HANDLE;
         }
 
-        vkBackends->physicalDevice = physicalDevice;
+        if (!physicalDevice)
+        {
+            LvnVector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
+            physicalDevice = vks::getBestPhysicalDevice(vkBackends->instance, physicalDevices, surface);
+        }
 
+        vkBackends->physicalDevice = physicalDevice;
         VkPhysicalDeviceProperties physicalDeviceProperties{};
         vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
-        LVN_CORE_TRACE("[vulkan] physical device (GPU) selected for rendering: \"%s\", driverVersion: (%u), apiVersion: (%u)", physicalDeviceProperties.deviceName, physicalDeviceProperties.driverVersion, physicalDeviceProperties.apiVersion);
         vkBackends->deviceProperties = physicalDeviceProperties;
 
         VkPhysicalDeviceFeatures supportedFeatures;
         vkGetPhysicalDeviceFeatures(vkBackends->physicalDevice, &supportedFeatures);
         vkBackends->deviceSupportedFeatures = supportedFeatures;
 
-        // create dummy window and surface to get device queue indices support
-        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-        VkSurfaceKHR surface;
-        GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-
-        if (glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
-        {
-            LVN_CORE_ERROR("[vulkan] failed to create temporary window surface at (%p)", surface);
-            vkDestroyDevice(vkBackends->device, nullptr);
-            return Lvn_Result_Failure;
-        }
-
         // create logical device once
         if (vks::createLogicalDevice(vkBackends, surface) != Lvn_Result_Success)
         {
-            vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
-            glfwDestroyWindow(glfwWindow);
-            glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
             vkDestroyDevice(vkBackends->device, nullptr);
             return Lvn_Result_Failure;
         }
 
-        // get and check swap chain specs
-        VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surface, vkBackends->physicalDevice);
-        if (swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty())
+        // check swap chain present support
+        if (surface)
         {
-            LVN_CORE_ERROR("[vulkan] selected physical device does not have supported swap chain formats or present modes");
-            vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
-            glfwDestroyWindow(glfwWindow);
-            glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-            vkDestroyDevice(vkBackends->device, nullptr);
-            return Lvn_Result_Failure;
+            VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surface, vkBackends->physicalDevice);
+            if (swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty())
+            {
+                LVN_CORE_ERROR("[vulkan] selected physical device does not have supported swap chain formats or present modes");
+                vkDestroyDevice(vkBackends->device, nullptr);
+                return Lvn_Result_Failure;
+            }
         }
-
-        // destroy dummy window and surface
-        vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
-        glfwDestroyWindow(glfwWindow);
-        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
         // create general command pool
         VkCommandPoolCreateInfo poolInfo{};
@@ -601,6 +682,88 @@ namespace vks
         }
 
         return Lvn_Result_Success;
+    }
+
+    static LvnResult createVulkanWindowSurfaceData(LvnWindow* window, VkSurfaceKHR surface)
+    {
+        VulkanBackends* vkBackends = s_VkBackends;
+
+        GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window->nativeWindow);
+        window->apiData = lvn::memNew<VulkanWindowSurfaceData>();
+        VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+        surfaceData->surface = surface;
+
+        bool vSync = window->vSync;
+
+        // get and check swap chain specs
+        VulkanSwapChainSupportDetails swapChainSupport = vks::querySwapChainSupport(surfaceData->surface, vkBackends->physicalDevice);
+        LVN_ASSERT(!swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty(), "[vulkan] device does not have supported swap chain formats or present modes");
+
+        VkSurfaceFormatKHR surfaceFormat = vks::chooseSwapSurfaceFormat(vkBackends, swapChainSupport.formats.data(), swapChainSupport.formats.size());
+        VkPresentModeKHR presentMode = vks::chooseSwapPresentMode(swapChainSupport.presentModes.data(), swapChainSupport.presentModes.size(), vSync);
+        VkExtent2D extent = vks::chooseSwapExtent(glfwWindow, &swapChainSupport.capabilities);
+
+        vks::createSwapChain(vkBackends, surfaceData, swapChainSupport, surfaceFormat, presentMode, extent);
+        vks::createImageViews(vkBackends, surfaceData);
+        vks::createDepthResources(vkBackends, surfaceData);
+        vks::createRenderPass(vkBackends, surfaceData, surfaceFormat.format);
+        vks::createFrameBuffers(vkBackends, surfaceData);
+        vks::createCommandBuffers(vkBackends, surfaceData);
+        vks::createSyncObjects(vkBackends, surfaceData);
+
+        return Lvn_Result_Success;
+    }
+
+    static void destroyVulkanWindowSurfaceData(LvnWindow* window)
+    {
+        if (!window->apiData) { return; }
+
+        VulkanBackends* vkBackends = s_VkBackends;
+        VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+
+        vkDeviceWaitIdle(vkBackends->device);
+
+        // sync objects
+        for (uint32_t i = 0; i < vkBackends->maxFramesInFlight; i++)
+        {
+            vkDestroySemaphore(vkBackends->device, surfaceData->imageAvailableSemaphores[i], nullptr);
+            vkDestroyFence(vkBackends->device, surfaceData->inFlightFences[i], nullptr);
+        }
+        for (uint32_t i = 0; i < surfaceData->renderFinishedSemaphores.size(); i++)
+        {
+            vkDestroySemaphore(vkBackends->device, surfaceData->renderFinishedSemaphores[i], nullptr);
+        }
+
+        // swap chain images
+        for (uint32_t i = 0; i < surfaceData->swapChainImageViews.size(); i++)
+        {
+            vkDestroyImageView(vkBackends->device, surfaceData->swapChainImageViews[i], nullptr);
+        }
+
+        vkDestroyImageView(vkBackends->device, surfaceData->depthImageView, nullptr);
+        vkDestroyImage(vkBackends->device, surfaceData->depthImage, nullptr);
+        vmaFreeMemory(vkBackends->vmaAllocator, surfaceData->depthImageMemory);
+
+        // command pool
+        vkDestroyCommandPool(vkBackends->device, surfaceData->commandPool, nullptr);
+
+        // frame buffers
+        for (uint32_t i = 0; i < surfaceData->frameBuffers.size(); i++)
+        {
+            vkDestroyFramebuffer(vkBackends->device, surfaceData->frameBuffers[i], nullptr);
+        }
+
+        // swap chain
+        vkDestroySwapchainKHR(vkBackends->device, surfaceData->swapChain, nullptr);
+
+        // render pass
+        vkDestroyRenderPass(vkBackends->device, surfaceData->renderPass, nullptr);
+
+        // window surface
+        vkDestroySurfaceKHR(vkBackends->instance, surfaceData->surface, nullptr);
+
+        VulkanWindowSurfaceData* windowSurfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
+        lvn::memDelete<VulkanWindowSurfaceData>(windowSurfaceData);
     }
 
     static VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const VkFormat* candidates, uint32_t count, VkImageTiling tiling, VkFormatFeatureFlags features)
@@ -721,9 +884,7 @@ namespace vks
         for (uint32_t i = 0; i < count; i++)
         {
             if (pAvailablePresentModes[i] == presentMode)
-            {
                 return pAvailablePresentModes[i];
-            }
         }
 
         return VK_PRESENT_MODE_FIFO_KHR;
@@ -732,9 +893,7 @@ namespace vks
     static VkExtent2D chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities)
     {
         if (capabilities->currentExtent.width != UINT32_MAX)
-        {
             return capabilities->currentExtent;
-        }
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
@@ -751,9 +910,7 @@ namespace vks
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 
         if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
-        {
             imageCount = swapChainSupport.capabilities.maxImageCount;
-        }
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -800,7 +957,7 @@ namespace vks
         }
 
         surfaceData->swapChainImages.resize(imageCount);
-        if (vkGetSwapchainImagesKHR(vkBackends->device, surfaceData->swapChain, &imageCount, surfaceData->swapChainImages.data()) == VK_SUCCESS)
+        if (vkGetSwapchainImagesKHR(vkBackends->device, surfaceData->swapChain, &imageCount, surfaceData->swapChainImages.data()) != VK_SUCCESS)
         {
             LVN_CORE_ERROR("[vulkan] failed to get swap chain image count");
             return Lvn_Result_Failure;
@@ -844,9 +1001,7 @@ namespace vks
         surfaceData->swapChainImageViews.resize(surfaceData->swapChainImages.size());
 
         for (size_t i = 0; i < surfaceData->swapChainImageViews.size(); i++)
-        {
             surfaceData->swapChainImageViews[i] = vks::createImageView(vkBackends->device, surfaceData->swapChainImages[i], surfaceData->swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-        }
     }
 
     static void createDepthResources(VulkanBackends* vkBackends, VulkanWindowSurfaceData* surfaceData)
@@ -980,40 +1135,166 @@ namespace vks
         return Lvn_Result_Success;
     }
 
-    void copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset)
+    static VulkanPipeline createVulkanPipeline(VulkanBackends* vkBackends, VulkanPipelineCreateData* createData)
     {
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = vkBackends->commandPool;
-        allocInfo.commandBufferCount = 1;
+        VulkanPipeline pipeline{};
 
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(vkBackends->device, &allocInfo, &commandBuffer);
+        LvnPipelineFixedFunctions* pipelineSpecification = createData->pipelineFixedFuncs;
 
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+        inputAssembly.topology = vks::getVulkanTopologyTypeEnum(pipelineSpecification->inputAssembly.topology);
+        inputAssembly.primitiveRestartEnable = pipelineSpecification->inputAssembly.primitiveRestartEnable;
 
-        VkBufferCopy copyRegion{};
-        copyRegion.size = size;
-        copyRegion.srcOffset = srcOffset;
-        copyRegion.dstOffset = dstOffset;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+        LvnVector<VkDynamicState> dynamicStates;
+        dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+        dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
-        vkEndCommandBuffer(commandBuffer);
+        if (pipelineSpecification->depthstencil.enableStencil)
+        {
+            dynamicStates.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
+            dynamicStates.push_back(VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK);
+            dynamicStates.push_back(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK);
+        }
 
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
+        VkPipelineDynamicStateCreateInfo dynamicState{};
+        dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+        dynamicState.pDynamicStates = dynamicStates.data();
 
-        vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(vkBackends->graphicsQueue);
+        VkPipelineViewportStateCreateInfo viewportState{};
+        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportState.viewportCount = 1;
+        viewportState.scissorCount = 1;
 
-        vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
+        VkPipelineRasterizationStateCreateInfo rasterizer{};
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizer.depthClampEnable = pipelineSpecification->rasterizer.depthClampEnable;
+        rasterizer.rasterizerDiscardEnable = pipelineSpecification->rasterizer.rasterizerDiscardEnable;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = pipelineSpecification->rasterizer.lineWidth;
+        rasterizer.cullMode = vks::getVulkanCullModeFlagEnum(pipelineSpecification->rasterizer.cullMode);
+        rasterizer.frontFace = vks::getVulkanCullFrontFaceEnum(pipelineSpecification->rasterizer.frontFace);
+        rasterizer.depthBiasEnable = pipelineSpecification->rasterizer.depthBiasEnable;
+        rasterizer.depthBiasConstantFactor = pipelineSpecification->rasterizer.depthBiasConstantFactor; // Optional
+        rasterizer.depthBiasClamp = pipelineSpecification->rasterizer.depthBiasClamp; // Optional
+        rasterizer.depthBiasSlopeFactor = pipelineSpecification->rasterizer.depthBiasSlopeFactor; // Optional
+
+        VkPipelineMultisampleStateCreateInfo multisampling{};
+        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampling.sampleShadingEnable = pipelineSpecification->multisampling.sampleShadingEnable;
+        multisampling.rasterizationSamples = vks::getSupportedSampleCount(vkBackends, pipelineSpecification->multisampling.rasterizationSamples);
+        multisampling.minSampleShading = pipelineSpecification->multisampling.minSampleShading; // Optional
+        multisampling.pSampleMask = pipelineSpecification->multisampling.sampleMask; // Optional
+        multisampling.alphaToCoverageEnable = pipelineSpecification->multisampling.alphaToCoverageEnable; // Optional
+        multisampling.alphaToOneEnable = pipelineSpecification->multisampling.alphaToOneEnable; // Optional
+
+        LvnVector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+
+        if (pipelineSpecification->colorBlend.colorBlendAttachmentCount == 0 || pipelineSpecification->colorBlend.pColorBlendAttachments == nullptr)
+        {
+            colorBlendAttachments.push_back(vks::createColorAttachment());
+        }
+        else
+        {
+            for (uint32_t i = 0; i < pipelineSpecification->colorBlend.colorBlendAttachmentCount; i++)
+            {
+                LvnPipelineColorBlendAttachment attachment = pipelineSpecification->colorBlend.pColorBlendAttachments[i];
+
+                VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+                colorBlendAttachment.colorWriteMask = vks::getColorComponents(attachment.colorWriteMask);
+                colorBlendAttachment.blendEnable = attachment.blendEnable;
+                colorBlendAttachment.srcColorBlendFactor = vks::getBlendFactorEnum(attachment.srcColorBlendFactor);
+                colorBlendAttachment.dstColorBlendFactor = vks::getBlendFactorEnum(attachment.dstColorBlendFactor);
+                colorBlendAttachment.colorBlendOp = vks::getBlendOperationEnum(attachment.colorBlendOp);
+                colorBlendAttachment.srcAlphaBlendFactor = vks::getBlendFactorEnum(attachment.srcAlphaBlendFactor);
+                colorBlendAttachment.dstAlphaBlendFactor = vks::getBlendFactorEnum(attachment.dstAlphaBlendFactor);
+                colorBlendAttachment.alphaBlendOp = vks::getBlendOperationEnum(attachment.alphaBlendOp);
+
+                colorBlendAttachments.push_back(colorBlendAttachment);
+            }
+        }
+
+        VkPipelineColorBlendStateCreateInfo colorBlending{};
+        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlending.logicOpEnable = pipelineSpecification->colorBlend.logicOpEnable;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
+        colorBlending.attachmentCount = static_cast<uint32_t>(colorBlendAttachments.size());
+        colorBlending.pAttachments = colorBlendAttachments.data();
+        colorBlending.blendConstants[0] = pipelineSpecification->colorBlend.blendConstants[0]; // Optional
+        colorBlending.blendConstants[1] = pipelineSpecification->colorBlend.blendConstants[1]; // Optional
+        colorBlending.blendConstants[2] = pipelineSpecification->colorBlend.blendConstants[2]; // Optional
+        colorBlending.blendConstants[3] = pipelineSpecification->colorBlend.blendConstants[3]; // Optional
+
+        VkPipelineDepthStencilStateCreateInfo depthStencil{};
+        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depthStencil.depthTestEnable = pipelineSpecification->depthstencil.enableDepth ? VK_TRUE : VK_FALSE;
+        depthStencil.depthWriteEnable = pipelineSpecification->depthstencil.enableDepth ? VK_TRUE : VK_FALSE;
+        depthStencil.depthCompareOp = vks::getCompareOpEnum(pipelineSpecification->depthstencil.depthOpCompare);
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.minDepthBounds = 0.0f; // Optional
+        depthStencil.maxDepthBounds = 1.0f; // Optional
+        depthStencil.stencilTestEnable = pipelineSpecification->depthstencil.enableStencil ? VK_TRUE : VK_FALSE;
+        depthStencil.back.compareMask = pipelineSpecification->depthstencil.stencil.compareMask;
+        depthStencil.back.writeMask = pipelineSpecification->depthstencil.stencil.writeMask;
+        depthStencil.back.reference = pipelineSpecification->depthstencil.stencil.reference;
+        depthStencil.back.compareOp = vks::getCompareOpEnum(pipelineSpecification->depthstencil.stencil.compareOp);
+        depthStencil.back.depthFailOp = vks::getStencilOpEnum(pipelineSpecification->depthstencil.stencil.depthFailOp);
+        depthStencil.back.failOp = vks::getStencilOpEnum(pipelineSpecification->depthstencil.stencil.failOp);
+        depthStencil.back.passOp = vks::getStencilOpEnum(pipelineSpecification->depthstencil.stencil.passOp);
+        depthStencil.front = depthStencil.back;
+
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+        if (createData->descriptorSetLayoutCount != 0)
+        {
+            pipelineLayoutInfo.setLayoutCount = createData->descriptorSetLayoutCount;
+            pipelineLayoutInfo.pSetLayouts = createData->pDescrptorSetLayouts;
+        }
+        else
+        {
+            pipelineLayoutInfo.setLayoutCount = 0;
+            pipelineLayoutInfo.pSetLayouts = nullptr;
+        }
+
+        if (createData->pushConstantCount != 0)
+        {
+            pipelineLayoutInfo.pushConstantRangeCount = createData->pushConstantCount;
+            pipelineLayoutInfo.pPushConstantRanges = createData->pPushConstants;
+        }
+        else
+        {
+            pipelineLayoutInfo.pushConstantRangeCount = 0;
+            pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        }
+
+        VkResult result = vkCreatePipelineLayout(vkBackends->device, &pipelineLayoutInfo, nullptr, &pipeline.pipelineLayout);
+        LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to create pipeline layout!");
+
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.renderPass = createData->renderPass;
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = createData->shaderStages;
+        pipelineInfo.pVertexInputState = &createData->vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = &depthStencil;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+        pipelineInfo.layout = pipeline.pipelineLayout;
+        pipelineInfo.subpass = 0;
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineInfo.basePipelineIndex = -1;
+
+        result = vkCreateGraphicsPipelines(vkBackends->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.pipeline);
+        LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to create graphics pipeline!");
+
+        return pipeline;
     }
 
     static LvnResult createImage(VulkanBackends* vkBackends, VkImage* image, VmaAllocation* imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VmaMemoryUsage memUsage)
@@ -1134,6 +1415,43 @@ namespace vks
         vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
     }
 
+    void copyBuffer(VulkanBackends* vkBackends, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset)
+    {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = vkBackends->commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(vkBackends->device, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        VkBufferCopy copyRegion{};
+        copyRegion.size = size;
+        copyRegion.srcOffset = srcOffset;
+        copyRegion.dstOffset = dstOffset;
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(vkBackends->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(vkBackends->graphicsQueue);
+
+        vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
+    }
+
+
     static void copyBufferToImage(VulkanBackends* vkBackends, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount)
     {
         VkCommandBufferAllocateInfo allocInfo{};
@@ -1180,6 +1498,412 @@ namespace vks
         vkFreeCommandBuffers(vkBackends->device, vkBackends->commandPool, 1, &commandBuffer);
     }
 
+    static VkPrimitiveTopology getVulkanTopologyTypeEnum(LvnTopologyType topologyType)
+    {
+        switch (topologyType)
+        {
+            case Lvn_TopologyType_Point: { return VK_PRIMITIVE_TOPOLOGY_POINT_LIST; }
+            case Lvn_TopologyType_Line: { return VK_PRIMITIVE_TOPOLOGY_LINE_LIST; }
+            case Lvn_TopologyType_LineStrip: { return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP; }
+            case Lvn_TopologyType_Triangle: { return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; }
+            case Lvn_TopologyType_TriangleStrip: { return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP; }
+            default:
+            {
+                LVN_CORE_WARN("unknown topology type enum (%d), setting to triangle topology type (default)", topologyType);
+                return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            }
+        }
+    }
+
+    static VkCullModeFlags getVulkanCullModeFlagEnum(LvnCullFaceMode cullFaceMode)
+    {
+        switch (cullFaceMode)
+        {
+            case Lvn_CullFaceMode_Disable: { return VK_CULL_MODE_NONE; }
+            case Lvn_CullFaceMode_Front: { return VK_CULL_MODE_FRONT_BIT; }
+            case Lvn_CullFaceMode_Back: { return VK_CULL_MODE_BACK_BIT; }
+            case Lvn_CullFaceMode_Both: { return VK_CULL_MODE_FRONT_AND_BACK; }
+            default:
+            {
+                LVN_CORE_WARN("unknown cull face mode enum (%d), setting to cull face mode none (default)", cullFaceMode);
+                return VK_CULL_MODE_NONE;
+            }
+        }
+    }
+
+    static VkFrontFace getVulkanCullFrontFaceEnum(LvnCullFrontFace cullFrontFace)
+    {
+        switch (cullFrontFace)
+        {
+            case Lvn_CullFrontFace_Clockwise: { return VK_FRONT_FACE_CLOCKWISE; }
+            case Lvn_CullFrontFace_CounterClockwise: { return VK_FRONT_FACE_COUNTER_CLOCKWISE; }
+            default:
+            {
+                LVN_CORE_WARN("unknown cull front face enum (%d), setting to cull front face clockwise (default)", cullFrontFace);
+                return VK_FRONT_FACE_CLOCKWISE;
+            }
+        }
+
+    }
+
+    static VkFormat getVulkanColorFormatEnum(LvnColorImageFormat format)
+    {
+        switch (format)
+        {
+            case Lvn_ColorImageFormat_None: { return VK_FORMAT_UNDEFINED; }
+            case Lvn_ColorImageFormat_RGB: { return VK_FORMAT_R8G8B8_UNORM; }
+            case Lvn_ColorImageFormat_RGBA: { return VK_FORMAT_R8G8B8A8_UNORM; }
+            case Lvn_ColorImageFormat_RGBA8: { return VK_FORMAT_R8G8B8A8_UNORM; }
+            case Lvn_ColorImageFormat_RGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+            case Lvn_ColorImageFormat_RGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+            case Lvn_ColorImageFormat_SRGB: { return VK_FORMAT_R8G8B8_SRGB; }
+            case Lvn_ColorImageFormat_SRGBA: { return VK_FORMAT_R8G8B8A8_SRGB; }
+            case Lvn_ColorImageFormat_SRGBA8: { return VK_FORMAT_R8G8B8A8_SRGB; }
+            case Lvn_ColorImageFormat_SRGBA16F: { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+            case Lvn_ColorImageFormat_SRGBA32F: { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+            case Lvn_ColorImageFormat_RedInt: { return VK_FORMAT_R8_SINT; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown image format enum (%d), setting image format to undefined", format);
+                return VK_FORMAT_UNDEFINED;
+            }
+        }
+    }
+
+    static VkFormat getVulkanDepthFormatEnum(LvnDepthImageFormat format)
+    {
+        switch (format)
+        {
+            case Lvn_DepthImageFormat_Depth16: { return VK_FORMAT_D16_UNORM; }
+            case Lvn_DepthImageFormat_Depth32: { return VK_FORMAT_D32_SFLOAT; }
+            case Lvn_DepthImageFormat_Depth24Stencil8: { return VK_FORMAT_D24_UNORM_S8_UINT; }
+            case Lvn_DepthImageFormat_Depth32Stencil8: { return VK_FORMAT_D32_SFLOAT_S8_UINT; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown image format enum (%u), image format must be a depth component format", format);
+                return VK_FORMAT_UNDEFINED;
+            }
+        }
+    }
+
+    static VkColorComponentFlags getColorComponents(LvnPipelineColorWriteMask colorMask)
+    {
+        VkColorComponentFlags colorComponentsFlag = 0;
+
+        if (colorMask.colorComponentR) colorComponentsFlag |= VK_COLOR_COMPONENT_R_BIT;
+        if (colorMask.colorComponentG) colorComponentsFlag |= VK_COLOR_COMPONENT_G_BIT;
+        if (colorMask.colorComponentB) colorComponentsFlag |= VK_COLOR_COMPONENT_B_BIT;
+        if (colorMask.colorComponentA) colorComponentsFlag |= VK_COLOR_COMPONENT_A_BIT;
+
+        return colorComponentsFlag;
+    }
+
+    static VkBlendFactor getBlendFactorEnum(LvnColorBlendFactor blendFactor)
+    {
+        switch (blendFactor)
+        {
+            case Lvn_ColorBlendFactor_Zero: { return VK_BLEND_FACTOR_ZERO; }
+            case Lvn_ColorBlendFactor_One: { return VK_BLEND_FACTOR_ONE; }
+            case Lvn_ColorBlendFactor_SrcColor: { return VK_BLEND_FACTOR_SRC_COLOR; }
+            case Lvn_ColorBlendFactor_OneMinusSrcColor: { return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR; }
+            case Lvn_ColorBlendFactor_DstColor: { return VK_BLEND_FACTOR_DST_COLOR; }
+            case Lvn_ColorBlendFactor_OneMinusDstColor: { return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR; }
+            case Lvn_ColorBlendFactor_SrcAlpha: { return VK_BLEND_FACTOR_SRC_ALPHA; }
+            case Lvn_ColorBlendFactor_OneMinusSrcAlpha: { return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; }
+            case Lvn_ColorBlendFactor_DstAlpha: { return VK_BLEND_FACTOR_DST_ALPHA; }
+            case Lvn_ColorBlendFactor_OneMinusDstAlpha: { return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA; }
+            case Lvn_ColorBlendFactor_ConstantColor: { return VK_BLEND_FACTOR_CONSTANT_COLOR; }
+            case Lvn_ColorBlendFactor_OneMinusConstantColor: { return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR; }
+            case Lvn_ColorBlendFactor_ConstantAlpha: { return VK_BLEND_FACTOR_CONSTANT_ALPHA; }
+            case Lvn_ColorBlendFactor_OneMinusConstantAlpha: { return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA; }
+            case Lvn_ColorBlendFactor_SrcAlphaSaturate: { return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE; }
+            case Lvn_ColorBlendFactor_Src1Color: { return VK_BLEND_FACTOR_SRC1_COLOR; }
+            case Lvn_ColorBlendFactor_OneMinusSrc1Color: { return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR; }
+            case Lvn_ColorBlendFactor_Src1_Alpha: { return VK_BLEND_FACTOR_SRC1_ALPHA; }
+            case Lvn_ColorBlendFactor_OneMinusSrc1Alpha: { return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA; }
+            default:
+            {
+                LVN_CORE_WARN("unknown blend factor enum (%d), setting to blend factor zero (default)", blendFactor);
+                return VK_BLEND_FACTOR_ZERO;
+            }
+        }
+    }
+
+    static VkBlendOp getBlendOperationEnum(LvnColorBlendOperation blendOp)
+    {
+        switch (blendOp)
+        {
+            case Lvn_ColorBlendOp_Add: { return VK_BLEND_OP_ADD; }
+            case Lvn_ColorBlendOp_Subtract: { return VK_BLEND_OP_SUBTRACT; }
+            case Lvn_ColorBlendOp_ReverseSubtract: { return VK_BLEND_OP_REVERSE_SUBTRACT; }
+            case Lvn_ColorBlendOp_Min: { return VK_BLEND_OP_MIN; }
+            case Lvn_ColorBlendOp_Max: { return VK_BLEND_OP_MAX; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown blend operation enum (%d), setting to blend operation enum add (default)", blendOp);
+                return VK_BLEND_OP_ADD;
+            }
+        }
+    }
+
+    static VkCompareOp getCompareOpEnum(LvnCompareOperation compare)
+    {
+        switch (compare)
+        {
+            case Lvn_CompareOp_Never: { return VK_COMPARE_OP_NEVER; }
+            case Lvn_CompareOp_Less: { return VK_COMPARE_OP_LESS; }
+            case Lvn_CompareOp_Equal: { return VK_COMPARE_OP_EQUAL; }
+            case Lvn_CompareOp_LessOrEqual: { return VK_COMPARE_OP_LESS_OR_EQUAL; }
+            case Lvn_CompareOp_Greater: { return VK_COMPARE_OP_GREATER; }
+            case Lvn_CompareOp_NotEqual: { return VK_COMPARE_OP_NOT_EQUAL; }
+            case Lvn_CompareOp_GreaterOrEqual: { return VK_COMPARE_OP_GREATER_OR_EQUAL; }
+            case Lvn_CompareOp_Always: { return VK_COMPARE_OP_ALWAYS; }
+            default:
+            {
+                LVN_CORE_WARN("unknown compare enum (%d), setting to compare enum never", compare);
+                return VK_COMPARE_OP_NEVER;
+            }
+        }
+    }
+
+    static VkStencilOp getStencilOpEnum(LvnStencilOperation stencilOp)
+    {
+        switch (stencilOp)
+        {
+            case Lvn_StencilOp_Keep: { return VK_STENCIL_OP_KEEP; }
+            case Lvn_StencilOp_Zero: { return VK_STENCIL_OP_ZERO; }
+            case Lvn_StencilOp_Replace: { return VK_STENCIL_OP_REPLACE; }
+            case Lvn_StencilOp_IncrementAndClamp: { return VK_STENCIL_OP_INCREMENT_AND_CLAMP; }
+            case Lvn_StencilOp_DecrementAndClamp: { return VK_STENCIL_OP_DECREMENT_AND_CLAMP; }
+            case Lvn_StencilOp_Invert: { return VK_STENCIL_OP_INVERT; }
+            case Lvn_StencilOp_IncrementAndWrap: { return VK_STENCIL_OP_INCREMENT_AND_WRAP; }
+            case Lvn_StencilOp_DecrementAndWrap: { return VK_STENCIL_OP_DECREMENT_AND_WRAP; }
+            default:
+            {
+                LVN_CORE_WARN("unknown stencil operation enum (%d), setting to stencil operation enum keep (default)", stencilOp);
+                return VK_STENCIL_OP_KEEP;
+            }
+        }
+    }
+
+    static VkFormat getVertexAttributeFormatEnum(LvnAttributeFormat format)
+    {
+        switch (format)
+        {
+            case Lvn_AttributeFormat_Undefined:        { return VK_FORMAT_UNDEFINED; }
+            case Lvn_AttributeFormat_Scalar_f32:       { return VK_FORMAT_R32_SFLOAT; }
+            case Lvn_AttributeFormat_Scalar_f64:       { return VK_FORMAT_R64_SFLOAT; }
+            case Lvn_AttributeFormat_Scalar_i32:       { return VK_FORMAT_R32_SINT; }
+            case Lvn_AttributeFormat_Scalar_ui32:      { return VK_FORMAT_R32_UINT; }
+            case Lvn_AttributeFormat_Scalar_i8:        { return VK_FORMAT_R8_SINT; }
+            case Lvn_AttributeFormat_Scalar_ui8:       { return VK_FORMAT_R8_UINT; }
+            case Lvn_AttributeFormat_Vec2_f32:         { return VK_FORMAT_R32G32_SFLOAT; }
+            case Lvn_AttributeFormat_Vec3_f32:         { return VK_FORMAT_R32G32B32_SFLOAT; }
+            case Lvn_AttributeFormat_Vec4_f32:         { return VK_FORMAT_R32G32B32A32_SFLOAT; }
+            case Lvn_AttributeFormat_Vec2_f64:         { return VK_FORMAT_R64G64_SFLOAT; }
+            case Lvn_AttributeFormat_Vec3_f64:         { return VK_FORMAT_R64G64B64_SFLOAT; }
+            case Lvn_AttributeFormat_Vec4_f64:         { return VK_FORMAT_R64G64B64A64_SFLOAT; }
+            case Lvn_AttributeFormat_Vec2_i32:         { return VK_FORMAT_R32G32_SINT; }
+            case Lvn_AttributeFormat_Vec3_i32:         { return VK_FORMAT_R32G32B32_SINT; }
+            case Lvn_AttributeFormat_Vec4_i32:         { return VK_FORMAT_R32G32B32A32_SINT; }
+            case Lvn_AttributeFormat_Vec2_ui32:        { return VK_FORMAT_R32G32_UINT; }
+            case Lvn_AttributeFormat_Vec3_ui32:        { return VK_FORMAT_R32G32B32_UINT; }
+            case Lvn_AttributeFormat_Vec4_ui32:        { return VK_FORMAT_R32G32B32A32_UINT; }
+            case Lvn_AttributeFormat_Vec2_i8:          { return VK_FORMAT_R8G8_SINT; }
+            case Lvn_AttributeFormat_Vec3_i8:          { return VK_FORMAT_R8G8B8_SINT; }
+            case Lvn_AttributeFormat_Vec4_i8:          { return VK_FORMAT_R8G8B8A8_SINT; }
+            case Lvn_AttributeFormat_Vec2_ui8:         { return VK_FORMAT_R8G8_UINT; }
+            case Lvn_AttributeFormat_Vec3_ui8:         { return VK_FORMAT_R8G8B8_UINT; }
+            case Lvn_AttributeFormat_Vec4_ui8:         { return VK_FORMAT_R8G8B8A8_UINT; }
+            case Lvn_AttributeFormat_Vec2_n8:          { return VK_FORMAT_R8G8_SNORM; }
+            case Lvn_AttributeFormat_Vec3_n8:          { return VK_FORMAT_R8G8B8_SNORM; }
+            case Lvn_AttributeFormat_Vec4_n8:          { return VK_FORMAT_R8G8B8A8_SNORM; }
+            case Lvn_AttributeFormat_Vec2_un8:         { return VK_FORMAT_R8G8_UNORM; }
+            case Lvn_AttributeFormat_Vec3_un8:         { return VK_FORMAT_R8G8B8_UNORM; }
+            case Lvn_AttributeFormat_Vec4_un8:         { return VK_FORMAT_R8G8B8A8_UNORM; }
+            case Lvn_AttributeFormat_2_10_10_10_ile:   { return VK_FORMAT_A2B10G10R10_SINT_PACK32; }
+            case Lvn_AttributeFormat_2_10_10_10_uile:  { return VK_FORMAT_A2B10G10R10_UINT_PACK32; }
+            case Lvn_AttributeFormat_2_10_10_10_nle:   { return VK_FORMAT_A2B10G10R10_SNORM_PACK32; }
+            case Lvn_AttributeFormat_2_10_10_10_unle:  { return VK_FORMAT_A2B10G10R10_UNORM_PACK32; }
+
+            default:
+            {
+                LVN_CORE_WARN("uknown vertex attribute format type enum (%d), setting to format type undefined", format);
+                return VK_FORMAT_UNDEFINED;
+            }
+        }
+    }
+
+    static VkSampleCountFlagBits getMaxUsableSampleCount(VulkanBackends* vkBackends)
+    {
+        VkPhysicalDeviceProperties physicalDeviceProperties;
+        vkGetPhysicalDeviceProperties(vkBackends->physicalDevice, &physicalDeviceProperties);
+
+        VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+        if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+        if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+        if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+        if (counts & VK_SAMPLE_COUNT_8_BIT)  { return VK_SAMPLE_COUNT_8_BIT; }
+        if (counts & VK_SAMPLE_COUNT_4_BIT)  { return VK_SAMPLE_COUNT_4_BIT; }
+        if (counts & VK_SAMPLE_COUNT_2_BIT)  { return VK_SAMPLE_COUNT_2_BIT; }
+
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+
+    static VkSampleCountFlagBits getSampleCountFlagEnum(LvnSampleCount samples)
+    {
+        switch (samples)
+        {
+            case Lvn_SampleCount_1_Bit: { return VK_SAMPLE_COUNT_1_BIT; }
+            case Lvn_SampleCount_2_Bit: { return VK_SAMPLE_COUNT_2_BIT; }
+            case Lvn_SampleCount_4_Bit: { return VK_SAMPLE_COUNT_4_BIT; }
+            case Lvn_SampleCount_8_Bit: { return VK_SAMPLE_COUNT_8_BIT; }
+            case Lvn_SampleCount_16_Bit: { return VK_SAMPLE_COUNT_16_BIT; }
+            case Lvn_SampleCount_32_Bit: { return VK_SAMPLE_COUNT_32_BIT; }
+            case Lvn_SampleCount_64_Bit: { return VK_SAMPLE_COUNT_64_BIT; }
+            default:
+            {
+                LVN_CORE_WARN("unknown sampler count enum (%d), setting to sample count enum 1 bit (default)", samples);
+                return VK_SAMPLE_COUNT_1_BIT;
+            }
+        }
+    }
+
+    static uint32_t getSampleCountValue(VkSampleCountFlagBits samples)
+    {
+        switch (samples)
+        {
+            case VK_SAMPLE_COUNT_1_BIT: { return 1; }
+            case VK_SAMPLE_COUNT_2_BIT: { return 2; }
+            case VK_SAMPLE_COUNT_4_BIT: { return 4; }
+            case VK_SAMPLE_COUNT_8_BIT: { return 8; }
+            case VK_SAMPLE_COUNT_16_BIT: { return 16; }
+            case VK_SAMPLE_COUNT_32_BIT: { return 32; }
+            case VK_SAMPLE_COUNT_64_BIT: { return 64; }
+            case VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM: { return 0x7FFFFFFF; }
+            default:
+            {
+                LVN_CORE_WARN("could not find vulkan sample enum match!");
+                return 1;
+            }
+        }
+    }
+
+    static VkSampleCountFlagBits getSupportedSampleCount(VulkanBackends* vkBackends, LvnSampleCount samples)
+    {
+        VkSampleCountFlagBits fbSampleCount = vks::getSampleCountFlagEnum(samples);
+        VkSampleCountFlagBits maxSampleCount = vks::getMaxUsableSampleCount(vkBackends);
+
+        uint32_t fbCount = getSampleCountValue(fbSampleCount);
+        uint32_t maxCount = getSampleCountValue(maxSampleCount);
+
+        if (fbCount > maxCount)
+        {
+            LVN_CORE_WARN("specified sample count (%u) is higher than the max sample count that is supported by the device (%u); using supported sample count instead!", fbCount, maxCount);
+            return maxSampleCount;
+        }
+
+        return fbSampleCount;
+    }
+
+    static VkDescriptorType getDescriptorTypeEnum(LvnDescriptorType type)
+    {
+        switch (type)
+        {
+            case Lvn_DescriptorType_ImageSampler: { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; }
+            case Lvn_DescriptorType_ImageSamplerBindless: { return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; }
+            case Lvn_DescriptorType_UniformBuffer: { return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; }
+            case Lvn_DescriptorType_StorageBuffer: { return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown descriptor type enum (%d), setting to descriptor type sampler (defualt)", type);
+                return VK_DESCRIPTOR_TYPE_SAMPLER;
+            }
+        }
+    }
+
+    static VkBufferUsageFlags getUniformBufferTypeEnum(LvnBufferType type)
+    {
+        switch (type)
+        {
+            case Lvn_BufferType_Uniform: { return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; }
+            case Lvn_BufferType_Storage: { return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown buffer enum type (%u), setting to buffer type uniform buffer (defualt)", type);
+                return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            }
+        }
+    }
+
+    static VkShaderStageFlags getShaderStageFlagEnum(LvnShaderStage stage)
+    {
+        switch (stage)
+        {
+            case Lvn_ShaderStage_All: { return VK_SHADER_STAGE_ALL; }
+            case Lvn_ShaderStage_Vertex: { return VK_SHADER_STAGE_VERTEX_BIT; }
+            case Lvn_ShaderStage_Fragment: { return VK_SHADER_STAGE_FRAGMENT_BIT; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown shader stage enum type (%u), setting stage to \'VK_SHADER_STAGE_ALL\' as default", stage);
+                return VK_SHADER_STAGE_ALL;
+            }
+        }
+    }
+
+    static VkFilter getTextureFilterEnum(LvnTextureFilter filter)
+    {
+        switch (filter)
+        {
+            case Lvn_TextureFilter_Nearest: { return VK_FILTER_NEAREST; }
+            case Lvn_TextureFilter_Linear: { return VK_FILTER_LINEAR; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown sampler filter enum type (%u), setting filter to \'VK_FILTER_NEAREST\' as default", filter);
+                return VK_FILTER_NEAREST;
+            }
+        }
+    }
+
+    static VkSamplerAddressMode getTextureWrapModeEnum(LvnTextureMode mode)
+    {
+        switch (mode)
+        {
+            case Lvn_TextureMode_Repeat: { return VK_SAMPLER_ADDRESS_MODE_REPEAT; }
+            case Lvn_TextureMode_MirrorRepeat: { return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; }
+            case Lvn_TextureMode_ClampToEdge: { return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; }
+            case Lvn_TextureMode_ClampToBorder: { return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER; }
+
+            default:
+            {
+                LVN_CORE_WARN("unknown sampler address mode enum type (%u), setting mode to \'VK_SAMPLER_ADDRESS_MODE_REPEAT\' as default", mode);
+                return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+            }
+        }
+    }
+
+    static VkPipelineColorBlendAttachmentState createColorAttachment()
+    {
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachment.blendEnable = VK_FALSE;
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+        return colorBlendAttachment;
+    }
+
 } /* namespace vks */
 
 LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
@@ -1191,10 +1915,10 @@ LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
     VulkanBackends* vkBackends = s_VkBackends;
 
     vkBackends->enableValidationLayers = graphicsContext->enableGraphicsApiDebugLogs;
-    vkBackends->defaultPipelineSpecification = lvn::configPipelineFixedFuncInit();
+    vkBackends->defaultPipelineFixedFuncs = lvn::configPipelineFixedFuncInit();
     vkBackends->maxFramesInFlight = graphicsContext->maxFramesInFlight > 0 ? graphicsContext->maxFramesInFlight : 1;
 
-    switch (graphicsContext->frameBufferColorFormat)
+        switch (graphicsContext->frameBufferColorFormat)
     {
         case Lvn_TextureFormat_Unorm: { vkBackends->frameBufferColorFormat = VK_FORMAT_B8G8R8A8_UNORM; break; }
         case Lvn_TextureFormat_Srgb: { vkBackends->frameBufferColorFormat = VK_FORMAT_B8G8R8A8_SRGB; break; }
@@ -1221,11 +1945,7 @@ LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
         return Lvn_Result_Failure;
     }
 
-    // get physical devices and setup render init
-    LvnVector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
-    VkPhysicalDevice physicalDevice = vks::getBestPhysicalDevice(vkBackends->instance, physicalDevices);
-
-    if (vks::setupRenderInit(vkBackends, physicalDevice) != Lvn_Result_Success)
+    if (vks::setupRenderInit(vkBackends) != Lvn_Result_Success)
     {
         if (vkBackends->enableValidationLayers)
             vks::destroyDebugUtilsMessengerEXT(vkBackends->instance, vkBackends->debugMessenger, nullptr);
@@ -1287,6 +2007,7 @@ LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->framebufferResize = vksImplFrameBufferResize;
     graphicsContext->frameBufferSetClearColor = vksImplFrameBufferSetClearColor;
     graphicsContext->findSupportedDepthImageFormat = vksImplFindSupportedDepthImageFormat;
+    graphicsContext->internalWindowListenEventFn = vksImplInternalWindowListenEventFn;
 
     return Lvn_Result_Success;
 }
@@ -1369,35 +2090,12 @@ LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
         return Lvn_Result_Failure;
     }
 
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    VkSurfaceKHR surface;
-    GLFWwindow* glfwWindow = glfwCreateWindow(1, 1, "", nullptr, nullptr);
-
-    if (glfwCreateWindowSurface(vkBackends->instance, glfwWindow, nullptr, &surface) != VK_SUCCESS)
-    {
-        LVN_CORE_ERROR("[vulkan] check physical device support, failed to create temporary window surface at (%p) when checking physical device support", surface);
-        return Lvn_Result_Failure;
-    }
-
-    VulkanQueueFamilyIndices queueIndices = vks::findQueueFamilies(vkDevice, surface);
-
-    // check queue families
-    if (!queueIndices.has_graphics || !queueIndices.has_present)
-    {
-        LVN_CORE_ERROR("[vulkan] check physical device support, physical device does not support queue families needed");
-        return Lvn_Result_Failure;
-    }
-
     // check device extension support
     if (!vks::checkDeviceExtensionSupport(vkDevice))
     {
         LVN_CORE_ERROR("[vulkan] check physical device support, physical device does not support required extensions");
         return Lvn_Result_Failure;
     }
-
-    vkDestroySurfaceKHR(vkBackends->instance, surface, nullptr);
-    glfwDestroyWindow(glfwWindow);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
     return Lvn_Result_Success;
 }
@@ -1407,11 +2105,6 @@ LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
     VulkanBackends* vkBackends = s_VkBackends;
     VkPhysicalDevice vkPhysicalDevice = static_cast<VkPhysicalDevice>(physicalDevice->physicalDevice);
     return vks::setupRenderInit(vkBackends, vkPhysicalDevice);
-}
-
-LvnResult createVulkanWindowSurfaceData(void* window)
-{
-    return Lvn_Result_Failure;
 }
 
 
@@ -1442,7 +2135,94 @@ LvnResult vksImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescr
 
 LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo)
 {
-    return Lvn_Result_Failure;
+    VulkanBackends* vkBackends = s_VkBackends;
+
+    // shader modules
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = static_cast<VkShaderModule>(createInfo->shader->nativeVertexShaderModule);
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = static_cast<VkShaderModule>(createInfo->shader->nativeFragmentShaderModule);
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+    // vertex binding descriptions & attributes
+    LvnVector<VkVertexInputBindingDescription> bindingDescriptions(createInfo->vertexBindingDescriptionCount);
+    LvnVector<VkVertexInputAttributeDescription> vertexAttributes(createInfo->vertexAttributeCount);
+
+    for (uint32_t i = 0; i < createInfo->vertexBindingDescriptionCount; i++)
+    {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = createInfo->pVertexBindingDescriptions[i].binding;
+        bindingDescription.stride = createInfo->pVertexBindingDescriptions[i].stride;
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        bindingDescriptions[i] = bindingDescription;
+    }
+
+    for (uint32_t i = 0; i < createInfo->vertexAttributeCount; i++)
+    {
+        if (createInfo->pVertexAttributes[i].format == Lvn_AttributeFormat_Undefined)
+            LVN_CORE_WARN("createPipeline(LvnPipeline**, LvnPipelineCreateInfo*) | createInfo->pVertexAttributes[%d].type is \'Lvn_VertexDataType_None\'; vertex data type is set to None, vertex input attribute format will be undefined", i);
+
+        VkVertexInputAttributeDescription attributeDescription{};
+        attributeDescription.binding = createInfo->pVertexAttributes[i].binding;
+        attributeDescription.location = createInfo->pVertexAttributes[i].layout;
+        attributeDescription.format = vks::getVertexAttributeFormatEnum(createInfo->pVertexAttributes[i].format);
+        attributeDescription.offset = createInfo->pVertexAttributes[i].offset;
+
+        vertexAttributes[i] = attributeDescription;
+    }
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    if (createInfo->pVertexBindingDescriptions && createInfo->vertexBindingDescriptionCount > 0)
+    {
+        vertexInputInfo.vertexBindingDescriptionCount = createInfo->vertexBindingDescriptionCount;
+        vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+    }
+
+    if (createInfo->pVertexAttributes && createInfo->vertexAttributeCount > 0)
+    {
+        vertexInputInfo.vertexAttributeDescriptionCount = createInfo->vertexAttributeCount;
+        vertexInputInfo.pVertexAttributeDescriptions = vertexAttributes.data();
+    }
+
+    // descriptor layouts
+    LvnVector<VkDescriptorSetLayout> descriptorLayouts(createInfo->descriptorLayoutCount);
+    for (uint32_t i = 0; i < createInfo->descriptorLayoutCount; i++)
+    {
+        VkDescriptorSetLayout descriptorLayout = static_cast<VkDescriptorSetLayout>(createInfo->pDescriptorLayouts[i]->descriptorLayout);
+        descriptorLayouts[i] = descriptorLayout;
+    }
+
+    // render pass
+    VkRenderPass renderPass = static_cast<VkRenderPass>(createInfo->renderPass->nativeRenderPass);
+
+    // prepare pipeline create info
+    VulkanPipelineCreateData pipelineCreateData{};
+    pipelineCreateData.shaderStages = shaderStages;
+    pipelineCreateData.shaderStageCount = ARRAY_LEN(shaderStages);
+    pipelineCreateData.vertexInputInfo = vertexInputInfo;
+    pipelineCreateData.renderPass = renderPass;
+    pipelineCreateData.pipelineFixedFuncs = createInfo->pipelineFixedFuncs != nullptr ? createInfo->pipelineFixedFuncs : &vkBackends->defaultPipelineFixedFuncs;
+    pipelineCreateData.pDescrptorSetLayouts = descriptorLayouts.data();
+    pipelineCreateData.descriptorSetLayoutCount = createInfo->descriptorLayoutCount;
+
+    // create pipeline
+    VulkanPipeline vkPipeline = vks::createVulkanPipeline(vkBackends, &pipelineCreateData);
+
+    pipeline->nativePipeline = vkPipeline.pipeline;
+    pipeline->nativePipelineLayout = vkPipeline.pipelineLayout;
+
+    return Lvn_Result_Success;
 }
 
 LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
@@ -1452,7 +2232,69 @@ LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBu
 
 LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo)
 {
-    return Lvn_Result_Failure;
+    VulkanBackends* vkBackends = s_VkBackends;
+    VkDeviceSize bufferSize = createInfo->size;
+
+    VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if (createInfo->type & Lvn_BufferType_Vertex)
+        usageFlags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (createInfo->type & Lvn_BufferType_Index)
+        usageFlags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if (createInfo->type & Lvn_BufferType_Uniform)
+        usageFlags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if (createInfo->type & Lvn_BufferType_Storage)
+        usageFlags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    // if buffer is static, transfer memory to gpu
+    if (createInfo->usage == Lvn_BufferUsage_Static)
+    {
+        VkBuffer stagingBuffer;
+        VmaAllocation stagingMemory;
+
+        VkBuffer vkBuffer;
+        VmaAllocation bufferMemory;
+
+        // create staging buffer to pass vertex data into
+        vks::createBuffer(vkBackends, &stagingBuffer, &stagingMemory, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+        if (createInfo->data)
+        {
+            void* data;
+            vmaMapMemory(vkBackends->vmaAllocator, stagingMemory, &data);
+            memcpy(data, createInfo->data, bufferSize);
+            vmaUnmapMemory(vkBackends->vmaAllocator, stagingMemory);
+        }
+
+        // create the main buffer to be used
+        vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+        vks::copyBuffer(vkBackends, stagingBuffer, vkBuffer, bufferSize, 0, 0);
+
+        vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+        vmaFreeMemory(vkBackends->vmaAllocator, stagingMemory);
+
+        buffer->buffer = vkBuffer;
+        buffer->bufferMemory = bufferMemory;
+    }
+    else // dynamic buffers will have their memory stored on the cpu
+    {
+        VkBuffer vkBuffer;
+        VmaAllocation bufferMemory;
+
+        vks::createBuffer(vkBackends, &vkBuffer, &bufferMemory, bufferSize, usageFlags, VMA_MEMORY_USAGE_CPU_ONLY);
+
+        vmaMapMemory(vkBackends->vmaAllocator, bufferMemory, &buffer->bufferMap);
+        if (createInfo->data)
+            memcpy(buffer->bufferMap, createInfo->data, bufferSize);
+
+        buffer->buffer = vkBuffer;
+        buffer->bufferMemory = bufferMemory;
+    }
+
+    buffer->type = createInfo->type;
+    buffer->usage = createInfo->usage;
+    buffer->size = createInfo->size;
+
+    return Lvn_Result_Success;
 }
 
 LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
@@ -1496,9 +2338,19 @@ void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 
 }
 
-void vksImplDestroyBuffer(LvnBuffer* vertexArrayBuffer)
+void vksImplDestroyBuffer(LvnBuffer* buffer)
 {
+    VulkanBackends* vkBackends = s_VkBackends;
+    vkDeviceWaitIdle(vkBackends->device);
 
+    VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
+    VmaAllocation bufferMemory = static_cast<VmaAllocation>(buffer->bufferMemory);
+
+    if (buffer->usage != Lvn_BufferUsage_Static)
+        vmaUnmapMemory(vkBackends->vmaAllocator, bufferMemory);
+
+    vkDestroyBuffer(vkBackends->device, vkBuffer, nullptr);
+    vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
 }
 
 void vksImplDestroySampler(LvnSampler* sampler)
@@ -1648,5 +2500,27 @@ LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pD
     return {};
 }
 
+void vksImplInternalWindowListenEventFn(LvnWindow* window, LvnEvent* event)
+{
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
+
+    if (event->type == Lvn_EventType_WindowCreated)
+    {
+        VkSurfaceKHR surface;
+        vks::createVulkanSurface(vkBackends->instance, window, &surface);
+
+        if (!vkBackends->physicalDeviceSet)
+        {
+            LvnVector<VkPhysicalDevice> physicalDevices = vks::getPhysicalDevices(vkBackends->instance);
+            VkPhysicalDevice physicalDevice = vks::getBestPhysicalDevice(vkBackends->instance, physicalDevices, surface);
+            vks::setupRenderInit(vkBackends, physicalDevice, surface);
+            vkBackends->physicalDeviceSet = true;
+        }
+
+        vks::createVulkanWindowSurfaceData(window, surface);
+    }
+    else if (event->type == Lvn_EventType_WindowDestroy)
+        vks::destroyVulkanWindowSurfaceData(window);
+}
 
 } /* namespace lvn */
