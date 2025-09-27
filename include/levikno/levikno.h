@@ -51,6 +51,7 @@ enum LvnStructureType
     Lvn_Stype_Shader,
     Lvn_Stype_DescriptorLayout,
     Lvn_Stype_Pipeline,
+    Lvn_Stype_CommandPool,
     Lvn_Stype_Buffer,
     Lvn_Stype_Sampler,
     Lvn_Stype_Texture,
@@ -134,6 +135,9 @@ namespace lvn
     LVN_API LvnMemReallocFunc       getMemReallocFunc();
     LVN_API void*                   getMemUserData();
     LVN_API size_t                  getMemAllocCount();
+
+    LVN_API LvnString               fileLoadSrc(const char* filepath);
+    LVN_API LvnVector<uint8_t>      fileLoadBin(const char* filepath);
 
 #ifdef LVN_CONFIG_DEBUG
     LVN_API inline size_t i_ObjectAllocationCount = 0;

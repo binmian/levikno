@@ -1,10 +1,13 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
 
+file(COPY res DESTINATION .)
+
 set(LVN_SOURCES
     entityComponentSystem.cpp
     events.cpp
     logging.cpp
     multithreading.cpp
+    simpleMatrix.cpp
     simpleTriangle.cpp
     simpleWindow.cpp
 )

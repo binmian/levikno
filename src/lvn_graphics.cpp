@@ -542,6 +542,11 @@ void* windowGetNativeWindow(LvnWindow* window)
     return lvn::getGraphicsContext()->getNativeWindow(window);
 }
 
+LvnRenderPass* windowGetRenderPass(LvnWindow* window)
+{
+    return lvn::getGraphicsContext()->getWindowRenderPass(window);
+}
+
 void windowSetContextCurrent(LvnWindow* window)
 {
     lvn::getGraphicsContext()->setWindowContextCurrent(window);
@@ -699,14 +704,14 @@ void renderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 
 }
 
-void renderBeginNextFrame(LvnCommandBuffer* cmdBuffer)
+void renderBeginNextFrame(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
-    lvn::getGraphicsContext()->renderBeginNextFrame(cmdBuffer);
+    lvn::getGraphicsContext()->renderBeginNextFrame(window, cmdBuffer);
 }
 
-void renderDrawSubmit(LvnCommandBuffer* cmdBuffer)
+void renderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
-    lvn::getGraphicsContext()->renderDrawSubmit(cmdBuffer);
+    lvn::getGraphicsContext()->renderDrawSubmit(window, cmdBuffer);
 }
 
 void renderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
@@ -719,9 +724,9 @@ void renderEndCommandRecording(LvnCommandBuffer* cmdBuffer)
     lvn::getGraphicsContext()->renderEndCommandRecording(cmdBuffer);
 }
 
-void renderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, float r, float g, float b, float a)
+void renderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, LvnWindow* window, float r, float g, float b, float a)
 {
-    lvn::getGraphicsContext()->renderCmdBeginRenderPass(cmdBuffer, r, g, b, a);
+    lvn::getGraphicsContext()->renderCmdBeginRenderPass(cmdBuffer, window, r, g, b, a);
 }
 
 void renderCmdEndRenderPass(LvnCommandBuffer* cmdBuffer)
@@ -853,6 +858,23 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const L
     return lvn::getGraphicsContext()->createDescriptorLayout(*descriptorLayout, createInfo);
 }
 
+LvnResult allocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffer** pCmdBuffers, uint32_t count)
+{
+    if (!cmdPool)
+    {
+        LVN_CORE_ERROR("cannot allocate command buffers, cmdPool is nullptr");
+        return Lvn_Result_Failure;
+    }
+
+    if (!pCmdBuffers)
+    {
+        LVN_CORE_ERROR("cannot allocate command buffers, pCmdBuffers is nullptr");
+        return Lvn_Result_Failure;
+    }
+
+    return lvn::getGraphicsContext()->allocateCommandBuffers(cmdPool, pCmdBuffers, count);
+}
+
 LvnResult allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout)
 {
     *descriptorSet = &descriptorLayout->descriptorSets[descriptorLayout->descriptorSetIndex++];
@@ -900,6 +922,14 @@ LvnResult createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* cr
 
     LVN_CORE_TRACE("created pipeline: (%p)", *pipeline);
     return lvn::getGraphicsContext()->createPipeline(*pipeline, createInfo);
+}
+
+LvnResult createCommandPool(LvnCommandPool** cmdPool)
+{
+    *cmdPool = lvn::createObject<LvnCommandPool>(Lvn_Stype_CommandPool);
+
+    LVN_CORE_TRACE("created command pool: (%p)", *cmdPool);
+    return lvn::getGraphicsContext()->createCommandPool(*cmdPool);
 }
 
 LvnResult createFrameBuffer(LvnFrameBuffer** frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
@@ -979,52 +1009,36 @@ LvnResult createTexture(LvnTexture** texture, const LvnTextureCreateInfo* create
     return lvn::getGraphicsContext()->createTexture(*texture, createInfo);
 }
 
-LvnResult createTexture(LvnTexture** texture, const LvnTextureSamplerCreateInfo* createInfo)
-{
-    *texture = lvn::createObject<LvnTexture>(Lvn_Stype_Texture);
-
-    LVN_CORE_TRACE("created texture (seperate sampler): (%p) using image data: (%p), (w:%u,h:%u,ch:%u), total size: %u bytes, sampler object used: (%p)",
-        *texture,
-        createInfo->imageData.pixels.data(),
-        createInfo->imageData.width,
-        createInfo->imageData.height,
-        createInfo->imageData.channels,
-        createInfo->imageData.pixels.memsize(),
-        createInfo->sampler);
-
-    return lvn::getGraphicsContext()->createTextureSampler(*texture, createInfo);
-}
-
 LvnResult createCubemap(LvnCubemap** cubemap, const LvnCubemapCreateInfo* createInfo)
 {
     if (createInfo->posx.pixels.data() == nullptr)
     {
-        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posx.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posx.pixels.data() is nullptr");
         return Lvn_Result_Failure;
     }
     if (createInfo->negx.pixels.data() == nullptr)
     {
-        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negx.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negx.pixels.data() is nullptr");
         return Lvn_Result_Failure;
     }
     if (createInfo->posy.pixels.data() == nullptr)
     {
-        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posy.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posy.pixels.data() is nullptr");
         return Lvn_Result_Failure;
     }
     if (createInfo->negy.pixels.data() == nullptr)
     {
-        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negy.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negy.pixels.data() is nullptr");
         return Lvn_Result_Failure;
     }
     if (createInfo->posz.pixels.data() == nullptr)
     {
-        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posz.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->posz.pixels.data() is nullptr");
         return Lvn_Result_Failure;
     }
     if (createInfo->negz.pixels.data() == nullptr)
     {
-        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negz.pixels does not point to a valid pointer array");
+        LVN_CORE_ERROR("createCubemap(LvnCubemap**, LvnCubemapCreateInfo*) | createInfo->negz.pixels.data() is nullptr");
         return Lvn_Result_Failure;
     }
 
@@ -1049,56 +1063,62 @@ void destroyShader(LvnShader* shader)
 {
     if (shader == nullptr) { return; }
     lvn::getGraphicsContext()->destroyShader(shader);
-    lvn::destroyObject(shader, Lvn_Stype_Shader);
+    lvn::destroyObject<LvnShader>(shader, Lvn_Stype_Shader);
 }
 
 void destroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
     if (descriptorLayout == nullptr) { return; }
     lvn::getGraphicsContext()->destroyDescriptorLayout(descriptorLayout);
-    lvn::destroyObject(descriptorLayout, Lvn_Stype_DescriptorLayout);
+    lvn::destroyObject<LvnDescriptorLayout>(descriptorLayout, Lvn_Stype_DescriptorLayout);
 }
 
 void destroyPipeline(LvnPipeline* pipeline)
 {
     if (pipeline == nullptr) { return; }
     lvn::getGraphicsContext()->destroyPipeline(pipeline);
-    lvn::destroyObject(pipeline, Lvn_Stype_Pipeline);
+    lvn::destroyObject<LvnPipeline>(pipeline, Lvn_Stype_Pipeline);
+}
+
+void destroyCommandPool(LvnCommandPool* cmdPool)
+{
+    lvn::getGraphicsContext()->destroyCommandPool(cmdPool);
+    lvn::destroyObject<LvnCommandPool>(cmdPool, Lvn_Stype_CommandPool);
 }
 
 void destroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
     if (frameBuffer == nullptr) { return; }
     lvn::getGraphicsContext()->destroyFrameBuffer(frameBuffer);
-    lvn::destroyObject(frameBuffer, Lvn_Stype_FrameBuffer);
+    lvn::destroyObject<LvnFrameBuffer>(frameBuffer, Lvn_Stype_FrameBuffer);
 }
 
 void destroyBuffer(LvnBuffer* buffer)
 {
     if (buffer == nullptr) { return; }
     lvn::getGraphicsContext()->destroyBuffer(buffer);
-    lvn::destroyObject(buffer, Lvn_Stype_Buffer);
+    lvn::destroyObject<LvnBuffer>(buffer, Lvn_Stype_Buffer);
 }
 
 void destroySampler(LvnSampler* sampler)
 {
     if (sampler == nullptr) { return; }
     lvn::getGraphicsContext()->destroySampler(sampler);
-    lvn::destroyObject(sampler, Lvn_Stype_Sampler);
+    lvn::destroyObject<LvnSampler>(sampler, Lvn_Stype_Sampler);
 }
 
 void destroyTexture(LvnTexture* texture)
 {
     if (texture == nullptr) { return; }
     lvn::getGraphicsContext()->destroyTexture(texture);
-    lvn::destroyObject(texture, Lvn_Stype_Texture);
+    lvn::destroyObject<LvnTexture>(texture, Lvn_Stype_Texture);
 }
 
 void destroyCubemap(LvnCubemap* cubemap)
 {
     if (cubemap == nullptr) { return; }
     lvn::getGraphicsContext()->destroyCubemap(cubemap);
-    lvn::destroyObject(cubemap, Lvn_Stype_Cubemap);
+    lvn::destroyObject<LvnCubemap>(cubemap, Lvn_Stype_Cubemap);
 }
 
 uint32_t getAttributeFormatSize(LvnAttributeFormat format)

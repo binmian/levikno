@@ -90,6 +90,48 @@ void* getMemUserData()
     return s_MemAllocUserData;
 }
 
+LvnString fileLoadSrc(const char* filepath)
+{
+    FILE* fileptr = fopen(filepath, "r");
+
+    if (!fileptr)
+    {
+        LVN_CORE_ERROR("cannot open source file: %s", filepath);
+        return {};
+    }
+
+    fseek(fileptr, 0, SEEK_END);
+    long int size = ftell(fileptr);
+    fseek(fileptr, 0, SEEK_SET);
+
+    LvnVector<char> src(size);
+    fread(src.data(), sizeof(char), size, fileptr);
+    fclose(fileptr);
+
+    return LvnString(src.data(), src.size());
+}
+
+LvnVector<uint8_t> fileLoadBin(const char* filepath)
+{
+    FILE* fileptr = fopen(filepath, "rb");
+
+    if (!fileptr)
+    {
+        LVN_CORE_ERROR("cannot open binary file: %s", filepath);
+        return {};
+    }
+
+    fseek(fileptr, 0, SEEK_END);
+    long int size = ftell(fileptr);
+    fseek(fileptr, 0, SEEK_SET);
+
+    LvnVector<uint8_t> bin(size);
+    fread(bin.data(), sizeof(uint8_t), size, fileptr);
+    fclose(fileptr);
+
+    return lvn::move(bin);
+}
+
 // -- logging output
 int logOutputMessage(const char* logmsg)
 {

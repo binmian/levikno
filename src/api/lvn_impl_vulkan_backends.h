@@ -70,18 +70,11 @@ struct VulkanWindowSurfaceData
     VkRenderPass renderPass;
     LvnVector<VkFramebuffer> frameBuffers;
 
-    // command pool recording
-    VkCommandPool commandPool;
-    LvnVector<VkCommandBuffer> commandBuffers;
-
     // synchronization
-    LvnVector<VkSemaphore> imageAvailableSemaphores;
     LvnVector<VkSemaphore> renderFinishedSemaphores;
-    LvnVector<VkFence> inFlightFences;
 
     // per frame data
     uint32_t imageIndex;
-    uint32_t currentFrame;
     bool frameBufferResized;
 };
 

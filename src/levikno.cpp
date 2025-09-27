@@ -131,6 +131,7 @@ static const char* getStypeEnumName(LvnStructureType stype)
         case Lvn_Stype_Shader:             { return "LvnShader"; }
         case Lvn_Stype_DescriptorLayout:   { return "LvnDescriptorLayout"; }
         case Lvn_Stype_Pipeline:           { return "LvnPipeline"; }
+        case Lvn_Stype_CommandPool:        { return "LvnCommandPool"; }
         case Lvn_Stype_Buffer:             { return "LvnBuffer"; }
         case Lvn_Stype_Sampler:            { return "LvnSampler"; }
         case Lvn_Stype_Texture:            { return "LvnTexture"; }

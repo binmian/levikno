@@ -72,6 +72,7 @@ LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx)
     graphicsctx->getWindowVSync = glfwImplGetWindowVSync;
     graphicsctx->getNativeWindow = glfwImplGetNativeWindow;
     graphicsctx->setWindowContextCurrent = glfwImplSetWindowContextCurrent;
+    graphicsctx->getWindowRenderPass = glfwImplGetWindowRenderPass;
     graphicsctx->getNativeWindowApi = glfwImplGetNativeWindowApi;
 
     graphicsctx->keyPressed = glfwImplKeyPressed;
@@ -564,6 +565,11 @@ void glfwImplSetWindowContextCurrent(LvnWindow* window)
 
         glfwMakeContextCurrent(static_cast<GLFWwindow*>(window->nativeWindow));
     }
+}
+
+LvnRenderPass* glfwImplGetWindowRenderPass(LvnWindow* window)
+{
+    return &window->renderPass;
 }
 
 bool glfwImplKeyPressed(LvnWindow* window, int keycode)

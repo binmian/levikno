@@ -21,6 +21,7 @@ namespace lvn
     bool glfwImplGetWindowVSync(LvnWindow* window);
     void* glfwImplGetNativeWindow(LvnWindow* window);
     void glfwImplSetWindowContextCurrent(LvnWindow* window);
+    LvnRenderPass* glfwImplGetWindowRenderPass(LvnWindow* window);
 
     bool glfwImplKeyPressed(LvnWindow* window, int keycode);
     bool glfwImplKeyReleased(LvnWindow* window, int keycode);
