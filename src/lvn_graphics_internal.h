@@ -317,13 +317,14 @@ struct LvnDescriptorLayout
     void* descriptorLayout;
     void* descriptorPool;
 
-    LvnVector<LvnDescriptorSet> descriptorSets;
+    LvnList<LvnVector<LvnDescriptorSet>> descriptorSets;
+    uint32_t maxSets;
     uint64_t descriptorSetIndex;
 };
 
 struct LvnDescriptorSet
 {
-    LvnVector<void*> descriptorSets;
+    void* descriptorSet;
     void* singleSet;
 };
 
@@ -386,13 +387,11 @@ struct LvnCommandPool
 
 struct LvnCommandBuffer
 {
-    LvnVector<void*> commandBuffers;
+    void* commandBuffers;
 
     // synchronization
-    LvnVector<void*> imageAvailableSemaphores; // VkSemaphore
-    LvnVector<void*> inFlightFences;           // VkFence
-
-    uint32_t currentFrame;
+    void* imageAvailableSemaphores; // VkSemaphore
+    void* inFlightFences;           // VkFence
 };
 
 struct LvnGraphicsContext
@@ -447,7 +446,7 @@ struct LvnGraphicsContext
     LvnResult                   (*createShaderFromFileBin)(LvnShader*, const LvnShaderCreateInfo*);
     LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, const LvnDescriptorLayoutCreateInfo*);
     LvnResult                   (*allocateCommandBuffers)(LvnCommandPool*, LvnCommandBuffer**, uint32_t);
-    LvnResult                   (*allocateDescriptorSet)(LvnDescriptorSet*, LvnDescriptorLayout*);
+    LvnResult                   (*allocateDescriptorSet)(LvnDescriptorLayout*, LvnDescriptorSet**, uint32_t);
     LvnResult                   (*createPipeline)(LvnPipeline*, const LvnPipelineCreateInfo*);
     LvnResult                   (*createCommandPool)(LvnCommandPool*);
     LvnResult                   (*createFrameBuffer)(LvnFrameBuffer*, const LvnFrameBufferCreateInfo*);

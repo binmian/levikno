@@ -682,7 +682,7 @@ namespace lvn
     LVN_API void                        pipelineFixedFuncSetConfig(LvnPipelineFixedFunctions* pipelineFixedFuncs);
     LVN_API LvnPipelineFixedFunctions   configPipelineFixedFuncInit();
     LVN_API LvnResult                   allocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffer** pCmdBuffers, uint32_t count);                  // create command buffer to record render commands
-    LVN_API LvnResult                   allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout);                   // create descriptor set to uplaod uniform data to pipeline
+    LVN_API LvnResult                   allocateDescriptorSets(LvnDescriptorLayout* descriptorLayout, LvnDescriptorSet** pDescriptorSet, uint32_t count); // create descriptor set to uplaod uniform data to pipeline
 
     LVN_API void                        bufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset);
     LVN_API void                        bufferResize(LvnBuffer* buffer, uint64_t size);

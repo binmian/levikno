@@ -131,6 +131,7 @@ LvnResult initGraphicsContext(LvnGraphicsContextCreateInfo* createInfo)
     graphicsctx->windowapi = createInfo->windowapi;
     graphicsctx->graphicsapi = createInfo->graphicsapi;
     graphicsctx->enableGraphicsApiDebugLogs = createInfo->enableGraphicsApiDebugLogs;
+    graphicsctx->internalWindowListenEventFn = [](LvnWindow*,LvnEvent*) {}; // set internal listen func to empty func if no graphics api is set
 
     lvn::initStandardPipelineFixedFuncs(graphicsctx);
 
@@ -851,7 +852,7 @@ LvnResult createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const L
     *descriptorLayout = lvn::createObject<LvnDescriptorLayout>(Lvn_Stype_DescriptorLayout);
 
     LvnDescriptorLayout* descriptorLayoutPtr = *descriptorLayout;
-    descriptorLayoutPtr->descriptorSets.resize(createInfo->maxSets);
+    descriptorLayoutPtr->maxSets = createInfo->maxSets;
     descriptorLayoutPtr->descriptorSetIndex = 0;
 
     LVN_CORE_TRACE("created descriptorLayout: (%p), descriptor binding count: %u", *descriptorLayout, createInfo->descriptorBindingCount);
@@ -875,12 +876,17 @@ LvnResult allocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffer** pCm
     return lvn::getGraphicsContext()->allocateCommandBuffers(cmdPool, pCmdBuffers, count);
 }
 
-LvnResult allocateDescriptorSet(LvnDescriptorSet** descriptorSet, LvnDescriptorLayout* descriptorLayout)
+LvnResult allocateDescriptorSets(LvnDescriptorLayout* descriptorLayout, LvnDescriptorSet** pDescriptorSets, uint32_t count)
 {
-    *descriptorSet = &descriptorLayout->descriptorSets[descriptorLayout->descriptorSetIndex++];
+    LVN_ASSERT(descriptorLayout != nullptr, "descriptorLayout is nullptr");
+    LVN_ASSERT(pDescriptorSets != nullptr, "pDescriptorSets is nullptr");
 
-    LVN_CORE_TRACE("allocated descriptorSet: (%p) from descriptorLayout: (%p)", *descriptorSet, descriptorLayout);
-    return lvn::getGraphicsContext()->allocateDescriptorSet(*descriptorSet, descriptorLayout);
+    LvnVector<LvnDescriptorSet> descripoptorSets(count);
+    descriptorLayout->descriptorSets.push_back(lvn::move(descripoptorSets));
+    *pDescriptorSets = descriptorLayout->descriptorSets.back().data();
+
+    LVN_CORE_TRACE("allocated descriptorSets: (%p) from descriptorLayout: (%p)", *pDescriptorSets, descriptorLayout);
+    return lvn::getGraphicsContext()->allocateDescriptorSet(descriptorLayout, pDescriptorSets, count);
 }
 
 LvnResult createPipeline(LvnPipeline** pipeline, const LvnPipelineCreateInfo* createInfo)

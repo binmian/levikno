@@ -113,7 +113,7 @@ int main(int argc, char** argv)
 
     // create descriptor set using layout
     LvnDescriptorSet* descriptorSet;
-    lvn::allocateDescriptorSet(&descriptorSet, descriptorLayout);
+    lvn::allocateDescriptorSets(descriptorLayout, &descriptorSet, 1);
 
 
     // get the render pass from the window to pass into the pipeline

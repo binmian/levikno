@@ -2144,7 +2144,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, c
         layoutBindings[i].stageFlags = vks::getShaderStageFlagEnum(createInfo->pDescriptorBindings[i].shaderStage);
 
         poolSizes[i].type = descriptorType;
-        poolSizes[i].descriptorCount = createInfo->pDescriptorBindings[i].descriptorCount * createInfo->pDescriptorBindings[i].maxAllocations * vkBackends->maxFramesInFlight;
+        poolSizes[i].descriptorCount = createInfo->pDescriptorBindings[i].descriptorCount * createInfo->pDescriptorBindings[i].maxAllocations;
     }
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -2163,7 +2163,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, c
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = poolSizes.size();
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = createInfo->maxSets * vkBackends->maxFramesInFlight;
+    poolInfo.maxSets = createInfo->maxSets;
 
     VkDescriptorPool descriptorPool;
 
@@ -2180,28 +2180,31 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, c
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplAllocateDescriptorSet(LvnDescriptorSet* descriptorSet, LvnDescriptorLayout* descriptorLayout)
+LvnResult vksImplAllocateDescriptorSet(LvnDescriptorLayout* descriptorLayout, LvnDescriptorSet** pDescriptorSets, uint32_t count)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
+    LvnDescriptorSet* descriptorSets = *pDescriptorSets;
 
     VkDescriptorSetLayout vkDescriptorLayout = static_cast<VkDescriptorSetLayout>(descriptorLayout->descriptorLayout);
     VkDescriptorPool descriptorPool = static_cast<VkDescriptorPool>(descriptorLayout->descriptorPool);
 
-    LvnVector<VkDescriptorSetLayout> layouts(vkBackends->maxFramesInFlight, vkDescriptorLayout);
+    LvnVector<VkDescriptorSetLayout> layouts(count, vkDescriptorLayout);
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = vkBackends->maxFramesInFlight;
+    allocInfo.descriptorSetCount = layouts.size();
     allocInfo.pSetLayouts = layouts.data();
 
-    descriptorSet->descriptorSets.resize(vkBackends->maxFramesInFlight);
-
-    if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, (VkDescriptorSet*)descriptorSet->descriptorSets.data()) != VK_SUCCESS)
+    LvnVector<VkDescriptorSet> vkDescriptorSets(count);
+    if (vkAllocateDescriptorSets(vkBackends->device, &allocInfo, vkDescriptorSets.data()) != VK_SUCCESS)
     {
-        LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet> at (%p)", descriptorSet->descriptorSets.data());
+        LVN_CORE_ERROR("[vulkan] failed to allocate descriptor sets <VkDescriptorSet>");
         return Lvn_Result_Failure;
     }
+
+    for (uint32_t i = 0; i < count; i++)
+        descriptorSets[i].descriptorSet = vkDescriptorSets[i];
 
     return Lvn_Result_Success;
 }
@@ -2327,87 +2330,72 @@ LvnResult vksImplAllocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffe
 
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
-    // error destroy return func
-    void (*errorDestroy)(VulkanBackends* vkBackends, LvnVector<LvnCommandBuffer>&) = [](VulkanBackends* vkBackends, LvnVector<LvnCommandBuffer>& cmdBuffs)
+    LvnVector<LvnCommandBuffer> cmdBuffs(count);
+
+    // command buffer create info
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = static_cast<VkCommandPool>(cmdPool->commandPool);
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = count;
+
+    LvnVector<VkCommandBuffer> vkcmdbuffers(count);
+    if (vkAllocateCommandBuffers(vkBackends->device, &allocInfo, vkcmdbuffers.data()) != VK_SUCCESS)
+    {
+        LVN_CORE_ERROR("[vulkan] failed to allocate command buffers");
+        return Lvn_Result_Failure;
+    }
+
+    // sync objects create info
+    VkSemaphoreCreateInfo semaphoreInfo{};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    bool errorOccured = false;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        cmdBuffs[i].commandBuffers = vkcmdbuffers[i];
+
+        VkSemaphore imageAvailSemaphore;
+        if (vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &imageAvailSemaphore) != VK_SUCCESS)
+        {
+            LVN_CORE_ERROR("[vulkan] failed to create semaphore for swap chain");
+            errorOccured = true;
+            break;
+        }
+
+        VkFence inFlightFence;
+        if (vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS)
+        {
+            LVN_CORE_ERROR("[vulkan] failed to create fence for swap chain");
+            errorOccured = true;
+            break;
+        }
+
+        cmdBuffs[i].imageAvailableSemaphores = imageAvailSemaphore;
+        cmdBuffs[i].inFlightFences = inFlightFence;
+    }
+
+    if (errorOccured)
     {
         for (uint32_t i = 0; i < cmdBuffs.size(); i++)
         {
-            LvnVector<void*> fences = cmdBuffs[i].inFlightFences;
-            LvnVector<void*> semaphores = cmdBuffs[i].imageAvailableSemaphores;
-
-            for (uint32_t j = 0; j < fences.size(); j++)
+            if (cmdBuffs[i].imageAvailableSemaphores)
             {
-                if (fences[j])
-                {
-                    VkFence vkfence = static_cast<VkFence>(fences[j]);
-                    vkDestroyFence(vkBackends->device, vkfence, nullptr);
-                }
+                VkSemaphore semaphore = static_cast<VkSemaphore>(cmdBuffs[i].imageAvailableSemaphores);
+                vkDestroySemaphore(vkBackends->device, semaphore, nullptr);
             }
-            for (uint32_t j = 0; j < semaphores.size(); j++)
+            if (cmdBuffs[i].inFlightFences)
             {
-                if (semaphores[j])
-                {
-                    VkFence vksemaphore = static_cast<VkFence>(semaphores[j]);
-                    vkDestroyFence(vkBackends->device, vksemaphore, nullptr);
-                }
+                VkFence fence = static_cast<VkFence>(cmdBuffs[i].inFlightFences);
+                vkDestroyFence(vkBackends->device, fence, nullptr);
             }
         }
-    };
 
-    LvnVector<LvnCommandBuffer> cmdBuffs(count);
-
-    for (uint32_t i = 0; i < count; i++)
-    {
-        // command buffer create info
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = static_cast<VkCommandPool>(cmdPool->commandPool);
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = vkBackends->maxFramesInFlight;
-
-        LvnVector<VkCommandBuffer> vkcmdbuffers(vkBackends->maxFramesInFlight);
-        if (vkAllocateCommandBuffers(vkBackends->device, &allocInfo, vkcmdbuffers.data()) != VK_SUCCESS)
-        {
-            errorDestroy(vkBackends, cmdBuffs);
-            LVN_CORE_ERROR("[vulkan] failed to allocate command buffers");
-            return Lvn_Result_Failure;
-        }
-
-        // sync objects create info
-        VkSemaphoreCreateInfo semaphoreInfo{};
-        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-        cmdBuffs[i].commandBuffers.resize(vkBackends->maxFramesInFlight);
-        cmdBuffs[i].imageAvailableSemaphores.resize(vkBackends->maxFramesInFlight);
-        cmdBuffs[i].inFlightFences.resize(vkBackends->maxFramesInFlight);
-
-        for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
-        {
-            cmdBuffs[i].commandBuffers[j] = vkcmdbuffers[j];
-
-            VkSemaphore imageAvailSemaphore;
-            if (vkCreateSemaphore(vkBackends->device, &semaphoreInfo, nullptr, &imageAvailSemaphore) != VK_SUCCESS)
-            {
-                errorDestroy(vkBackends, cmdBuffs);
-                LVN_CORE_ERROR("[vulkan] failed to create semaphore for swap chain");
-                return Lvn_Result_Failure;
-            }
-
-            VkFence inFlightFence;
-            if (vkCreateFence(vkBackends->device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS)
-            {
-                errorDestroy(vkBackends, cmdBuffs);
-                LVN_CORE_ERROR("[vulkan] failed to create fence for swap chain");
-                return Lvn_Result_Failure;
-            }
-
-            cmdBuffs[i].inFlightFences[j] = inFlightFence;
-            cmdBuffs[i].imageAvailableSemaphores[j] = imageAvailSemaphore;
-        }
+        return Lvn_Result_Failure;
     }
 
     cmdPool->commandBuffers.push_back(lvn::move(cmdBuffs));
@@ -2588,13 +2576,10 @@ void vksImplDestroyCommandPool(LvnCommandPool* cmdPool)
         LvnVector<LvnCommandBuffer>& commandBuffs = cmdPool->commandBuffers.front();
         for (uint32_t i = 0; i < commandBuffs.size(); i++)
         {
-            for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
-            {
-                VkSemaphore imageAvailSemaphore = static_cast<VkSemaphore>(commandBuffs[i].imageAvailableSemaphores[j]);
-                VkFence inFlightFence = static_cast<VkFence>(commandBuffs[i].inFlightFences[j]);
-                vkDestroySemaphore(vkBackends->device, imageAvailSemaphore, nullptr);
-                vkDestroyFence(vkBackends->device, inFlightFence, nullptr);
-            }
+            VkSemaphore imageAvailSemaphore = static_cast<VkSemaphore>(commandBuffs[i].imageAvailableSemaphores);
+            VkFence inFlightFence = static_cast<VkFence>(commandBuffs[i].inFlightFences);
+            vkDestroySemaphore(vkBackends->device, imageAvailSemaphore, nullptr);
+            vkDestroyFence(vkBackends->device, inFlightFence, nullptr);
         }
 
         cmdPool->commandBuffers.pop_front();
@@ -2663,8 +2648,8 @@ void vksImplRenderBeginNextFrame(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-    VkFence inFlightFence = static_cast<VkFence>(cmdBuffer->inFlightFences[cmdBuffer->currentFrame]);
-    VkSemaphore imageAvailSemaphore = static_cast<VkSemaphore>(cmdBuffer->imageAvailableSemaphores[cmdBuffer->currentFrame]);
+    VkFence inFlightFence = static_cast<VkFence>(cmdBuffer->inFlightFences);
+    VkSemaphore imageAvailSemaphore = static_cast<VkSemaphore>(cmdBuffer->imageAvailableSemaphores);
 
     vkWaitForFences(vkBackends->device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
     vkResetFences(vkBackends->device, 1, &inFlightFence);
@@ -2683,10 +2668,10 @@ void vksImplRenderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
     VulkanBackends* vkBackends = s_VkBackends;
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
 
-    VkFence inFlightFence = static_cast<VkFence>(cmdBuffer->inFlightFences[cmdBuffer->currentFrame]);
-    VkSemaphore imageAvailSemaphore = static_cast<VkSemaphore>(cmdBuffer->imageAvailableSemaphores[cmdBuffer->currentFrame]);
+    VkFence inFlightFence = static_cast<VkFence>(cmdBuffer->inFlightFences);
+    VkSemaphore imageAvailSemaphore = static_cast<VkSemaphore>(cmdBuffer->imageAvailableSemaphores);
     VkSemaphore renderFinishedSemaphore = static_cast<VkSemaphore>(surfaceData->renderFinishedSemaphores[surfaceData->imageIndex]);
 
     VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -2721,9 +2706,6 @@ void vksImplRenderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
     }
     else
         LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to present swap chain image");
-
-    // advance to next frame in flight
-    cmdBuffer->currentFrame = (cmdBuffer->currentFrame + 1) % vkBackends->maxFramesInFlight;
 }
 
 void vksImplRenderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
@@ -2733,7 +2715,7 @@ void vksImplRenderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
     beginInfo.flags = 0;
     beginInfo.pInheritanceInfo = nullptr;
 
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkResetCommandBuffer(vkcmdbuffer, 0);
     VkResult result = vkBeginCommandBuffer(vkcmdbuffer, &beginInfo);
     LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to begin recording command buffer!");
@@ -2741,32 +2723,32 @@ void vksImplRenderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
 
 void vksImplRenderEndCommandRecording(LvnCommandBuffer* cmdBuffer)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkResult result = vkEndCommandBuffer(vkcmdbuffer);
     LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to record command buffer!");
 }
 
 void vksImplRenderCmdDraw(LvnCommandBuffer* cmdBuffer, uint32_t vertexCount)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDraw(vkcmdbuffer, vertexCount, 1, 0, 0);
 }
 
 void vksImplRenderCmdDrawIndexed(LvnCommandBuffer* cmdBuffer, uint32_t indexCount)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDrawIndexed(vkcmdbuffer, indexCount, 1, 0, 0, 0);
 }
 
 void vksImplRenderCmdDrawInstanced(LvnCommandBuffer* cmdBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDraw(vkcmdbuffer, vertexCount, instanceCount, 0, firstInstance);
 }
 
 void vksImplRenderCmdDrawIndexedInstanced(LvnCommandBuffer* cmdBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDrawIndexed(vkcmdbuffer, indexCount, instanceCount, 0, 0, firstInstance);
 }
 
@@ -2786,7 +2768,7 @@ void vksImplRenderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, LvnWindow* win
     LVN_ASSERT(window != nullptr, "window buffer is nullptr");
 
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -2821,19 +2803,19 @@ void vksImplRenderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, LvnWindow* win
 
 void vksImplRenderCmdEndRenderPass(LvnCommandBuffer* cmdBuffer)
 {
-    vkCmdEndRenderPass(static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]));
+    vkCmdEndRenderPass(static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers));
 }
 
 void vksImplRenderCmdBindPipeline(LvnCommandBuffer* cmdBuffer, LvnPipeline* pipeline)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkPipeline graphicsPipeline = static_cast<VkPipeline>(pipeline->nativePipeline);
     vkCmdBindPipeline(vkcmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 }
 
 void vksImplRenderCmdBindVertexBuffer(LvnCommandBuffer* cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
 
     LvnVector<VkBuffer> buffers(bindingCount);
     for (uint32_t i = 0; i < bindingCount; i++)
@@ -2844,7 +2826,7 @@ void vksImplRenderCmdBindVertexBuffer(LvnCommandBuffer* cmdBuffer, uint32_t firs
 
 void vksImplRenderCmdBindIndexBuffer(LvnCommandBuffer* cmdBuffer, LvnBuffer* buffer, uint64_t offset)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->buffer);
 
     vkCmdBindIndexBuffer(vkcmdbuffer, indexBuffer, offset, VK_INDEX_TYPE_UINT32);
@@ -2852,12 +2834,12 @@ void vksImplRenderCmdBindIndexBuffer(LvnCommandBuffer* cmdBuffer, LvnBuffer* buf
 
 void vksImplRenderCmdBindDescriptorSets(LvnCommandBuffer* cmdBuffer, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
-    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers[cmdBuffer->currentFrame]);
+    VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
 
     LvnVector<VkDescriptorSet> descriptorSets(descriptorSetCount);
     for (uint32_t i = 0; i < descriptorSetCount; i++)
-        descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorSets[i]->descriptorSets[cmdBuffer->currentFrame]);
+        descriptorSets[i] = static_cast<VkDescriptorSet>(pDescriptorSets[i]->descriptorSet);
 
     vkCmdBindDescriptorSets(vkcmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, firstSetIndex, descriptorSetCount, descriptorSets.data(), 0, nullptr);
 }
@@ -2903,8 +2885,8 @@ void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
 
 void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
-    VkDescriptorSet* descriptorSets = (VkDescriptorSet*)descriptorSet->descriptorSets.data();
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
+    VkDescriptorSet vkDescriptorSet = static_cast<VkDescriptorSet>(descriptorSet->descriptorSet);
 
     vkDeviceWaitIdle(vkBackends->device);
 
@@ -2926,33 +2908,28 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
             }
         }
 
-        for (uint32_t j = 0; j < vkBackends->maxFramesInFlight; j++)
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = vkDescriptorSet;
+        descriptorWrite.dstBinding = updateInfo.binding;
+        descriptorWrite.dstArrayElement = updateInfo.firstIndex;
+        descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(updateInfo.descriptorType);
+        descriptorWrite.descriptorCount = updateInfo.descriptorCount;
+
+        // if descriptor using uniform buffers
+        if (updateInfo.descriptorType == Lvn_DescriptorType_UniformBuffer || updateInfo.descriptorType == Lvn_DescriptorType_StorageBuffer)
         {
-            VkWriteDescriptorSet descriptorWrite{};
-            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrite.dstSet = descriptorSets[j]; // update descriptor set for each frame in flight
-            descriptorWrite.dstBinding = updateInfo.binding;
-            descriptorWrite.dstArrayElement = updateInfo.firstIndex;
-            descriptorWrite.descriptorType = vks::getDescriptorTypeEnum(updateInfo.descriptorType);
-            descriptorWrite.descriptorCount = updateInfo.descriptorCount;
-
-            // if descriptor using uniform buffers
-            if (updateInfo.descriptorType == Lvn_DescriptorType_UniformBuffer || updateInfo.descriptorType == Lvn_DescriptorType_StorageBuffer)
-            {
-                bufferInfo.buffer = static_cast<VkBuffer>(updateInfo.bufferInfo->buffer->buffer);
-                bufferInfo.offset = updateInfo.bufferInfo->offset; // offset buffer size for each frame in flight
-                bufferInfo.range = updateInfo.bufferInfo->range;
-                descriptorWrite.pBufferInfo = &bufferInfo;
-            }
-
-            // if descriptor using textures
-            else if (updateInfo.descriptorType == Lvn_DescriptorType_ImageSampler || updateInfo.descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
-            {
-                descriptorWrite.pImageInfo = imageInfos.data();
-            }
-
-            vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);
+            bufferInfo.buffer = static_cast<VkBuffer>(updateInfo.bufferInfo->buffer->buffer);
+            bufferInfo.offset = updateInfo.bufferInfo->offset; // offset buffer size for each frame in flight
+            bufferInfo.range = updateInfo.bufferInfo->range;
+            descriptorWrite.pBufferInfo = &bufferInfo;
         }
+
+        // if descriptor using textures
+        else if (updateInfo.descriptorType == Lvn_DescriptorType_ImageSampler || updateInfo.descriptorType == Lvn_DescriptorType_ImageSamplerBindless)
+            descriptorWrite.pImageInfo = imageInfos.data();
+
+        vkUpdateDescriptorSets(vkBackends->device, 1, &descriptorWrite, 0, nullptr);
     }
 }
 
