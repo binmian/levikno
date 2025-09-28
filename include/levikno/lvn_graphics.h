@@ -537,6 +537,7 @@ struct LvnSampler;
 struct LvnSamplerCreateInfo;
 struct LvnShader;
 struct LvnShaderCreateInfo;
+struct LvnShaderBinCreateInfo;
 struct LvnSkin;
 struct LvnTexture;
 struct LvnTextureCreateInfo;
@@ -655,6 +656,7 @@ namespace lvn
     LVN_API void                        renderCmdEndFrameBuffer(LvnCommandBuffer* cmdBuffer, LvnFrameBuffer* frameBuffer);                                          // ends recording to the framebuffer
 
     LVN_API LvnResult                   createShaderFromSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo);                                   // create shader with the source code as input
+    LVN_API LvnResult                   createShaderFromBin(LvnShader** shader, const LvnShaderBinCreateInfo* createInfo);                                // create shader with the source binary code as input
     LVN_API LvnResult                   createShaderFromFileBin(LvnShader** shader, const LvnShaderCreateInfo* createInfo);                               // create shader with the file paths to the binary files (.spv) as input
     LVN_API LvnResult                   createShaderFromFileSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo);                               // create shader with the file paths to the source files as input
     LVN_API LvnResult                   createDescriptorLayout(LvnDescriptorLayout** descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo);  // create descriptor layout for the pipeline
@@ -1104,6 +1106,14 @@ struct LvnShaderCreateInfo
 {
     LvnString vertexSrc;
     LvnString fragmentSrc;
+};
+
+struct LvnShaderBinCreateInfo
+{
+    uint8_t* vertexBin;
+    uint64_t vertexSize;
+    uint8_t* fragmentBin;
+    uint64_t fragmentSize;
 };
 
 struct LvnFrameBufferColorAttachment

@@ -1949,6 +1949,7 @@ LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
     graphicsContext->checkPhysicalDeviceSupport = vksImplCheckPhysicalDeviceSupport;
     graphicsContext->setPhysicalDevice = vksImplSetPhysicalDevice;
     graphicsContext->createShaderFromSrc = vksImplCreateShaderFromSrc;
+    graphicsContext->createShaderFromBin = vksImplCreateShaderFromBin;
     graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
     graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
     graphicsContext->createDescriptorLayout = vksImplCreateDescriptorLayout;
@@ -2103,6 +2104,19 @@ LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
     return Lvn_Result_Failure;
+}
+
+LvnResult vksImplCreateShaderFromBin(LvnShader* shader, const LvnShaderBinCreateInfo* createInfo)
+{
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
+
+    VkShaderModule vertShaderModule = vks::createShaderModule(vkBackends, createInfo->vertexBin, createInfo->vertexSize);
+    VkShaderModule fragShaderModule = vks::createShaderModule(vkBackends, createInfo->fragmentBin, createInfo->fragmentSize);
+
+    shader->nativeVertexShaderModule = vertShaderModule;
+    shader->nativeFragmentShaderModule = fragShaderModule;
+
+    return Lvn_Result_Success;
 }
 
 LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)

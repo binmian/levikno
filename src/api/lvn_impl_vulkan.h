@@ -14,6 +14,7 @@ namespace lvn
     LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice);
 
     LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
+    LvnResult vksImplCreateShaderFromBin(LvnShader* shader, const LvnShaderBinCreateInfo* createInfo);
     LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
     LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo);
     LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo);

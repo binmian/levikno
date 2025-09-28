@@ -440,6 +440,7 @@ struct LvnGraphicsContext
     LvnResult                   (*setPhysicalDevice)(LvnPhysicalDevice*);
 
     LvnResult                   (*createShaderFromSrc)(LvnShader*, const LvnShaderCreateInfo*);
+    LvnResult                   (*createShaderFromBin)(LvnShader*, const LvnShaderBinCreateInfo*);
     LvnResult                   (*createShaderFromFileSrc)(LvnShader*, const LvnShaderCreateInfo*);
     LvnResult                   (*createShaderFromFileBin)(LvnShader*, const LvnShaderCreateInfo*);
     LvnResult                   (*createDescriptorLayout)(LvnDescriptorLayout*, const LvnDescriptorLayoutCreateInfo*);

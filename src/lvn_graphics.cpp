@@ -792,6 +792,26 @@ LvnResult createShaderFromSrc(LvnShader** shader, const LvnShaderCreateInfo* cre
     return lvn::getGraphicsContext()->createShaderFromSrc(*shader, createInfo);
 }
 
+LvnResult createShaderFromBin(LvnShader** shader, const LvnShaderBinCreateInfo* createInfo)
+{
+    if (!createInfo->vertexBin)
+    {
+        LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderBinCreateInfo*) | createInfo->vertexBin is nullptr, cannot create shader without the vertex shader source");
+        return Lvn_Result_Failure;
+    }
+
+    if (!createInfo->fragmentBin)
+    {
+        LVN_CORE_ERROR("createShaderFromFileSrc(LvnShader**, LvnShaderBinCreateInfo*) | createInfo->fragmentBin is nullptr, cannot create shader without the fragment shader source");
+        return Lvn_Result_Failure;
+    }
+
+    *shader = lvn::createObject<LvnShader>(Lvn_Stype_Shader);
+
+    LVN_CORE_TRACE("created shader (from source bin): (%p)", *shader);
+    return lvn::getGraphicsContext()->createShaderFromBin(*shader, createInfo);
+}
+
 LvnResult createShaderFromFileSrc(LvnShader** shader, const LvnShaderCreateInfo* createInfo)
 {
     if (createInfo->vertexSrc.empty())
