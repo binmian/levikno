@@ -397,16 +397,22 @@ void terminateContext()
     if (!s_LvnContext)
         return;
 
+    LvnContext* lvnctx = s_LvnContext;
+
+    if (lvnctx->graphicsInitCtx)
+        LVN_CORE_ERROR("graphics context has not been terminated, the graphics context must be terminated before this context can be terminated");
+
     for (uint32_t i = 0; i < Lvn_Stype_Max_Value; i++)
     {
-        if (s_LvnContext->sTypeMemoryAllocationCounts[i] > 0)
+        if (lvnctx->sTypeMemoryAllocationCounts[i] > 0)
             LVN_CORE_ERROR("<createObject>: not all %s objects have been destroyed, sType id: (%u), number of objects remaining: %zu", lvn::getStypeEnumName(static_cast<LvnStructureType>(i)), i, s_LvnContext->sTypeMemoryAllocationCounts[i]);
     }
 
-    if (s_LvnContext->memAllocCount > 0)
-        LVN_CORE_ERROR("<memAlloc>: not all memory allocations have been freed, number of allocations remaining: %zu", s_LvnContext->memAllocCount);
+    if (lvnctx->memAllocCount > 0)
+        LVN_CORE_ERROR("<memAlloc>: not all memory allocations have been freed, number of allocations remaining: %zu", lvnctx->memAllocCount);
 
     lvn::memDelete<LvnContext>(s_LvnContext);
+    s_LvnContext = nullptr;
 }
 
 LvnContext* getContext()

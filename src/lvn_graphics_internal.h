@@ -365,8 +365,6 @@ struct LvnTexture
 
     uint32_t width, height;
     uint32_t id;
-
-    bool seperateSampler;
 };
 
 struct LvnFrameBuffer

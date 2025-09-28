@@ -32,6 +32,7 @@ struct LvnContext
     size_t                               memAllocCount;
 
     // api
+    bool                                 graphicsInitCtx;
     void*                                sharedSuface;
 };
 

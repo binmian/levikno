@@ -8,6 +8,7 @@ set(LVN_SOURCES
     logging.cpp
     multithreading.cpp
     simpleMatrix.cpp
+    simpleTexture.cpp
     simpleTriangle.cpp
     simpleWindow.cpp
 )

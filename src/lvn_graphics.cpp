@@ -150,6 +150,9 @@ LvnResult initGraphicsContext(LvnGraphicsContextCreateInfo* createInfo)
         return Lvn_Result_Failure;
     }
 
+    LvnContext* lvnctx = lvn::getContext();
+    lvnctx->graphicsInitCtx = true;
+
     return Lvn_Result_Success;
 }
 
@@ -161,6 +164,9 @@ void terminateGraphicsContext()
     lvn::terminateGraphicsApiFuncs(s_GraphicsContext);
     lvn::terminateWindowApiFuncs(s_GraphicsContext);
     lvn::memDelete<LvnGraphicsContext>(s_GraphicsContext);
+
+    LvnContext* lvnctx = lvn::getContext();
+    lvnctx->graphicsInitCtx = false;
 }
 
 LvnGraphicsContext* getGraphicsContext()

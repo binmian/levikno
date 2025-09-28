@@ -2478,7 +2478,7 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* crea
 
 LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -2486,7 +2486,7 @@ LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* 
     samplerInfo.magFilter = vks::getTextureFilterEnum(createInfo->magFilter);
     samplerInfo.addressModeU = vks::getTextureWrapModeEnum(createInfo->wrapS);
     samplerInfo.addressModeV = vks::getTextureWrapModeEnum(createInfo->wrapT);
-    samplerInfo.addressModeW = vks::getTextureWrapModeEnum(createInfo->wrapT);
+    samplerInfo.addressModeW = vks::getTextureWrapModeEnum(createInfo->wrapR);
 
     if (vkBackends->deviceSupportedFeatures.samplerAnisotropy)
     {
@@ -2523,7 +2523,87 @@ LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* 
 
 LvnResult vksImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo)
 {
-    return Lvn_Result_Failure;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
+
+    VkBuffer stagingBuffer;
+    VmaAllocation stagingBufferMemory;
+    VkDeviceSize imageSize = createInfo->imageData.pixels.memsize();
+
+    vks::createBuffer(vkBackends, &stagingBuffer, &stagingBufferMemory, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void* data;
+    vmaMapMemory(vkBackends->vmaAllocator, stagingBufferMemory, &data);
+    memcpy(data, createInfo->imageData.pixels.data(), imageSize);
+    vmaUnmapMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+
+    VkFormat format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+    switch (createInfo->imageData.channels)
+    {
+        case 1: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB; break; }
+        case 2: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB; break; }
+        case 4: { format = createInfo->format == Lvn_TextureFormat_Unorm ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB; break; }
+    }
+
+    // create texture image
+    VkImage textureImage;
+    VmaAllocation textureImageMemory;
+
+    if (vks::createImage(vkBackends,
+        &textureImage,
+        &textureImageMemory,
+        createInfo->imageData.width,
+        createInfo->imageData.height,
+        format,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_SAMPLE_COUNT_1_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY) != Lvn_Result_Success)
+    {
+        vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+        vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+        LVN_CORE_ERROR("[vulkan] failed to create texture image <VkImage> for texture (%p)", texture);
+        return Lvn_Result_Failure;
+    }
+
+    // transition buffer to image
+    vks::transitionImageLayout(vkBackends, textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+    vks::copyBufferToImage(vkBackends, stagingBuffer, textureImage, createInfo->imageData.width, createInfo->imageData.height, 1);
+    vks::transitionImageLayout(vkBackends, textureImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+
+
+    // texture image view
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = textureImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VkImageView imageView;
+    if (vkCreateImageView(vkBackends->device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+    {
+        vkDestroyImage(vkBackends->device, textureImage, nullptr);
+        vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+        vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+        LVN_CORE_ERROR("[vulkan] failed to create texture image view <VkImageView> for texture (%p)", texture);
+        return Lvn_Result_Failure;
+    }
+
+    texture->image = textureImage;
+    texture->imageMemory = textureImageMemory;
+    texture->imageView = imageView;
+    texture->sampler = createInfo->sampler->sampler;
+    texture->width = createInfo->imageData.width;
+    texture->height = createInfo->imageData.height;
+
+    vkDestroyBuffer(vkBackends->device, stagingBuffer, nullptr);
+    vmaFreeMemory(vkBackends->vmaAllocator, stagingBufferMemory);
+
+    return Lvn_Result_Success;
 }
 
 LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* createInfo)
@@ -2611,7 +2691,7 @@ void vksImplDestroyBuffer(LvnBuffer* buffer)
 
 void vksImplDestroySampler(LvnSampler* sampler)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
 
     VkSampler textureSampler = static_cast<VkSampler>(sampler->sampler);
@@ -2620,7 +2700,7 @@ void vksImplDestroySampler(LvnSampler* sampler)
 
 void vksImplDestroyTexture(LvnTexture* texture)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
 
     VkImage image = static_cast<VkImage>(texture->image);
@@ -2630,12 +2710,6 @@ void vksImplDestroyTexture(LvnTexture* texture)
     vkDestroyImage(vkBackends->device, image, nullptr);
     vmaFreeMemory(vkBackends->vmaAllocator, imageMemory);;
     vkDestroyImageView(vkBackends->device, imageView, nullptr);
-
-    if (!texture->seperateSampler)
-    {
-        VkSampler textureSampler = static_cast<VkSampler>(texture->sampler);
-        vkDestroySampler(vkBackends->device, textureSampler, nullptr);
-    }
 }
 
 void vksImplDestroyCubemap(LvnCubemap* cubemap)
@@ -2666,7 +2740,7 @@ void vksImplRenderBeginNextFrame(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 
 void vksImplRenderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
 
@@ -2862,7 +2936,7 @@ void vksImplBufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint6
 
 void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
 {
-    VulkanBackends* vkBackends = s_VkBackends;
+    VulkanBackends* vkBackends = vks::getVulkanBackends();
     VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
 
     VkBuffer vkBuffer = static_cast<VkBuffer>(buffer->buffer);
@@ -2979,6 +3053,9 @@ void vksImplInternalWindowListenEventFn(LvnWindow* window, LvnEvent* event)
     }
     else if (event->type == Lvn_EventType_WindowDestroy)
         vks::destroyVulkanWindowSurfaceData(window);
+
+    if (event->type == Lvn_EventType_WindowFramebufferResize)
+        vks::recreateSwapChain(vkBackends, window);
 }
 
 } /* namespace lvn */

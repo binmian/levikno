@@ -1153,7 +1153,7 @@ struct LvnImage
 struct LvnSamplerCreateInfo
 {
     LvnTextureFilter minFilter, magFilter;
-    LvnTextureMode wrapS, wrapT;
+    LvnTextureMode wrapS, wrapT, wrapR;
 };
 
 struct LvnTextureCreateInfo
