@@ -10,12 +10,20 @@
 #   include <cstdlib>
 #endif
 
+#ifdef LVN_PLATFORM_LINUX
+#   include <dlfcn.h>
+#endif
+
 #ifdef LVN_INCLUDE_GLFW
 #   include "lvn_impl_glfw.h"
 #endif
 
+#ifdef LVN_INCLUDE_WAYLAND
+#   include "lvn_impl_wl.h"
+#endif
+
 #ifdef LVN_INCLUDE_VULKAN
-#   include "lvn_impl_vulkan.h"
+#   include "lvn_impl_vk.h"
 #endif
 
 namespace lvn
@@ -152,7 +160,14 @@ LvnResult initWindowApiFuncs(LvnGraphicsContext* ctx)
         {
 #ifdef LVN_INCLUDE_GLFW
             result = lvn::implGlfwInitWindowContext(ctx);
-#endif
+#endif /* !LVN_INCLUDE_GLFW */
+            break;
+        }
+        case Lvn_WindowApi_Wayland:
+        {
+#ifdef LVN_INCLUDE_WAYLAND
+            result = lvn::implWaylandInitWindowContext(ctx);
+#endif /* !LVN_INCLUDE_WAYLAND */
             break;
         }
 
@@ -182,7 +197,14 @@ void terminateWindowApiFuncs(LvnGraphicsContext* ctx)
         {
 #ifdef LVN_INCLUDE_GLFW
             lvn::implGlfwTerminateWindowContext();
-#endif
+#endif /* !LVN_INCLUDE_GLFW */
+            break;
+        }
+        case Lvn_WindowApi_Wayland:
+        {
+#ifdef LVN_INCLUDE_WAYLAND
+            lvn::implWaylandTerminateWindowContext();
+#endif /* !LVN_INCLUDE_WAYLAND */
             break;
         }
 
@@ -262,6 +284,16 @@ void terminateGraphicsApiFuncs(LvnGraphicsContext* ctx)
     }
 
     LVN_CORE_TRACE("graphics api terminated: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
+}
+
+void* platformLoadModule(const char* path)
+{
+    return dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+}
+
+void platformUnloadModule(void* module)
+{
+    dlclose(module);
 }
 
 } /* namespace lvn */

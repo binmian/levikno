@@ -1,0 +1,5 @@
+#ifndef HG_LVN_IMPL_EGL_CONTEXT_H
+#define HG_LVN_IMPL_EGL_CONTEXT_H
+
+
+#endif /* !HG_LVN_IMPL_EGL_CONTEXT_H */

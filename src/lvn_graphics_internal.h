@@ -262,8 +262,17 @@ struct LvnNativeWindowData
     } cocoa;
     struct
     {
-        void* surface;
+        struct wl_surface* surface;
+        struct wl_buffer* buffer;
+        struct wl_callback* callback;
+        uint8_t* pixels;
         void* display;
+
+        struct
+        {
+            struct xdg_surface* surface;
+            struct xdg_toplevel* toplevel;
+        } xdg;
     } wl;
     struct
     {
@@ -288,10 +297,12 @@ struct LvnWindow
     LvnVector<LvnImage> icons;           // icon images used for window
     void (*eventCallBackFn)(LvnEvent*);  // function ptr used as a callback to get events from this window
     void* userData;
+
     void* nativeWindow;                  // pointer to native window handle depending on window backend (eg. x11, wayland), if using glfw, GLFWwindow handle is used for this
     int nativeId;                        // window id for x11 windows
+    LvnNativeWindowData nwdata;
 
-    LvnNativeWindowData nativeWindowData;
+    bool windowOpen;
     void* apiData;                       // graphics api related data tied to the window
     LvnRenderPass renderPass;           // vulkan render pass needed to retreive render pass pointer
 };

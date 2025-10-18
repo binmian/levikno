@@ -1,6 +1,5 @@
-#include "lvn_impl_vulkan.h"
-#include "lvn_impl_vulkan_backends.h"
-#include "lvn_graphics_internal.h"
+#include "lvn_impl_vk.h"
+#include "lvn_impl_vk_backends.h"
 
 #include <vulkan/vulkan.h>
 
@@ -38,10 +37,9 @@ static const char* s_DeviceExtensions[] =
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
-static VulkanBackends* s_VkBackends = nullptr;
-
 namespace lvn
 {
+static VulkanBackends* s_VkBackends = nullptr;
 
 namespace vks
 {
@@ -477,8 +475,8 @@ namespace vks
 #ifdef LVN_INCLUDE_WAYLAND
         VkWaylandSurfaceCreateInfoKHR surfaceCreateInfo{};
         surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-        surfaceCreateInfo.display = static_cast<wl_display*>(window->nativeWindowData.wl.display);
-        surfaceCreateInfo.surface = static_cast<wl_surface*>(window->nativeWindowData.wl.surface);
+        surfaceCreateInfo.display = static_cast<wl_display*>(window->nwdata.wl.display);
+        surfaceCreateInfo.surface = static_cast<wl_surface*>(window->nwdata.wl.surface);
         if (vkCreateWaylandSurfaceKHR(instance, &surfaceCreateInfo, nullptr, surface) != VK_SUCCESS)
         {
             LVN_CORE_ERROR("[vulkan] failed to create vulkan surface under wayland");
@@ -1945,62 +1943,62 @@ LvnResult implVkInitGraphicsContext(LvnGraphicsContext* graphicsContext)
 
     // bind function pointers
     graphicsContext->graphicsapi = Lvn_GraphicsApi_vulkan;
-    graphicsContext->getPhysicalDevices = vksImplGetPhysicalDevices;
-    graphicsContext->checkPhysicalDeviceSupport = vksImplCheckPhysicalDeviceSupport;
-    graphicsContext->setPhysicalDevice = vksImplSetPhysicalDevice;
-    graphicsContext->createShaderFromSrc = vksImplCreateShaderFromSrc;
-    graphicsContext->createShaderFromBin = vksImplCreateShaderFromBin;
-    graphicsContext->createShaderFromFileSrc = vksImplCreateShaderFromFileSrc;
-    graphicsContext->createShaderFromFileBin = vksImplCreateShaderFromFileBin;
-    graphicsContext->createDescriptorLayout = vksImplCreateDescriptorLayout;
-    graphicsContext->createPipeline = vksImplCreatePipeline;
-    graphicsContext->createCommandPool = vksImplCreateCommandPool;
-    graphicsContext->createFrameBuffer = vksImplCreateFrameBuffer;
-    graphicsContext->createBuffer = vksImplCreateBuffer;
-    graphicsContext->createSampler = vksImplCreateSampler;
-    graphicsContext->createTexture = vksImplCreateTexture;
-    graphicsContext->createCubemap = vksImplCreateCubemap;
+    graphicsContext->getPhysicalDevices = implVksGetPhysicalDevices;
+    graphicsContext->checkPhysicalDeviceSupport = implVksCheckPhysicalDeviceSupport;
+    graphicsContext->setPhysicalDevice = implVksSetPhysicalDevice;
+    graphicsContext->createShaderFromSrc = implVksCreateShaderFromSrc;
+    graphicsContext->createShaderFromBin = implVksCreateShaderFromBin;
+    graphicsContext->createShaderFromFileSrc = implVksCreateShaderFromFileSrc;
+    graphicsContext->createShaderFromFileBin = implVksCreateShaderFromFileBin;
+    graphicsContext->createDescriptorLayout = implVksCreateDescriptorLayout;
+    graphicsContext->createPipeline = implVksCreatePipeline;
+    graphicsContext->createCommandPool = implVksCreateCommandPool;
+    graphicsContext->createFrameBuffer = implVksCreateFrameBuffer;
+    graphicsContext->createBuffer = implVksCreateBuffer;
+    graphicsContext->createSampler = implVksCreateSampler;
+    graphicsContext->createTexture = implVksCreateTexture;
+    graphicsContext->createCubemap = implVksCreateCubemap;
 
-    graphicsContext->destroyShader = vksImplDestroyShader;
-    graphicsContext->destroyDescriptorLayout = vksImplDestroyDescriptorLayout;
-    graphicsContext->destroyPipeline = vksImplDestroyPipeline;
-    graphicsContext->destroyCommandPool = vksImplDestroyCommandPool;
-    graphicsContext->destroyFrameBuffer = vksImplDestroyFrameBuffer;
-    graphicsContext->destroyBuffer = vksImplDestroyBuffer;
-    graphicsContext->destroySampler = vksImplDestroySampler;
-    graphicsContext->destroyTexture = vksImplDestroyTexture;
-    graphicsContext->destroyCubemap = vksImplDestroyCubemap;
+    graphicsContext->destroyShader = implVksDestroyShader;
+    graphicsContext->destroyDescriptorLayout = implVksDestroyDescriptorLayout;
+    graphicsContext->destroyPipeline = implVksDestroyPipeline;
+    graphicsContext->destroyCommandPool = implVksDestroyCommandPool;
+    graphicsContext->destroyFrameBuffer = implVksDestroyFrameBuffer;
+    graphicsContext->destroyBuffer = implVksDestroyBuffer;
+    graphicsContext->destroySampler = implVksDestroySampler;
+    graphicsContext->destroyTexture = implVksDestroyTexture;
+    graphicsContext->destroyCubemap = implVksDestroyCubemap;
 
-    graphicsContext->renderBeginNextFrame = vksImplRenderBeginNextFrame;
-    graphicsContext->renderDrawSubmit = vksImplRenderDrawSubmit;
-    graphicsContext->renderBeginCommandRecording = vksImplRenderBeginCommandRecording;
-    graphicsContext->renderEndCommandRecording = vksImplRenderEndCommandRecording;
-    graphicsContext->renderCmdDraw = vksImplRenderCmdDraw;
-    graphicsContext->renderCmdDrawIndexed = vksImplRenderCmdDrawIndexed;
-    graphicsContext->renderCmdDrawInstanced = vksImplRenderCmdDrawInstanced;
-    graphicsContext->renderCmdDrawIndexedInstanced = vksImplRenderCmdDrawIndexedInstanced;
-    graphicsContext->renderCmdSetStencilReference = vksImplRenderCmdSetStencilReference;
-    graphicsContext->renderCmdSetStencilMask = vksImplRenderCmdSetStencilMask;
-    graphicsContext->renderCmdBeginRenderPass = vksImplRenderCmdBeginRenderPass;
-    graphicsContext->renderCmdEndRenderPass = vksImplRenderCmdEndRenderPass;
-    graphicsContext->renderCmdBindPipeline = vksImplRenderCmdBindPipeline;
-    graphicsContext->renderCmdBindVertexBuffer = vksImplRenderCmdBindVertexBuffer;
-    graphicsContext->renderCmdBindIndexBuffer = vksImplRenderCmdBindIndexBuffer;
-    graphicsContext->renderCmdBindDescriptorSets = vksImplRenderCmdBindDescriptorSets;
-    graphicsContext->renderCmdBeginFrameBuffer = vksImplRenderCmdBeginFrameBuffer;
-    graphicsContext->renderCmdEndFrameBuffer = vksImplRenderCmdEndFrameBuffer;
+    graphicsContext->renderBeginNextFrame = implVksRenderBeginNextFrame;
+    graphicsContext->renderDrawSubmit = implVksRenderDrawSubmit;
+    graphicsContext->renderBeginCommandRecording = implVksRenderBeginCommandRecording;
+    graphicsContext->renderEndCommandRecording = implVksRenderEndCommandRecording;
+    graphicsContext->renderCmdDraw = implVksRenderCmdDraw;
+    graphicsContext->renderCmdDrawIndexed = implVksRenderCmdDrawIndexed;
+    graphicsContext->renderCmdDrawInstanced = implVksRenderCmdDrawInstanced;
+    graphicsContext->renderCmdDrawIndexedInstanced = implVksRenderCmdDrawIndexedInstanced;
+    graphicsContext->renderCmdSetStencilReference = implVksRenderCmdSetStencilReference;
+    graphicsContext->renderCmdSetStencilMask = implVksRenderCmdSetStencilMask;
+    graphicsContext->renderCmdBeginRenderPass = implVksRenderCmdBeginRenderPass;
+    graphicsContext->renderCmdEndRenderPass = implVksRenderCmdEndRenderPass;
+    graphicsContext->renderCmdBindPipeline = implVksRenderCmdBindPipeline;
+    graphicsContext->renderCmdBindVertexBuffer = implVksRenderCmdBindVertexBuffer;
+    graphicsContext->renderCmdBindIndexBuffer = implVksRenderCmdBindIndexBuffer;
+    graphicsContext->renderCmdBindDescriptorSets = implVksRenderCmdBindDescriptorSets;
+    graphicsContext->renderCmdBeginFrameBuffer = implVksRenderCmdBeginFrameBuffer;
+    graphicsContext->renderCmdEndFrameBuffer = implVksRenderCmdEndFrameBuffer;
 
-    graphicsContext->bufferUpdateData = vksImplBufferUpdateData;
-    graphicsContext->bufferResize = vksImplBufferResize;
-    graphicsContext->allocateCommandBuffers = vksImplAllocateCommandBuffers;
-    graphicsContext->allocateDescriptorSet = vksImplAllocateDescriptorSet;
-    graphicsContext->updateDescriptorSetData = vksImplUpdateDescriptorSetData;
-    graphicsContext->frameBufferGetImage = vksImplFrameBufferGetImage;
-    graphicsContext->frameBufferGetRenderPass = vksImplFrameBufferGetRenderPass;
-    graphicsContext->framebufferResize = vksImplFrameBufferResize;
-    graphicsContext->frameBufferSetClearColor = vksImplFrameBufferSetClearColor;
-    graphicsContext->findSupportedDepthImageFormat = vksImplFindSupportedDepthImageFormat;
-    graphicsContext->internalWindowListenEventFn = vksImplInternalWindowListenEventFn;
+    graphicsContext->bufferUpdateData = implVksBufferUpdateData;
+    graphicsContext->bufferResize = implVksBufferResize;
+    graphicsContext->allocateCommandBuffers = implVksAllocateCommandBuffers;
+    graphicsContext->allocateDescriptorSet = implVksAllocateDescriptorSet;
+    graphicsContext->updateDescriptorSetData = implVksUpdateDescriptorSetData;
+    graphicsContext->frameBufferGetImage = implVksFrameBufferGetImage;
+    graphicsContext->frameBufferGetRenderPass = implVksFrameBufferGetRenderPass;
+    graphicsContext->framebufferResize = implVksFrameBufferResize;
+    graphicsContext->frameBufferSetClearColor = implVksFrameBufferSetClearColor;
+    graphicsContext->findSupportedDepthImageFormat = implVksFindSupportedDepthImageFormat;
+    graphicsContext->internalWindowListenEventFn = implVksInternalWindowListenEventFn;
 
     return Lvn_Result_Success;
 }
@@ -2030,7 +2028,7 @@ void implVkTerminateGraphicsContext()
     s_VkBackends = nullptr;
 }
 
-void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount)
+void implVksGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* physicalDeviceCount)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2072,7 +2070,7 @@ void vksImplGetPhysicalDevices(LvnPhysicalDevice** pPhysicalDevices, uint32_t* p
     *pPhysicalDevices = vkBackends->lvnPhysicalDevices.data();
 }
 
-LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
+LvnResult implVksCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VkPhysicalDevice vkDevice = static_cast<VkPhysicalDevice>(physicalDevice->physicalDevice);
@@ -2093,7 +2091,7 @@ LvnResult vksImplCheckPhysicalDeviceSupport(LvnPhysicalDevice* physicalDevice)
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
+LvnResult implVksSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VkPhysicalDevice vkPhysicalDevice = static_cast<VkPhysicalDevice>(physicalDevice->physicalDevice);
@@ -2101,12 +2099,12 @@ LvnResult vksImplSetPhysicalDevice(LvnPhysicalDevice* physicalDevice)
 }
 
 
-LvnResult vksImplCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
+LvnResult implVksCreateShaderFromSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
     return Lvn_Result_Failure;
 }
 
-LvnResult vksImplCreateShaderFromBin(LvnShader* shader, const LvnShaderBinCreateInfo* createInfo)
+LvnResult implVksCreateShaderFromBin(LvnShader* shader, const LvnShaderBinCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2119,12 +2117,12 @@ LvnResult vksImplCreateShaderFromBin(LvnShader* shader, const LvnShaderBinCreate
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
+LvnResult implVksCreateShaderFromFileSrc(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
     return Lvn_Result_Failure;
 }
 
-LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
+LvnResult implVksCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2140,7 +2138,7 @@ LvnResult vksImplCreateShaderFromFileBin(LvnShader* shader, const LvnShaderCreat
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo)
+LvnResult implVksCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, const LvnDescriptorLayoutCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2194,7 +2192,7 @@ LvnResult vksImplCreateDescriptorLayout(LvnDescriptorLayout* descriptorLayout, c
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplAllocateDescriptorSet(LvnDescriptorLayout* descriptorLayout, LvnDescriptorSet** pDescriptorSets, uint32_t count)
+LvnResult implVksAllocateDescriptorSet(LvnDescriptorLayout* descriptorLayout, LvnDescriptorSet** pDescriptorSets, uint32_t count)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     LvnDescriptorSet* descriptorSets = *pDescriptorSets;
@@ -2223,7 +2221,7 @@ LvnResult vksImplAllocateDescriptorSet(LvnDescriptorLayout* descriptorLayout, Lv
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo)
+LvnResult implVksCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2315,7 +2313,7 @@ LvnResult vksImplCreatePipeline(LvnPipeline* pipeline, const LvnPipelineCreateIn
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateCommandPool(LvnCommandPool* cmdPool)
+LvnResult implVksCreateCommandPool(LvnCommandPool* cmdPool)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VkCommandPool vkcmdPool;
@@ -2337,7 +2335,7 @@ LvnResult vksImplCreateCommandPool(LvnCommandPool* cmdPool)
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplAllocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffer** pCmdBuffers, uint32_t count)
+LvnResult implVksAllocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffer** pCmdBuffers, uint32_t count)
 {
     LVN_ASSERT(cmdPool, "cmdPool is nullptr");
     LVN_ASSERT(pCmdBuffers, "pCmdBuffers is nullptr");
@@ -2418,12 +2416,12 @@ LvnResult vksImplAllocateCommandBuffers(LvnCommandPool* cmdPool, LvnCommandBuffe
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
+LvnResult implVksCreateFrameBuffer(LvnFrameBuffer* frameBuffer, const LvnFrameBufferCreateInfo* createInfo)
 {
     return Lvn_Result_Failure;
 }
 
-LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo)
+LvnResult implVksCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VkDeviceSize bufferSize = createInfo->size;
@@ -2490,7 +2488,7 @@ LvnResult vksImplCreateBuffer(LvnBuffer* buffer, const LvnBufferCreateInfo* crea
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
+LvnResult implVksCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2535,7 +2533,7 @@ LvnResult vksImplCreateSampler(LvnSampler* sampler, const LvnSamplerCreateInfo* 
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo)
+LvnResult implVksCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* createInfo)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2620,13 +2618,13 @@ LvnResult vksImplCreateTexture(LvnTexture* texture, const LvnTextureCreateInfo* 
     return Lvn_Result_Success;
 }
 
-LvnResult vksImplCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* createInfo)
+LvnResult implVksCreateCubemap(LvnCubemap* cubemap, const LvnCubemapCreateInfo* createInfo)
 {
     return Lvn_Result_Failure;
 }
 
 
-void vksImplDestroyShader(LvnShader* shader)
+void implVksDestroyShader(LvnShader* shader)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2636,7 +2634,7 @@ void vksImplDestroyShader(LvnShader* shader)
     vkDestroyShaderModule(vkBackends->device, vertShaderModule, nullptr);
 }
 
-void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
+void implVksDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 
@@ -2647,7 +2645,7 @@ void vksImplDestroyDescriptorLayout(LvnDescriptorLayout* descriptorLayout)
     vkDestroyDescriptorSetLayout(vkBackends->device, vkDescriptorLayout, nullptr);
 }
 
-void vksImplDestroyPipeline(LvnPipeline* pipeline)
+void implVksDestroyPipeline(LvnPipeline* pipeline)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
@@ -2659,7 +2657,7 @@ void vksImplDestroyPipeline(LvnPipeline* pipeline)
     vkDestroyPipelineLayout(vkBackends->device, vkPipelineLayout, nullptr);
 }
 
-void vksImplDestroyCommandPool(LvnCommandPool* cmdPool)
+void implVksDestroyCommandPool(LvnCommandPool* cmdPool)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
@@ -2683,12 +2681,12 @@ void vksImplDestroyCommandPool(LvnCommandPool* cmdPool)
     vkDestroyCommandPool(vkBackends->device, commandPool, nullptr);
 }
 
-void vksImplDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
+void implVksDestroyFrameBuffer(LvnFrameBuffer* frameBuffer)
 {
 
 }
 
-void vksImplDestroyBuffer(LvnBuffer* buffer)
+void implVksDestroyBuffer(LvnBuffer* buffer)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
@@ -2703,7 +2701,7 @@ void vksImplDestroyBuffer(LvnBuffer* buffer)
     vmaFreeMemory(vkBackends->vmaAllocator, bufferMemory);
 }
 
-void vksImplDestroySampler(LvnSampler* sampler)
+void implVksDestroySampler(LvnSampler* sampler)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
@@ -2712,7 +2710,7 @@ void vksImplDestroySampler(LvnSampler* sampler)
     vkDestroySampler(vkBackends->device, textureSampler, nullptr);
 }
 
-void vksImplDestroyTexture(LvnTexture* texture)
+void implVksDestroyTexture(LvnTexture* texture)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     vkDeviceWaitIdle(vkBackends->device);
@@ -2726,13 +2724,13 @@ void vksImplDestroyTexture(LvnTexture* texture)
     vkDestroyImageView(vkBackends->device, imageView, nullptr);
 }
 
-void vksImplDestroyCubemap(LvnCubemap* cubemap)
+void implVksDestroyCubemap(LvnCubemap* cubemap)
 {
 
 }
 
 
-void vksImplRenderBeginNextFrame(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
+void implVksRenderBeginNextFrame(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
@@ -2752,7 +2750,7 @@ void vksImplRenderBeginNextFrame(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
     LVN_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR, "[vulkan] failed to acquire swap chain image!");
 }
 
-void vksImplRenderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
+void implVksRenderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VulkanWindowSurfaceData* surfaceData = static_cast<VulkanWindowSurfaceData*>(window->apiData);
@@ -2796,7 +2794,7 @@ void vksImplRenderDrawSubmit(LvnWindow* window, LvnCommandBuffer* cmdBuffer)
         LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to present swap chain image");
 }
 
-void vksImplRenderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
+void implVksRenderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2809,48 +2807,48 @@ void vksImplRenderBeginCommandRecording(LvnCommandBuffer* cmdBuffer)
     LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to begin recording command buffer!");
 }
 
-void vksImplRenderEndCommandRecording(LvnCommandBuffer* cmdBuffer)
+void implVksRenderEndCommandRecording(LvnCommandBuffer* cmdBuffer)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkResult result = vkEndCommandBuffer(vkcmdbuffer);
     LVN_ASSERT(result == VK_SUCCESS, "[vulkan] failed to record command buffer!");
 }
 
-void vksImplRenderCmdDraw(LvnCommandBuffer* cmdBuffer, uint32_t vertexCount)
+void implVksRenderCmdDraw(LvnCommandBuffer* cmdBuffer, uint32_t vertexCount)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDraw(vkcmdbuffer, vertexCount, 1, 0, 0);
 }
 
-void vksImplRenderCmdDrawIndexed(LvnCommandBuffer* cmdBuffer, uint32_t indexCount)
+void implVksRenderCmdDrawIndexed(LvnCommandBuffer* cmdBuffer, uint32_t indexCount)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDrawIndexed(vkcmdbuffer, indexCount, 1, 0, 0, 0);
 }
 
-void vksImplRenderCmdDrawInstanced(LvnCommandBuffer* cmdBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
+void implVksRenderCmdDrawInstanced(LvnCommandBuffer* cmdBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDraw(vkcmdbuffer, vertexCount, instanceCount, 0, firstInstance);
 }
 
-void vksImplRenderCmdDrawIndexedInstanced(LvnCommandBuffer* cmdBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
+void implVksRenderCmdDrawIndexedInstanced(LvnCommandBuffer* cmdBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstInstance)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     vkCmdDrawIndexed(vkcmdbuffer, indexCount, instanceCount, 0, 0, firstInstance);
 }
 
-void vksImplRenderCmdSetStencilReference(uint32_t reference)
+void implVksRenderCmdSetStencilReference(uint32_t reference)
 {
 
 }
 
-void vksImplRenderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
+void implVksRenderCmdSetStencilMask(uint32_t compareMask, uint32_t writeMask)
 {
 
 }
 
-void vksImplRenderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, LvnWindow* window, float r, float g, float b, float a)
+void implVksRenderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, LvnWindow* window, float r, float g, float b, float a)
 {
     LVN_ASSERT(cmdBuffer != nullptr, "command buffer is nullptr");
     LVN_ASSERT(window != nullptr, "window buffer is nullptr");
@@ -2889,19 +2887,19 @@ void vksImplRenderCmdBeginRenderPass(LvnCommandBuffer* cmdBuffer, LvnWindow* win
     vkCmdSetScissor(vkcmdbuffer, 0, 1, &scissor);
 }
 
-void vksImplRenderCmdEndRenderPass(LvnCommandBuffer* cmdBuffer)
+void implVksRenderCmdEndRenderPass(LvnCommandBuffer* cmdBuffer)
 {
     vkCmdEndRenderPass(static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers));
 }
 
-void vksImplRenderCmdBindPipeline(LvnCommandBuffer* cmdBuffer, LvnPipeline* pipeline)
+void implVksRenderCmdBindPipeline(LvnCommandBuffer* cmdBuffer, LvnPipeline* pipeline)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkPipeline graphicsPipeline = static_cast<VkPipeline>(pipeline->nativePipeline);
     vkCmdBindPipeline(vkcmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 }
 
-void vksImplRenderCmdBindVertexBuffer(LvnCommandBuffer* cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
+void implVksRenderCmdBindVertexBuffer(LvnCommandBuffer* cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, LvnBuffer** pBuffers, uint64_t* pOffsets)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
 
@@ -2912,7 +2910,7 @@ void vksImplRenderCmdBindVertexBuffer(LvnCommandBuffer* cmdBuffer, uint32_t firs
     vkCmdBindVertexBuffers(vkcmdbuffer, firstBinding, bindingCount, buffers.data(), pOffsets);
 }
 
-void vksImplRenderCmdBindIndexBuffer(LvnCommandBuffer* cmdBuffer, LvnBuffer* buffer, uint64_t offset)
+void implVksRenderCmdBindIndexBuffer(LvnCommandBuffer* cmdBuffer, LvnBuffer* buffer, uint64_t offset)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkBuffer indexBuffer = static_cast<VkBuffer>(buffer->buffer);
@@ -2920,7 +2918,7 @@ void vksImplRenderCmdBindIndexBuffer(LvnCommandBuffer* cmdBuffer, LvnBuffer* buf
     vkCmdBindIndexBuffer(vkcmdbuffer, indexBuffer, offset, VK_INDEX_TYPE_UINT32);
 }
 
-void vksImplRenderCmdBindDescriptorSets(LvnCommandBuffer* cmdBuffer, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
+void implVksRenderCmdBindDescriptorSets(LvnCommandBuffer* cmdBuffer, LvnPipeline* pipeline, uint32_t firstSetIndex, uint32_t descriptorSetCount, LvnDescriptorSet** pDescriptorSets)
 {
     VkCommandBuffer vkcmdbuffer = static_cast<VkCommandBuffer>(cmdBuffer->commandBuffers);
     VkPipelineLayout pipelineLayout = static_cast<VkPipelineLayout>(pipeline->nativePipelineLayout);
@@ -2932,23 +2930,23 @@ void vksImplRenderCmdBindDescriptorSets(LvnCommandBuffer* cmdBuffer, LvnPipeline
     vkCmdBindDescriptorSets(vkcmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, firstSetIndex, descriptorSetCount, descriptorSets.data(), 0, nullptr);
 }
 
-void vksImplRenderCmdBeginFrameBuffer(LvnCommandBuffer* cmdBuffer, LvnFrameBuffer* frameBuffer)
+void implVksRenderCmdBeginFrameBuffer(LvnCommandBuffer* cmdBuffer, LvnFrameBuffer* frameBuffer)
 {
 
 }
 
-void vksImplRenderCmdEndFrameBuffer(LvnCommandBuffer* cmdBuffer, LvnFrameBuffer* frameBuffer)
+void implVksRenderCmdEndFrameBuffer(LvnCommandBuffer* cmdBuffer, LvnFrameBuffer* frameBuffer)
 {
 
 }
 
 
-void vksImplBufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset)
+void implVksBufferUpdateData(LvnBuffer* buffer, void* data, uint64_t size, uint64_t offset)
 {
     memcpy((uint8_t*)buffer->bufferMap + offset, data, size);
 }
 
-void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
+void implVksBufferResize(LvnBuffer* buffer, uint64_t size)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VmaAllocator vmaAllocator = vkBackends->vmaAllocator;
@@ -2971,7 +2969,7 @@ void vksImplBufferResize(LvnBuffer* buffer, uint64_t size)
     buffer->bufferMemory = bufferMemory;
 }
 
-void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
+void implVksUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescriptorUpdateInfo* pUpdateInfo, uint32_t count)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
     VkDescriptorSet vkDescriptorSet = static_cast<VkDescriptorSet>(descriptorSet->descriptorSet);
@@ -3021,32 +3019,32 @@ void vksImplUpdateDescriptorSetData(LvnDescriptorSet* descriptorSet, LvnDescript
     }
 }
 
-LvnTexture* vksImplFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
+LvnTexture* implVksFrameBufferGetImage(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex)
 {
     return nullptr;
 }
 
-LvnRenderPass* vksImplFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
+LvnRenderPass* implVksFrameBufferGetRenderPass(LvnFrameBuffer* frameBuffer)
 {
     return nullptr;
 }
 
-void vksImplFrameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
+void implVksFrameBufferResize(LvnFrameBuffer* frameBuffer, uint32_t width, uint32_t height)
 {
 
 }
 
-void vksImplFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
+void implVksFrameBufferSetClearColor(LvnFrameBuffer* frameBuffer, uint32_t attachmentIndex, float r, float g, float b, float a)
 {
 
 }
 
-LvnDepthImageFormat vksImplFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
+LvnDepthImageFormat implVksFindSupportedDepthImageFormat(LvnDepthImageFormat* pDepthImageFormats, uint32_t count)
 {
     return {};
 }
 
-void vksImplInternalWindowListenEventFn(LvnWindow* window, LvnEvent* event)
+void implVksInternalWindowListenEventFn(LvnWindow* window, LvnEvent* event)
 {
     VulkanBackends* vkBackends = vks::getVulkanBackends();
 

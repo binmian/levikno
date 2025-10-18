@@ -456,6 +456,7 @@ LvnResult createWindow(LvnWindow** window, const LvnWindowCreateInfo* createInfo
     windowPtr->resizable = createInfo->resizable;
     windowPtr->vSync = createInfo->vSync;
     windowPtr->icons = lvn::move(LvnVector<LvnImage>(createInfo->pIcons, createInfo->iconCount));
+    windowPtr->windowOpen = true;
 
     if (createInfo->eventCallBack == nullptr)
         windowPtr->eventCallBackFn = [](LvnEvent*) -> void { return; };

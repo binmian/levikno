@@ -176,6 +176,15 @@ enum LvnKeyCodes
     Lvn_KeyCode_Menu            = 348,
 };
 
+enum LvnKeyMods
+{
+    Lvn_KeyMod_Control,
+    Lvn_KeyMod_Alt,
+    Lvn_KeyMod_Shift,
+    Lvn_KeyMod_Super,
+    Lvn_KeyMod_CapsLock,
+    Lvn_KeyMod_NumLock,
+};
 
 // -- mouse button code enums
 enum LvnMouseButtonCodes
@@ -227,6 +236,12 @@ enum LvnWindowApi
     Lvn_WindowApi_Wayland,
     Lvn_WindowApi_X11,
     Lvn_WindowApi_Glfw,
+
+    Lvn_WindowApi_win32   = Lvn_WindowApi_Win32,
+    Lvn_WindowApi_cocoa   = Lvn_WindowApi_Cocoa,
+    Lvn_WindowApi_wayland = Lvn_WindowApi_Wayland,
+    Lvn_WindowApi_x11     = Lvn_WindowApi_X11,
+    Lvn_WindowApi_glfw    = Lvn_WindowApi_Glfw,
 };
 
 enum LvnGraphicsApi

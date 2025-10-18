@@ -1,5 +1,5 @@
-#ifndef HG_LVN_VULKAN_PLATFORM_H
-#define HG_LVN_VULKAN_PLATFORM_H
+#ifndef HG_LVN_IMPL_VK_PLATFORM_H
+#define HG_LVN_IMPL_VK_PLATFORM_H
 
 #include "lvn_graphics_internal.h"
 
@@ -139,4 +139,4 @@ struct VulkanBackends
 
 
 
-#endif
+#endif /* HG_LVN_IMPL_VK_PLATFORM_H */

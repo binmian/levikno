@@ -13,6 +13,9 @@ namespace lvn
 
     LvnResult initGraphicsApiFuncs(LvnGraphicsContext* ctx);
     void      terminateGraphicsApiFuncs(LvnGraphicsContext* ctx);
+
+    void*     platformLoadModule(const char* path);
+    void      platformUnloadModule(void* module);
 }
 
 #endif

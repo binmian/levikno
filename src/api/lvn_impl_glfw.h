@@ -5,42 +5,42 @@
 
 namespace lvn
 {
-    LvnResult implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx);
-    void implGlfwTerminateWindowContext();
+    LvnResult        implGlfwInitWindowContext(LvnGraphicsContext* graphicsctx);
+    void             implGlfwTerminateWindowContext();
 
-    LvnResult glfwImplCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo);
-    void glfwImplDestroyWindow(LvnWindow* window);
+    LvnResult        implGlfwCreateWindow(LvnWindow* window, const LvnWindowCreateInfo* createInfo);
+    void             implGlfwDestroyWindow(LvnWindow* window);
 
-    void glfwImplUpdateWindow(LvnWindow* window);
-    bool glfwImplWindowOpen(LvnWindow* window);
-    void glfwImplWindowPollEvents();
-    LvnPair<int> glfwImplGetDimensions(LvnWindow* window);
-    unsigned int glfwImplGetWindowWidth(LvnWindow* window);
-    unsigned int glfwImplGetWindowHeight(LvnWindow* window);
-    void glfwImplSetWindowVSync(LvnWindow* window, bool enable);
-    bool glfwImplGetWindowVSync(LvnWindow* window);
-    void* glfwImplGetNativeWindow(LvnWindow* window);
-    void glfwImplSetWindowContextCurrent(LvnWindow* window);
-    LvnRenderPass* glfwImplGetWindowRenderPass(LvnWindow* window);
+    void             implGlfwUpdateWindow(LvnWindow* window);
+    bool             implGlfwWindowOpen(LvnWindow* window);
+    void             implGlfwWindowPollEvents();
+    LvnPair<int>     implGlfwGetDimensions(LvnWindow* window);
+    unsigned int     implGlfwGetWindowWidth(LvnWindow* window);
+    unsigned int     implGlfwGetWindowHeight(LvnWindow* window);
+    void             implGlfwSetWindowVSync(LvnWindow* window, bool enable);
+    bool             implGlfwGetWindowVSync(LvnWindow* window);
+    void*            implGlfwGetNativeWindow(LvnWindow* window);
+    void             implGlfwSetWindowContextCurrent(LvnWindow* window);
+    LvnRenderPass*   implGlfwGetWindowRenderPass(LvnWindow* window);
 
-    bool glfwImplKeyPressed(LvnWindow* window, int keycode);
-    bool glfwImplKeyReleased(LvnWindow* window, int keycode);
-    bool glfwImplMouseButtonPressed(LvnWindow* window, int button);
-    bool glfwImplMouseButtonReleased(LvnWindow* window, int button);
+    bool             implGlfwKeyPressed(LvnWindow* window, int keycode);
+    bool             implGlfwKeyReleased(LvnWindow* window, int keycode);
+    bool             implGlfwMouseButtonPressed(LvnWindow* window, int button);
+    bool             implGlfwMouseButtonReleased(LvnWindow* window, int button);
 
-    LvnPair<float> glfwImplGetMousePos(LvnWindow* window);
-    void glfwImplGetMousePosPtr(LvnWindow* window, float* xpos, float* ypos);
-    float glfwImplGetMouseX(LvnWindow* window);
-    float glfwImplGetMouseY(LvnWindow* window);
-    void glfwImplSetMouseCursor(LvnWindow* window, LvnMouseCursor cursor);
-    void glfwImplSetMouseInputMode(LvnWindow* window, LvnMouseInputMode mode);
+    LvnPair<float>   implGlfwGetMousePos(LvnWindow* window);
+    void             implGlfwGetMousePosPtr(LvnWindow* window, float* xpos, float* ypos);
+    float            implGlfwGetMouseX(LvnWindow* window);
+    float            implGlfwGetMouseY(LvnWindow* window);
+    void             implGlfwSetMouseCursor(LvnWindow* window, LvnMouseCursor cursor);
+    void             implGlfwSetMouseInputMode(LvnWindow* window, LvnMouseInputMode mode);
 
-    LvnPair<int> glfwImplGetWindowPos(LvnWindow* window);
-    void glfwImplGetWindowPosPtr(LvnWindow* window, int* xpos, int* ypos);
-    LvnPair<int> glfwImplGetWindowSize(LvnWindow* window);
-    void glfwImplGetWindowSizePtr(LvnWindow* window, int* width, int* height);
+    LvnPair<int>     implGlfwGetWindowPos(LvnWindow* window);
+    void             implGlfwGetWindowPosPtr(LvnWindow* window, int* xpos, int* ypos);
+    LvnPair<int>     implGlfwGetWindowSize(LvnWindow* window);
+    void             implGlfwGetWindowSizePtr(LvnWindow* window, int* width, int* height);
 
-    LvnWindowApi glfwImplGetNativeWindowApi();
+    LvnWindowApi     implGlfwGetNativeWindowApi();
 }
 
 #endif // !HG_CHONPS_GLFW_H
