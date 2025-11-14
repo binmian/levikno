@@ -273,7 +273,7 @@ template <typename T>
 class LvnVector
 {
 private:
-    T* m_Data;            /* pointer array to data */
+    T* m_Data;          /* pointer array to data */
     size_t m_Size;      /* number of elements that are in this vector; size of vector */
     size_t m_Capacity;  /* max number of elements allocated/reserved for this vector; note that m_Size can be less than or equal to the capacity */
 

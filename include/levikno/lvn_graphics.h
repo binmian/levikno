@@ -178,12 +178,12 @@ enum LvnKeyCodes
 
 enum LvnKeyMods
 {
-    Lvn_KeyMod_Control,
-    Lvn_KeyMod_Alt,
-    Lvn_KeyMod_Shift,
-    Lvn_KeyMod_Super,
-    Lvn_KeyMod_CapsLock,
-    Lvn_KeyMod_NumLock,
+    Lvn_KeyMod_Control          = (1U << 0),
+    Lvn_KeyMod_Alt              = (1U << 1),
+    Lvn_KeyMod_Shift            = (1U << 3),
+    Lvn_KeyMod_Super            = (1U << 4),
+    Lvn_KeyMod_CapsLock         = (1U << 5),
+    Lvn_KeyMod_NumLock          = (1U << 6),
 };
 
 // -- mouse button code enums

@@ -267,6 +267,7 @@ struct LvnNativeWindowData
         struct wl_callback* callback;
         uint8_t* pixels;
         void* display;
+        int pendingWidth, pendingHeight;
 
         struct
         {

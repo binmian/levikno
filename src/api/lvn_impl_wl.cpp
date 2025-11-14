@@ -3,10 +3,12 @@
 #include <cstring>
 #include <dlfcn.h>
 
+#include <sys/timerfd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <poll.h>
 
 #include <linux/input-event-codes.h>
 
@@ -40,10 +42,19 @@ namespace wls
     static void               seatHandleCapabilities(void* userData, struct wl_seat* seat, uint32_t caps);
     static void               seatHandleName(void* userData, struct wl_seat* seat, const char* name);
     static void               callBackDoneHandle(void* data, struct wl_callback* callback, uint32_t cbData);
+    static void               outputGeometryHandle(void *data, struct wl_output* wl_output, int32_t x, int32_t y, int32_t physical_width, int32_t physical_height, int32_t subpixel, const char *make, const char *model, int32_t transform);
+    static void               outputModeHandle(void* data, struct wl_output* wl_output, uint32_t flags, int32_t width, int32_t height, int32_t refresh);
+    static void               outputDoneHandle(void* data, struct wl_output* wl_output);
+    static void               outputScaleHandle(void* data, struct wl_output* wl_output, int32_t factor);
+    static void               outputNameHandle(void* data, struct wl_output* wl_output, const char* name);
+    static void               outputDescriptionHandle(void* data, struct wl_output* wl_output, const char* description);
     static int                createShmFile(off_t size);
     static void               createShmBuffer(uint8_t** pixels, wl_buffer** buffer, uint32_t width, uint32_t height);
     static xkb_keysym_t       composeSymbol(WaylandBackends* wlBackends, xkb_keysym_t sym);
-    static void               inputText(WaylandBackends* wlBackends, LvnWindow* window, uint32_t scancode);
+    static void               inputText(WaylandBackends* wlBackends, LvnWindow* window, uint32_t scancode, bool repeat);
+    static uint64_t           getPlatformTimeValue();
+    static bool               pollKeyRepeatEvent(struct pollfd* fds, nfds_t count, double* timeout);
+    static bool               resizeWindow(LvnWindow* window, int32_t width, int32_t height);
 
     static WaylandBackends* getWaylandBackends()
     {
@@ -94,6 +105,16 @@ namespace wls
         wls::callBackDoneHandle,
     };
 
+    static const struct wl_output_listener s_OutputListener =
+    {
+        wls::outputGeometryHandle,
+        wls::outputModeHandle,
+        wls::outputDoneHandle,
+        wls::outputScaleHandle,
+        wls::outputNameHandle,
+        wls::outputDescriptionHandle,
+    };
+
     static void registryHandleGlobal(void* userData, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version)
     {
         WaylandBackends* wlBackends = static_cast<WaylandBackends*>(userData);
@@ -109,8 +130,13 @@ namespace wls
         }
         else if (strcmp(interface, wl_seat_interface.name) == 0)
         {
-            wlBackends->seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, 1));
+            wlBackends->seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, lvn::min<uint32_t>(4, version)));
             wl_seat_add_listener(wlBackends->seat, &s_SeatListener, wlBackends);
+        }
+        else if(strcmp(interface, wl_output_interface.name) == 0)
+        {
+            wlBackends->output = static_cast<wl_output*>(wl_registry_bind(registry, name, &wl_output_interface, lvn::min<uint32_t>(3, version)));
+            wl_output_add_listener(wlBackends->output, &s_OutputListener, wlBackends);
         }
     }
 
@@ -130,15 +156,12 @@ namespace wls
 
         xdg_surface_ack_configure(surface, serial);
 
-        if (!window->nwdata.wl.pixels)
+        int32_t width = window->nwdata.wl.pendingWidth;
+        int32_t height = window->nwdata.wl.pendingHeight;
+
+        if (wls::resizeWindow(window, width, height))
         {
-            // if (window->nwdata.wl.pixels)
-            //     munmap(window->nwdata.wl.pixels, window->width * window->height * 4);
-            // if (window->nwdata.wl.buffer)
-            //     wl_buffer_destroy(window->nwdata.wl.buffer);
-            // window->nwdata.wl.pixels = nullptr;
-            // window->nwdata.wl.buffer = nullptr;
-            wls::createShmBuffer(&window->nwdata.wl.pixels, &window->nwdata.wl.buffer, window->width, window->height);
+            // LVN_CORE_INFO("window resize event");
         }
     }
 
@@ -148,18 +171,12 @@ namespace wls
             return;
 
         LvnWindow* window = static_cast<LvnWindow*>(userData);
+        WaylandBackends* wlBackends = wls::getWaylandBackends();
 
         if (window->width != width || window->height != height)
         {
-            // if (window->nwdata.wl.pixels)
-            //     munmap(window->nwdata.wl.pixels, window->width * window->height * 4);
-            // if (window->nwdata.wl.buffer)
-            //     wl_buffer_destroy(window->nwdata.wl.buffer);
-            // window->nwdata.wl.pixels = nullptr;
-            // window->nwdata.wl.buffer = nullptr;
-            window->width = width;
-            window->height = height;
-            wls::createShmBuffer(&window->nwdata.wl.pixels, &window->nwdata.wl.buffer, window->width, window->height);
+            window->nwdata.wl.pendingWidth = width;
+            window->nwdata.wl.pendingHeight = height;
         }
     }
 
@@ -260,6 +277,9 @@ namespace wls
 
         if (!window)
             return;
+
+        struct itimerspec timer = {0};
+        timerfd_settime(wlBackends->keyRepeatTimerfd, 0, &timer, NULL);
     }
 
     static void keyboardHandleKey(void* userData, struct wl_keyboard* keyboard, uint32_t serial, uint32_t time, uint32_t scancode, uint32_t state)
@@ -271,10 +291,23 @@ namespace wls
             return;
 
         const xkb_keycode_t keycode = scancode + 8;
+        struct itimerspec timer = {0};
 
         if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
         {
-            wls::inputText(wlBackends, window, scancode);
+            wls::inputText(wlBackends, window, scancode, false);
+
+            if (xkb_keymap_key_repeats(wlBackends->xkb.keymap, keycode) && wlBackends->keyRepeatRate > 0)
+            {
+                wlBackends->keyRepeatScancode = scancode;
+                if (wlBackends->keyRepeatRate > 1)
+                    timer.it_interval.tv_nsec = 1000000000 / wlBackends->keyRepeatRate;
+                else
+                    timer.it_interval.tv_sec = 1;
+
+                timer.it_value.tv_sec = wlBackends->keyRepeatDelay / 1000;
+                timer.it_value.tv_nsec = (wlBackends->keyRepeatDelay % 1000) * 1000000;
+            }
 
             if (!window->eventCallBackFn)
                 return;
@@ -302,6 +335,8 @@ namespace wls
             event.userData = window->userData;
             window->eventCallBackFn(&event);
         }
+
+        timerfd_settime(wlBackends->keyRepeatTimerfd, 0, &timer, nullptr);
     }
 
     static void keyboardHandleModifiers(void* userData, struct wl_keyboard* keyboard, uint32_t serial, uint32_t modsDepressed, uint32_t modsLatched, uint32_t modsLocked, uint32_t group)
@@ -331,7 +366,13 @@ namespace wls
 
     static void keyboardHandleRepeatInfo(void* userData, struct wl_keyboard* keyboard, int32_t rate, int32_t delay)
     {
-        LVN_CORE_INFO("rate: %d, delay: %d", rate, delay);
+        WaylandBackends* wlBackends = static_cast<WaylandBackends*>(userData);
+
+        if (keyboard != wlBackends->keyboard)
+            return;
+
+        wlBackends->keyRepeatRate = rate;
+        wlBackends->keyRepeatDelay = delay;
     }
 
     static void seatHandleCapabilities(void* userData, struct wl_seat* seat, uint32_t caps)
@@ -342,6 +383,11 @@ namespace wls
         {
             wlBackends->keyboard = wl_seat_get_keyboard(seat);
             wl_keyboard_add_listener(wlBackends->keyboard, &s_KeyboardListener, wlBackends);
+        }
+        else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && wlBackends->keyboard)
+        {
+            wl_keyboard_destroy(wlBackends->keyboard);
+            wlBackends->keyboard = nullptr;
         }
     }
 
@@ -362,6 +408,50 @@ namespace wls
         wl_surface_attach(window->nwdata.wl.surface, window->nwdata.wl.buffer, 0, 0);
         wl_surface_damage_buffer(window->nwdata.wl.surface, 0, 0, window->width, window->height);
         wl_surface_commit(window->nwdata.wl.surface);
+    }
+
+    static void outputGeometryHandle(void* data,
+             struct wl_output* wl_output,
+             int32_t x,
+             int32_t y,
+             int32_t physical_width,
+             int32_t physical_height,
+             int32_t subpixel,
+             const char* make,
+             const char* model,
+             int32_t transform)
+    {
+
+    }
+
+    static void outputModeHandle(void* data, struct wl_output* wl_output, uint32_t flags, int32_t width, int32_t height, int32_t refresh)
+    {
+
+    }
+
+    static void outputDoneHandle(void* data, struct wl_output* wl_output)
+    {
+
+    }
+
+    static void outputScaleHandle(void* data, struct wl_output* wl_output, int32_t factor)
+    {
+        WaylandBackends* wlBackends = static_cast<WaylandBackends*>(data);
+
+        if (factor > 0)
+            wlBackends->scale = factor;
+        else
+            wlBackends->scale = 1;
+    }
+
+    static void outputNameHandle(void* data, struct wl_output* wl_output, const char* name)
+    {
+
+    }
+
+    static void outputDescriptionHandle(void* data, struct wl_output* wl_output, const char* description)
+    {
+
     }
 
     static int createShmFile(off_t size)
@@ -407,12 +497,15 @@ namespace wls
 
         WaylandBackends* wlBackends = wls::getWaylandBackends();
 
-        int fd = wls::createShmFile(width * height * 4);
+        int32_t stride = width * 4;
+        int32_t size = stride * height;
 
-        *pixels = (uint8_t*)mmap(nullptr, width * height * 4, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        struct wl_shm_pool* pool = wl_shm_create_pool(wlBackends->shm, fd, width * height * 4);
+        int fd = wls::createShmFile(size);
 
-        *buffer = wl_shm_pool_create_buffer(pool, 0, width, height, width * 4, WL_SHM_FORMAT_ARGB8888);
+        *pixels = (uint8_t*)mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        struct wl_shm_pool* pool = wl_shm_create_pool(wlBackends->shm, fd, size);
+
+        *buffer = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
 
         wl_shm_pool_destroy(pool);
         close(fd);
@@ -438,7 +531,7 @@ namespace wls
         }
     }
 
-    static void inputText(WaylandBackends* wlBackends, LvnWindow* window, uint32_t scancode)
+    static void inputText(WaylandBackends* wlBackends, LvnWindow* window, uint32_t scancode, bool repeat)
     {
         const xkb_keysym_t* keysyms;
         const xkb_keycode_t keycode = scancode + 8;
@@ -450,6 +543,10 @@ namespace wls
         {
             const xkb_keysym_t keysym = wls::composeSymbol(wlBackends, keysyms[0]);
             const uint32_t codepoint = xkb_keysym_to_utf32(keysym);
+
+            if (codepoint < 32 || (codepoint > 126 && codepoint < 160))
+                return;
+
             if (codepoint != 0)
             {
                 const uint32_t mods = wlBackends->xkb.modifiers;
@@ -468,6 +565,102 @@ namespace wls
                 window->eventCallBackFn(&event);
             }
         }
+    }
+
+    static uint64_t getPlatformTimeValue()
+    {
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+
+        const uint64_t frequency = 1000000000;
+        return (uint64_t)ts.tv_sec * frequency + (uint64_t)ts.tv_nsec;
+    }
+
+    static bool pollKeyRepeatEvent(struct pollfd* fds, nfds_t count, double* timeout)
+    {
+        for (;;)
+        {
+            if (timeout)
+            {
+                LVN_CORE_DEBUG("place 1");
+                uint64_t tFirst = wls::getPlatformTimeValue();
+
+                LVN_CORE_DEBUG("place 2");
+                const time_t seconds = (time_t)(*timeout);
+                const long nanoseconds = (long)((*timeout - seconds) * 1e9);
+
+                LVN_CORE_DEBUG("place 3");
+                const struct timespec ts = { seconds, nanoseconds };
+                const int result = ppoll(fds, count, &ts, nullptr);
+
+                LVN_CORE_DEBUG("place 4");
+                *timeout -= (wls::getPlatformTimeValue() - tFirst) / (double)(1e9);
+
+                LVN_CORE_DEBUG("ppoll");
+
+                if (result > 0)
+                    return true;
+                else if (result == -1)
+                    return false;
+                else if (*timeout <= 0.0)
+                    return false;
+            }
+            else
+            {
+                LVN_CORE_DEBUG("poll");
+                const int result = poll(fds, count, -1);
+                if (result > 0)
+                    return true;
+                else if (result == -1)
+                    return false;
+            }
+
+        }
+    }
+
+    static bool resizeWindow(LvnWindow* window, int32_t width, int32_t height)
+    {
+        if (window->width == width && window->height == height)
+        {
+            // LVN_CORE_INFO("its working");
+            return false;
+        }
+        else {
+            // LVN_CORE_WARN("its not working");
+        }
+
+        if (window->nwdata.wl.pixels)
+            munmap(window->nwdata.wl.pixels, window->width * window->height * 4);
+        if (window->nwdata.wl.buffer)
+            wl_buffer_destroy(window->nwdata.wl.buffer);
+
+        window->width = width;
+        window->height = height;
+
+        wls::createShmBuffer(&window->nwdata.wl.pixels, &window->nwdata.wl.buffer, window->width, window->height);
+
+        int count = 0;
+        for (int y = 0; y < window->height; y++) {
+            for (int x = 0; x < window->width; x++) {
+                for (int c = 0; c < 4; c++) {
+                    if (count % 2 == 0)
+                        window->nwdata.wl.pixels[y * window->width * 4 + x * 4 + c] = 255;
+                    else
+                        window->nwdata.wl.pixels[y * window->width * 4 + x * 4 + c] = 0;
+                }
+                count++;
+            }
+            count++;
+        }
+
+        LVN_CORE_ERROR("w:%d,h:%d", window->width, window->height);
+
+        // memset(window->nwdata.wl.pixels, 150, window->width * window->height * 4);
+        wl_surface_attach(window->nwdata.wl.surface, window->nwdata.wl.buffer, 0, 0);
+        wl_surface_damage_buffer(window->nwdata.wl.surface, 0, 0, window->width, window->height);
+        wl_surface_commit(window->nwdata.wl.surface);
+
+        return true;
     }
 } /* namespace wls */
 
@@ -586,6 +779,7 @@ LvnResult implWaylandInitWindowContext(LvnGraphicsContext* graphicsctx)
     s_WlBackends->xkb.keymap_new_from_string = (PFN_xkb_keymap_new_from_string)dlsym(s_WlBackends->xkb.handle, "xkb_keymap_new_from_string");
     s_WlBackends->xkb.keymap_unref = (PFN_xkb_keymap_unref)dlsym(s_WlBackends->xkb.handle, "xkb_keymap_unref");
     s_WlBackends->xkb.keymap_mod_get_index = (PFN_xkb_keymap_mod_get_index)dlsym(s_WlBackends->xkb.handle, "xkb_keymap_mod_get_index");
+    s_WlBackends->xkb.keymap_key_repeats = (PFN_xkb_keymap_key_repeats)dlsym(s_WlBackends->xkb.handle, "xkb_keymap_key_repeats");
     s_WlBackends->xkb.state_new = (PFN_xkb_state_new)dlsym(s_WlBackends->xkb.handle, "xkb_state_new");
     s_WlBackends->xkb.state_unref = (PFN_xkb_state_unref)dlsym(s_WlBackends->xkb.handle, "xkb_state_unref");
     s_WlBackends->xkb.state_key_get_syms = (PFN_xkb_state_key_get_syms)dlsym(s_WlBackends->xkb.handle, "xkb_state_key_get_syms");
@@ -605,6 +799,7 @@ LvnResult implWaylandInitWindowContext(LvnGraphicsContext* graphicsctx)
         !s_WlBackends->xkb.keymap_new_from_string ||
         !s_WlBackends->xkb.keymap_unref ||
         !s_WlBackends->xkb.keymap_mod_get_index ||
+        !s_WlBackends->xkb.keymap_key_repeats ||
         !s_WlBackends->xkb.state_new ||
         !s_WlBackends->xkb.state_unref ||
         !s_WlBackends->xkb.state_key_get_syms ||
@@ -749,6 +944,12 @@ LvnResult implWaylandInitWindowContext(LvnGraphicsContext* graphicsctx)
     s_WlBackends->keycodes[KEY_KPENTER]    = Lvn_KeyCode_KP_Enter;
     s_WlBackends->keycodes[KEY_102ND]      = Lvn_KeyCode_World2;
 
+    // create key repeat fd
+    s_WlBackends->keyRepeatTimerfd = -1;
+    if (wl_seat_get_version(s_WlBackends->seat) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION)
+        s_WlBackends->keyRepeatTimerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+
+    // set wayland function pointer functions
     graphicsctx->windowapi = Lvn_WindowApi_Wayland;
     graphicsctx->createWindow = lvn::implWaylandCreateWindow;
     graphicsctx->destroyWindow = lvn::implWaylandDestroyWindow;
@@ -787,6 +988,11 @@ void implWaylandTerminateWindowContext()
     if (!s_WlBackends)
         return;
 
+    // file desciptors
+    if (s_WlBackends->keyRepeatTimerfd >= 0)
+        close(s_WlBackends->keyRepeatTimerfd);
+
+    // xkb
     if (s_WlBackends->xkb.composeState)
         xkb_compose_state_unref(s_WlBackends->xkb.composeState);
     if (s_WlBackends->xkb.keymap)
@@ -796,6 +1002,9 @@ void implWaylandTerminateWindowContext()
     if (s_WlBackends->xkb.context)
         xkb_context_unref(s_WlBackends->xkb.context);
 
+    // wayland
+    if (s_WlBackends->output)
+        wl_output_release(s_WlBackends->output);
     if (s_WlBackends->keyboard)
         wl_keyboard_destroy(s_WlBackends->keyboard);
     if (s_WlBackends->seat)
@@ -811,6 +1020,7 @@ void implWaylandTerminateWindowContext()
         wl_display_disconnect(s_WlBackends->display);
     }
 
+    // shared library handles
     if (s_WlBackends->xkb.handle)
         dlclose(s_WlBackends->xkb.handle);
     if (s_WlBackends->egl.handle)
@@ -905,6 +1115,36 @@ void implWaylandDestroyWindow(LvnWindow* window)
 void implWaylandUpdateWindow(LvnWindow* window)
 {
     wl_display_dispatch(s_WlBackends->display);
+
+    WaylandBackends* wlBackends = wls::getWaylandBackends();
+
+    // struct pollfd fds =
+    // {
+    //     wlBackends->keyRepeatTimerfd, POLLIN,
+    // };
+    //
+    // double timeout = 0.0;
+    // if (!wls::pollKeyRepeatEvent(&fds, 1, &timeout))
+    // {
+    //     // wl_display_cancel_read(wlBackends->display);
+    //     return;
+    // }
+    //
+    // if (fds.revents & POLLIN)
+    // {
+    //     uint64_t repeats;
+    //
+    //     if (read(wlBackends->keyRepeatTimerfd, &repeats, sizeof(repeats)) == 8)
+    //     {
+    //         for (uint64_t i = 0; i < repeats; i++)
+    //         {
+    //             wls::inputText(wlBackends, window, wlBackends->keyRepeatScancode, true);
+    //         }
+    //     }
+    // }
+
+    wls::resizeWindow(window, window->nwdata.wl.pendingWidth, window->nwdata.wl.pendingHeight);
+
 }
 
 bool implWaylandWindowOpen(LvnWindow* window)
@@ -914,7 +1154,6 @@ bool implWaylandWindowOpen(LvnWindow* window)
 
 void implWaylandWindowPollEvents()
 {
-
 }
 
 LvnPair<int> implWaylandGetDimensions(LvnWindow* window)
