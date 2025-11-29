@@ -1,7 +1,7 @@
 #ifndef HG_LEVIKNO_H
 #define HG_LEVIKNO_H
 
-// [LAYOUT]:
+// [LAYOUT]: levikno.h
 // ------------------------------------------------------------
 //
 // [SECTION]: Includes
@@ -65,6 +65,7 @@ enum LvnStructureType
 // [SECTION]: Struct Declaration
 // ------------------------------------------------------------
 
+struct LvnImage;
 struct LvnLogger;
 struct LvnLoggerCreateInfo;
 struct LvnContext;
@@ -78,34 +79,48 @@ struct LvnSink;
 template <typename T>
 class LvnVector;
 
+
 class LvnString;
+
 
 template <typename T>
 struct LvnLinkedIndexNode;
 
+
 template <typename T>
 using LvnINode = LvnLinkedIndexNode<T>;
+
 
 template <typename T>
 class LvnArenaList;
 
+
 template <typename T, typename Container>
 class LvnQueue;
 
+
 struct LvnHash;
+
+
 template <typename K, typename T>
 struct LvnHashEntry;
+
+
 template <typename K, typename T, typename Hash>
 class LvnHashMap;
+
 
 template <typename T>
 class LvnUniquePtr;
 
+
 template<typename T>
 struct LvnPair;
 
+
 template<typename T1, typename T2>
 struct LvnDoublePair;
+
 
 class LvnThread;
 class LvnMutex;
@@ -123,21 +138,16 @@ typedef void* (*LvnMemReallocFunc)(void* ptr, size_t sz, void* userData);
 namespace lvn
 {
     // -- memory allocation
-    LVN_API void*                   memAlloc(size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
-    LVN_API void                    memFree(void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
-    LVN_API void*                   memRealloc(void* ptr, size_t size);                 // custom memory realloc function
-    LVN_API void*                   memCopy(void* dst, const void* src, size_t size);   // custom memory copy function
-    LVN_API void*                   memSet(void* ptr, int c, size_t size);              // custom memory set function
+    LVN_API void*                   memAlloc(LvnContext* ctx, size_t size);                              // custom memory allocation function that allocates memory given the size of memory, note that function is connected with the context and will keep track of allocation counts, will increment number of allocations per use
+    LVN_API void                    memFree(LvnContext* ctx, void* ptr);                                 // custom memory free function, note that it keeps track of memory allocations remaining, decrements number of allocations per use with lvn::memAlloc
+    LVN_API void*                   memRealloc(LvnContext* ctx, void* ptr, size_t size);                 // custom memory realloc function
 
     LVN_API void                    setMemFuncs(LvnMemAllocFunc allocFunc, LvnMemFreeFunc freeFunc, LvnMemReallocFunc reallocFunc, void* userData);
     LVN_API LvnMemAllocFunc         getMemAllocFunc();
     LVN_API LvnMemFreeFunc          getMemFreeFunc();
     LVN_API LvnMemReallocFunc       getMemReallocFunc();
     LVN_API void*                   getMemUserData();
-    LVN_API size_t                  getMemAllocCount();
-
-    LVN_API LvnString               fileLoadSrc(const char* filepath);
-    LVN_API LvnVector<uint8_t>      fileLoadBin(const char* filepath);
+    LVN_API size_t                  getMemAllocCount(const LvnContext* ctx);
 
 #ifdef LVN_CONFIG_DEBUG
     LVN_API inline size_t i_ObjectAllocationCount = 0;
@@ -148,9 +158,9 @@ namespace lvn
     LVN_API constexpr T* memNew(size_t size = 1, bool construct = true)
     {
         if (size == 0) { return nullptr; }
-    #ifdef LVN_CONFIG_DEBUG
+#ifdef LVN_CONFIG_DEBUG
         i_ObjectAllocationCount++;
-    #endif
+#endif
         T* memalloc = (T*)(*lvn::getMemAllocFunc())(size * sizeof(T), lvn::getMemUserData());
         if (construct)
         {
@@ -164,9 +174,9 @@ namespace lvn
     LVN_API constexpr void memDelete(T* ptr, size_t size = 1)
     {
         if (ptr == nullptr) { return; }
-    #ifdef LVN_CONFIG_DEBUG
+#ifdef LVN_CONFIG_DEBUG
         i_ObjectAllocationCount--;
-    #endif
+#endif
         if (!std::is_trivially_destructible_v<T>)
         {
             for (size_t i = 0; i < size; i++)
@@ -183,10 +193,12 @@ namespace lvn
         return LvnUniquePtr<T>(ptr);
     }
 
+    LVN_API LvnString               fileLoadSrc(const char* filepath, LvnResult* result = nullptr);
+    LVN_API LvnVector<uint8_t>      fileLoadBin(const char* filepath, LvnResult* result = nullptr);
+
     // context
-    LVN_API LvnResult               initContext(LvnContextCreateInfo* createInfo = nullptr);
-    LVN_API void                    terminateContext();
-    LVN_API LvnContext*             getContext();
+    LVN_API LvnResult               createContext(LvnContext** ctx, LvnContextCreateInfo* createInfo = nullptr);
+    LVN_API void                    destroyContext(LvnContext* ctx);
 
 
     LVN_API int                     dateGetYear();                                      // get the year number (eg. 2025)
@@ -219,45 +231,32 @@ namespace lvn
 
 
     // logging
-    LVN_API void                    logEnable(bool enable);                                                           // enable or disable logging
-    LVN_API void                    logEnableCoreLogging(bool enable);                                                // enable or disable logging from the core logger
-    LVN_API void                    logSetLevel(LvnLogger* logger, LvnLogLevel level);                                // sets the log level of logger, will only print messages with set log level and higher
-    LVN_API bool                    logCheckLevel(LvnLogger* logger, LvnLogLevel level);                              // checks level with loger, returns true if level is the same or higher level than the level of the logger
-    LVN_API void                    logRenameLogger(LvnLogger* logger, const char* name);                             // renames the name of the logger
-    LVN_API LvnString               logGetMessage(LvnLogger* logger, LvnLogMessage* msg);                             // gets the message of the logger
+    LVN_API void                    logEnable(LvnContext* ctx, bool enable);                                          // enable or disable logging
+    LVN_API void                    logEnableCoreLogging(LvnContext* ctx, bool enable);                               // enable or disable logging from the core logger
+    LVN_API LvnString               logGetMessage(const LvnLogger* logger, LvnLogMessage* msg);                       // gets the message of the logger
     LVN_API LvnString               logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg, bool removeANSI = false); // formats the log message into the log pattern set by the logger
-    LVN_API void                    logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg);                // log message with given log level
-    LVN_API void                    logMessageTrace(LvnLogger* logger, const char* fmt, ...);                         // log message with level trace; ANSI code "\x1b[0;37m"
-    LVN_API void                    logMessageDebug(LvnLogger* logger, const char* fmt, ...);                         // log message with level debug; ANSI code "\x1b[0;34m"
-    LVN_API void                    logMessageInfo(LvnLogger* logger, const char* fmt, ...);                          // log message with level info;  ANSI code "\x1b[0;32m"
-    LVN_API void                    logMessageWarn(LvnLogger* logger, const char* fmt, ...);                          // log message with level warn;  ANSI code "\x1b[1;33m"
-    LVN_API void                    logMessageError(LvnLogger* logger, const char* fmt, ...);                         // log message with level error; ANSI code "\x1b[1;31m"
-    LVN_API void                    logMessageFatal(LvnLogger* logger, const char* fmt, ...);                         // log message with level fatal; ANSI code "\x1b[1;37;41m"
-    LVN_API void                    logTrace(const char* fmt, ...);                                                   // log trace message on the clint logger
-    LVN_API void                    logDebug(const char* fmt, ...);                                                   // log debug message on the clint logger
-    LVN_API void                    logInfo(const char* fmt, ...);                                                    // log info message on the clint logger
-    LVN_API void                    logWarn(const char* fmt, ...);                                                    // log warn message on the clint logger
-    LVN_API void                    logError(const char* fmt, ...);                                                   // log error message on the clint logger
-    LVN_API void                    logFatal(const char* fmt, ...);                                                   // log fatal message on the clint logger
-    LVN_API void                    logCoreTrace(const char* fmt, ...);                                               // log trace message on the core logger
-    LVN_API void                    logCoreDebug(const char* fmt, ...);                                               // log debug message on the core logger
-    LVN_API void                    logCoreInfo(const char* fmt, ...);                                                // log info message on the core logger
-    LVN_API void                    logCoreWarn(const char* fmt, ...);                                                // log warn message on the core logger
-    LVN_API void                    logCoreError(const char* fmt, ...);                                               // log error message on the core logger
-    LVN_API void                    logCoreFatal(const char* fmt, ...);                                               // log fatal message on the core logger
-    LVN_API LvnLogger*              logGetCoreLogger();
-    LVN_API LvnLogger*              logGetClientLogger();
+    LVN_API void                    logMessage(const LvnLogger* logger, LvnLogLevel level, const char* msg);          // log message with given log level
+    LVN_API void                    logMessageTrace(const LvnLogger* logger, const char* fmt, ...);                   // log message with level trace; ANSI code "\x1b[0;37m"
+    LVN_API void                    logMessageDebug(const LvnLogger* logger, const char* fmt, ...);                   // log message with level debug; ANSI code "\x1b[0;34m"
+    LVN_API void                    logMessageInfo(const LvnLogger* logger, const char* fmt, ...);                    // log message with level info;  ANSI code "\x1b[0;32m"
+    LVN_API void                    logMessageWarn(const LvnLogger* logger, const char* fmt, ...);                    // log message with level warn;  ANSI code "\x1b[1;33m"
+    LVN_API void                    logMessageError(const LvnLogger* logger, const char* fmt, ...);                   // log message with level error; ANSI code "\x1b[1;31m"
+    LVN_API void                    logMessageFatal(const LvnLogger* logger, const char* fmt, ...);                   // log message with level fatal; ANSI code "\x1b[1;37;41m"
+    LVN_API LvnLogger*              logGetCoreLogger(LvnContext* ctx);                                                // get the core logger of the given context
+    LVN_API LvnResult               logAddPatterns(LvnContext* ctx, LvnLogPattern* pLogPatterns, uint32_t count);     // add user defined log patterns to the context for all loggers
     LVN_API const char*             logGetANSIcodeColor(LvnLogLevel level);                                           // get the ANSI color code of the log level in a string
     LVN_API int                     logOutputMessage(const char* logmsg);                                             // log messages to output
-    LVN_API LvnResult               logSetPatternFormat(LvnLogger* logger, const char* patternfmt);                   // set the log pattern of the logger; messages outputed from that logger will be in this format
-    LVN_API LvnResult               logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count);                      // add user defined log patterns to the library
 
-    LVN_API LvnResult               createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo);
+    LVN_API LvnResult               createLogger(LvnContext* ctx, LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo);
     LVN_API void                    destroyLogger(LvnLogger* logger);
     LVN_API LvnLoggerCreateInfo     configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel, LvnSink* pSinks, uint32_t sinkCount);
     LVN_API void                    loggerAddSink(LvnLogger* logger, const LvnSink& sink);
     LVN_API void                    loggerRemoveSink(LvnLogger* logger, uint32_t id);
     LVN_API void                    loggerGetSinks(LvnLogger* logger, LvnSink** pSinks, uint32_t* sinkCount);
+    LVN_API LvnResult               loggerSetPatternFormat(LvnLogger* logger, const char* patternfmt);                // set the log pattern of the logger; messages outputed from that logger will be in this format
+    LVN_API void                    loggerSetLevel(LvnLogger* logger, LvnLogLevel level);                             // sets the log level of logger, will only print messages with set log level and higher
+    LVN_API bool                    loggerCheckLevel(const LvnLogger* logger, LvnLogLevel level);                     // checks level with loger, returns true if level is the same or higher level than the level of the logger
+    LVN_API void                    loggerRename(LvnLogger* logger, const char* name);                                // renames the name of the logger
 } /* namespace lvn */
 
 
@@ -1583,13 +1582,14 @@ struct LvnLoggerCreateInfo
     LvnString loggerName;
     LvnString format;
     LvnLogLevel level;
-    LvnSink* pSinks;
+    const LvnSink* pSinks;
     uint32_t sinkCount;
 };
 
 struct LvnLogMessage
 {
-    const char *msg, *loggerName;
+    const char* msg;
+    const char* loggerName;
     LvnLogLevel level;
     long long timeEpoch;
 };
@@ -1606,6 +1606,12 @@ struct LvnLogFile
     LvnFileMode filemode;
     void* fileptr;
     bool logToFile;
+};
+
+struct LvnImage
+{
+    LvnVector<uint8_t> pixels;
+    uint32_t width, height, channels;
 };
 
 struct LvnContextCreateInfo

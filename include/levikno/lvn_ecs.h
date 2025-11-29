@@ -2,7 +2,7 @@
 #define HG_LVN_ECS_H
 
 
-// Layout: lvn_ecs (Entity Component System)
+// [LAYOUT]: lvn_ecs (Entity Component System)
 // ------------------------------------------------------------
 //
 // [SECTION]: Struct Definitions

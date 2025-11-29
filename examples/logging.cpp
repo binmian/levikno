@@ -3,71 +3,17 @@
 
 // INFO: this program demonstrates the logging components of the library
 
+
 int main(int argc, char** argv)
 {
-    // init context
-    lvn::initContext();
-
-    LVN_INFO("logging example, more info in source code\n");
-
-    // [Logging functions & macros]
-    // log messages are seperated through log levels
-
-    lvn::logMessageTrace(lvn::logGetClientLogger(), "this is a trace log message");
-    lvn::logMessageDebug(lvn::logGetClientLogger(), "this is a debug log message");
-    lvn::logMessageInfo(lvn::logGetClientLogger(), "this is a info log message");
-    lvn::logMessageWarn(lvn::logGetClientLogger(), "this is a warn log message");
-    lvn::logMessageError(lvn::logGetClientLogger(), "this is a error log message");
-    lvn::logMessageFatal(lvn::logGetClientLogger(), "this is a fatal log message");
-
-    printf("\n");
-
-    // another way to log messages via macros, these macros use the internal client logger that levikno provides
-    LVN_TRACE("trace message");
-    LVN_DEBUG("debug message");
-    LVN_INFO("info message");
-    LVN_WARN("warn message");
-    LVN_ERROR("error message");
-    LVN_FATAL("fatal message");
-
-    printf("\n");
-
-
-    // [Enabling and disabling logging]
-    // logging can be enabled and disabled at any time after logging is initiated
-
-    lvn::logEnable(false);
-    LVN_TRACE("this message will not be displayed");
-
-    lvn::logEnable(true);
-    LVN_TRACE("this message will be displayed");
-
-    printf("\n");
-
-
-    // [Core and Client logger]
-    // in the library, there are two loggers that are created by default, the core logger and client logger
-    // - the core logger is mainly used within the library and displays library events and errors such as object creation and loading
-    // - The client logger is mainly used for the application (although it does not have to be used)
-    // - you can disable the core logger if you don't want the library to output logs
-
-    // this function enables or diables output from the core logger
-    lvn::logEnableCoreLogging(true);
-
-    lvn::logMessageTrace(lvn::logGetCoreLogger(), "this message is from the core logger");
-
-    LVN_CORE_TRACE("this message is also from the core logger");
-
-    lvn::logEnableCoreLogging(false);
-
-    printf("\n");
+    // create context
+    LvnContext* ctx;
+    lvn::createContext(&ctx);
 
 
     // [Creating loggers]
-    // a logger object controls how log messages should be displayed,
-    // if the core and client logger is not enough, new loggeg objects can be created:
-
-    // a levikno logger first requires a sink before it is created in order to send its log messages somewhere,
+    // a logger controls how log messages should be logged
+    // a sink is required first before a logger can be created in order for it to know where to send log messages
     // here we just use levikno's internally provided print output function
     LvnSink sink{};
     sink.logFunc = lvn::logOutputMessage;
@@ -82,13 +28,13 @@ int main(int argc, char** argv)
 
     // create the logger
     LvnLogger* logger;
-    lvn::createLogger(&logger, &loggerCreateInfo);
+    lvn::createLogger(ctx, &logger, &loggerCreateInfo);
 
     // we can now use our own logger
     lvn::logMessageInfo(logger, "log message from our own logger");
 
     // note that the outputted message from our logger does not include certain information like the time or date
-    // this is because they are not added in our log pattern
+    // this is because they are not included in our log pattern
 
     printf("\n");
 
@@ -128,13 +74,13 @@ int main(int argc, char** argv)
 
 
     // we can change the log pattern after a logger has been created
-    lvn::logSetPatternFormat(logger, "[%T] [%l]: %v%$");
+    lvn::loggerSetPatternFormat(logger, "[%T] [%l]: %v%$");
 
     lvn::logMessageTrace(logger, "log message with our new log pattern");
 
     // ANSI color codes can also be added in our pattern giving specific colors based on the log level of the message
     // - ANSI color codes need to have a starting and ending range using '%#' and '%^'
-    lvn::logSetPatternFormat(logger, "[%T] [%#%l%^]: %v%$");
+    lvn::loggerSetPatternFormat(logger, "[%T] [%#%l%^]: %v%$");
 
     lvn::logMessageWarn(logger, "log message with color");
 
@@ -148,11 +94,11 @@ int main(int argc, char** argv)
     logPattern.symbol = '>';
     logPattern.func = [](LvnLogMessage* msg) -> LvnString { return ">>>"; };
 
-    // log pattern will be added to the library
-    lvn::logAddPatterns(&logPattern, 1);
+    // add a log pattern to the context, all loggers created from this context will check for this pattern
+    lvn::logAddPatterns(ctx, &logPattern, 1);
 
     // now we can use our new log pattern
-    lvn::logSetPatternFormat(logger, "[%T] [%#%l%^] %> %v%$");
+    lvn::loggerSetPatternFormat(logger, "[%T] [%#%l%^] %> %v%$");
 
     lvn::logMessageDebug(logger, "log message with our own custom log pattern");
 
@@ -165,7 +111,7 @@ int main(int argc, char** argv)
     // - you can set a minimum log level for each logger which will omit any log messages below a certain log level
 
     // here we set the minimum log level to error
-    lvn::logSetLevel(logger, Lvn_LogLevel_Error);
+    lvn::loggerSetLevel(logger, Lvn_LogLevel_Error);
 
     // log messages below the error level will not be displayed
     lvn::logMessageTrace(logger, "this trace message is displayed");
@@ -177,7 +123,7 @@ int main(int argc, char** argv)
     lvn::logMessageFatal(logger, "this fatal message is displayed");
 
     // set the log level to none to allow all levels
-    lvn::logSetLevel(logger, Lvn_LogLevel_None);
+    lvn::loggerSetLevel(logger, Lvn_LogLevel_None);
 
     printf("\n");
 
@@ -193,11 +139,47 @@ int main(int argc, char** argv)
     lvn::logMessageError(logger, "failed to do thing, error code: %d", code);
 
 
+    printf("\n");
+
+    // [Core Logger]
+    // Levikno has its own internal core logger used to log core events such as object creation and error messages
+
+    // the core logger can be retrieved like this:
+    LvnLogger* coreLogger = lvn::logGetCoreLogger(ctx);
+
+    lvn::logMessageInfo(coreLogger, "log message using the core logger");
+
+
+    printf("\n");
+
+    // [Enable/Disable Logging]
+
+    // if you dont want the library to log core messages you can disable core logging for each context
+    lvn::logEnableCoreLogging(ctx, false);
+
+    // this core log would print
+    lvn::logMessageDebug(coreLogger, "this core log wont print");
+
+    // enable core logging again
+    lvn::logEnableCoreLogging(ctx, true);
+    lvn::logMessageDebug(coreLogger, "this core log will print");
+
+    // you can also tell the library to not log messages at all if you need
+    // this will prevent logging from all loggers created within the context
+    lvn::logEnable(ctx, false);
+
+    lvn::logMessageInfo(logger, "our logger wont print");
+    lvn::logMessageInfo(coreLogger, "the core logger wont print");
+
+    lvn::logEnable(ctx, true);
+    lvn::logMessageInfo(logger, "our logger can print");
+
+
     // remember to destroy the logger like any other object
     lvn::destroyLogger(logger);
 
-    // terminate context
-    lvn::terminateContext();
+    // destroy context
+    lvn::destroyContext(ctx);
 
     return 0;
 }

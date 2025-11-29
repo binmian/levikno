@@ -1,7 +1,6 @@
 #include "lvn_platform.h"
 #include "levikno.h"
 #include "levikno_internal.h"
-#include "lvn_graphics_internal.h"
 
 #include <cstring>
 
@@ -12,18 +11,6 @@
 
 #ifdef LVN_PLATFORM_LINUX
 #   include <dlfcn.h>
-#endif
-
-#ifdef LVN_INCLUDE_GLFW
-#   include "lvn_impl_glfw.h"
-#endif
-
-#ifdef LVN_INCLUDE_WAYLAND
-#   include "lvn_impl_wl.h"
-#endif
-
-#ifdef LVN_INCLUDE_VULKAN
-#   include "lvn_impl_vk.h"
 #endif
 
 namespace lvn
@@ -37,37 +24,27 @@ static LvnMemFreeFunc     s_MemFreeFunc = freeWrapper;
 static LvnMemReallocFunc  s_MemReallocFunc = reallocWrapper;
 static void*              s_MemAllocUserData = nullptr;
 
-void* memAlloc(size_t size)
+void* memAlloc(LvnContext* ctx, size_t size)
 {
     if (size == 0) { return nullptr; }
     void* allocmem = (*s_MemAllocFunc)(size, s_MemAllocUserData);
-    if (!allocmem) { LVN_CORE_ERROR("malloc failure, could not allocate memory!"); exit(-1); }
+    if (!allocmem) { LVN_CORE_ERROR(ctx, "malloc failure, could not allocate memory!"); exit(-1); }
     memset(allocmem, 0, size);
-    lvn::getContext()->memAllocCount++;
+    ctx->memAllocCount++;
     return allocmem;
 }
 
-void memFree(void* ptr)
+void memFree(LvnContext* ctx, void* ptr)
 {
     if (ptr == nullptr) { return; }
     (*s_MemFreeFunc)(ptr, s_MemAllocUserData);
-    lvn::getContext()->memAllocCount--;
+    ctx->memAllocCount--;
 }
 
-void* memRealloc(void* ptr, size_t size)
+void* memRealloc(LvnContext* ctx, void* ptr, size_t size)
 {
-    if (!ptr) { return lvn::memAlloc(size); }
+    if (!ptr) { return lvn::memAlloc(ctx, size); }
     return (*s_MemReallocFunc)(ptr, size, s_MemAllocUserData);
-}
-
-void* memCopy(void* dst, const void* src, size_t size)
-{
-    return memcpy(dst, src, size);
-}
-
-void* memSet(void* ptr, int c, size_t size)
-{
-    return memset(ptr, c, size);
 }
 
 void setMemFuncs(LvnMemAllocFunc allocFunc, LvnMemFreeFunc freeFunc, LvnMemReallocFunc reallocFunc, void* userData)
@@ -98,13 +75,13 @@ void* getMemUserData()
     return s_MemAllocUserData;
 }
 
-LvnString fileLoadSrc(const char* filepath)
+LvnString fileLoadSrc(const char* filepath, LvnResult* result)
 {
     FILE* fileptr = fopen(filepath, "r");
 
     if (!fileptr)
     {
-        LVN_CORE_ERROR("cannot open source file: %s", filepath);
+        if (result) { *result = Lvn_Result_Failure; }
         return {};
     }
 
@@ -116,16 +93,17 @@ LvnString fileLoadSrc(const char* filepath)
     fread(src.data(), sizeof(char), size, fileptr);
     fclose(fileptr);
 
+    if (result) { *result = Lvn_Result_Success; }
     return LvnString(src.data(), src.size());
 }
 
-LvnVector<uint8_t> fileLoadBin(const char* filepath)
+LvnVector<uint8_t> fileLoadBin(const char* filepath, LvnResult* result)
 {
     FILE* fileptr = fopen(filepath, "rb");
 
     if (!fileptr)
     {
-        LVN_CORE_ERROR("cannot open binary file: %s", filepath);
+        if (result) { *result = Lvn_Result_Failure; }
         return {};
     }
 
@@ -137,6 +115,7 @@ LvnVector<uint8_t> fileLoadBin(const char* filepath)
     fread(bin.data(), sizeof(uint8_t), size, fileptr);
     fclose(fileptr);
 
+    if (result) { *result = Lvn_Result_Success; }
     return lvn::move(bin);
 }
 
@@ -146,145 +125,6 @@ int logOutputMessage(const char* logmsg)
     return printf("%s", logmsg);
 }
 
-LvnResult initWindowApiFuncs(LvnGraphicsContext* ctx)
-{
-    LvnResult result = Lvn_Result_Failure;
-    switch (ctx->windowapi)
-    {
-        case Lvn_WindowApi_None:
-        {
-            LVN_CORE_TRACE("no window api selected, window related functions will not be set");
-            return Lvn_Result_Success;
-        }
-        case Lvn_WindowApi_Glfw:
-        {
-#ifdef LVN_INCLUDE_GLFW
-            result = lvn::implGlfwInitWindowContext(ctx);
-#endif /* !LVN_INCLUDE_GLFW */
-            break;
-        }
-        case Lvn_WindowApi_Wayland:
-        {
-#ifdef LVN_INCLUDE_WAYLAND
-            result = lvn::implWaylandInitWindowContext(ctx);
-#endif /* !LVN_INCLUDE_WAYLAND */
-            break;
-        }
-
-        default:
-        {
-            LVN_CORE_ERROR("unrecognized window api: (%d), cannot create window api related functions", ctx->windowapi);
-            return Lvn_Result_Failure;
-        }
-    }
-
-    if (result != Lvn_Result_Success)
-    {
-        LVN_CORE_ERROR("could not create window api related functions for: %s", lvn::getWindowApiNameEnum(ctx->windowapi));
-        return Lvn_Result_Failure;
-    }
-
-    LVN_CORE_TRACE("window api set: %s", lvn::getWindowApiNameEnum(ctx->windowapi));
-    return result;
-}
-
-void terminateWindowApiFuncs(LvnGraphicsContext* ctx)
-{
-    switch (ctx->windowapi)
-    {
-        case Lvn_WindowApi_None: { break; }
-        case Lvn_WindowApi_Glfw:
-        {
-#ifdef LVN_INCLUDE_GLFW
-            lvn::implGlfwTerminateWindowContext();
-#endif /* !LVN_INCLUDE_GLFW */
-            break;
-        }
-        case Lvn_WindowApi_Wayland:
-        {
-#ifdef LVN_INCLUDE_WAYLAND
-            lvn::implWaylandTerminateWindowContext();
-#endif /* !LVN_INCLUDE_WAYLAND */
-            break;
-        }
-
-        default:
-        {
-            LVN_CORE_ERROR("unrecognized window api: (%d), cannot terminate window api related functions", ctx->windowapi);
-            return;
-        }
-    }
-
-    LVN_CORE_TRACE("window api terminated: %s", lvn::getWindowApiNameEnum(ctx->windowapi));
-}
-
-LvnResult initGraphicsApiFuncs(LvnGraphicsContext* ctx)
-{
-    LvnResult result = Lvn_Result_Failure;
-    switch (ctx->graphicsapi)
-    {
-        case Lvn_GraphicsApi_None:
-        {
-            LVN_CORE_TRACE("no graphics api selected, graphics related functions will not be set");
-            return Lvn_Result_Success;
-        }
-        case Lvn_GraphicsApi_opengl:
-        {
-            // TODO: add opengl impl
-            result = Lvn_Result_Success;
-            break;
-        }
-        case Lvn_GraphicsApi_vulkan:
-        {
-#ifdef LVN_INCLUDE_VULKAN
-            result = lvn::implVkInitGraphicsContext(ctx);
-#endif
-            break;
-        }
-
-        default:
-        {
-            LVN_CORE_ERROR("unrecognized graphics api: (%d), cannot create graphics api related functions", ctx->graphicsapi);
-            return Lvn_Result_Failure;
-        }
-    }
-
-    if (result != Lvn_Result_Success)
-    {
-        LVN_CORE_ERROR("could not create graphics api related functions for: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
-        return Lvn_Result_Failure;
-    }
-
-    LVN_CORE_TRACE("graphics api set: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
-    return result;
-}
-
-void terminateGraphicsApiFuncs(LvnGraphicsContext* ctx)
-{
-    switch (ctx->graphicsapi)
-    {
-        case Lvn_GraphicsApi_None: { break; }
-        case Lvn_GraphicsApi_opengl:
-        {
-            break;
-        }
-        case Lvn_GraphicsApi_vulkan:
-        {
-#ifdef LVN_INCLUDE_VULKAN
-            lvn::implVkTerminateGraphicsContext();
-#endif
-            break;
-        }
-
-        default:
-        {
-            LVN_CORE_ERROR("unrecognized graphics api: (%d), cannot terminate graphics api related functions", ctx->graphicsapi);
-            return;
-        }
-    }
-
-    LVN_CORE_TRACE("graphics api terminated: %s", lvn::getGraphicsApiNameEnum(ctx->graphicsapi));
-}
 
 void* platformLoadModule(const char* path)
 {

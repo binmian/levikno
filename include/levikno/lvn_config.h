@@ -4,13 +4,6 @@
 #include <cassert> // assert
 
 
-enum LvnPlatform
-{
-    Lvn_Platform_Linux,
-    Lvn_Platform_Windows,
-    Lvn_Platform_OSX,
-};
-
 enum LvnResult : int
 {
     Lvn_Result_Success              =  0,
@@ -125,31 +118,19 @@ enum LvnResult : int
 #define LVN_LOG_COLOR_RESET "\x1b[0m";
 
 #ifndef LVN_DISABLE_LOGGING
-    #define LVN_CORE_TRACE(...)                     ::lvn::logMessageTrace(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-    #define LVN_CORE_DEBUG(...)                     ::lvn::logMessageDebug(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-    #define LVN_CORE_INFO(...)                      ::lvn::logMessageInfo(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-    #define LVN_CORE_WARN(...)                      ::lvn::logMessageWarn(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-    #define LVN_CORE_ERROR(...)                     ::lvn::logMessageError(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-    #define LVN_CORE_FATAL(...)                     ::lvn::logMessageFatal(lvn::logGetCoreLogger(), ##__VA_ARGS__)
-    #define LVN_TRACE(...)                          ::lvn::logMessageTrace(lvn::logGetClientLogger(), ##__VA_ARGS__)
-    #define LVN_DEBUG(...)                          ::lvn::logMessageDebug(lvn::logGetClientLogger(), ##__VA_ARGS__)
-    #define LVN_INFO(...)                           ::lvn::logMessageInfo(lvn::logGetClientLogger(), ##__VA_ARGS__)
-    #define LVN_WARN(...)                           ::lvn::logMessageWarn(lvn::logGetClientLogger(), ##__VA_ARGS__)
-    #define LVN_ERROR(...)                          ::lvn::logMessageError(lvn::logGetClientLogger(), ##__VA_ARGS__)
-    #define LVN_FATAL(...)                          ::lvn::logMessageFatal(lvn::logGetClientLogger(), ##__VA_ARGS__)
+    #define LVN_CORE_TRACE(ctx, ...)                     ::lvn::logMessageTrace(lvn::logGetCoreLogger(ctx), ##__VA_ARGS__)
+    #define LVN_CORE_DEBUG(ctx, ...)                     ::lvn::logMessageDebug(lvn::logGetCoreLogger(ctx), ##__VA_ARGS__)
+    #define LVN_CORE_INFO(ctx, ...)                      ::lvn::logMessageInfo(lvn::logGetCoreLogger(ctx), ##__VA_ARGS__)
+    #define LVN_CORE_WARN(ctx, ...)                      ::lvn::logMessageWarn(lvn::logGetCoreLogger(ctx), ##__VA_ARGS__)
+    #define LVN_CORE_ERROR(ctx, ...)                     ::lvn::logMessageError(lvn::logGetCoreLogger(ctx), ##__VA_ARGS__)
+    #define LVN_CORE_FATAL(ctx, ...)                     ::lvn::logMessageFatal(lvn::logGetCoreLogger(ctx), ##__VA_ARGS__)
 #else
-    #define LVN_CORE_TRACE(...)
-    #define LVN_CORE_DEBUG(...)
-    #define LVN_CORE_INFO(...)
-    #define LVN_CORE_WARN(...)
-    #define LVN_CORE_ERROR(...)
-    #define LVN_CORE_FATAL(...)
-    #define LVN_TRACE(...)
-    #define LVN_DEBUG(...)
-    #define LVN_INFO(...)
-    #define LVN_WARN(...)
-    #define LVN_ERROR(...)
-    #define LVN_FATAL(...)
+    #define LVN_CORE_TRACE(ctx, ...)
+    #define LVN_CORE_DEBUG(ctx, ...)
+    #define LVN_CORE_INFO(ctx, ...)
+    #define LVN_CORE_WARN(ctx, ...)
+    #define LVN_CORE_ERROR(ctx, ...)
+    #define LVN_CORE_FATAL(ctx, ...)
 #endif
 
 

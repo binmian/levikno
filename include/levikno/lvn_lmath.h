@@ -1,7 +1,7 @@
 #ifndef HG_LVN_LMATH_H
 #define HG_LVN_LMATH_H
 
-// [LAYOUT]: lvn_lmath
+// [LAYOUT]: lvn_lmath.h
 // ------------------------------------------------------------
 // - math library for vectors, matrices, quaternians
 //

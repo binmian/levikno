@@ -10,14 +10,12 @@
 
 #define LVN_DEFAULT_LOG_PATTERN "[%Y-%m-%d] [%T] [%#%l%^] %n: %v%$"
 
-static LvnContext* s_LvnContext = nullptr;
-
 namespace lvn
 {
 
 static const char*                  getLogLevelColor(LvnLogLevel level);
 static const char*                  getLogLevelName(LvnLogLevel level);
-static LvnVector<LvnLogPattern>     logParseFormat(const char* fmt);
+static LvnVector<LvnLogPattern>     logParseFormat(const LvnContext* ctx, const char* fmt);
 static const char*                  getStypeEnumName(LvnStructureType stype);
 
 static const char* getLogLevelColor(LvnLogLevel level)
@@ -79,11 +77,9 @@ const static LvnLogPattern s_LogPatterns[] =
     { 'p', [](LvnLogMessage* msg) -> LvnString { return lvn::dateGetTimeMeridiemLower(); }},
 };
 
-static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
+static LvnVector<LvnLogPattern> logParseFormat(const LvnContext* ctx, const char* fmt)
 {
     if (!fmt || !*fmt) { return {}; }
-
-    LvnContext* lvnctx = lvn::getContext();
 
     LvnVector<LvnLogPattern> patterns;
 
@@ -106,12 +102,12 @@ static LvnVector<LvnLogPattern> logParseFormat(const char* fmt)
         }
 
         // find and add user defined patterns
-        for (uint32_t j = 0; j < lvnctx->userLogPatterns.size(); j++)
+        for (uint32_t j = 0; j < ctx->userLogPatterns.size(); j++)
         {
-            if (fmt[i + 1] != lvnctx->userLogPatterns[j].symbol)
+            if (fmt[i + 1] != ctx->userLogPatterns[j].symbol)
                 continue;
 
-            patterns.push_back(lvnctx->userLogPatterns[j]);
+            patterns.push_back(ctx->userLogPatterns[j]);
         }
 
         i++; // incramant past symbol on next character in format
@@ -143,9 +139,97 @@ static const char* getStypeEnumName(LvnStructureType stype)
     }
 }
 
-size_t getMemAllocCount()
+#ifdef LVN_PLATFORM_WINDOWS
+static void enableLogANSIcodeColors()
 {
-    return lvn::getContext()->memAllocCount;
+    DWORD consoleMode;
+    HANDLE outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (GetConsoleMode(outputHandle, &consoleMode))
+    {
+        SetConsoleMode(outputHandle, consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    }
+}
+#endif
+
+size_t getMemAllocCount(const LvnContext* ctx)
+{
+    return ctx->memAllocCount;
+}
+
+LvnResult createContext(LvnContext** ctx, LvnContextCreateInfo* createInfo)
+{
+    if (!ctx)
+        return Lvn_Result_Failure;
+
+    *ctx = lvn::memNew<LvnContext>();
+    LvnContext* lvnctx = *ctx;
+
+    lvnctx->logging = true;
+    lvnctx->enableCoreLogging = createInfo == nullptr ? true : !createInfo->logging.core.disableCoreLogging;
+
+    // core
+    lvnctx->coreLogger.ctx = lvnctx;
+
+    if (createInfo != nullptr && !createInfo->logging.core.name.empty())
+        lvnctx->coreLogger.loggerName = createInfo->logging.core.name;
+    else
+        lvnctx->coreLogger.loggerName = "CORE";
+
+    if (createInfo != nullptr && createInfo->logging.core.level != Lvn_LogLevel_None)
+        lvnctx->coreLogger.logLevel = createInfo->logging.core.level;
+    else
+        lvnctx->coreLogger.logLevel = Lvn_LogLevel_None;
+
+    if (createInfo != nullptr && !createInfo->logging.core.logPattern.empty())
+    {
+        lvnctx->coreLogger.logPatternFormat = createInfo->logging.core.logPattern;
+        lvnctx->coreLogger.logPatterns = lvn::logParseFormat(lvnctx, createInfo->logging.core.logPattern.c_str());
+    }
+    else
+    {
+        lvnctx->coreLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
+        lvnctx->coreLogger.logPatterns = lvn::logParseFormat(lvnctx, LVN_DEFAULT_LOG_PATTERN);
+    }
+    if (createInfo == nullptr || !createInfo->logging.core.noOutputSink)
+    {
+        LvnSink sink{};
+        sink.logFunc = lvn::logOutputMessage;
+        lvnctx->coreLogger.sinks.push_back(sink);
+    }
+
+    #ifdef LVN_PLATFORM_WINDOWS
+    lvn::enableLogANSIcodeColors();
+    #endif
+
+    return Lvn_Result_Success;
+}
+
+void destroyContext(LvnContext* ctx)
+{
+    if (!ctx)
+        return;
+
+    LvnContext* lvnctx = ctx;
+
+    for (uint32_t i = 0; i < Lvn_Stype_Max_Value; i++)
+    {
+        if (lvnctx->sTypeMemoryAllocationCounts[i] > 0)
+        {
+            LVN_CORE_ERROR(lvnctx,
+                           "<createObject>: not all %s objects have been destroyed, sType id: (%u), number of objects remaining: %zu",
+                           lvn::getStypeEnumName(static_cast<LvnStructureType>(i)),
+                           i,
+                           lvnctx->sTypeMemoryAllocationCounts[i]);
+        }
+    }
+
+    if (lvnctx->memAllocCount > 0)
+        LVN_CORE_ERROR(lvnctx,
+                       "<memAlloc>: not all memory allocations have been freed, number of allocations remaining: %zu",
+                       lvnctx->memAllocCount);
+
+    lvn::memDelete<LvnContext>(ctx);
+    ctx = nullptr;
 }
 
 int dateGetYear()
@@ -315,140 +399,23 @@ LvnString dateGetSecondNumStr()
     return LvnString(buff);
 }
 
+
 // logging
 
-LvnResult initContext(LvnContextCreateInfo* createInfo)
+void logEnable(LvnContext* ctx, bool enable)
 {
-    if (s_LvnContext)
-        return Lvn_Result_AlreadyCalled;
-
-    s_LvnContext = lvn::memNew<LvnContext>();
-
-    LvnContext* lvnctx = lvn::getContext();
-    lvnctx->logging = true;
-
-    lvnctx->enableCoreLogging = createInfo == nullptr ? true : !createInfo->logging.core.disableCoreLogging;
-
-    // core
-    if (createInfo != nullptr && !createInfo->logging.core.name.empty())
-        lvnctx->coreLogger.loggerName = createInfo->logging.core.name;
-    else
-        lvnctx->coreLogger.loggerName = "CORE";
-
-    if (createInfo != nullptr && createInfo->logging.core.level != Lvn_LogLevel_None)
-        lvnctx->coreLogger.logLevel = createInfo->logging.core.level;
-    else
-        lvnctx->coreLogger.logLevel = Lvn_LogLevel_None;
-
-    if (createInfo != nullptr && !createInfo->logging.core.logPattern.empty())
-    {
-        lvnctx->coreLogger.logPatternFormat = createInfo->logging.core.logPattern;
-        lvnctx->coreLogger.logPatterns = lvn::logParseFormat(createInfo->logging.core.logPattern.c_str());
-    }
-    else
-    {
-        lvnctx->coreLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
-        lvnctx->coreLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
-    }
-    if (createInfo == nullptr || !createInfo->logging.core.noOutputSink)
-    {
-        LvnSink sink{};
-        sink.logFunc = lvn::logOutputMessage;
-        lvnctx->coreLogger.sinks.push_back(sink);
-    }
-
-    // client
-    if (createInfo != nullptr && !createInfo->logging.client.name.empty())
-        lvnctx->clientLogger.loggerName = createInfo->logging.client.name;
-    else
-        lvnctx->clientLogger.loggerName = "CLIENT";
-
-    if (createInfo != nullptr && createInfo->logging.client.level != Lvn_LogLevel_None)
-        lvnctx->clientLogger.logLevel = createInfo->logging.client.level;
-    else
-        lvnctx->clientLogger.logLevel = Lvn_LogLevel_None;
-
-    if (createInfo != nullptr && !createInfo->logging.client.logPattern.empty())
-    {
-        lvnctx->clientLogger.logPatternFormat = createInfo->logging.client.logPattern;
-        lvnctx->clientLogger.logPatterns = lvn::logParseFormat(createInfo->logging.client.logPattern.c_str());
-    }
-    else
-    {
-        lvnctx->clientLogger.logPatternFormat = LVN_DEFAULT_LOG_PATTERN;
-        lvnctx->clientLogger.logPatterns = lvn::logParseFormat(LVN_DEFAULT_LOG_PATTERN);
-    }
-    if (createInfo == nullptr || !createInfo->logging.client.noOutputSink)
-    {
-        LvnSink sink{};
-        sink.logFunc = lvn::logOutputMessage;
-        lvnctx->clientLogger.sinks.push_back(sink);
-    }
-
-    #ifdef LVN_PLATFORM_WINDOWS
-    enableLogANSIcodeColors();
-    #endif
-
-    return Lvn_Result_Success;
+    ctx->logging = enable;
 }
 
-void terminateContext()
+void logEnableCoreLogging(LvnContext* ctx, bool enable)
 {
-    if (!s_LvnContext)
-        return;
-
-    LvnContext* lvnctx = s_LvnContext;
-
-    if (lvnctx->graphicsInitCtx)
-        LVN_CORE_ERROR("graphics context has not been terminated, the graphics context must be terminated before this context can be terminated");
-
-    for (uint32_t i = 0; i < Lvn_Stype_Max_Value; i++)
-    {
-        if (lvnctx->sTypeMemoryAllocationCounts[i] > 0)
-            LVN_CORE_ERROR("<createObject>: not all %s objects have been destroyed, sType id: (%u), number of objects remaining: %zu", lvn::getStypeEnumName(static_cast<LvnStructureType>(i)), i, s_LvnContext->sTypeMemoryAllocationCounts[i]);
-    }
-
-    if (lvnctx->memAllocCount > 0)
-        LVN_CORE_ERROR("<memAlloc>: not all memory allocations have been freed, number of allocations remaining: %zu", lvnctx->memAllocCount);
-
-    lvn::memDelete<LvnContext>(s_LvnContext);
-    s_LvnContext = nullptr;
+    ctx->enableCoreLogging = enable;
 }
 
-LvnContext* getContext()
+LvnString logGetMessage(const LvnLogger* logger, LvnLogMessage* msg)
 {
-    LVN_ASSERT(s_LvnContext != nullptr, "cannot get context, context was not created");
-    return s_LvnContext;
-}
-
-void logEnable(bool enable)
-{
-    lvn::getContext()->logging = enable;
-}
-
-void logEnableCoreLogging(bool enable)
-{
-    lvn::getContext()->enableCoreLogging = enable;
-}
-
-void logSetLevel(LvnLogger* logger, LvnLogLevel level)
-{
-    logger->logLevel = level;
-}
-
-bool logCheckLevel(LvnLogger* logger, LvnLogLevel level)
-{
-    return (level >= logger->logLevel);
-}
-
-void logRenameLogger(LvnLogger* logger, const char* name)
-{
-    logger->loggerName = name;
-}
-
-LvnString logGetMessage(LvnLogger* logger, LvnLogMessage* msg)
-{
-    if (!lvn::getContext()->logging) { return ""; }
+    const LvnContext* lvnctx = logger->ctx;
+    if (!lvnctx->logging) { return ""; }
 
     LvnString msgstr; msgstr.reserve(strlen(msg->msg) + 1); // NOTE: reserve may not be same as fully formatted string
 
@@ -495,9 +462,10 @@ LvnString logFormatMessage(LvnLogger* logger, LvnLogLevel level, const char* msg
     return lvn::move(msgstr);
 }
 
-void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
+void logMessage(const LvnLogger* logger, LvnLogLevel level, const char* msg)
 {
-    if (!lvn::getContext()->logging) { return; }
+    const LvnContext* lvnctx = logger->ctx;
+    if (!lvnctx->logging) { return; }
 
     LvnLogMessage logMsg{};
     logMsg.msg = msg;
@@ -507,15 +475,15 @@ void logMessage(LvnLogger* logger, LvnLogLevel level, const char* msg)
 
     LvnString log = lvn::move(lvn::logGetMessage(logger, &logMsg));
     for (uint32_t i = 0; i < logger->sinks.size(); i++)
-        logger->sinks[i].logFunc(log.c_str()      );
+        logger->sinks[i].logFunc(log.c_str());
 }
 
-void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
+void logMessageTrace(const LvnLogger* logger, const char* fmt, ...)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    const LvnContext* lvnctx = logger->ctx;
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
-    if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
+    if (!lvn::loggerCheckLevel(logger, Lvn_LogLevel_Trace)) { return; }
 
     LvnVector<char> buff;
 
@@ -532,12 +500,12 @@ void logMessageTrace(LvnLogger* logger, const char* fmt, ...)
     va_end(argptr);
 }
 
-void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
+void logMessageDebug(const LvnLogger* logger, const char* fmt, ...)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    const LvnContext* lvnctx = logger->ctx;
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
-    if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
+    if (!lvn::loggerCheckLevel(logger, Lvn_LogLevel_Debug)) { return; }
 
     LvnVector<char> buff;
 
@@ -554,12 +522,12 @@ void logMessageDebug(LvnLogger* logger, const char* fmt, ...)
     va_end(argptr);
 }
 
-void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
+void logMessageInfo(const LvnLogger* logger, const char* fmt, ...)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    const LvnContext* lvnctx = logger->ctx;
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
-    if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
+    if (!lvn::loggerCheckLevel(logger, Lvn_LogLevel_Info)) { return; }
 
     LvnVector<char> buff;
 
@@ -576,12 +544,12 @@ void logMessageInfo(LvnLogger* logger, const char* fmt, ...)
     va_end(argptr);
 }
 
-void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
+void logMessageWarn(const LvnLogger* logger, const char* fmt, ...)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    const LvnContext* lvnctx = logger->ctx;
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
-    if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
+    if (!lvn::loggerCheckLevel(logger, Lvn_LogLevel_Warn)) { return; }
 
     LvnVector<char> buff;
 
@@ -598,12 +566,12 @@ void logMessageWarn(LvnLogger* logger, const char* fmt, ...)
     va_end(argptr);
 }
 
-void logMessageError(LvnLogger* logger, const char* fmt, ...)
+void logMessageError(const LvnLogger* logger, const char* fmt, ...)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    const LvnContext* lvnctx = logger->ctx;
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
-    if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
+    if (!lvn::loggerCheckLevel(logger, Lvn_LogLevel_Error)) { return; }
 
     LvnVector<char> buff;
 
@@ -620,12 +588,12 @@ void logMessageError(LvnLogger* logger, const char* fmt, ...)
     va_end(argptr);
 }
 
-void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
+void logMessageFatal(const LvnLogger* logger, const char* fmt, ...)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    const LvnContext* lvnctx = logger->ctx;
     if (!lvnctx || !lvnctx->logging) { return; }
     if (!lvnctx->enableCoreLogging && logger == &lvnctx->coreLogger) { return; }
-    if (!lvn::logCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
+    if (!lvn::loggerCheckLevel(logger, Lvn_LogLevel_Fatal)) { return; }
 
     LvnVector<char> buff;
 
@@ -642,266 +610,9 @@ void logMessageFatal(LvnLogger* logger, const char* fmt, ...)
     va_end(argptr);
 }
 
-void logTrace(const char* fmt, ...)
+LvnLogger* logGetCoreLogger(LvnContext* ctx)
 {
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Trace)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->clientLogger, Lvn_LogLevel_Trace, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logDebug(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Debug)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->clientLogger, Lvn_LogLevel_Debug, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logInfo(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Info)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->clientLogger, Lvn_LogLevel_Info, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logWarn(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Warn)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->clientLogger, Lvn_LogLevel_Warn, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logError(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Error)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->clientLogger, Lvn_LogLevel_Error, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logFatal(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->clientLogger, Lvn_LogLevel_Fatal)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->clientLogger, Lvn_LogLevel_Fatal, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logCoreTrace(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Trace)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->coreLogger, Lvn_LogLevel_Trace, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logCoreDebug(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Debug)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->coreLogger, Lvn_LogLevel_Debug, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logCoreInfo(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Info)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->coreLogger, Lvn_LogLevel_Info, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logCoreWarn(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Warn)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->coreLogger, Lvn_LogLevel_Warn, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logCoreError(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Error)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->coreLogger, Lvn_LogLevel_Error, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-void logCoreFatal(const char* fmt, ...)
-{
-    LvnContext* lvnctx = lvn::getContext();
-    if (!lvnctx || !lvnctx->logging || !lvnctx->enableCoreLogging) { return; }
-    if (!lvn::logCheckLevel(&lvnctx->coreLogger, Lvn_LogLevel_Fatal)) { return; }
-
-    LvnVector<char> buff;
-
-    va_list argptr, argcopy;
-    va_start(argptr, fmt);
-    va_copy(argcopy, argptr);
-
-    int len = vsnprintf(nullptr, 0, fmt, argptr);
-    buff.resize(len + 1);
-    vsnprintf(&buff[0], len + 1, fmt, argcopy);
-    lvn::logMessage(&lvnctx->coreLogger, Lvn_LogLevel_Fatal, buff.data());
-
-    va_end(argcopy);
-    va_end(argptr);
-}
-
-LvnLogger* logGetCoreLogger()
-{
-    return &lvn::getContext()->coreLogger;
-}
-
-LvnLogger* logGetClientLogger()
-{
-    return &lvn::getContext()->clientLogger;
+    return &ctx->coreLogger;
 }
 
 const char* logGetANSIcodeColor(LvnLogLevel level)
@@ -920,19 +631,7 @@ const char* logGetANSIcodeColor(LvnLogLevel level)
     return nullptr;
 }
 
-LvnResult logSetPatternFormat(LvnLogger* logger, const char* patternfmt)
-{
-    if (!logger) { return Lvn_Result_Failure; }
-    if (!patternfmt || patternfmt[0] == '\0') { return Lvn_Result_Failure; }
-
-    logger->logPatternFormat = patternfmt;
-
-    logger->logPatterns = lvn::logParseFormat(patternfmt);
-
-    return Lvn_Result_Success;
-}
-
-LvnResult logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count)
+LvnResult logAddPatterns(LvnContext* ctx, LvnLogPattern* pLogPatterns, uint32_t count)
 {
     if (!pLogPatterns) { return Lvn_Result_Failure; }
     if (pLogPatterns->symbol == '\0') { return Lvn_Result_Failure; }
@@ -945,38 +644,38 @@ LvnResult logAddPatterns(LvnLogPattern* pLogPatterns, uint32_t count)
         }
     }
 
-    LvnContext* lvnctx = lvn::getContext();
-    lvnctx->userLogPatterns.insert(lvnctx->userLogPatterns.end(), pLogPatterns, pLogPatterns + count);
+    ctx->userLogPatterns.insert(ctx->userLogPatterns.end(), pLogPatterns, pLogPatterns + count);
 
     return Lvn_Result_Success;
 }
 
-LvnResult createLogger(LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo)
+LvnResult createLogger(LvnContext* ctx, LvnLogger** logger, const LvnLoggerCreateInfo* loggerCreateInfo)
 {
-    LvnContext* lvnctx = lvn::getContext();
+    if (!ctx || !logger || !loggerCreateInfo)
+        return Lvn_Result_Failure;
 
-    *logger = lvn::createObject<LvnLogger>(Lvn_Stype_Logger);
+    *logger = lvn::createObject<LvnLogger>(ctx, Lvn_Stype_Logger);
     LvnLogger* loggerPtr = *logger;
 
+    loggerPtr->ctx = ctx;
     loggerPtr->loggerName = loggerCreateInfo->loggerName;
     loggerPtr->logPatternFormat = loggerCreateInfo->format;
     loggerPtr->logLevel = loggerCreateInfo->level;
-    loggerPtr->logPatterns = lvn::logParseFormat(loggerCreateInfo->format.c_str());
+    loggerPtr->logPatterns = lvn::logParseFormat(ctx, loggerCreateInfo->format.c_str());
 
     loggerPtr->sinks.resize(loggerCreateInfo->sinkCount);
     for (uint32_t i = 0; i < loggerCreateInfo->sinkCount; i++)
          loggerPtr->sinks[i] = loggerCreateInfo->pSinks[i];
 
-    LVN_CORE_TRACE("created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
+    LVN_CORE_TRACE(ctx, "created logger: (%p), name: \"%s\"", *logger, loggerCreateInfo->loggerName.c_str());
     return Lvn_Result_Success;
 }
 
 void destroyLogger(LvnLogger* logger)
 {
-    if (logger == nullptr) { return; }
-
-    LvnContext* lvnctx = lvn::getContext();
-    lvn::destroyObject  <LvnLogger>(logger, Lvn_Stype_Logger);
+    if (!logger) { return; }
+    LvnContext* lvnctx = logger->ctx;
+    lvn::destroyObject<LvnLogger>(lvnctx, logger, Lvn_Stype_Logger);
 }
 
 LvnLoggerCreateInfo configLoggerInit(const char* loggerName, const char* logFormat, LvnLogLevel logLevel, LvnSink* pSinks, uint32_t sinkCount)
@@ -1017,6 +716,35 @@ void loggerGetSinks(LvnLogger* logger, LvnSink** pSinks, uint32_t* sinkCount)
             *pSinks[i] = logger->sinks[i];
     }
 }
+
+LvnResult loggerSetPatternFormat(LvnLogger* logger, const char* patternfmt)
+{
+    if (!logger) { return Lvn_Result_Failure; }
+    if (!patternfmt || patternfmt[0] == '\0') { return Lvn_Result_Failure; }
+
+    const LvnContext* ctx = logger->ctx;
+
+    logger->logPatternFormat = patternfmt;
+    logger->logPatterns = lvn::logParseFormat(ctx, patternfmt);
+
+    return Lvn_Result_Success;
+}
+
+void loggerSetLevel(LvnLogger* logger, LvnLogLevel level)
+{
+    logger->logLevel = level;
+}
+
+bool loggerCheckLevel(const LvnLogger* logger, LvnLogLevel level)
+{
+    return (level >= logger->logLevel);
+}
+
+void loggerRename(LvnLogger* logger, const char* name)
+{
+    logger->loggerName = name;
+}
+
 
 } /* namespace lvn */
 

@@ -4,13 +4,13 @@ file(COPY res DESTINATION .)
 
 set(LVN_SOURCES
     entityComponentSystem.cpp
-    events.cpp
+    # events.cpp
     logging.cpp
-    multithreading.cpp
-    simpleMatrix.cpp
-    simpleTexture.cpp
-    simpleTriangle.cpp
-    simpleWindow.cpp
+    # multithreading.cpp
+    # simpleMatrix.cpp
+    # simpleTexture.cpp
+    # simpleTriangle.cpp
+    # simpleWindow.cpp
 )
 
 foreach(LVN_SRC ${LVN_SOURCES})
@@ -19,5 +19,5 @@ foreach(LVN_SRC ${LVN_SOURCES})
 
     add_executable(${LVN_SRC_NAME} ${LVN_SRC})
     target_include_directories(${LVN_SRC_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
-    target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno lvngraphics)
+    target_link_libraries(${LVN_SRC_NAME} PRIVATE levikno) # lvngraphics)
 endforeach()

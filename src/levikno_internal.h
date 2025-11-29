@@ -9,6 +9,7 @@
 
 struct LvnLogger
 {
+    LvnContext* ctx;
     LvnString loggerName;
     LvnString logPatternFormat;
     LvnLogLevel logLevel;
@@ -22,17 +23,14 @@ struct LvnContext
     bool                                 logging;
     bool                                 enableCoreLogging;
     LvnLogger                            coreLogger;
-    LvnLogger                            clientLogger;
-    LvnString                            appName;
-    LvnVector<LvnLogPattern>             userLogPatterns;
     LvnSink                              coreSink;
+    LvnVector<LvnLogPattern>             userLogPatterns;
 
     // memory
     size_t                               sTypeMemoryAllocationCounts[Lvn_Stype_Max_Value];
     size_t                               memAllocCount;
 
     // api
-    bool                                 graphicsInitCtx;
     void*                                sharedSuface;
 };
 
@@ -43,20 +41,20 @@ template<typename T> struct LvnRemoveReference<T&&> { using type = T; };
 namespace lvn
 {
     template <typename T>
-    T* createObject(LvnStructureType stype = Lvn_Stype_Undefined)
+    T* createObject(LvnContext* ctx, LvnStructureType stype = Lvn_Stype_Undefined)
     {
         LVN_ASSERT(stype != Lvn_Stype_Max_Value, "sType cannot be max value"); 
         T* object = lvn::memNew<T>();
-        lvn::getContext()->sTypeMemoryAllocationCounts[stype] += 1;
+        ctx->sTypeMemoryAllocationCounts[stype] += 1;
         return object;
     }
 
     template <typename T>
-    void destroyObject(T* object, LvnStructureType stype = Lvn_Stype_Undefined)
+    void destroyObject(LvnContext* ctx, T* object, LvnStructureType stype = Lvn_Stype_Undefined)
     {
         LVN_ASSERT(stype != Lvn_Stype_Max_Value, "sType cannot be max value"); 
         lvn::memDelete<T>(object);
-        lvn::getContext()->sTypeMemoryAllocationCounts[stype] -= 1;
+        ctx->sTypeMemoryAllocationCounts[stype] -= 1;
     }
 
     template <typename T>

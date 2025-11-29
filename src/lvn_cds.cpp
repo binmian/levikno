@@ -1,7 +1,5 @@
 #include "levikno.h"
 
-#include <cstring>
-
 #include <thread>
 #include <mutex>
 
